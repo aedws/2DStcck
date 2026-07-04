@@ -76,8 +76,8 @@ export function MarketServerSync() {
       }
     });
 
-    // 서버 확정 틱(10초) 사이를 살아있게: 0.5초마다 표시용 미세 틱
-    const microTimer = setInterval(() => microTick(), 500);
+    // 서버 확정 틱(10초) 사이를 살아있게: 0.1초마다 표시용 미세 틱
+    const microTimer = setInterval(() => microTick(), 100);
 
     return () => {
       cancelled = true;
