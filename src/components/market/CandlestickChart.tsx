@@ -26,9 +26,12 @@ interface CandlestickChartProps {
   prevDayClose?: number;
 }
 
+/** lightweight-charts는 UTC로만 그리므로, 로컬 시간대만큼 이동시켜 표시 */
+const TZ_OFFSET_MS = -new Date().getTimezoneOffset() * 60_000;
+
 function toSeriesData(candles: Candle[]) {
   return candles.map((c) => ({
-    time: (c.timestamp / 1000) as UTCTimestamp,
+    time: ((c.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
     open: c.open,
     high: c.high,
     low: c.low,
@@ -82,6 +85,7 @@ export function CandlestickChart({
       },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: border },
+      leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
         timeVisible: true,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
 import type { OrderType, StockState } from "@/lib/types/market";
@@ -88,9 +89,9 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
       <div className="flex-1 overflow-y-auto p-4">
         {IS_SERVER_MODE && !userId && (
           <p className="mb-3 rounded-xl bg-[var(--surface)] px-3 py-2 text-center text-xs text-[var(--muted)]">
-            <a href="/login" className="text-[var(--accent)] hover:underline">
+            <Link href="/login" className="text-[var(--accent)] hover:underline">
               로그인
-            </a>
+            </Link>
             하면 주문·포트폴리오가 저장됩니다.
           </p>
         )}
