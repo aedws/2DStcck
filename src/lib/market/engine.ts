@@ -24,12 +24,22 @@ function randomNormal(): number {
 
 export function createInitialStockState(def: StockDefinition): StockState {
   const orderBook = generateOrderBook(def.initialPrice);
+  const now = Date.now();
   return {
     ...def,
     currentPrice: def.initialPrice,
     prevDayClose: def.initialPrice,
     dayOpen: def.initialPrice,
-    priceHistory: [{ timestamp: Date.now(), price: def.initialPrice }],
+    priceHistory: [{ timestamp: now, price: def.initialPrice }],
+    candles: [
+      {
+        timestamp: Math.floor(now / 60_000) * 60_000,
+        open: def.initialPrice,
+        high: def.initialPrice,
+        low: def.initialPrice,
+        close: def.initialPrice,
+      },
+    ],
     orderBook,
   };
 }
@@ -60,6 +70,33 @@ export function calculateTickPrice(
   const nextPrice = stock.currentPrice * (1 + changeRate);
 
   return Math.max(Math.round(nextPrice), 100);
+}
+
+/** 1분봉 유지: 같은 분이면 고저종 갱신, 새 분이면 새 봉 시작 */
+export const MAX_CANDLES = 240;
+
+export function applyTickToCandles(
+  candles: Candle[],
+  price: number,
+  now: number,
+): Candle[] {
+  const minuteStart = Math.floor(now / 60_000) * 60_000;
+  const last = candles[candles.length - 1];
+
+  if (last && last.timestamp === minuteStart) {
+    const updated: Candle = {
+      ...last,
+      high: Math.max(last.high, price),
+      low: Math.min(last.low, price),
+      close: price,
+    };
+    return [...candles.slice(0, -1), updated];
+  }
+
+  return [
+    ...candles,
+    { timestamp: minuteStart, open: price, high: price, low: price, close: price },
+  ].slice(-MAX_CANDLES);
 }
 
 export function tickStock(
@@ -94,6 +131,7 @@ export function tickStock(
     currentPrice: nextPrice,
     orderBook,
     priceHistory: newHistory,
+    candles: applyTickToCandles(stock.candles ?? [], nextPrice, now),
   };
 }
 

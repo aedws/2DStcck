@@ -1,26 +1,173 @@
 "use client";
 
-import { useMemo } from "react";
-import type { PricePoint } from "@/lib/types/market";
+import { useEffect, useMemo, useRef } from "react";
+import {
+  ColorType,
+  CrosshairMode,
+  LineStyle,
+  createChart,
+  type IChartApi,
+  type IPriceLine,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
+import type { Candle, PricePoint } from "@/lib/types/market";
 import { buildCandles } from "@/lib/market/engine";
-import { getChangePercent } from "@/lib/market/engine";
+
+const UP_COLOR = "#f04452";
+const DOWN_COLOR = "#3182f6";
 
 interface CandlestickChartProps {
-  history: PricePoint[];
+  /** 서버 관리 1분봉 (없으면 history에서 임시 생성) */
+  candles?: Candle[];
+  history?: PricePoint[];
   height?: number;
   averagePrice?: number;
   prevDayClose?: number;
 }
 
+function toSeriesData(candles: Candle[]) {
+  return candles.map((c) => ({
+    time: (c.timestamp / 1000) as UTCTimestamp,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+  }));
+}
+
 export function CandlestickChart({
+  candles,
   history,
   height = 320,
   averagePrice,
   prevDayClose,
 }: CandlestickChartProps) {
-  const candles = useMemo(() => buildCandles(history), [history]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const avgLineRef = useRef<IPriceLine | null>(null);
+  const prevCloseLineRef = useRef<IPriceLine | null>(null);
+  const initialFitDoneRef = useRef(false);
 
-  if (candles.length < 2) {
+  const data = useMemo(() => {
+    const source =
+      candles && candles.length > 0
+        ? candles
+        : history
+          ? buildCandles(history)
+          : [];
+    return toSeriesData(source);
+  }, [candles, history]);
+
+  // 차트 생성/해제
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const styles = getComputedStyle(document.documentElement);
+    const muted = styles.getPropertyValue("--muted").trim() || "#8b95a1";
+    const border = styles.getPropertyValue("--border").trim() || "#333d4b";
+
+    const chart = createChart(el, {
+      height,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: muted,
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: border, style: LineStyle.Dotted },
+        horzLines: { color: border, style: LineStyle.Dotted },
+      },
+      crosshair: { mode: CrosshairMode.Normal },
+      rightPriceScale: { borderColor: border },
+      timeScale: {
+        borderColor: border,
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 4,
+        barSpacing: 8,
+      },
+      localization: {
+        priceFormatter: (p: number) => Math.round(p).toLocaleString("ko-KR"),
+      },
+      autoSize: true,
+    });
+
+    const series = chart.addCandlestickSeries({
+      upColor: UP_COLOR,
+      downColor: DOWN_COLOR,
+      borderUpColor: UP_COLOR,
+      borderDownColor: DOWN_COLOR,
+      wickUpColor: UP_COLOR,
+      wickDownColor: DOWN_COLOR,
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+    initialFitDoneRef.current = false;
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+      avgLineRef.current = null;
+      prevCloseLineRef.current = null;
+    };
+  }, [height]);
+
+  // 데이터 갱신 — 사용자가 스크롤한 위치는 유지, 최초 1회만 맞춤
+  useEffect(() => {
+    const series = seriesRef.current;
+    const chart = chartRef.current;
+    if (!series || !chart || data.length === 0) return;
+
+    series.setData(data);
+
+    if (!initialFitDoneRef.current) {
+      chart.timeScale().scrollToRealTime();
+      initialFitDoneRef.current = true;
+    }
+  }, [data]);
+
+  // 평단가 / 전일 종가 기준선
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+
+    if (avgLineRef.current) {
+      series.removePriceLine(avgLineRef.current);
+      avgLineRef.current = null;
+    }
+    if (averagePrice && averagePrice > 0) {
+      avgLineRef.current = series.createPriceLine({
+        price: averagePrice,
+        color: "#f2b94b",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: "평단",
+      });
+    }
+
+    if (prevCloseLineRef.current) {
+      series.removePriceLine(prevCloseLineRef.current);
+      prevCloseLineRef.current = null;
+    }
+    if (prevDayClose && prevDayClose > 0) {
+      prevCloseLineRef.current = series.createPriceLine({
+        price: prevDayClose,
+        color: "#8b95a1",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: "전일",
+      });
+    }
+  }, [averagePrice, prevDayClose, data.length > 0]);
+
+  if (data.length === 0) {
     return (
       <div
         className="flex items-center justify-center rounded-2xl bg-[var(--surface)] text-sm text-[var(--muted)]"
@@ -31,147 +178,9 @@ export function CandlestickChart({
     );
   }
 
-  const width = 720;
-  const padTop = 24;
-  const padBottom = 28;
-  const padLeft = 56;
-  const padRight = 16;
-  const chartH = height - padTop - padBottom;
-  const chartW = width - padLeft - padRight;
-
-  const allPrices = candles.flatMap((c) => [c.high, c.low]);
-  if (averagePrice) allPrices.push(averagePrice);
-  if (prevDayClose) allPrices.push(prevDayClose);
-
-  const min = Math.min(...allPrices);
-  const max = Math.max(...allPrices);
-  const range = max - min || 1;
-
-  const toY = (price: number) =>
-    padTop + chartH - ((price - min) / range) * chartH;
-
-  const candleW = Math.max(4, Math.min(14, chartW / candles.length - 2));
-  const gap = chartW / candles.length;
-
-  const avgY = averagePrice ? toY(averagePrice) : null;
-  const avgPct =
-    averagePrice && averagePrice > 0
-      ? getChangePercent(
-          candles[candles.length - 1].close,
-          averagePrice,
-        )
-      : null;
-
   return (
-    <div className="rounded-2xl bg-[var(--surface)] p-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
-        {/* grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((r) => {
-          const y = padTop + chartH * r;
-          const price = Math.round(max - range * r);
-          return (
-            <g key={r}>
-              <line
-                x1={padLeft}
-                x2={width - padRight}
-                y1={y}
-                y2={y}
-                stroke="var(--border)"
-                strokeWidth="0.5"
-              />
-              <text
-                x={padLeft - 6}
-                y={y + 4}
-                textAnchor="end"
-                fill="var(--muted)"
-                fontSize="10"
-              >
-                {price.toLocaleString()}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* prev day close reference */}
-        {prevDayClose && (
-          <line
-            x1={padLeft}
-            x2={width - padRight}
-            y1={toY(prevDayClose)}
-            y2={toY(prevDayClose)}
-            stroke="var(--muted)"
-            strokeWidth="1"
-            strokeDasharray="4 3"
-            opacity="0.5"
-          />
-        )}
-
-        {/* average price line */}
-        {avgY !== null && averagePrice && (
-          <>
-            <line
-              x1={padLeft}
-              x2={width - padRight}
-              y1={avgY}
-              y2={avgY}
-              stroke="var(--accent)"
-              strokeWidth="1.5"
-              strokeDasharray="6 4"
-            />
-            <rect
-              x={padLeft}
-              y={avgY - 10}
-              width={88}
-              height={18}
-              rx={4}
-              fill="var(--accent)"
-            />
-            <text
-              x={padLeft + 44}
-              y={avgY + 3}
-              textAnchor="middle"
-              fill="white"
-              fontSize="10"
-              fontWeight="600"
-            >
-              내 평단 {avgPct !== null ? `${avgPct >= 0 ? "+" : ""}${avgPct.toFixed(2)}%` : ""}
-            </text>
-          </>
-        )}
-
-        {/* candles */}
-        {candles.map((c, i) => {
-          const x = padLeft + i * gap + gap / 2;
-          const isUp = c.close >= c.open;
-          const color = isUp ? "var(--up)" : "var(--down)";
-          const bodyTop = toY(Math.max(c.open, c.close));
-          const bodyBottom = toY(Math.min(c.open, c.close));
-          const bodyH = Math.max(1, bodyBottom - bodyTop);
-          const wickTop = toY(c.high);
-          const wickBottom = toY(c.low);
-
-          return (
-            <g key={c.timestamp}>
-              <line
-                x1={x}
-                x2={x}
-                y1={wickTop}
-                y2={wickBottom}
-                stroke={color}
-                strokeWidth="1"
-              />
-              <rect
-                x={x - candleW / 2}
-                y={bodyTop}
-                width={candleW}
-                height={bodyH}
-                fill={color}
-                rx="0.5"
-              />
-            </g>
-          );
-        })}
-      </svg>
+    <div className="rounded-2xl bg-[var(--surface)] p-2">
+      <div ref={containerRef} style={{ height }} />
     </div>
   );
 }

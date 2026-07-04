@@ -87,6 +87,7 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
       withBook.previousClose ??
       withBook.currentPrice,
     dayOpen: withBook.dayOpen ?? withBook.currentPrice,
+    candles: withBook.candles ?? [],
   };
 }
 

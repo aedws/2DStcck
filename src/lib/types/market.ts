@@ -25,6 +25,8 @@ export interface StockState extends StockDefinition {
   /** 당일 시초가 */
   dayOpen: number;
   priceHistory: PricePoint[];
+  /** 1분봉 (서버가 직접 관리, 최근 240개) */
+  candles: Candle[];
   orderBook: OrderBook;
 }
 

@@ -26,6 +26,8 @@ export interface StockState extends StockDefinition {
   /** 당일 시초가 */
   dayOpen: number;
   priceHistory: PricePoint[];
+  /** 1분봉 (서버가 직접 관리, 최근 240개) */
+  candles: Candle[];
   orderBook: OrderBook;
 }
 
@@ -85,3 +87,9 @@ export interface OrderResult {
   success: boolean;
   message: string;
 }
+
+export type OrderType =
+  | "buy_market"
+  | "sell_market"
+  | "buy_current"
+  | "sell_current";

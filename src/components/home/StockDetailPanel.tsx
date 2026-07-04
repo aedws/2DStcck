@@ -67,6 +67,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
 
         <div className="px-6 py-4">
           <CandlestickChart
+            candles={stock.candles}
             history={stock.priceHistory}
             height={300}
             averagePrice={holding?.averagePrice}
