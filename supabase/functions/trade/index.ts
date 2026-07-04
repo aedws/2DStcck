@@ -1,25 +1,35 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { parseMarketRow } from "@/lib/market/serverState";
-import { getBestAsk, getBestBid } from "@/lib/market/orderBook";
+// Supabase Edge Function: 주문 체결 (로그인 유저 JWT 필요)
+// 배포: supabase functions deploy trade
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { parseMarketRow } from "../_shared/serverState.ts";
+import { getBestAsk, getBestBid } from "../_shared/orderBook.ts";
 import {
   executeBuy,
   executeSell,
   isOrderSuccess,
-} from "@/lib/market/trading";
-import type { Holding, StockState } from "@/lib/types/market";
+} from "../_shared/trading.ts";
+import type { Holding, StockState } from "../_shared/types.ts";
 
-export type OrderType =
-  | "buy_market"
-  | "sell_market"
-  | "buy_current"
-  | "sell_current";
+type OrderType = "buy_market" | "sell_market" | "buy_current" | "sell_current";
 
 interface TradeBody {
   stockId: string;
   quantity: number;
   orderType: OrderType;
+}
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
 }
 
 function getOrderPrice(stock: StockState, orderType: OrderType): number {
@@ -34,25 +44,45 @@ function getOrderPrice(stock: StockState, orderType: OrderType): number {
   }
 }
 
-export async function POST(request: Request) {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
   try {
-    const supabase = await createClient();
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const authHeader = req.headers.get("Authorization") ?? "";
+
+    // 유저 확인 (anon key + 유저 JWT)
+    const userClient = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
+      },
+    );
+
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await userClient.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+      return json({ error: "로그인이 필요합니다." }, 401);
     }
 
-    const body = (await request.json()) as TradeBody;
+    const body = (await req.json()) as TradeBody;
     const { stockId, quantity, orderType } = body;
 
     if (!stockId || !orderType || quantity <= 0 || !Number.isInteger(quantity)) {
-      return NextResponse.json({ error: "잘못된 주문입니다." }, { status: 400 });
+      return json({ error: "잘못된 주문입니다." }, 400);
     }
 
-    const admin = createAdminClient();
+    const admin = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } },
+    );
 
     const [{ data: marketRow }, { data: profile }, { data: holdingsRows }] =
       await Promise.all([
@@ -62,49 +92,35 @@ export async function POST(request: Request) {
       ]);
 
     if (!marketRow || !profile) {
-      return NextResponse.json({ error: "데이터를 불러올 수 없습니다." }, { status: 500 });
+      return json({ error: "데이터를 불러올 수 없습니다." }, 500);
     }
 
     const market = parseMarketRow(marketRow);
     const stock = market.stocks.find((s) => s.id === stockId);
     if (!stock) {
-      return NextResponse.json({ error: "종목을 찾을 수 없습니다." }, { status: 404 });
+      return json({ error: "종목을 찾을 수 없습니다." }, 404);
     }
 
     const price = getOrderPrice(stock, orderType);
     if (price <= 0) {
-      return NextResponse.json({ error: "체결 가능한 호가가 없습니다." }, { status: 400 });
+      return json({ error: "체결 가능한 호가가 없습니다." }, 400);
     }
 
-    const holdings: Holding[] = (holdingsRows ?? []).map((h) => ({
-      stockId: h.stock_id,
-      quantity: h.quantity,
-      averagePrice: h.average_price,
-    }));
+    const holdings: Holding[] = (holdingsRows ?? []).map(
+      (h: { stock_id: string; quantity: number; average_price: number }) => ({
+        stockId: h.stock_id,
+        quantity: h.quantity,
+        averagePrice: h.average_price,
+      }),
+    );
 
     const isBuy = orderType.startsWith("buy");
     const result = isBuy
-      ? executeBuy(
-          profile.cash,
-          holdings,
-          stockId,
-          stock.ticker,
-          price,
-          quantity,
-          Date.now(),
-        )
-      : executeSell(
-          profile.cash,
-          holdings,
-          stockId,
-          stock.ticker,
-          price,
-          quantity,
-          Date.now(),
-        );
+      ? executeBuy(profile.cash, holdings, stockId, stock.ticker, price, quantity, Date.now())
+      : executeSell(profile.cash, holdings, stockId, stock.ticker, price, quantity, Date.now());
 
     if (!isOrderSuccess(result)) {
-      return NextResponse.json({ success: false, message: result.message });
+      return json({ success: false, message: result.message });
     }
 
     await admin.from("profiles").update({ cash: result.cash }).eq("id", user.id);
@@ -147,12 +163,12 @@ export async function POST(request: Request) {
       sell_current: "현재가 매도",
     };
 
-    return NextResponse.json({
+    return json({
       success: true,
       message: `${labels[orderType]} (${price.toLocaleString()}원)`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "주문 실패";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return json({ error: message }, 500);
   }
-}
+});

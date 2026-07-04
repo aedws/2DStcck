@@ -1,17 +1,18 @@
+// AUTO-GENERATED from src/lib/market/engine.ts — edit the original and run `npm run sync:functions`
 import type {
   Candle,
   MarketEvent,
   PricePoint,
   StockDefinition,
   StockState,
-} from "@/lib/types/market";
+} from "./types.ts";
 import {
   CANDLE_TICKS,
   MAX_PRICE_HISTORY,
   TICKS_PER_SESSION,
-} from "@/lib/market/constants";
-import { MARKET_EVENT_POOL } from "@/data/stocks";
-import { generateOrderBook } from "@/lib/market/orderBook";
+} from "./constants.ts";
+import { MARKET_EVENT_POOL } from "./stocks.ts";
+import { generateOrderBook } from "./orderBook.ts";
 
 const TICK_VOLATILITY_SCALE = 0.12;
 const TICK_DRIFT_SCALE = 0.002;

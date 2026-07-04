@@ -1,5 +1,6 @@
-import type { OrderBook, OrderBookLevel } from "@/lib/types/market";
-import { ORDER_BOOK_LEVELS } from "@/lib/market/constants";
+// AUTO-GENERATED from src/lib/market/orderBook.ts — edit the original and run `npm run sync:functions`
+import type { OrderBook, OrderBookLevel } from "./types.ts";
+import { ORDER_BOOK_LEVELS } from "./constants.ts";
 
 export function getTickSize(price: number): number {
   if (price >= 50000) return 100;

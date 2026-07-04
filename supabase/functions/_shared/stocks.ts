@@ -1,4 +1,5 @@
-import type { StockDefinition } from "@/lib/types/market";
+// AUTO-GENERATED from src/data/stocks.ts — edit the original and run `npm run sync:functions`
+import type { StockDefinition } from "./types.ts";
 
 export const INITIAL_CASH = 10_000_000;
 
@@ -60,7 +61,7 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
 ];
 
 export const MARKET_EVENT_POOL: Omit<
-  import("@/lib/types/market").MarketEvent,
+  import("./types.ts").MarketEvent,
   "id" | "timestamp"
 >[] = [
   {

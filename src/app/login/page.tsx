@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -28,7 +30,7 @@ export default function LoginPage() {
       if (mode === "signup") {
         setMessage("가입 완료! 이메일 확인 후 로그인하거나 바로 로그인해 보세요.");
       } else {
-        window.location.href = "/";
+        router.push("/");
       }
     }
     setLoading(false);

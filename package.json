@@ -7,7 +7,8 @@
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "sync:functions": "node scripts/sync-functions.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

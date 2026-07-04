@@ -19,11 +19,13 @@ import type {
   MarketEvent,
   MarketSnapshot,
   OrderResult,
+  OrderType,
   StockState,
   Trade,
 } from "@/lib/types/market";
 import { generateOrderBook } from "@/lib/market/orderBook";
-import type { OrderType } from "@/app/api/trade/route";
+import { createClient } from "@/lib/supabase/client";
+import { fetchPortfolio } from "@/lib/supabase/queries";
 
 export const IS_SERVER_MODE = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -198,29 +200,34 @@ export const useMarketStore = create<MarketStore>()(
           }
         }
 
-        const res = await fetch("/api/trade", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stockId, quantity, orderType }),
+        const supabase = createClient();
+        const { data, error } = await supabase.functions.invoke("trade", {
+          body: { stockId, quantity, orderType },
         });
-        const data = await res.json();
 
-        if (data.success) {
-          const portfolioRes = await fetch("/api/user/portfolio");
-          const portfolio = await portfolioRes.json();
-          if (portfolio.authenticated && portfolio.profile) {
-            get().syncUserFromServer({
-              cash: portfolio.profile.cash,
-              initialCash: portfolio.profile.initial_cash,
-              holdings: portfolio.holdings,
-              trades: portfolio.trades,
-            });
+        if (error) {
+          // Edge Function이 4xx/5xx로 응답하면 본문에서 메시지를 꺼낸다
+          let message = "주문 실패";
+          try {
+            const ctx = (error as { context?: Response }).context;
+            if (ctx) {
+              const body = await ctx.json();
+              message = body.error ?? body.message ?? message;
+            }
+          } catch {
+            // ignore
           }
+          return { success: false, message };
+        }
+
+        if (data?.success) {
+          const portfolio = await fetchPortfolio();
+          if (portfolio) get().syncUserFromServer(portfolio);
         }
 
         return {
-          success: Boolean(data.success),
-          message: data.message ?? data.error ?? "주문 실패",
+          success: Boolean(data?.success),
+          message: data?.message ?? data?.error ?? "주문 실패",
         };
       },
 

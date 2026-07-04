@@ -5,18 +5,7 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
 import type { ServerMarketState } from "@/lib/market/serverState";
 import { MarketRealtime } from "@/components/market/MarketRealtime";
-
-async function fetchMarketState(): Promise<ServerMarketState | null> {
-  const res = await fetch("/api/market/state");
-  if (!res.ok) return null;
-  return res.json();
-}
-
-async function fetchPortfolio() {
-  const res = await fetch("/api/user/portfolio");
-  if (!res.ok) return null;
-  return res.json();
-}
+import { fetchMarketState, fetchPortfolio } from "@/lib/supabase/queries";
 
 export function MarketServerSync() {
   const syncMarket = useMarketStore((s) => s.syncMarketFromServer);
@@ -40,13 +29,8 @@ export function MarketServerSync() {
       if (user) {
         setUserId(user.id);
         const portfolio = await fetchPortfolio();
-        if (!cancelled && portfolio?.authenticated && portfolio.profile) {
-          syncUser({
-            cash: portfolio.profile.cash,
-            initialCash: portfolio.profile.initial_cash,
-            holdings: portfolio.holdings ?? [],
-            trades: portfolio.trades ?? [],
-          });
+        if (!cancelled && portfolio) {
+          syncUser(portfolio);
         }
       }
     }
@@ -83,13 +67,8 @@ export function MarketServerSync() {
       if (session?.user) {
         setUserId(session.user.id);
         const portfolio = await fetchPortfolio();
-        if (portfolio?.authenticated && portfolio.profile) {
-          syncUser({
-            cash: portfolio.profile.cash,
-            initialCash: portfolio.profile.initial_cash,
-            holdings: portfolio.holdings ?? [],
-            trades: portfolio.trades ?? [],
-          });
+        if (portfolio) {
+          syncUser(portfolio);
         }
       } else {
         setUserId(null);

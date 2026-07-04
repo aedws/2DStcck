@@ -1,10 +1,11 @@
-import { STOCK_DEFINITIONS } from "@/data/stocks";
+// AUTO-GENERATED from src/lib/market/serverState.ts — edit the original and run `npm run sync:functions`
+import { STOCK_DEFINITIONS } from "./stocks.ts";
 import {
   createInitialStockState,
   maybeGenerateEvent,
   tickAllStocks,
-} from "@/lib/market/engine";
-import type { MarketEvent, StockState } from "@/lib/types/market";
+} from "./engine.ts";
+import type { MarketEvent, StockState } from "./types.ts";
 
 export interface ServerMarketState {
   tick: number;

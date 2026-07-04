@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
-import type { StockState } from "@/lib/types/market";
+import type { OrderType, StockState } from "@/lib/types/market";
 import { formatPrice, getChangePercent } from "@/lib/market/engine";
 import { getBestAsk, getBestBid } from "@/lib/market/orderBook";
 import {
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
-import type { OrderType } from "@/app/api/trade/route";
 import { IS_SERVER_MODE } from "@/store/marketStore";
 
 const QTY_PRESETS = [1, 10, 100] as const;

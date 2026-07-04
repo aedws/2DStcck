@@ -84,3 +84,9 @@ export interface OrderResult {
   success: boolean;
   message: string;
 }
+
+export type OrderType =
+  | "buy_market"
+  | "sell_market"
+  | "buy_current"
+  | "sell_current";

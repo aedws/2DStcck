@@ -1,4 +1,5 @@
-import type { Holding, OrderResult, Trade } from "@/lib/types/market";
+// AUTO-GENERATED from src/lib/market/trading.ts — edit the original and run `npm run sync:functions`
+import type { Holding, OrderResult, Trade } from "./types.ts";
 
 export function calculatePortfolioValue(
   holdings: Holding[],
