@@ -135,6 +135,27 @@ export function tickStock(
   };
 }
 
+/** 표시용 미세 틱 (서버 모드 클라이언트 전용):
+ * 서버 확정가(10초) 사이를 살아있게 움직임. 다음 서버 동기화 때 실제 값으로 수렴. */
+export function microTickStock(stock: StockState, now: number): StockState {
+  const noise = randomNormal() * stock.volatility * 0.03;
+  const nextPrice = Math.max(
+    Math.round(stock.currentPrice * (1 + noise)),
+    100,
+  );
+  const history = stock.priceHistory;
+  return {
+    ...stock,
+    currentPrice: nextPrice,
+    orderBook: generateOrderBook(nextPrice, stock.orderBook),
+    candles: applyTickToCandles(stock.candles ?? [], nextPrice, now),
+    priceHistory: [
+      ...history.slice(0, -1),
+      { timestamp: now, price: nextPrice },
+    ],
+  };
+}
+
 export function tickAllStocks(
   stocks: StockState[],
   events: MarketEvent[],

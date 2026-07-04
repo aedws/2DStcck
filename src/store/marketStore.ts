@@ -4,6 +4,7 @@ import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
 import {
   createInitialStockState,
   maybeGenerateEvent,
+  microTickStock,
   tickAllStocks,
 } from "@/lib/market/engine";
 import { getBestAsk, getBestBid } from "@/lib/market/orderBook";
@@ -50,6 +51,8 @@ interface MarketStore extends MarketSnapshot {
     orderType: OrderType,
   ) => Promise<OrderResult>;
   tickMarket: () => void;
+  /** 서버 모드 표시용 미세 틱 */
+  microTick: () => void;
   buyMarket: (stockId: string, quantity: number) => OrderResult;
   sellMarket: (stockId: string, quantity: number) => OrderResult;
   buyCurrent: (stockId: string, quantity: number) => OrderResult;
@@ -230,6 +233,13 @@ export const useMarketStore = create<MarketStore>()(
           success: Boolean(data?.success),
           message: data?.message ?? data?.error ?? "주문 실패",
         };
+      },
+
+      microTick: () => {
+        if (!IS_SERVER_MODE) return;
+        const { stocks } = get();
+        const now = Date.now();
+        set({ stocks: stocks.map((s) => microTickStock(s, now)) });
       },
 
       tickMarket: () => {

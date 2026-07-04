@@ -9,6 +9,7 @@ import { fetchMarketState, fetchPortfolio } from "@/lib/supabase/queries";
 
 export function MarketServerSync() {
   const syncMarket = useMarketStore((s) => s.syncMarketFromServer);
+  const microTick = useMarketStore((s) => s.microTick);
   const syncUser = useMarketStore((s) => s.syncUserFromServer);
   const setUserId = useMarketStore((s) => s.setUserId);
 
@@ -75,12 +76,16 @@ export function MarketServerSync() {
       }
     });
 
+    // 서버 확정 틱(10초) 사이를 살아있게: 1.5초마다 표시용 미세 틱
+    const microTimer = setInterval(() => microTick(), 1500);
+
     return () => {
       cancelled = true;
+      clearInterval(microTimer);
       supabase.removeChannel(marketChannel);
       authListener.data.subscription.unsubscribe();
     };
-  }, [syncMarket, syncUser, setUserId]);
+  }, [syncMarket, syncUser, setUserId, microTick]);
 
   return null;
 }
