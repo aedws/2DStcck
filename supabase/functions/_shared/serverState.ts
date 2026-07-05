@@ -23,11 +23,24 @@ export function createInitialMarketState(): ServerMarketState {
   };
 }
 
+/** 정의에 새로 추가된 종목을 기존 시장 상태에 편입 */
+export function ensureDefinedStocks(
+  state: ServerMarketState,
+): ServerMarketState {
+  const have = new Set(state.stocks.map((s) => s.id));
+  const missing = STOCK_DEFINITIONS.filter((d) => !have.has(d.id));
+  if (missing.length === 0) return state;
+  return {
+    ...state,
+    stocks: [...state.stocks, ...missing.map(createInitialStockState)],
+  };
+}
+
 export function advanceMarket(
   state: ServerMarketState,
   tickCount = 1,
 ): ServerMarketState {
-  let { tick, stocks, events } = state;
+  let { tick, stocks, events } = ensureDefinedStocks(state);
   const { marketStartedAt } = state;
 
   for (let i = 0; i < tickCount; i++) {

@@ -52,8 +52,8 @@ function getActiveEventImpact(
   let impact = 0;
   for (const event of events) {
     const elapsed = now - event.timestamp;
-    if (elapsed >= 0 && elapsed < 30_000 && event.affectedStockIds.includes(stockId)) {
-      impact += event.impact * (1 - elapsed / 30_000);
+    if (elapsed >= 0 && elapsed < 90_000 && event.affectedStockIds.includes(stockId)) {
+      impact += event.impact * (1 - elapsed / 90_000);
     }
   }
   return impact;
@@ -66,14 +66,20 @@ export function calculateTickPrice(
 ): number {
   const eventImpact = getActiveEventImpact(stock.id, events, now);
   const noise = randomNormal() * stock.volatility * TICK_VOLATILITY_SCALE;
-  const changeRate = stock.drift * TICK_DRIFT_SCALE + eventImpact * 0.01 + noise;
+  // 추세 종목(지수·선물): 약 15분 주기의 사인파 추세
+  const trend = stock.trendStrength
+    ? stock.trendStrength *
+      Math.sin((now / 900_000) * 2 * Math.PI + (stock.initialPrice % 7))
+    : 0;
+  const changeRate =
+    stock.drift * TICK_DRIFT_SCALE + trend + eventImpact * 0.05 + noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
 
   return Math.max(Math.round(nextPrice), 100);
 }
 
 /** 1분봉 유지: 같은 분이면 고저종 갱신, 새 분이면 새 봉 시작 */
-export const MAX_CANDLES = 240;
+export const MAX_CANDLES = 180;
 
 export function applyTickToCandles(
   candles: Candle[],
@@ -137,10 +143,17 @@ export function tickStock(
 
 /** 표시용 미세 틱 (서버 모드 클라이언트 전용):
  * 서버 확정가(10초) 사이를 살아있게 움직임. 다음 서버 동기화 때 실제 값으로 수렴. */
-export function microTickStock(stock: StockState, now: number): StockState {
-  const noise = randomNormal() * stock.volatility * 0.1;
+export function microTickStock(
+  stock: StockState,
+  now: number,
+  anchorPrice?: number,
+): StockState {
+  const noise = randomNormal() * stock.volatility * 0.07;
+  // 서버 확정가 방향으로 살짝 당기는 평균회귀 (틱당 간극의 6%)
+  const anchor = anchorPrice ?? stock.currentPrice;
+  const pull = ((anchor - stock.currentPrice) / Math.max(anchor, 1)) * 0.06;
   const nextPrice = Math.max(
-    Math.round(stock.currentPrice * (1 + noise)),
+    Math.round(stock.currentPrice * (1 + pull + noise)),
     100,
   );
   const history = stock.priceHistory;
@@ -169,7 +182,7 @@ export function maybeGenerateEvent(
   tick: number,
   now: number,
 ): MarketEvent | null {
-  if (tick === 0 || tick % 45 !== 0 || Math.random() > 0.4) {
+  if (tick === 0 || tick % 12 !== 0 || Math.random() > 0.5) {
     return null;
   }
 

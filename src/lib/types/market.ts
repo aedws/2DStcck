@@ -6,6 +6,8 @@ export interface StockDefinition {
   initialPrice: number;
   volatility: number;
   drift: number;
+  /** 추세 종목(지수·선물): 사인파 기반 추세 강도 */
+  trendStrength?: number;
 }
 
 export interface OrderBookLevel {

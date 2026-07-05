@@ -36,6 +36,8 @@ export const IS_SERVER_MODE = Boolean(
 interface MarketStore extends MarketSnapshot {
   userId: string | null;
   isReady: boolean;
+  /** 서버 확정가 (미세틱 평균회귀 기준점) */
+  serverPrices: Record<string, number>;
   setReady: (ready: boolean) => void;
   setUserId: (id: string | null) => void;
   syncMarketFromServer: (state: ServerMarketState) => void;
@@ -62,7 +64,11 @@ interface MarketStore extends MarketSnapshot {
   getStockById: (id: string) => StockState | undefined;
 }
 
-function createInitialState(): MarketSnapshot & { userId: string | null; isReady: boolean } {
+function createInitialState(): MarketSnapshot & {
+  userId: string | null;
+  isReady: boolean;
+  serverPrices: Record<string, number>;
+} {
   const now = Date.now();
   return {
     tick: 0,
@@ -75,6 +81,7 @@ function createInitialState(): MarketSnapshot & { userId: string | null; isReady
     events: [],
     userId: null,
     isReady: false,
+    serverPrices: {},
   };
 }
 
@@ -178,6 +185,9 @@ export const useMarketStore = create<MarketStore>()(
           marketStartedAt: state.marketStartedAt,
           stocks: state.stocks.map(migrateStock),
           events: state.events as MarketEvent[],
+          serverPrices: Object.fromEntries(
+            state.stocks.map((s) => [s.id, s.currentPrice]),
+          ),
         });
       },
 
@@ -237,9 +247,13 @@ export const useMarketStore = create<MarketStore>()(
 
       microTick: () => {
         if (!IS_SERVER_MODE) return;
-        const { stocks } = get();
+        const { stocks, serverPrices } = get();
         const now = Date.now();
-        set({ stocks: stocks.map((s) => microTickStock(s, now)) });
+        set({
+          stocks: stocks.map((s) =>
+            microTickStock(s, now, serverPrices[s.id]),
+          ),
+        });
       },
 
       tickMarket: () => {
@@ -290,9 +304,14 @@ export const useMarketStore = create<MarketStore>()(
       merge: (persisted, current) => {
         if (IS_SERVER_MODE) return current;
         const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
+        const restored = (merged.stocks ?? current.stocks).map(migrateStock);
+        const have = new Set(restored.map((s) => s.id));
+        const added = STOCK_DEFINITIONS.filter((d) => !have.has(d.id)).map(
+          createInitialStockState,
+        );
         return {
           ...merged,
-          stocks: (merged.stocks ?? current.stocks).map(migrateStock),
+          stocks: [...restored, ...added],
           userId: null,
           isReady: false,
         };

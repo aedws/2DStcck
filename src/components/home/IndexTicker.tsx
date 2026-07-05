@@ -35,7 +35,7 @@ function buildIndices(stocks: StockState[]): IndexItem[] {
   const finance = avg(stocks.filter((s) => s.sector === "금융"));
 
   return [
-    { id: "vkospi", name: "V-KOSPI", ...all },
+    { id: "vnasdaq", name: "V-NASDAQ", ...all },
     { id: "vtech", name: "V-TECH", ...tech },
     { id: "vnrg", name: "V-ENERGY", ...energy },
     { id: "vfin", name: "V-FINANCE", ...finance },

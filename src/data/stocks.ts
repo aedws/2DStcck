@@ -4,6 +4,26 @@ export const INITIAL_CASH = 10_000_000;
 
 export const STOCK_DEFINITIONS: StockDefinition[] = [
   {
+    id: "vnasdaq",
+    ticker: "VNAS",
+    name: "V-NASDAQ",
+    sector: "지수",
+    initialPrice: 21000,
+    volatility: 0.012,
+    drift: 0.001,
+    trendStrength: 0.0012,
+  },
+  {
+    id: "vnasfut",
+    ticker: "VNSF",
+    name: "V-NASDAQ 선물",
+    sector: "선물",
+    initialPrice: 21200,
+    volatility: 0.02,
+    drift: 0.001,
+    trendStrength: 0.002,
+  },
+  {
     id: "vtech",
     ticker: "VTECH",
     name: "Virtual Tech",
@@ -11,6 +31,33 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
     initialPrice: 85000,
     volatility: 0.035,
     drift: 0.0008,
+  },
+  {
+    id: "vchip",
+    ticker: "VCHP",
+    name: "Virtual Semicon",
+    sector: "반도체",
+    initialPrice: 152000,
+    volatility: 0.04,
+    drift: 0.0009,
+  },
+  {
+    id: "vbatt",
+    ticker: "VBAT",
+    name: "Virtual Battery",
+    sector: "2차전지",
+    initialPrice: 37500,
+    volatility: 0.045,
+    drift: 0.0004,
+  },
+  {
+    id: "vgame",
+    ticker: "VGME",
+    name: "Virtual Games",
+    sector: "게임",
+    initialPrice: 54000,
+    volatility: 0.038,
+    drift: 0.0006,
   },
   {
     id: "venergy",
@@ -66,8 +113,38 @@ export const MARKET_EVENT_POOL: Omit<
   {
     title: "금리 인하 기대",
     description: "중앙은행의 완화적 통화정책 기대감이 시장 전반에 확산됩니다.",
-    affectedStockIds: ["vfinance", "vtech", "vretail"],
+    affectedStockIds: ["vnasdaq", "vnasfut", "vfinance", "vtech", "vretail"],
     impact: 0.04,
+  },
+  {
+    title: "미 금리 동결 실망",
+    description: "기대했던 금리 인하가 미뤄지며 위험자산 전반이 약세입니다.",
+    affectedStockIds: ["vnasdaq", "vnasfut", "vfinance", "vtech"],
+    impact: -0.04,
+  },
+  {
+    title: "AI 서버 수요 폭증",
+    description: "데이터센터 투자 확대에 반도체·기술주가 급등합니다.",
+    affectedStockIds: ["vchip", "vtech", "vnasdaq", "vnasfut"],
+    impact: 0.06,
+  },
+  {
+    title: "반도체 감산 발표",
+    description: "주요 업체의 감산으로 메모리 가격 반등 기대가 커집니다.",
+    affectedStockIds: ["vchip"],
+    impact: 0.05,
+  },
+  {
+    title: "전기차 판매 부진",
+    description: "전방 수요 둔화로 2차전지 섹터에 매도세가 몰립니다.",
+    affectedStockIds: ["vbatt"],
+    impact: -0.055,
+  },
+  {
+    title: "대작 신작 흥행",
+    description: "신작 게임의 글로벌 흥행으로 게임주가 강세입니다.",
+    affectedStockIds: ["vgame"],
+    impact: 0.065,
   },
   {
     title: "유가 급등",
@@ -77,8 +154,8 @@ export const MARKET_EVENT_POOL: Omit<
   },
   {
     title: "규제 강화 우려",
-    description: "플랫폼 규제 논의로 기술주에 매도 압력이 나타납니다.",
-    affectedStockIds: ["vtech", "vmedia"],
+    description: "플랫폼 규제 논의로 기술·미디어주에 매도 압력이 나타납니다.",
+    affectedStockIds: ["vtech", "vmedia", "vgame"],
     impact: -0.05,
   },
   {
@@ -96,7 +173,7 @@ export const MARKET_EVENT_POOL: Omit<
   {
     title: "실적 시즌 호조",
     description: "주요 기업들의 분기 실적이 시장 예상을 상회했습니다.",
-    affectedStockIds: ["vtech", "vfinance", "vhealth"],
+    affectedStockIds: ["vnasdaq", "vnasfut", "vtech", "vchip", "vfinance", "vhealth"],
     impact: 0.03,
   },
   {
@@ -106,9 +183,15 @@ export const MARKET_EVENT_POOL: Omit<
     impact: -0.045,
   },
   {
+    title: "글로벌 위험선호 회복",
+    description: "위험자산 선호가 살아나며 성장주 중심으로 반등합니다.",
+    affectedStockIds: ["vnasdaq", "vnasfut", "vtech", "vchip", "vgame"],
+    impact: 0.035,
+  },
+  {
     title: "시장 전반 조정",
     description: "투자 심리 위축으로 전 종목에 조정 압력이 가해집니다.",
-    affectedStockIds: ["vtech", "venergy", "vhealth", "vretail", "vfinance", "vmedia"],
+    affectedStockIds: ["vnasdaq", "vnasfut", "vtech", "vchip", "vbatt", "vgame", "venergy", "vhealth", "vretail", "vfinance", "vmedia"],
     impact: -0.025,
   },
 ];
