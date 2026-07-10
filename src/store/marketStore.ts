@@ -8,7 +8,10 @@ import {
   tickAllStocks,
 } from "@/lib/market/engine";
 import { getBestAsk, getBestBid } from "@/lib/market/orderBook";
-import type { ServerMarketState } from "@/lib/market/serverState";
+import {
+  applyDefinitionOverlay,
+  type ServerMarketState,
+} from "@/lib/market/serverState";
 import {
   calculatePortfolioValue,
   executeBuy,
@@ -107,7 +110,7 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
     ? stock
     : { ...stock, orderBook: generateOrderBook(stock.currentPrice) };
 
-  return {
+  return applyDefinitionOverlay({
     ...withBook,
     prevDayClose:
       withBook.prevDayClose ??
@@ -115,7 +118,7 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
       withBook.currentPrice,
     dayOpen: withBook.dayOpen ?? withBook.currentPrice,
     candles: withBook.candles ?? [],
-  };
+  });
 }
 
 function applyLocalBuySell(

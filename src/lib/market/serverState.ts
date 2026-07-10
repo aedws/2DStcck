@@ -22,16 +22,26 @@ export function createInitialMarketState(): ServerMarketState {
   };
 }
 
-/** 정의에 새로 추가된 종목을 기존 시장 상태에 편입 */
+/** 저장된 상태 위에 최신 정의(이름·설정·베타 등 정적 콘텐츠)를 덮어쓴다.
+ * 동적 상태(가격·캔들·호가)는 유지 — 콘텐츠 수정이 배포만으로 반영되게. */
+export function applyDefinitionOverlay(stock: StockState): StockState {
+  const def = STOCK_DEFINITIONS.find((d) => d.id === stock.id);
+  if (!def) return stock;
+  return { ...stock, ...def };
+}
+
+/** 정의에 새로 추가된 종목 편입 + 기존 종목에 최신 정의 오버레이 */
 export function ensureDefinedStocks(
   state: ServerMarketState,
 ): ServerMarketState {
   const have = new Set(state.stocks.map((s) => s.id));
   const missing = STOCK_DEFINITIONS.filter((d) => !have.has(d.id));
-  if (missing.length === 0) return state;
   return {
     ...state,
-    stocks: [...state.stocks, ...missing.map(createInitialStockState)],
+    stocks: [
+      ...state.stocks.map(applyDefinitionOverlay),
+      ...missing.map(createInitialStockState),
+    ],
   };
 }
 

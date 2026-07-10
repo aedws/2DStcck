@@ -1,5 +1,6 @@
 import type {
   Candle,
+  EventTemplate,
   MarketEvent,
   PricePoint,
   StockDefinition,
@@ -10,7 +11,12 @@ import {
   MAX_PRICE_HISTORY,
   TICKS_PER_SESSION,
 } from "@/lib/market/constants";
-import { MARKET_EVENT_POOL } from "@/data/stocks";
+import {
+  EVENT_TEMPLATES,
+  getCompanyDefinitions,
+  STOCK_DEFINITIONS,
+} from "@/data/stocks";
+import { getCharacterById } from "@/data/characters";
 import { generateOrderBook } from "@/lib/market/orderBook";
 
 const TICK_VOLATILITY_SCALE = 0.12;
@@ -180,6 +186,69 @@ export function tickAllStocks(
   return stocks.map((stock) => tickStock(stock, events, now, tick));
 }
 
+function pickWeighted<T>(
+  items: T[],
+  weightOf: (item: T) => number,
+): T | null {
+  const total = items.reduce((sum, item) => sum + Math.max(weightOf(item), 0), 0);
+  if (total <= 0) return null;
+  let r = Math.random() * total;
+  for (const item of items) {
+    r -= Math.max(weightOf(item), 0);
+    if (r <= 0) return item;
+  }
+  return items[items.length - 1];
+}
+
+/** 템플릿 → 실제 이벤트: 대상 종목 결정 + {company}/{ceo}/{title} 치환 */
+export function resolveEventTemplate(
+  template: EventTemplate,
+  now: number,
+): MarketEvent | null {
+  let title = template.title;
+  let description = template.description;
+  let affectedStockIds: string[];
+
+  if (template.category === "company") {
+    const candidates = getCompanyDefinitions().filter(
+      (c) => !template.requiresCeo || c.ceoId,
+    );
+    const company = pickWeighted(
+      candidates,
+      (c) => c.eventBias?.[template.tag] ?? 1,
+    );
+    if (!company) return null;
+
+    const ceo = getCharacterById(company.ceoId);
+    affectedStockIds = [company.id];
+    const substitute = (text: string) =>
+      text
+        .replaceAll("{company}", company.name)
+        .replaceAll("{ceo}", ceo?.name ?? "경영진")
+        .replaceAll("{title}", ceo?.title ?? "");
+    title = substitute(title);
+    description = substitute(description);
+  } else if (template.category === "sector" && template.sector) {
+    affectedStockIds = STOCK_DEFINITIONS.filter(
+      (d) => d.sector === template.sector,
+    ).map((d) => d.id);
+  } else {
+    affectedStockIds =
+      template.affectedStockIds ?? STOCK_DEFINITIONS.map((d) => d.id);
+  }
+
+  return {
+    id: `event-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    description,
+    affectedStockIds,
+    impact: template.impact,
+    timestamp: now,
+    category: template.category,
+    tag: template.tag,
+  };
+}
+
 export function maybeGenerateEvent(
   tick: number,
   now: number,
@@ -189,13 +258,9 @@ export function maybeGenerateEvent(
   }
 
   const template =
-    MARKET_EVENT_POOL[Math.floor(Math.random() * MARKET_EVENT_POOL.length)];
+    EVENT_TEMPLATES[Math.floor(Math.random() * EVENT_TEMPLATES.length)];
 
-  return {
-    ...template,
-    id: `event-${now}-${Math.random().toString(36).slice(2, 8)}`,
-    timestamp: now,
-  };
+  return resolveEventTemplate(template, now);
 }
 
 /** 전일 종가 대비 등락률 */

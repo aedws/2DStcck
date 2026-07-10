@@ -14,6 +14,7 @@ import {
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { OrderBook } from "@/components/market/OrderBook";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
+import { getCharacterById } from "@/data/characters";
 import { useMarketStore } from "@/store/marketStore";
 
 interface StockDetailPanelProps {
@@ -39,6 +40,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
   const relatedEvent = events.find((e) =>
     e.affectedStockIds.includes(stock.id),
   );
+  const ceo = getCharacterById(stock.ceoId);
 
   return (
     <section className="flex min-w-0 flex-1 overflow-hidden bg-[var(--background)]">
@@ -74,6 +76,44 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
             prevDayClose={stock.prevDayClose}
           />
         </div>
+
+        {(stock.description || ceo) && (
+          <div className="mx-6 mb-4 rounded-2xl bg-[var(--surface)] p-4">
+            {stock.description && (
+              <p className="text-sm leading-relaxed">{stock.description}</p>
+            )}
+            {ceo && (
+              <div
+                className={`flex items-center gap-3 ${stock.description ? "mt-3 border-t border-[var(--border)] pt-3" : ""}`}
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--background)] text-lg">
+                  {ceo.emoji}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">
+                    {ceo.name}{" "}
+                    <span className="font-normal text-[var(--muted)]">
+                      {ceo.title}
+                    </span>
+                  </p>
+                  <p className="truncate text-xs text-[var(--muted)]">
+                    {ceo.bio}
+                  </p>
+                </div>
+                <div className="ml-auto flex shrink-0 gap-1">
+                  {ceo.traits.map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-full bg-[var(--background)] px-2 py-0.5 text-[10px] text-[var(--muted)]"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {relatedEvent && (
           <div className="mx-6 mb-4 rounded-2xl bg-[var(--surface)] p-4">

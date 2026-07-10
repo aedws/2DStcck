@@ -17,6 +17,7 @@ const FILES = [
   ["src/lib/types/market.ts", "types.ts"],
   ["src/lib/market/constants.ts", "constants.ts"],
   ["src/data/stocks.ts", "stocks.ts"],
+  ["src/data/characters.ts", "characters.ts"],
   ["src/lib/market/orderBook.ts", "orderBook.ts"],
   ["src/lib/market/engine.ts", "engine.ts"],
   ["src/lib/market/trading.ts", "trading.ts"],
@@ -31,6 +32,7 @@ const IMPORT_MAP = {
   "@/lib/market/trading": "./trading.ts",
   "@/lib/market/serverState": "./serverState.ts",
   "@/data/stocks": "./stocks.ts",
+  "@/data/characters": "./characters.ts",
 };
 
 for (const [srcRel, outName] of FILES) {
