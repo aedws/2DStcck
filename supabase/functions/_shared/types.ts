@@ -1,5 +1,6 @@
 // AUTO-GENERATED from src/lib/types/market.ts — edit the original and run `npm run sync:functions`
-/** 캐릭터 성격 태그 — 이벤트 가중치로 연결될 훅 */
+/** 캐릭터 성격 태그 — 이벤트 가중치로 연결될 훅.
+ * 아래는 자동완성용 추천 목록이고, CSV로 임의 태그도 허용된다. */
 export type TraitTag =
   | "천재"
   | "은둔형"
@@ -8,7 +9,8 @@ export type TraitTag =
   | "카리스마"
   | "워커홀릭"
   | "도박사"
-  | "성실";
+  | "성실"
+  | (string & {});
 
 export interface Character {
   id: string;

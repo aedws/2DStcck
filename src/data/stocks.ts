@@ -1,8 +1,10 @@
 import type { EventTemplate, StockDefinition } from "@/lib/types/market";
+import { CSV_COMPANIES } from "@/data/generated";
 
 export const INITIAL_CASH = 10_000_000;
 
-export const STOCK_DEFINITIONS: StockDefinition[] = [
+/** 코드 관리 종목 (지수·선물·기본 회사). 캐릭터 회사는 data/companies.csv가 원본. */
+const CORE_DEFINITIONS: StockDefinition[] = [
   {
     id: "vnasdaq",
     ticker: "VNAS",
@@ -26,19 +28,6 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
     trendStrength: 0.002,
     description: "V-NASDAQ 지수 선물. 지수보다 90초 먼저 움직이는 선행지표.",
     beta: 1,
-  },
-  {
-    id: "ridc",
-    ticker: "RIDC",
-    name: "RIO Defense Corporation",
-    sector: "방산",
-    initialPrice: 98000,
-    volatility: 0.03,
-    drift: 0.0005,
-    ceoId: "ba_rio",
-    description: "궤도 방위 시스템과 전술 AI를 개발하는 방산 기업.",
-    beta: 0.7,
-    eventBias: { 수주: 4, 스캔들: 0.5 },
   },
   {
     id: "vtech",
@@ -139,6 +128,14 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
     description: "스트리밍과 디지털 광고 기반 미디어 기업.",
     beta: 1.2,
   },
+];
+
+/** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
+export const STOCK_DEFINITIONS: StockDefinition[] = [
+  ...CORE_DEFINITIONS.filter(
+    (c) => !CSV_COMPANIES.some((g) => g.id === c.id),
+  ),
+  ...CSV_COMPANIES,
 ];
 
 /** 지수·선물을 제외한 실제 기업 목록 (company 이벤트 대상) */

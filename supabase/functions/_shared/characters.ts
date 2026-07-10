@@ -1,17 +1,11 @@
 // AUTO-GENERATED from src/data/characters.ts — edit the original and run `npm run sync:functions`
 import type { Character } from "./types.ts";
+import { CSV_CHARACTERS } from "./generated.ts";
 
-/** 회사를 운영하는 캐릭터들. StockDefinition.ceoId 로 연결된다. */
-export const CHARACTERS: Character[] = [
-  {
-    id: "ba_rio",
-    name: "츠카츠키 리오",
-    title: "CEO",
-    traits: ["천재", "은둔형", "회피형"],
-    bio: "모습을 드러내지 않고 태스크 목록만으로 회사 전체를 지휘하는 은둔형 천재.",
-    emoji: "🛰️",
-  },
-];
+/** 코드로 직접 관리하는 캐릭터. CSV 회사의 CEO는 data/companies.csv가 원본. */
+const CORE_CHARACTERS: Character[] = [];
+
+export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];
 
 export function getCharacterById(id: string | undefined): Character | undefined {
   if (!id) return undefined;

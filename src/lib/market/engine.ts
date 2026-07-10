@@ -21,6 +21,14 @@ import { generateOrderBook } from "@/lib/market/orderBook";
 
 const TICK_VOLATILITY_SCALE = 0.12;
 const TICK_DRIFT_SCALE = 0.002;
+/** 시장 팩터: 베타 1 기준 사인파 추세 진폭 (지수 trendStrength와 동일) */
+const MARKET_TREND_BASE = 0.0012;
+/** 시장 팩터: 전 종목 공통 충격의 틱당 변동성 (베타로 스케일) */
+const MARKET_SHOCK_VOLATILITY = 0.002;
+/** 사인파 추세 주기 (15분) */
+const MARKET_TREND_PERIOD_MS = 900_000;
+/** 선물의 추세 선행 시간 */
+const FUTURES_LEAD_MS = 90_000;
 
 function randomNormal(): number {
   const u1 = Math.random();
@@ -51,15 +59,17 @@ export function createInitialStockState(def: StockDefinition): StockState {
 }
 
 function getActiveEventImpact(
-  stockId: string,
+  stock: StockState,
   events: MarketEvent[],
   now: number,
 ): number {
   let impact = 0;
   for (const event of events) {
     const elapsed = now - event.timestamp;
-    if (elapsed >= 0 && elapsed < 90_000 && event.affectedStockIds.includes(stockId)) {
-      impact += event.impact * (1 - elapsed / 90_000);
+    if (elapsed >= 0 && elapsed < 90_000 && event.affectedStockIds.includes(stock.id)) {
+      // macro 이벤트는 시장 민감도(베타)만큼 강하게 맞는다
+      const betaScale = event.category === "macro" ? (stock.beta ?? 1) : 1;
+      impact += event.impact * betaScale * (1 - elapsed / 90_000);
     }
   }
   return impact;
@@ -69,18 +79,25 @@ export function calculateTickPrice(
   stock: StockState,
   events: MarketEvent[],
   now: number,
+  marketShock = 0,
 ): number {
-  const eventImpact = getActiveEventImpact(stock.id, events, now);
+  const eventImpact = getActiveEventImpact(stock, events, now);
   const noise = randomNormal() * stock.volatility * TICK_VOLATILITY_SCALE;
-  // 추세 종목(지수·선물): 약 15분 주기의 사인파 추세.
-  // 지수·선물은 같은 위상을 공유하고, 선물이 90초 선행한다(선행지표).
-  const trendLead = stock.sector === "선물" ? 90_000 : 0;
-  const trend = stock.trendStrength
-    ? stock.trendStrength *
-      Math.sin(((now + trendLead) / 900_000) * 2 * Math.PI)
-    : 0;
+
+  // ── 시장 팩터 (베타 모델): 종목 수익률 = 베타 × (추세 + 공통충격) + 개별 노이즈 ──
+  // 약 15분 주기의 사인파 추세. 전 종목이 같은 위상을 공유하고,
+  // 선물이 90초 선행한다(선행지표) → 선물을 보면 시장 방향을 미리 안다.
+  const beta = stock.beta ?? 0;
+  const trendLead = stock.sector === "선물" ? FUTURES_LEAD_MS : 0;
+  const trendAmplitude = stock.trendStrength ?? beta * MARKET_TREND_BASE;
+  const trend =
+    trendAmplitude *
+    Math.sin(((now + trendLead) / MARKET_TREND_PERIOD_MS) * 2 * Math.PI);
+  // 공통 충격: 같은 틱의 모든 종목이 같은 z를 받아 지수와 동반 등락한다
+  const shock = beta * marketShock * MARKET_SHOCK_VOLATILITY;
+
   const changeRate =
-    stock.drift * TICK_DRIFT_SCALE + trend + eventImpact * 0.05 + noise;
+    stock.drift * TICK_DRIFT_SCALE + trend + shock + eventImpact * 0.05 + noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
 
   return Math.max(Math.round(nextPrice), 100);
@@ -118,6 +135,7 @@ export function tickStock(
   events: MarketEvent[],
   now: number,
   tick: number,
+  marketShock = 0,
 ): StockState {
   const isNewSession = tick > 0 && tick % TICKS_PER_SESSION === 0;
   let prevDayClose = stock.prevDayClose;
@@ -127,7 +145,7 @@ export function tickStock(
     prevDayClose = stock.currentPrice;
   }
 
-  const nextPrice = calculateTickPrice(stock, events, now);
+  const nextPrice = calculateTickPrice(stock, events, now, marketShock);
   const orderBook = generateOrderBook(nextPrice, stock.orderBook);
   const newHistory = [
     ...stock.priceHistory,
@@ -183,7 +201,9 @@ export function tickAllStocks(
   now: number,
   tick: number,
 ): StockState[] {
-  return stocks.map((stock) => tickStock(stock, events, now, tick));
+  // 이 틱의 공통 시장 충격 — 전 종목이 공유 (베타로 개별 스케일)
+  const marketShock = randomNormal();
+  return stocks.map((stock) => tickStock(stock, events, now, tick, marketShock));
 }
 
 function pickWeighted<T>(

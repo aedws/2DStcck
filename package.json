@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync:functions": "node scripts/sync-functions.mjs"
+    "sync:functions": "node scripts/sync-functions.mjs",
+    "import:companies": "node scripts/import-companies.mjs && node scripts/sync-functions.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
