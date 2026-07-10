@@ -94,3 +94,13 @@ export type OrderType =
   | "sell_market"
   | "buy_current"
   | "sell_current";
+
+export interface OpenOrder {
+  id: string;
+  stockId: string;
+  ticker: string;
+  side: TradeType;
+  price: number;
+  quantity: number;
+  createdAt: number;
+}

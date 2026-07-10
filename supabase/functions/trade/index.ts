@@ -10,12 +10,20 @@ import {
 } from "../_shared/trading.ts";
 import type { Holding, StockState } from "../_shared/types.ts";
 
-type OrderType = "buy_market" | "sell_market" | "buy_current" | "sell_current";
+type OrderType =
+  | "buy_market"
+  | "sell_market"
+  | "buy_current"
+  | "sell_current"
+  | "buy_limit"
+  | "sell_limit";
 
 interface TradeBody {
   stockId: string;
   quantity: number;
   orderType: OrderType;
+  /** 지정가 주문 가격 */
+  limitPrice?: number;
 }
 
 const CORS_HEADERS = {
@@ -40,6 +48,8 @@ function getOrderPrice(stock: StockState, orderType: OrderType): number {
       return getBestBid(stock.orderBook);
     case "buy_current":
     case "sell_current":
+      return stock.currentPrice;
+    default:
       return stock.currentPrice;
   }
 }
@@ -72,7 +82,7 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as TradeBody;
-    const { stockId, quantity, orderType } = body;
+    const { stockId, quantity, orderType, limitPrice } = body;
 
     if (!stockId || !orderType || quantity <= 0 || !Number.isInteger(quantity)) {
       return json({ error: "잘못된 주문입니다." }, 400);
@@ -99,6 +109,46 @@ Deno.serve(async (req) => {
     const stock = market.stocks.find((s) => s.id === stockId);
     if (!stock) {
       return json({ error: "종목을 찾을 수 없습니다." }, 404);
+    }
+
+    // ── 지정가 주문: 대기 등록 (가격 도달 시 서버 틱에서 자동 체결) ──
+    if (orderType === "buy_limit" || orderType === "sell_limit") {
+      if (
+        !limitPrice ||
+        limitPrice <= 0 ||
+        !Number.isInteger(limitPrice)
+      ) {
+        return json({ error: "지정가를 올바르게 입력해 주세요." }, 400);
+      }
+      const side = orderType === "buy_limit" ? "buy" : "sell";
+
+      if (side === "buy" && limitPrice * quantity > profile.cash) {
+        return json({ success: false, message: "보유 현금이 부족합니다." });
+      }
+      if (side === "sell") {
+        const held = (holdingsRows ?? []).find(
+          (h: { stock_id: string }) => h.stock_id === stockId,
+        );
+        if (!held || held.quantity < quantity) {
+          return json({ success: false, message: "보유 수량이 부족합니다." });
+        }
+      }
+
+      const { error: insertError } = await admin.from("orders").insert({
+        user_id: user.id,
+        stock_id: stockId,
+        ticker: stock.ticker,
+        side,
+        price: limitPrice,
+        quantity,
+      });
+      if (insertError) throw insertError;
+
+      return json({
+        success: true,
+        pending: true,
+        message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 (${limitPrice.toLocaleString()}원 × ${quantity}주)`,
+      });
     }
 
     const price = getOrderPrice(stock, orderType);
@@ -161,6 +211,8 @@ Deno.serve(async (req) => {
       sell_market: "시장가 매도",
       buy_current: "현재가 매수",
       sell_current: "현재가 매도",
+      buy_limit: "지정가 매수",
+      sell_limit: "지정가 매도",
     };
 
     return json({

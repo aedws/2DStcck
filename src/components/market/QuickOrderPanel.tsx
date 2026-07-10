@@ -14,8 +14,12 @@ import { IS_SERVER_MODE } from "@/store/marketStore";
 
 const QTY_PRESETS = [1, 10, 100] as const;
 
+const TABS = ["간편주문", "빠른주문", "일반주문"] as const;
+
 export function QuickOrderPanel({ stock }: { stock: StockState }) {
+  const [activeTab, setActiveTab] = useState(1);
   const [quantity, setQuantity] = useState(1);
+  const [limitPrice, setLimitPrice] = useState<string>("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,6 +30,10 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const sellCurrent = useMarketStore((s) => s.sellCurrent);
   const userId = useMarketStore((s) => s.userId);
   const cash = useMarketStore((s) => s.cash);
+  const openOrders = useMarketStore((s) => s.openOrders);
+  const refreshOpenOrders = useMarketStore((s) => s.refreshOpenOrders);
+  const placeLimitOrder = useMarketStore((s) => s.placeLimitOrder);
+  const cancelOrder = useMarketStore((s) => s.cancelOrder);
   const liveStock = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
   const holding = useMarketStore((s) =>
     s.holdings.find((h) => h.stockId === stock.id),
@@ -69,14 +77,34 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     setLoading(false);
   }
 
+  async function orderLimit(side: "buy" | "sell") {
+    const price = parseInt(limitPrice.replace(/[^0-9]/g, ""), 10);
+    if (!price || price <= 0) {
+      setMessage("지정가를 입력해 주세요.");
+      return;
+    }
+    setLoading(true);
+    const result = await placeLimitOrder(stock.id, price, quantity, side);
+    setMessage(result.message);
+    setLoading(false);
+  }
+
   return (
     <div className="flex h-full flex-col bg-[var(--background)]">
       <div className="flex border-b border-[var(--border)]">
-        {["간편주문", "빠른주문", "일반주문"].map((tab, i) => (
+        {TABS.map((tab, i) => (
           <button
             key={tab}
+            onClick={() => {
+              setActiveTab(i);
+              setMessage(null);
+              if (i === 2) refreshOpenOrders();
+              if (i === 0 && !limitPrice) {
+                setLimitPrice(String(liveStock.currentPrice));
+              }
+            }}
             className={`flex-1 py-3 text-xs transition ${
-              i === 1
+              i === activeTab
                 ? "border-b-2 border-[var(--foreground)] font-semibold text-[var(--foreground)]"
                 : "text-[var(--muted)]"
             }`}
@@ -96,6 +124,133 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
           </p>
         )}
 
+        {activeTab === 0 && (
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-[var(--muted)]">
+                지정가 (원)
+              </label>
+              <input
+                inputMode="numeric"
+                value={limitPrice}
+                onChange={(e) =>
+                  setLimitPrice(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                placeholder={String(liveStock.currentPrice)}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
+              />
+              <div className="mt-1 flex gap-1">
+                {[-2, -1, 1, 2].map((pct) => (
+                  <button
+                    key={pct}
+                    onClick={() =>
+                      setLimitPrice(
+                        String(
+                          Math.max(
+                            100,
+                            Math.round(
+                              liveStock.currentPrice * (1 + pct / 100),
+                            ),
+                          ),
+                        ),
+                      )
+                    }
+                    className="flex-1 rounded-lg bg-[var(--surface)] py-1.5 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
+                    {pct > 0 ? `+${pct}%` : `${pct}%`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              {QTY_PRESETS.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setQuantity(q)}
+                  className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition ${
+                    quantity === q
+                      ? "bg-[var(--surface-elevated)] text-[var(--foreground)] ring-1 ring-[var(--border)]"
+                      : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  {q}주
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => orderLimit("sell")}
+                disabled={loading || quantity > maxSell}
+                className="rounded-2xl bg-[var(--down)] px-2 py-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+              >
+                지정가 판매
+              </button>
+              <button
+                onClick={() => orderLimit("buy")}
+                disabled={loading}
+                className="rounded-2xl bg-[var(--up)] px-2 py-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+              >
+                지정가 구매
+              </button>
+            </div>
+
+            <p className="text-center text-[11px] leading-relaxed text-[var(--muted)]">
+              가격이 지정가에 도달하면 서버가 자동 체결합니다 (10초 주기 확인).
+              대기 주문은 일반주문 탭에서 관리하세요.
+            </p>
+          </div>
+        )}
+
+        {activeTab === 2 && (
+          <div className="space-y-2">
+            <p className="mb-2 text-xs font-semibold text-[var(--muted)]">
+              미체결 지정가 주문 {openOrders.length}건
+            </p>
+            {openOrders.length === 0 ? (
+              <p className="py-6 text-center text-xs text-[var(--muted)]">
+                대기 중인 주문이 없어요.
+                <br />
+                간편주문 탭에서 지정가 주문을 등록해 보세요.
+              </p>
+            ) : (
+              openOrders.map((o) => (
+                <div
+                  key={o.id}
+                  className="flex items-center justify-between rounded-xl bg-[var(--surface)] px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold">
+                      <span
+                        className={
+                          o.side === "buy"
+                            ? "text-[var(--up)]"
+                            : "text-[var(--down)]"
+                        }
+                      >
+                        {o.side === "buy" ? "매수" : "매도"}
+                      </span>{" "}
+                      {o.ticker}
+                    </p>
+                    <p className="text-[11px] tabular-nums text-[var(--muted)]">
+                      {o.price.toLocaleString()}원 × {o.quantity}주
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => cancelOrder(o.id)}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
+                    취소
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 1 && (
+        <>
         <div className="mb-4 flex gap-2">
           {QTY_PRESETS.map((q) => (
             <button
@@ -149,6 +304,8 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             onClick={() => order("buy_market")}
           />
         </div>
+        </>
+        )}
 
         {message && (
           <p className="mt-3 text-center text-xs text-[var(--muted)]">

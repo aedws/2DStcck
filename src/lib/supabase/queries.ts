@@ -4,7 +4,7 @@ import {
   parseMarketRow,
   type ServerMarketState,
 } from "@/lib/market/serverState";
-import type { Holding, Trade } from "@/lib/types/market";
+import type { Holding, OpenOrder, Trade } from "@/lib/types/market";
 
 /** 시장 상태 직접 조회 (RLS: 전체 공개 읽기) */
 export async function fetchMarketState(): Promise<ServerMarketState | null> {
@@ -69,4 +69,42 @@ export async function fetchPortfolio(): Promise<PortfolioData | null> {
       timestamp: new Date(t.created_at).getTime(),
     })),
   };
+}
+
+/** 본인 미체결 지정가 주문 조회 */
+export async function fetchOpenOrders(): Promise<OpenOrder[] | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+
+  if (error) return null;
+  return (data ?? []).map((o) => ({
+    id: o.id,
+    stockId: o.stock_id,
+    ticker: o.ticker,
+    side: o.side,
+    price: o.price,
+    quantity: o.quantity,
+    createdAt: new Date(o.created_at).getTime(),
+  }));
+}
+
+/** 미체결 주문 취소 */
+export async function cancelOpenOrder(orderId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "cancelled" })
+    .eq("id", orderId)
+    .eq("status", "open");
+  return !error;
 }

@@ -79,9 +79,19 @@ export function MarketServerSync() {
     // 서버 확정 틱(10초) 사이를 살아있게: 0.25초마다 표시용 미세 틱
     const microTimer = setInterval(() => microTick(), 250);
 
+    // 지정가 자동 체결 반영: 로그인 상태면 15초마다 포트폴리오·대기주문 갱신
+    const pollTimer = setInterval(async () => {
+      const store = useMarketStore.getState();
+      if (!store.userId) return;
+      const portfolio = await fetchPortfolio();
+      if (portfolio) store.syncUserFromServer(portfolio);
+      await store.refreshOpenOrders();
+    }, 15_000);
+
     return () => {
       cancelled = true;
       clearInterval(microTimer);
+      clearInterval(pollTimer);
       supabase.removeChannel(marketChannel);
       authListener.data.subscription.unsubscribe();
     };

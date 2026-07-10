@@ -19,6 +19,7 @@ import type {
   Holding,
   MarketEvent,
   MarketSnapshot,
+  OpenOrder,
   OrderResult,
   OrderType,
   StockState,
@@ -26,7 +27,11 @@ import type {
 } from "@/lib/types/market";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import { createClient } from "@/lib/supabase/client";
-import { fetchPortfolio } from "@/lib/supabase/queries";
+import {
+  cancelOpenOrder,
+  fetchOpenOrders,
+  fetchPortfolio,
+} from "@/lib/supabase/queries";
 
 export const IS_SERVER_MODE = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -38,6 +43,16 @@ interface MarketStore extends MarketSnapshot {
   isReady: boolean;
   /** 서버 확정가 (미세틱 평균회귀 기준점) */
   serverPrices: Record<string, number>;
+  /** 미체결 지정가 주문 */
+  openOrders: OpenOrder[];
+  refreshOpenOrders: () => Promise<void>;
+  placeLimitOrder: (
+    stockId: string,
+    price: number,
+    quantity: number,
+    side: "buy" | "sell",
+  ) => Promise<OrderResult>;
+  cancelOrder: (orderId: string) => Promise<void>;
   setReady: (ready: boolean) => void;
   setUserId: (id: string | null) => void;
   syncMarketFromServer: (state: ServerMarketState) => void;
@@ -68,6 +83,7 @@ function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
   serverPrices: Record<string, number>;
+  openOrders: OpenOrder[];
 } {
   const now = Date.now();
   return {
@@ -82,6 +98,7 @@ function createInitialState(): MarketSnapshot & {
     userId: null,
     isReady: false,
     serverPrices: {},
+    openOrders: [],
   };
 }
 
@@ -243,6 +260,50 @@ export const useMarketStore = create<MarketStore>()(
           success: Boolean(data?.success),
           message: data?.message ?? data?.error ?? "주문 실패",
         };
+      },
+
+      refreshOpenOrders: async () => {
+        if (!IS_SERVER_MODE) return;
+        const orders = await fetchOpenOrders();
+        if (orders) set({ openOrders: orders });
+      },
+
+      placeLimitOrder: async (stockId, price, quantity, side) => {
+        if (!IS_SERVER_MODE || !get().userId) {
+          return { success: false, message: "로그인 후 사용할 수 있습니다." };
+        }
+        const supabase = createClient();
+        const { data, error } = await supabase.functions.invoke("trade", {
+          body: {
+            stockId,
+            quantity,
+            orderType: side === "buy" ? "buy_limit" : "sell_limit",
+            limitPrice: price,
+          },
+        });
+        if (error) {
+          let message = "주문 실패";
+          try {
+            const ctx = (error as { context?: Response }).context;
+            if (ctx) {
+              const body = await ctx.json();
+              message = body.error ?? body.message ?? message;
+            }
+          } catch {
+            // ignore
+          }
+          return { success: false, message };
+        }
+        await get().refreshOpenOrders();
+        return {
+          success: Boolean(data?.success),
+          message: data?.message ?? data?.error ?? "주문 실패",
+        };
+      },
+
+      cancelOrder: async (orderId) => {
+        await cancelOpenOrder(orderId);
+        await get().refreshOpenOrders();
       },
 
       microTick: () => {

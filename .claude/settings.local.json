@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat: limit orders \\(pending orders matched on server tick\\) *)"
+    ]
+  }
+}

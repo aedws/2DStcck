@@ -67,10 +67,12 @@ export function calculateTickPrice(
 ): number {
   const eventImpact = getActiveEventImpact(stock.id, events, now);
   const noise = randomNormal() * stock.volatility * TICK_VOLATILITY_SCALE;
-  // 추세 종목(지수·선물): 약 15분 주기의 사인파 추세
+  // 추세 종목(지수·선물): 약 15분 주기의 사인파 추세.
+  // 지수·선물은 같은 위상을 공유하고, 선물이 90초 선행한다(선행지표).
+  const trendLead = stock.sector === "선물" ? 90_000 : 0;
   const trend = stock.trendStrength
     ? stock.trendStrength *
-      Math.sin((now / 900_000) * 2 * Math.PI + (stock.initialPrice % 7))
+      Math.sin(((now + trendLead) / 900_000) * 2 * Math.PI)
     : 0;
   const changeRate =
     stock.drift * TICK_DRIFT_SCALE + trend + eventImpact * 0.05 + noise;
