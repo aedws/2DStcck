@@ -8,23 +8,13 @@ import {
   getDayChangePercent,
 } from "@/lib/market/engine";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { dayRange, latestEventFor } from "@/lib/market/stats";
 import {
   formatSignedPercent,
   formatSignedPrice,
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { Sparkline } from "@/components/ui/Sparkline";
-
-/** 해당 종목에 영향을 준 가장 최근 이벤트 */
-function latestEventFor(
-  stockId: string,
-  events: MarketEvent[],
-): MarketEvent | undefined {
-  for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i].affectedStockIds.includes(stockId)) return events[i];
-  }
-  return undefined;
-}
 
 /** 장 상태 바: 3시간 거래일 기준 마감까지 남은 시간 */
 function MarketStatusBar() {
@@ -136,12 +126,7 @@ export function MarketOverview({
   if (!featured) return null;
 
   const change = getDayChangePercent(featured);
-  const dayHigh = featured.candles?.length
-    ? Math.max(...featured.candles.map((c) => c.high))
-    : featured.currentPrice;
-  const dayLow = featured.candles?.length
-    ? Math.min(...featured.candles.map((c) => c.low))
-    : featured.currentPrice;
+  const { high: dayHigh, low: dayLow } = dayRange(featured);
 
   return (
     <div className="shrink-0 border-b border-[var(--border)] bg-[var(--background)] px-5 py-3">

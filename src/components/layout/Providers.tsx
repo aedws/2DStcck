@@ -7,7 +7,7 @@ import { TossHeader } from "@/components/layout/TossHeader";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const fullWidth = pathname === "/";
+  const fullWidth = pathname === "/" || pathname.startsWith("/stock/");
 
   return (
     <StoreHydration>

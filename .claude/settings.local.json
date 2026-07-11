@@ -12,7 +12,8 @@
       "Bash(npx -y tsx test-session.mts)",
       "Bash(git commit -q -m 'feat: 3-hour trading day, slower news tempo, list click-through *)",
       "Bash(rm src/components/home/IndexTicker.tsx src/components/home/NewsTicker.tsx)",
-      "Bash(git commit -q -m 'feat: home redesign following Toss-style UI reference *)"
+      "Bash(git commit -q -m 'feat: home redesign following Toss-style UI reference *)",
+      "Bash(git commit -q -m 'feat: stock detail page redesign following Toss-style reference *)"
     ]
   }
 }

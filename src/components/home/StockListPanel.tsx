@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import { getDayChangePercent } from "@/lib/market/engine";
 import {
+  buyRatio,
+  latestEventFor,
+  pseudoVolume,
+} from "@/lib/market/stats";
+import {
   formatCompactKRW,
   formatSignedPercent,
   upDownClass,
@@ -18,33 +23,6 @@ type SortMode = (typeof SORTS)[number];
 interface StockListPanelProps {
   stocks: StockState[];
   events: MarketEvent[];
-}
-
-function pseudoVolume(stock: StockState): number {
-  const book = stock.orderBook;
-  const total =
-    book.asks.reduce((s, l) => s + l.quantity, 0) +
-    book.bids.reduce((s, l) => s + l.quantity, 0);
-  return total * stock.currentPrice;
-}
-
-/** 호가 잔량 기반 매수 비율 (%) */
-function buyRatio(stock: StockState): number {
-  const bid = stock.orderBook.bids.reduce((s, l) => s + l.quantity, 0);
-  const ask = stock.orderBook.asks.reduce((s, l) => s + l.quantity, 0);
-  if (bid + ask === 0) return 50;
-  return Math.round((bid / (bid + ask)) * 100);
-}
-
-/** 해당 종목에 영향을 준 가장 최근 이벤트 */
-function latestEventFor(
-  stockId: string,
-  events: MarketEvent[],
-): MarketEvent | undefined {
-  for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i].affectedStockIds.includes(stockId)) return events[i];
-  }
-  return undefined;
 }
 
 export function StockListPanel({ stocks, events }: StockListPanelProps) {
