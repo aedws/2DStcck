@@ -46,6 +46,14 @@ export interface StockDefinition {
   beta?: number;
   /** 이벤트 태그별 발생 가중치 (기본 1). 예: { 수주: 4, 스캔들: 0.5 } */
   eventBias?: Record<string, number>;
+  /** ETF 구성종목 (설정 시 NAV 추종 모드 — 가격이 구성종목 가중 수익률을 따라감) */
+  etfHoldings?: EtfConstituent[];
+}
+
+export interface EtfConstituent {
+  stockId: string;
+  /** 보유 비중 (합계 1로 정규화되어 저장됨) */
+  weight: number;
 }
 
 /** 이벤트 생성 템플릿 — {company}, {ceo} 치환 변수 지원 */

@@ -6,6 +6,7 @@ import { FuturesView } from "./FuturesView";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
+import { EtfComposition } from "@/components/market/EtfComposition";
 import { OrderBook } from "@/components/market/OrderBook";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
 import { getCharacterById } from "@/data/characters";
@@ -307,6 +308,9 @@ export function StockPageClient({ id }: { id: string }) {
                 averagePrice={holding?.averagePrice}
                 prevDayClose={stock.prevDayClose}
               />
+              {stock.etfHoldings && stock.etfHoldings.length > 0 && (
+                <EtfComposition etf={stock} stocks={stocks} />
+              )}
               <OrderBook stock={stock} />
             </div>
           )}

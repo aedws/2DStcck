@@ -25,7 +25,11 @@
       "Bash(npx tsc *)",
       "Bash(npx -y tsx test-realism.mts)",
       "Bash(npx next *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(npx -y tsx --eval ' *)",
+      "Bash(npx -y tsx test-nav.mts)",
+      "Bash(git commit -q -m 'feat: NAV-tracking ETFs with holdings donut + WW/NIKKE sector expansion *)"
     ]
   }
 }

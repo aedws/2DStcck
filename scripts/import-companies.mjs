@@ -20,6 +20,7 @@
  *   ceoTraits   성격 태그 "천재;은둔형" (세미콜론 구분)
  *   ceoBio      캐릭터 한 줄 설정
  *   ceoEmoji    아바타 이모지 (빈칸이면 👤)
+ *   etfHoldings ETF 구성종목 "티커:비중;티커:비중" (설정 시 NAV 추종 모드, 비중은 자동 정규화)
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,7 +33,11 @@ const outPath = join(root, "src", "data", "generated.ts");
 const HEADER = [
   "ticker", "name", "sector", "initialPrice", "volatility", "drift", "beta",
   "description", "logo", "eventBias", "ceoName", "ceoTitle", "ceoTraits", "ceoBio", "ceoEmoji",
+  "etfHoldings",
 ];
+
+/** 코드 관리 코어 종목 (구성종목 참조 검증용) */
+const CORE_IDS = new Set(["vnasdaq", "vnasfut"]);
 
 /** 최소 RFC4180 파서: 따옴표 필드, "" 이스케이프, CRLF 지원 */
 function parseCsv(text) {
@@ -148,6 +153,26 @@ rows.forEach((cols, idx) => {
     eventBias: parseEventBias(get("eventBias"), line),
   };
 
+  const holdingsRaw = get("etfHoldings");
+  if (holdingsRaw) {
+    const parsed = [];
+    for (const pair of holdingsRaw.split(";")) {
+      const [refTicker, w] = pair.split(":").map((s) => s.trim());
+      const weight = Number(w);
+      if (!refTicker || !Number.isFinite(weight) || weight <= 0) {
+        fail(line, `etfHoldings 형식 오류: "${pair}" (예: BAGDI:0.3;BAVTS:0.2)`);
+        return;
+      }
+      parsed.push({ stockId: refTicker.toLowerCase(), weight });
+    }
+    // 비중 합 1로 정규화
+    const total = parsed.reduce((s, h) => s + h.weight, 0);
+    company.etfHoldings = parsed.map((h) => ({
+      stockId: h.stockId,
+      weight: Math.round((h.weight / total) * 10000) / 10000,
+    }));
+  }
+
   const ceoName = get("ceoName");
   if (ceoName) {
     const characterId = `chr_${id}`;
@@ -164,6 +189,19 @@ rows.forEach((cols, idx) => {
 
   companies.push(company);
 });
+
+// ETF 구성종목 참조 검증 (오타 방지)
+const allIds = new Set([...CORE_IDS, ...companies.map((c) => c.id)]);
+for (const c of companies) {
+  for (const h of c.etfHoldings ?? []) {
+    if (!allIds.has(h.stockId)) {
+      console.error(
+        `[import:companies] ${c.ticker}: etfHoldings에 없는 티커 "${h.stockId}"`,
+      );
+      process.exitCode = 1;
+    }
+  }
+}
 
 if (process.exitCode) process.exit(process.exitCode);
 

@@ -27,7 +27,33 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "volatility": 0.012,
     "drift": 0.001,
     "beta": 1.1,
-    "description": "밀레니엄 소속 기술 기업을 담은 테크 지수 상품.",
+    "description": "키보토스 테크 기업에 집중 투자하는 기술주 ETF.",
+    "etfHoldings": [
+      {
+        "stockId": "wwxly",
+        "weight": 0.25
+      },
+      {
+        "stockId": "bagdi",
+        "weight": 0.2
+      },
+      {
+        "stockId": "bavts",
+        "weight": 0.2
+      },
+      {
+        "stockId": "nkexa",
+        "weight": 0.15
+      },
+      {
+        "stockId": "baui",
+        "weight": 0.1
+      },
+      {
+        "stockId": "nkvol",
+        "weight": 0.1
+      }
+    ],
     "ceoId": "chr_baqqq"
   },
   {
@@ -135,7 +161,61 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "volatility": 0.01,
     "drift": 0.0008,
     "beta": 1,
-    "description": "키보토스 전 학원을 아우르는 종합 지수 상품.",
+    "description": "시장 대표 13종목에 분산 투자하는 종합 지수 ETF.",
+    "etfHoldings": [
+      {
+        "stockId": "bahina",
+        "weight": 0.1
+      },
+      {
+        "stockId": "baridc",
+        "weight": 0.09
+      },
+      {
+        "stockId": "wwjin",
+        "weight": 0.09
+      },
+      {
+        "stockId": "wwchl",
+        "weight": 0.09
+      },
+      {
+        "stockId": "bahbk",
+        "weight": 0.08
+      },
+      {
+        "stockId": "wwxly",
+        "weight": 0.08
+      },
+      {
+        "stockId": "bavts",
+        "weight": 0.07
+      },
+      {
+        "stockId": "wwjyn",
+        "weight": 0.07
+      },
+      {
+        "stockId": "bagdi",
+        "weight": 0.07
+      },
+      {
+        "stockId": "basmr",
+        "weight": 0.07
+      },
+      {
+        "stockId": "nkneo",
+        "weight": 0.07
+      },
+      {
+        "stockId": "bahrn",
+        "weight": 0.06
+      },
+      {
+        "stockId": "nkltr",
+        "weight": 0.06
+      }
+    ],
     "ceoId": "chr_baspy"
   },
   {
@@ -451,6 +531,229 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "실적": 0.3
     },
     "ceoId": "chr_batrb"
+  },
+  {
+    "id": "wwjin",
+    "ticker": "WWJIN",
+    "name": "Jinzhou Financial Group",
+    "sector": "금융",
+    "initialPrice": 18500,
+    "volatility": 0.022,
+    "drift": 0.0005,
+    "beta": 1.1,
+    "description": "금주와 려강을 잇는 종합 금융지주.",
+    "eventBias": {
+      "실적": 2
+    },
+    "ceoId": "chr_wwjin"
+  },
+  {
+    "id": "wwchl",
+    "ticker": "WWCHL",
+    "name": "Changli Energy Holdings",
+    "sector": "에너지",
+    "initialPrice": 21000,
+    "volatility": 0.028,
+    "drift": 0.0004,
+    "beta": 0.7,
+    "description": "화력·신재생을 아우르는 에너지 지주회사.",
+    "eventBias": {
+      "수주": 2
+    },
+    "ceoId": "chr_wwchl"
+  },
+  {
+    "id": "wwxly",
+    "ticker": "WWXLY",
+    "name": "Xiangli Yao Laboratories",
+    "sector": "기술",
+    "initialPrice": 43000,
+    "volatility": 0.038,
+    "drift": 0.0009,
+    "beta": 1.4,
+    "description": "전술 인형과 연산 코어를 개발하는 첨단 기술 기업.",
+    "eventBias": {
+      "신제품": 3
+    },
+    "ceoId": "chr_wwxly"
+  },
+  {
+    "id": "wwjyn",
+    "ticker": "WWJYN",
+    "name": "Qinglong Air Logistics",
+    "sector": "운송",
+    "initialPrice": 16000,
+    "volatility": 0.026,
+    "drift": 0.0005,
+    "beta": 1,
+    "description": "하늘길을 여는 항공 화물·물류 전문사.",
+    "eventBias": {
+      "수주": 2
+    },
+    "ceoId": "chr_wwjyn"
+  },
+  {
+    "id": "wwskp",
+    "ticker": "WWSKP",
+    "name": "Blackshore Telecom",
+    "sector": "통신",
+    "initialPrice": 12500,
+    "volatility": 0.018,
+    "drift": 0.0004,
+    "beta": 0.6,
+    "description": "해안 관측망 기반의 통신 네트워크 사업자.",
+    "eventBias": {
+      "실적": 1.5
+    },
+    "ceoId": "chr_wwskp"
+  },
+  {
+    "id": "wwcam",
+    "ticker": "WWCAM",
+    "name": "Camellya Botanicals",
+    "sector": "농업",
+    "initialPrice": 9800,
+    "volatility": 0.04,
+    "drift": 0.0003,
+    "beta": 0.8,
+    "description": "희귀 화훼와 특수 작물을 재배하는 농업 기업.",
+    "eventBias": {
+      "스캔들": 2,
+      "신제품": 2
+    },
+    "ceoId": "chr_wwcam"
+  },
+  {
+    "id": "nkltr",
+    "ticker": "NKLTR",
+    "name": "Liter Development",
+    "sector": "부동산",
+    "initialPrice": 26500,
+    "volatility": 0.024,
+    "drift": 0.0005,
+    "beta": 0.9,
+    "description": "무너진 도시를 다시 세우는 부동산 개발사.",
+    "eventBias": {
+      "수주": 3
+    },
+    "ceoId": "chr_nkltr"
+  },
+  {
+    "id": "nkvol",
+    "ticker": "NKVOL",
+    "name": "Volume Broadcasting",
+    "sector": "엔터",
+    "initialPrice": 14000,
+    "volatility": 0.034,
+    "drift": 0.0006,
+    "beta": 1.2,
+    "description": "예능과 라이브 방송을 만드는 종합 엔터테인먼트사.",
+    "eventBias": {
+      "신제품": 2,
+      "행보": 2
+    },
+    "ceoId": "chr_nkvol"
+  },
+  {
+    "id": "nkneo",
+    "ticker": "NKNEO",
+    "name": "Neon Megastore",
+    "sector": "유통",
+    "initialPrice": 11000,
+    "volatility": 0.03,
+    "drift": 0.0004,
+    "beta": 0.9,
+    "description": "없는 게 없는 대형 유통 체인.",
+    "eventBias": {
+      "실적": 2
+    },
+    "ceoId": "chr_nkneo"
+  },
+  {
+    "id": "nkexa",
+    "ticker": "NKEXA",
+    "name": "Exia Interactive",
+    "sector": "게임",
+    "initialPrice": 23500,
+    "volatility": 0.045,
+    "drift": 0.0007,
+    "beta": 1.3,
+    "description": "e스포츠와 온라인 게임을 운영하는 게임사.",
+    "eventBias": {
+      "신제품": 3,
+      "스캔들": 1.5
+    },
+    "ceoId": "chr_nkexa"
+  },
+  {
+    "id": "pmcx",
+    "ticker": "PMCX",
+    "name": "Kivotos Security ETF",
+    "sector": "ETF",
+    "initialPrice": 15000,
+    "volatility": 0.01,
+    "drift": 0,
+    "beta": 1,
+    "description": "키보토스 치안·경비(PMC) 6개사에 분산 투자하는 섹터 ETF.",
+    "etfHoldings": [
+      {
+        "stockId": "bahina",
+        "weight": 0.25
+      },
+      {
+        "stockId": "baabs",
+        "weight": 0.2
+      },
+      {
+        "stockId": "banru",
+        "weight": 0.15
+      },
+      {
+        "stockId": "batrg",
+        "weight": 0.15
+      },
+      {
+        "stockId": "baszm",
+        "weight": 0.15
+      },
+      {
+        "stockId": "ba68",
+        "weight": 0.1
+      }
+    ]
+  },
+  {
+    "id": "bndx",
+    "ticker": "BNDX",
+    "name": "Academy Bond ETF",
+    "sector": "ETF",
+    "initialPrice": 10000,
+    "volatility": 0.005,
+    "drift": 0,
+    "beta": 0.15,
+    "description": "학원채·지역채 5종을 담은 채권 ETF.",
+    "etfHoldings": [
+      {
+        "stockId": "batrb",
+        "weight": 0.25
+      },
+      {
+        "stockId": "bamlb",
+        "weight": 0.25
+      },
+      {
+        "stockId": "bakvb",
+        "weight": 0.2
+      },
+      {
+        "stockId": "baghb",
+        "weight": 0.15
+      },
+      {
+        "stockId": "baabb",
+        "weight": 0.15
+      }
+    ]
   }
 ];
 
@@ -763,5 +1066,116 @@ export const CSV_CHARACTERS: Character[] = [
     ],
     "bio": "화사한 미소 뒤에 폭풍 같은 변덕을 숨긴 트리니티의 중심.",
     "emoji": "🌸"
+  },
+  {
+    "id": "chr_wwjin",
+    "name": "금희",
+    "title": "회장",
+    "traits": [
+      "성실",
+      "카리스마",
+      "천재"
+    ],
+    "bio": "금주를 이끄는 젊은 수장. 온화하지만 결단은 누구보다 빠르다.",
+    "emoji": "🐲"
+  },
+  {
+    "id": "chr_wwchl",
+    "name": "장리",
+    "title": "회장",
+    "traits": [
+      "천재",
+      "카리스마"
+    ],
+    "bio": "불꽃 같은 통찰로 판 전체를 설계하는 전략가.",
+    "emoji": "🔥"
+  },
+  {
+    "id": "chr_wwxly",
+    "name": "상리요",
+    "title": "수석연구원",
+    "traits": [
+      "천재",
+      "워커홀릭"
+    ],
+    "bio": "실험에 몰두하면 밤낮을 잊는 젊은 천재.",
+    "emoji": "🤖"
+  },
+  {
+    "id": "chr_wwjyn",
+    "name": "기염",
+    "title": "대표",
+    "traits": [
+      "카리스마",
+      "성실"
+    ],
+    "bio": "청룡 기장 출신. 어떤 악천후에도 화물은 도착한다.",
+    "emoji": "🐉"
+  },
+  {
+    "id": "chr_wwskp",
+    "name": "수안인",
+    "title": "관리자",
+    "traits": [
+      "은둔형",
+      "천재",
+      "성실"
+    ],
+    "bio": "블랙쇼어의 등대처럼 조용히 네트워크를 지키는 관리자.",
+    "emoji": "🌊"
+  },
+  {
+    "id": "chr_wwcam",
+    "name": "카멜리야",
+    "title": "대표",
+    "traits": [
+      "사고뭉치",
+      "카리스마"
+    ],
+    "bio": "아름답지만 어딘가 위험한 향기의 플로리스트.",
+    "emoji": "🌺"
+  },
+  {
+    "id": "chr_nkltr",
+    "name": "리터",
+    "title": "소장",
+    "traits": [
+      "천재",
+      "워커홀릭"
+    ],
+    "bio": "전선 사령부도 하루 만에 올리는 건설의 명장.",
+    "emoji": "👷"
+  },
+  {
+    "id": "chr_nkvol",
+    "name": "볼륨",
+    "title": "프로듀서",
+    "traits": [
+      "카리스마"
+    ],
+    "bio": "시청률을 위해서라면 어디든 카메라를 든다.",
+    "emoji": "🎙️"
+  },
+  {
+    "id": "chr_nkneo",
+    "name": "네온",
+    "title": "점장",
+    "traits": [
+      "사고뭉치"
+    ],
+    "bio": "좋아하는 물건 앞에서는 지갑이 먼저 열리는 점장.",
+    "emoji": "🛒"
+  },
+  {
+    "id": "chr_nkexa",
+    "name": "엑시아",
+    "title": "CEO",
+    "traits": [
+      "천재",
+      "은둔형",
+      "사고뭉치"
+    ],
+    "bio": "랭킹 1위를 위해 밤을 새우는 게이머 사장.",
+    "emoji": "🎧"
   }
 ];

@@ -143,13 +143,11 @@ export function applyTickToCandles(
   ].slice(-MAX_CANDLES);
 }
 
-export function tickStock(
+/** 결정된 다음 가격을 종목 상태에 반영 (거래일 롤오버·호가·히스토리·캔들) */
+function applyTickPrice(
   stock: StockState,
-  events: MarketEvent[],
+  nextPrice: number,
   now: number,
-  tick: number,
-  marketShock = 0,
-  dtSeconds = SERVER_TICK_SECONDS,
 ): StockState {
   // 거래일: 벽시계 3시간 단위. 경계를 넘으면 전일 종가·시초가 롤오버.
   // (구버전 상태는 daySessionId가 없음 → 롤오버 없이 현재 거래일에 편입)
@@ -161,18 +159,14 @@ export function tickStock(
 
   if (isNewSession) {
     prevDayClose = stock.currentPrice;
+    dayOpen = nextPrice;
   }
 
-  const nextPrice = calculateTickPrice(stock, events, now, marketShock, dtSeconds);
   const orderBook = generateOrderBook(nextPrice, stock.orderBook);
   const newHistory = [
     ...stock.priceHistory,
     { timestamp: now, price: nextPrice },
   ].slice(-MAX_PRICE_HISTORY);
-
-  if (isNewSession) {
-    dayOpen = nextPrice;
-  }
 
   return {
     ...stock,
@@ -184,6 +178,38 @@ export function tickStock(
     priceHistory: newHistory,
     candles: applyTickToCandles(stock.candles ?? [], nextPrice, now),
   };
+}
+
+export function tickStock(
+  stock: StockState,
+  events: MarketEvent[],
+  now: number,
+  tick: number,
+  marketShock = 0,
+  dtSeconds = SERVER_TICK_SECONDS,
+): StockState {
+  const nextPrice = calculateTickPrice(stock, events, now, marketShock, dtSeconds);
+  return applyTickPrice(stock, nextPrice, now);
+}
+
+/** NAV 추종 ETF 가격: 상장가 × Σ(비중 × 구성종목 수익률) */
+export function computeEtfNav(
+  etf: StockState,
+  stocksById: Map<string, StockState>,
+): number {
+  let weightedReturn = 0;
+  let weightSum = 0;
+
+  for (const holding of etf.etfHoldings ?? []) {
+    const constituent = stocksById.get(holding.stockId);
+    const def = STOCK_DEFINITIONS.find((d) => d.id === holding.stockId);
+    if (!constituent || !def || def.initialPrice <= 0) continue;
+    weightedReturn += holding.weight * (constituent.currentPrice / def.initialPrice);
+    weightSum += holding.weight;
+  }
+
+  if (weightSum === 0) return etf.currentPrice;
+  return Math.max(Math.round(etf.initialPrice * (weightedReturn / weightSum)), 100);
 }
 
 /** 표시용 미세 틱 (서버 모드 클라이언트 전용):
@@ -223,8 +249,20 @@ export function tickAllStocks(
 ): StockState[] {
   // 이 틱의 공통 시장 충격 — 전 종목이 공유 (베타로 개별 스케일)
   const marketShock = randomNormal();
-  return stocks.map((stock) =>
-    tickStock(stock, events, now, tick, marketShock, dtSeconds),
+
+  // 1차: 일반 종목 (ETF 제외) — NAV 계산의 기준이 된다
+  const ticked = stocks.map((stock) =>
+    stock.etfHoldings?.length
+      ? stock
+      : tickStock(stock, events, now, tick, marketShock, dtSeconds),
+  );
+
+  // 2차: NAV 추종 ETF — 같은 틱의 구성종목 가격으로 산출
+  const byId = new Map(ticked.map((s) => [s.id, s]));
+  return ticked.map((stock) =>
+    stock.etfHoldings?.length
+      ? applyTickPrice(stock, computeEtfNav(stock, byId), now)
+      : stock,
   );
 }
 
