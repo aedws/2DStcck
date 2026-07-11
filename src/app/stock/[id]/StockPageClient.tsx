@@ -172,6 +172,23 @@ function StockInfoTab({ stock }: { stock: StockState }) {
             <dt className="text-[11px] text-[var(--muted)]">1거래일</dt>
             <dd>3시간</dd>
           </div>
+          {stock.leverage !== undefined && (
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">
+                레버리지 (V-NASDAQ 추종)
+              </dt>
+              <dd className="tabular-nums">×{stock.leverage}</dd>
+            </div>
+          )}
+          {stock.incomeYield20 !== undefined && (
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">인컴 지급</dt>
+              <dd className="tabular-nums">
+                20거래일 {stock.incomeYield20}% (매 거래일{" "}
+                {(stock.incomeYield20 / 20).toFixed(1)}%)
+              </dd>
+            </div>
+          )}
         </dl>
         {stock.eventBias && Object.keys(stock.eventBias).length > 0 && (
           <div className="mt-3 border-t border-[var(--border)] pt-3">

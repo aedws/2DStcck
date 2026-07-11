@@ -29,7 +29,9 @@
       "Bash(node --input-type=module -e ' *)",
       "Bash(npx -y tsx --eval ' *)",
       "Bash(npx -y tsx test-nav.mts)",
-      "Bash(git commit -q -m 'feat: NAV-tracking ETFs with holdings donut + WW/NIKKE sector expansion *)"
+      "Bash(git commit -q -m 'feat: NAV-tracking ETFs with holdings donut + WW/NIKKE sector expansion *)",
+      "Bash(npx -y tsx test-lev.mts)",
+      "Bash(git commit -q -m 'feat: synthetic ETFs \\(inverse/2x/covered call\\) + session income payouts *)"
     ]
   }
 }

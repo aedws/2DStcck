@@ -13,6 +13,7 @@ import {
   executeSell,
   isOrderSuccess,
 } from "../_shared/trading.ts";
+import { STOCK_DEFINITIONS } from "../_shared/stocks.ts";
 import type { Holding } from "../_shared/types.ts";
 
 const TICKS_PER_RUN = 1;
@@ -134,6 +135,43 @@ async function matchOpenOrders(
   return filled;
 }
 
+/** 거래일 마감 시 인컴 ETF 보유자에게 분배금 지급 (20거래일 기준 지급률의 1/20) */
+async function payIncome(
+  admin: SupabaseClient,
+  state: ServerMarketState,
+): Promise<number> {
+  let paidUsers = 0;
+  const incomeDefs = STOCK_DEFINITIONS.filter((d) => d.incomeYield20);
+
+  for (const def of incomeDefs) {
+    const stock = state.stocks.find((s) => s.id === def.id);
+    if (!stock) continue;
+    const rate = (def.incomeYield20 ?? 0) / 100 / 20;
+
+    const { data: rows } = await admin
+      .from("holdings")
+      .select("user_id, quantity")
+      .eq("stock_id", def.id);
+
+    for (const row of rows ?? []) {
+      const income = Math.floor(row.quantity * stock.currentPrice * rate);
+      if (income <= 0) continue;
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("cash")
+        .eq("id", row.user_id)
+        .single();
+      if (!profile) continue;
+      await admin
+        .from("profiles")
+        .update({ cash: profile.cash + income })
+        .eq("id", row.user_id);
+      paidUsers++;
+    }
+  }
+  return paidUsers;
+}
+
 Deno.serve(async (_req) => {
   try {
     const admin = createClient(
@@ -164,7 +202,9 @@ Deno.serve(async (_req) => {
       ? parseMarketRow(existing)
       : createInitialMarketState();
 
+    const prevSession = state.stocks[0]?.daySessionId;
     state = advanceMarket(state, TICKS_PER_RUN);
+    const newSession = state.stocks[0]?.daySessionId;
 
     const payload = {
       id: "global",
@@ -180,7 +220,17 @@ Deno.serve(async (_req) => {
 
     const filled = await matchOpenOrders(admin, state);
 
-    return Response.json({ ok: true, tick: state.tick, filled });
+    // 거래일이 넘어갔으면 인컴 ETF 분배금 지급
+    let incomePaid = 0;
+    if (
+      prevSession !== undefined &&
+      newSession !== undefined &&
+      newSession !== prevSession
+    ) {
+      incomePaid = await payIncome(admin, state);
+    }
+
+    return Response.json({ ok: true, tick: state.tick, filled, incomePaid });
   } catch (err) {
     const message = err instanceof Error ? err.message : "tick failed";
     return Response.json({ error: message }, { status: 500 });

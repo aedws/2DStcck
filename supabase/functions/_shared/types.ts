@@ -49,6 +49,10 @@ export interface StockDefinition {
   eventBias?: Record<string, number>;
   /** ETF 구성종목 (설정 시 NAV 추종 모드 — 가격이 구성종목 가중 수익률을 따라감) */
   etfHoldings?: EtfConstituent[];
+  /** 합성 ETF: V-NASDAQ 틱 수익률 × 배수 추종 (-1 인버스, -2 곱버스, 2 레버리지, 0.5 커버드콜) */
+  leverage?: number;
+  /** 인컴 ETF: 20거래일 기준 총 지급률(%). 거래일 마감마다 1/20씩 보유자 현금으로 지급 */
+  incomeYield20?: number;
 }
 
 export interface EtfConstituent {

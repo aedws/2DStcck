@@ -343,7 +343,7 @@ export const useMarketStore = create<MarketStore>()(
 
       tickMarket: () => {
         if (IS_SERVER_MODE) return;
-        const { tick, stocks, events } = get();
+        const { tick, stocks, events, holdings, cash } = get();
         const now = Date.now();
         const nextTick = tick + 1;
         const newEvent = maybeGenerateEvent(nextTick, now, events);
@@ -352,7 +352,28 @@ export const useMarketStore = create<MarketStore>()(
           : events;
         // 로컬 모드는 1초 틱
         const updatedStocks = tickAllStocks(stocks, allEvents, now, nextTick, 1);
-        set({ tick: nextTick, stocks: updatedStocks, events: allEvents });
+
+        // 거래일 마감 시 인컴 ETF 분배금 지급 (20거래일 기준 지급률의 1/20)
+        const prevSession = stocks[0]?.daySessionId;
+        const newSession = updatedStocks[0]?.daySessionId;
+        let income = 0;
+        if (prevSession !== undefined && newSession !== prevSession) {
+          for (const stock of updatedStocks) {
+            if (!stock.incomeYield20) continue;
+            const held = holdings.find((h) => h.stockId === stock.id);
+            if (!held || held.quantity <= 0) continue;
+            income += Math.floor(
+              held.quantity * stock.currentPrice * (stock.incomeYield20 / 100 / 20),
+            );
+          }
+        }
+
+        set({
+          tick: nextTick,
+          stocks: updatedStocks,
+          events: allEvents,
+          ...(income > 0 ? { cash: cash + income } : {}),
+        });
       },
 
       buyMarket: (stockId, quantity) =>

@@ -29,6 +29,59 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     description: "V-NASDAQ 지수 선물. 지수보다 90초 먼저 움직이는 선행지표.",
     beta: 1,
   },
+  // ── 합성 ETF (V-NASDAQ 추종 파생상품 — 캐릭터 없는 시장 상품) ──
+  {
+    id: "vnsl2",
+    ticker: "VNSL2",
+    name: "V-NASDAQ Leverage 2x",
+    sector: "ETF",
+    initialPrice: 10000,
+    volatility: 0.01,
+    drift: 0,
+    beta: 0,
+    leverage: 2,
+    description:
+      "V-NASDAQ 틱 수익률을 2배로 추종하는 레버리지 ETF. 고위험 고수익.",
+  },
+  {
+    id: "vnsi",
+    ticker: "VNSI",
+    name: "V-NASDAQ Inverse",
+    sector: "ETF",
+    initialPrice: 10000,
+    volatility: 0.01,
+    drift: 0,
+    beta: 0,
+    leverage: -1,
+    description: "지수가 1% 내리면 1% 오르는 인버스 ETF. 하락장 방어 수단.",
+  },
+  {
+    id: "vnsi2",
+    ticker: "VNSI2",
+    name: "V-NASDAQ Inverse 2x",
+    sector: "ETF",
+    initialPrice: 10000,
+    volatility: 0.01,
+    drift: 0,
+    beta: 0,
+    leverage: -2,
+    description:
+      "하락에 2배로 베팅하는 곱버스 ETF. 방향을 맞추면 크게 벌고 틀리면 크게 잃는다.",
+  },
+  {
+    id: "vncc",
+    ticker: "VNCC",
+    name: "V-NASDAQ Covered Call",
+    sector: "ETF",
+    initialPrice: 10000,
+    volatility: 0.01,
+    drift: 0,
+    beta: 0,
+    leverage: 0.5,
+    incomeYield20: 10,
+    description:
+      "지수 움직임을 절반만 따라가는 대신, 20거래일 기준 10%의 인컴을 거래일마다 나눠 지급하는 커버드콜 ETF. 게임이 막혔을 때의 안전판.",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */

@@ -192,6 +192,18 @@ export function tickStock(
   return applyTickPrice(stock, nextPrice, now);
 }
 
+/** 합성 ETF의 기초지수 */
+const LEVERAGE_UNDERLYING_ID = "vnasdaq";
+
+/** 레버리지 합성 ETF: 기초지수 틱 수익률 × 배수로 복리 추종 (틱 단위 리밸런싱) */
+export function computeLeveragedPrice(
+  etf: StockState,
+  underlyingTickReturn: number,
+): number {
+  const nextPrice = etf.currentPrice * (1 + (etf.leverage ?? 1) * underlyingTickReturn);
+  return Math.max(Math.round(nextPrice), 100);
+}
+
 /** NAV 추종 ETF 가격: 상장가 × Σ(비중 × 구성종목 수익률) */
 export function computeEtfNav(
   etf: StockState,
@@ -250,20 +262,38 @@ export function tickAllStocks(
   // 이 틱의 공통 시장 충격 — 전 종목이 공유 (베타로 개별 스케일)
   const marketShock = randomNormal();
 
-  // 1차: 일반 종목 (ETF 제외) — NAV 계산의 기준이 된다
+  // 1차: 일반 종목 (파생 ETF 제외) — NAV·레버리지 계산의 기준이 된다
+  const isDerived = (s: StockState) =>
+    Boolean(s.etfHoldings?.length) || s.leverage !== undefined;
   const ticked = stocks.map((stock) =>
-    stock.etfHoldings?.length
+    isDerived(stock)
       ? stock
       : tickStock(stock, events, now, tick, marketShock, dtSeconds),
   );
 
-  // 2차: NAV 추종 ETF — 같은 틱의 구성종목 가격으로 산출
+  // 기초지수 틱 수익률 (레버리지 합성용)
+  const idxBefore = stocks.find((s) => s.id === LEVERAGE_UNDERLYING_ID);
+  const idxAfter = ticked.find((s) => s.id === LEVERAGE_UNDERLYING_ID);
+  const underlyingReturn =
+    idxBefore && idxAfter && idxBefore.currentPrice > 0
+      ? idxAfter.currentPrice / idxBefore.currentPrice - 1
+      : 0;
+
+  // 2차: 파생 ETF — 같은 틱의 구성종목/지수 가격으로 산출
   const byId = new Map(ticked.map((s) => [s.id, s]));
-  return ticked.map((stock) =>
-    stock.etfHoldings?.length
-      ? applyTickPrice(stock, computeEtfNav(stock, byId), now)
-      : stock,
-  );
+  return ticked.map((stock) => {
+    if (stock.etfHoldings?.length) {
+      return applyTickPrice(stock, computeEtfNav(stock, byId), now);
+    }
+    if (stock.leverage !== undefined) {
+      return applyTickPrice(
+        stock,
+        computeLeveragedPrice(stock, underlyingReturn),
+        now,
+      );
+    }
+    return stock;
+  });
 }
 
 function pickWeighted<T>(
