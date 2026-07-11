@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { StockState } from "@/lib/types/market";
 import { getDayChangePercent } from "@/lib/market/engine";
 import {
@@ -31,6 +32,7 @@ export function StockListPanel({
   selectedId,
   onSelect,
 }: StockListPanelProps) {
+  const router = useRouter();
   const [tab, setTab] = useState(0);
   const [sector, setSector] = useState("전체");
 
@@ -113,7 +115,10 @@ export function StockListPanel({
               return (
                 <tr
                   key={stock.id}
-                  onClick={() => onSelect(stock.id)}
+                  onClick={() => {
+                    onSelect(stock.id);
+                    router.push(`/stock/${stock.id}`);
+                  }}
                   className={`cursor-pointer border-b border-[var(--border)]/50 transition ${
                     selected
                       ? "bg-[var(--surface-elevated)]"

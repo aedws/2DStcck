@@ -78,6 +78,8 @@ export interface StockState extends StockDefinition {
   prevDayClose: number;
   /** 당일 시초가 */
   dayOpen: number;
+  /** 현재 거래일 번호 = floor(now / SESSION_DURATION_MS). 바뀌면 새 거래일 */
+  daySessionId?: number;
   priceHistory: PricePoint[];
   /** 1분봉 (서버가 직접 관리, 최근 240개) */
   candles: Candle[];

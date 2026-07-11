@@ -8,8 +8,10 @@ import type {
 } from "@/lib/types/market";
 import {
   CANDLE_TICKS,
+  EVENT_CHANCE_PER_TICK,
+  EVENT_MIN_GAP_MS,
   MAX_PRICE_HISTORY,
-  TICKS_PER_SESSION,
+  SESSION_DURATION_MS,
 } from "@/lib/market/constants";
 import {
   EVENT_TEMPLATES,
@@ -44,6 +46,7 @@ export function createInitialStockState(def: StockDefinition): StockState {
     currentPrice: def.initialPrice,
     prevDayClose: def.initialPrice,
     dayOpen: def.initialPrice,
+    daySessionId: Math.floor(now / SESSION_DURATION_MS),
     priceHistory: [{ timestamp: now, price: def.initialPrice }],
     candles: [
       {
@@ -137,7 +140,11 @@ export function tickStock(
   tick: number,
   marketShock = 0,
 ): StockState {
-  const isNewSession = tick > 0 && tick % TICKS_PER_SESSION === 0;
+  // 거래일: 벽시계 3시간 단위. 경계를 넘으면 전일 종가·시초가 롤오버.
+  // (구버전 상태는 daySessionId가 없음 → 롤오버 없이 현재 거래일에 편입)
+  const session = Math.floor(now / SESSION_DURATION_MS);
+  const isNewSession =
+    stock.daySessionId !== undefined && stock.daySessionId !== session;
   let prevDayClose = stock.prevDayClose;
   let dayOpen = stock.dayOpen;
 
@@ -158,6 +165,7 @@ export function tickStock(
 
   return {
     ...stock,
+    daySessionId: session,
     prevDayClose,
     dayOpen,
     currentPrice: nextPrice,
@@ -269,13 +277,18 @@ export function resolveEventTemplate(
   };
 }
 
+/** 뉴스 템포: 직전 이벤트 후 EVENT_MIN_GAP_MS 경과 전에는 발생하지 않고,
+ * 경과 후에는 틱당 EVENT_CHANCE_PER_TICK 확률로 추첨 (틱 간격과 무관한 시간 기반 템포) */
 export function maybeGenerateEvent(
   tick: number,
   now: number,
+  events: MarketEvent[] = [],
 ): MarketEvent | null {
-  if (tick === 0 || tick % 12 !== 0 || Math.random() > 0.5) {
-    return null;
-  }
+  const lastEventAt = events.length
+    ? Math.max(...events.map((e) => e.timestamp))
+    : 0;
+  if (now - lastEventAt < EVENT_MIN_GAP_MS) return null;
+  if (Math.random() > EVENT_CHANCE_PER_TICK) return null;
 
   const template =
     EVENT_TEMPLATES[Math.floor(Math.random() * EVENT_TEMPLATES.length)];

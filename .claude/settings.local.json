@@ -8,7 +8,9 @@
       "Bash(npx -y tsx test-events.mts)",
       "Bash(git commit -m 'feat: content schema MVP — characters, company profiles, typed event templates *)",
       "Bash(npx -y tsx test-factor.mts)",
-      "Bash(git commit -q -m 'feat: beta factor model, ticker search, CSV company pipeline *)"
+      "Bash(git commit -q -m 'feat: beta factor model, ticker search, CSV company pipeline *)",
+      "Bash(npx -y tsx test-session.mts)",
+      "Bash(git commit -q -m 'feat: 3-hour trading day, slower news tempo, list click-through *)"
     ]
   }
 }

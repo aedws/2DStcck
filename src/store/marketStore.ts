@@ -325,8 +325,10 @@ export const useMarketStore = create<MarketStore>()(
         const { tick, stocks, events } = get();
         const now = Date.now();
         const nextTick = tick + 1;
-        const newEvent = maybeGenerateEvent(nextTick, now);
-        const allEvents = newEvent ? [...events, newEvent] : events;
+        const newEvent = maybeGenerateEvent(nextTick, now, events);
+        const allEvents = newEvent
+          ? [...events, newEvent].slice(-50)
+          : events;
         const updatedStocks = tickAllStocks(stocks, allEvents, now, nextTick);
         set({ tick: nextTick, stocks: updatedStocks, events: allEvents });
       },

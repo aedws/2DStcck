@@ -55,8 +55,10 @@ export function advanceMarket(
   for (let i = 0; i < tickCount; i++) {
     const now = Date.now();
     const nextTick = tick + 1;
-    const newEvent = maybeGenerateEvent(nextTick, now);
-    const allEvents = newEvent ? [...events, newEvent] : events;
+    const newEvent = maybeGenerateEvent(nextTick, now, events);
+    const allEvents = newEvent
+      ? [...events, newEvent].slice(-50)
+      : events;
     stocks = tickAllStocks(stocks, allEvents, now, nextTick);
     tick = nextTick;
     events = allEvents;
