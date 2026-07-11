@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMarketStore } from "@/store/marketStore";
+import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
 import {
   formatPrice,
   formatSignedMoney,
@@ -12,6 +12,10 @@ import {
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
+import {
+  getSalaryDaysRemaining,
+  SALARY_AMOUNT,
+} from "@/lib/market/salary";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
@@ -21,13 +25,22 @@ export function AccountSidebar() {
   const holdings = useMarketStore((s) => s.holdings);
   const stocks = useMarketStore((s) => s.stocks);
   const trades = useMarketStore((s) => s.trades);
+  const cashPayments = useMarketStore((s) => s.cashPayments);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
   const initialCash = useMarketStore((s) => s.initialCash);
+  const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
+  const userId = useMarketStore((s) => s.userId);
   const reset = useMarketStore((s) => s.reset);
 
   const total = getTotalAssets();
   const profit = total - initialCash;
   const returnRate = (profit / initialCash) * 100;
+  const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
+  const salaryDays = getSalaryDaysRemaining(
+    lastSalarySession,
+    currentSession,
+  );
+  const salaryActive = !IS_SERVER_MODE || Boolean(userId);
 
   return (
     <aside className="flex w-[300px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--background)]">
@@ -50,6 +63,27 @@ export function AccountSidebar() {
         <p className="mt-2 text-xs text-[var(--muted)]">
           가용 현금 {formatPrice(cash)}
         </p>
+        <div className="mt-3 flex items-center justify-between rounded-xl bg-[var(--surface)] px-3 py-2.5">
+          <div>
+            <p className="text-xs font-medium">20거래일 고정급</p>
+            <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+              {salaryActive
+                ? `다음 지급까지 ${salaryDays}거래일`
+                : "로그인 후 지급 주기 시작"}
+            </p>
+          </div>
+          <span className="text-xs font-semibold tabular-nums text-[var(--up)]">
+            +{formatPrice(SALARY_AMOUNT)}
+          </span>
+        </div>
+        {cashPayments[0] && (
+          <p className="mt-2 text-[10px] text-[var(--muted)]">
+            최근 지급 · {cashPayments[0].ticker ?? "고정급"}{" "}
+            <span className="font-medium text-[var(--up)]">
+              +{formatPrice(cashPayments[0].amount)}
+            </span>
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">

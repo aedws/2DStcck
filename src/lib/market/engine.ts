@@ -26,6 +26,7 @@ import {
 } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import { generateOrderBook } from "@/lib/market/orderBook";
+import { COVERED_CALL_INTERVAL_DAYS } from "@/lib/market/distributions";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -180,6 +181,57 @@ function applyTickPrice(
   };
 }
 
+/** 현금 분배일의 배당락을 가격·시초가·차트·호가에 한 번 반영한다. */
+export function applyCashDistributionToStock(
+  stock: StockState,
+  amountPerShare: number,
+  now: number,
+): StockState {
+  if (amountPerShare <= 0) return stock;
+
+  const session = Math.floor(now / SESSION_DURATION_MS);
+  const isNewSession =
+    stock.daySessionId !== undefined && stock.daySessionId !== session;
+  const unadjustedOpen = isNewSession ? stock.currentPrice : stock.dayOpen;
+  const nextPrice = Math.max(Math.round(stock.currentPrice - amountPerShare), 100);
+  const dayOpen = Math.max(Math.round(unadjustedOpen - amountPerShare), 100);
+  const minuteStart = Math.floor(now / 60_000) * 60_000;
+  const lastCandle = stock.candles?.[stock.candles.length - 1];
+  const candles =
+    lastCandle?.timestamp === minuteStart
+      ? [
+          ...stock.candles.slice(0, -1),
+          {
+            ...lastCandle,
+            open: Math.max(lastCandle.open - amountPerShare, 100),
+            high: Math.max(lastCandle.high - amountPerShare, 100),
+            low: Math.max(lastCandle.low - amountPerShare, 100),
+            close: nextPrice,
+          },
+        ]
+      : applyTickToCandles(stock.candles ?? [], nextPrice, now);
+  const lastPoint = stock.priceHistory[stock.priceHistory.length - 1];
+  const priceHistory = (
+    lastPoint?.timestamp === now
+      ? [...stock.priceHistory.slice(0, -1), { timestamp: now, price: nextPrice }]
+      : [...stock.priceHistory, { timestamp: now, price: nextPrice }]
+  ).slice(-MAX_PRICE_HISTORY);
+
+  return {
+    ...stock,
+    navDistributionAdjustment: stock.etfHoldings?.length
+      ? (stock.navDistributionAdjustment ?? 0) + amountPerShare
+      : stock.navDistributionAdjustment,
+    daySessionId: session,
+    prevDayClose: isNewSession ? stock.currentPrice : stock.prevDayClose,
+    dayOpen,
+    currentPrice: nextPrice,
+    orderBook: generateOrderBook(nextPrice, stock.orderBook),
+    priceHistory,
+    candles,
+  };
+}
+
 export function tickStock(
   stock: StockState,
   events: MarketEvent[],
@@ -204,6 +256,38 @@ export function computeLeveragedPrice(
   return Math.max(Math.round(nextPrice), 100);
 }
 
+/**
+ * 커버드콜은 하락을 그대로 부담하고 상승 일부만 참여한다.
+ * 옵션 프리미엄은 매 틱 NAV에 누적되고 20거래일 월 분배 시 현금으로 빠져나간다.
+ */
+export function computeCoveredCallTick(
+  etf: StockState,
+  underlyingTickReturn: number,
+  dtSeconds: number,
+): { price: number; premiumReserve: number } {
+  const upsideCapture = Math.min(
+    1,
+    Math.max(0, etf.coveredCallUpsideCapture ?? 0.65),
+  );
+  const strategyReturn =
+    underlyingTickReturn > 0
+      ? underlyingTickReturn * upsideCapture
+      : underlyingTickReturn;
+  const monthlyPremiumRate = (etf.coveredCallAnnualYield ?? 0) / 100 / 12;
+  const intervalSeconds =
+    COVERED_CALL_INTERVAL_DAYS * (SESSION_DURATION_MS / 1_000);
+  const premiumAccrual =
+    etf.currentPrice * monthlyPremiumRate * (dtSeconds / intervalSeconds);
+  const premiumWithReserve =
+    (etf.coveredCallPremiumReserve ?? 0) + premiumAccrual;
+  const wholePremium = Math.floor(premiumWithReserve);
+  const strategyPrice = Math.round(etf.currentPrice * (1 + strategyReturn));
+  return {
+    price: Math.max(strategyPrice + wholePremium, 100),
+    premiumReserve: premiumWithReserve - wholePremium,
+  };
+}
+
 /** NAV 추종 ETF 가격: 상장가 × Σ(비중 × 구성종목 수익률) */
 export function computeEtfNav(
   etf: StockState,
@@ -221,7 +305,11 @@ export function computeEtfNav(
   }
 
   if (weightSum === 0) return etf.currentPrice;
-  return Math.max(Math.round(etf.initialPrice * (weightedReturn / weightSum)), 100);
+  const grossNav = etf.initialPrice * (weightedReturn / weightSum);
+  return Math.max(
+    Math.round(grossNav - (etf.navDistributionAdjustment ?? 0)),
+    100,
+  );
 }
 
 /** 표시용 미세 틱 (서버 모드 클라이언트 전용):
@@ -264,7 +352,9 @@ export function tickAllStocks(
 
   // 1차: 일반 종목 (파생 ETF 제외) — NAV·레버리지 계산의 기준이 된다
   const isDerived = (s: StockState) =>
-    Boolean(s.etfHoldings?.length) || s.leverage !== undefined;
+    Boolean(s.etfHoldings?.length) ||
+    s.leverage !== undefined ||
+    Boolean(s.coveredCallUnderlyingId);
   const ticked = stocks.map((stock) =>
     isDerived(stock)
       ? stock
@@ -281,6 +371,7 @@ export function tickAllStocks(
 
   // 2차: 파생 ETF — 같은 틱의 구성종목/지수 가격으로 산출
   const byId = new Map(ticked.map((s) => [s.id, s]));
+  const beforeById = new Map(stocks.map((s) => [s.id, s]));
   return ticked.map((stock) => {
     if (stock.etfHoldings?.length) {
       return applyTickPrice(stock, computeEtfNav(stock, byId), now);
@@ -291,6 +382,23 @@ export function tickAllStocks(
         computeLeveragedPrice(stock, underlyingReturn),
         now,
       );
+    }
+    if (stock.coveredCallUnderlyingId) {
+      const before = beforeById.get(stock.coveredCallUnderlyingId);
+      const after = byId.get(stock.coveredCallUnderlyingId);
+      const coveredCallReturn =
+        before && after && before.currentPrice > 0
+          ? after.currentPrice / before.currentPrice - 1
+          : 0;
+      const coveredCallTick = computeCoveredCallTick(
+        stock,
+        coveredCallReturn,
+        dtSeconds,
+      );
+      return {
+        ...applyTickPrice(stock, coveredCallTick.price, now),
+        coveredCallPremiumReserve: coveredCallTick.premiumReserve,
+      };
     }
     return stock;
   });

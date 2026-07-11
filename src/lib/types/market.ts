@@ -48,10 +48,16 @@ export interface StockDefinition {
   eventBias?: Record<string, number>;
   /** ETF 구성종목 (설정 시 NAV 추종 모드 — 가격이 구성종목 가중 수익률을 따라감) */
   etfHoldings?: EtfConstituent[];
-  /** 합성 ETF: V-NASDAQ 틱 수익률 × 배수 추종 (-1 인버스, -2 곱버스, 2 레버리지, 0.5 커버드콜) */
+  /** 합성 ETF: V-NASDAQ 틱 수익률 × 배수 추종 (-1 인버스, -2 곱버스, 2 레버리지) */
   leverage?: number;
-  /** 인컴 ETF: 20거래일 기준 총 지급률(%). 거래일 마감마다 1/20씩 보유자 현금으로 지급 */
-  incomeYield20?: number;
+  /** 커버드콜 ETF의 기초자산 종목 id */
+  coveredCallUnderlyingId?: string;
+  /** 커버드콜 ETF의 연 환산 목표 분배율(%). 실제 월 분배금은 옵션 프리미엄처럼 변동한다. */
+  coveredCallAnnualYield?: number;
+  /** 커버드콜 ETF의 기초자산 상승 참여율(0~1). 하락은 100% 반영한다. */
+  coveredCallUpsideCapture?: number;
+  /** 일반 주식·ETF의 분기 주당 배당금(센트). 60거래일마다 지급한다. */
+  quarterlyDividend?: number;
 }
 
 export interface EtfConstituent {
@@ -88,6 +94,10 @@ export interface OrderBook {
 
 export interface StockState extends StockDefinition {
   currentPrice: number;
+  /** 정수 센트 가격에 아직 반영되지 않은 커버드콜 옵션 프리미엄(0 이상 1 미만 센트) */
+  coveredCallPremiumReserve?: number;
+  /** NAV 추종 ETF가 지급한 누적 주당 분배금. 원 NAV에서 차감해 배당락 스냅백을 막는다. */
+  navDistributionAdjustment?: number;
   /** 전일 종가 — 등락률 기준 */
   prevDayClose: number;
   /** 당일 시초가 */
@@ -132,6 +142,21 @@ export interface Trade {
   timestamp: number;
 }
 
+export type CashPaymentKind = "salary" | "covered_call" | "dividend";
+
+/** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
+export interface CashPayment {
+  id: string;
+  kind: CashPaymentKind;
+  sourceId: string;
+  ticker?: string;
+  dueSession: number;
+  quantity?: number;
+  amountPerShare?: number;
+  amount: number;
+  timestamp: number;
+}
+
 export interface MarketEvent {
   id: string;
   title: string;
@@ -147,8 +172,15 @@ export interface MarketSnapshot {
   tick: number;
   marketStartedAt: number;
   cash: number;
+  /** 마지막 월급 지급 기준 거래일. 이 시점부터 20거래일마다 고정급 지급 */
+  lastSalarySession: number;
+  /** 마지막으로 처리한 커버드콜 월 분배 기준 거래일 */
+  lastMonthlyDistributionSession: number;
+  /** 마지막으로 처리한 일반 종목 분기 배당 기준 거래일 */
+  lastQuarterlyDividendSession: number;
   holdings: Holding[];
   trades: Trade[];
+  cashPayments: CashPayment[];
   stocks: StockState[];
   events: MarketEvent[];
   initialCash: number;

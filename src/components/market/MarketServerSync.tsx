@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
-import type { ServerMarketState } from "@/lib/market/serverState";
+import {
+  parseMarketRow,
+  type ServerMarketState,
+} from "@/lib/market/serverState";
 import { MarketRealtime } from "@/components/market/MarketRealtime";
 import { fetchMarketState, fetchPortfolio } from "@/lib/supabase/queries";
 
@@ -51,14 +54,11 @@ export function MarketServerSync() {
             market_started_at: number;
             stocks: ServerMarketState["stocks"];
             events: ServerMarketState["events"];
+            last_monthly_distribution_session?: number;
+            last_quarterly_dividend_session?: number;
           };
           if (row?.stocks) {
-            syncMarket({
-              tick: row.tick,
-              marketStartedAt: row.market_started_at,
-              stocks: row.stocks,
-              events: row.events ?? [],
-            });
+            syncMarket(parseMarketRow({ ...row, events: row.events ?? [] }));
           }
         },
       )

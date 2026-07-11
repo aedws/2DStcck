@@ -180,12 +180,30 @@ function StockInfoTab({ stock }: { stock: StockState }) {
               <dd className="tabular-nums">×{stock.leverage}</dd>
             </div>
           )}
-          {stock.incomeYield20 !== undefined && (
+          {stock.coveredCallAnnualYield !== undefined && (
             <div className="flex flex-col gap-0.5">
-              <dt className="text-[11px] text-[var(--muted)]">인컴 지급</dt>
+              <dt className="text-[11px] text-[var(--muted)]">월 분배</dt>
               <dd className="tabular-nums">
-                20거래일 {stock.incomeYield20}% (매 거래일{" "}
-                {(stock.incomeYield20 / 20).toFixed(1)}%)
+                20거래일마다 · 연 목표 {stock.coveredCallAnnualYield}%
+              </dd>
+              <dd className="text-[10px] text-[var(--muted)]">
+                옵션 프리미엄에 따라 금액 변동
+              </dd>
+            </div>
+          )}
+          {stock.coveredCallUpsideCapture !== undefined && (
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">상승 참여율</dt>
+              <dd className="tabular-nums">
+                {(stock.coveredCallUpsideCapture * 100).toFixed(0)}% (하락 100%)
+              </dd>
+            </div>
+          )}
+          {stock.quarterlyDividend !== undefined && (
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">분기 배당</dt>
+              <dd className="tabular-nums">
+                60거래일마다 {formatPrice(stock.quarterlyDividend)}/주
               </dd>
             </div>
           )}

@@ -77,10 +77,11 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     volatility: 0.01,
     drift: 0,
     beta: 0,
-    leverage: 0.5,
-    incomeYield20: 10,
+    coveredCallUnderlyingId: "vnasdaq",
+    coveredCallAnnualYield: 12,
+    coveredCallUpsideCapture: 0.65,
     description:
-      "지수 움직임을 절반만 따라가는 대신, 20거래일 기준 10%의 인컴을 거래일마다 나눠 지급하는 커버드콜 ETF. 게임이 막혔을 때의 안전판.",
+      "V-NASDAQ을 보유하면서 콜옵션 프리미엄을 수취하는 커버드콜 ETF. 하락은 그대로 반영되고 상승 일부를 포기하는 대신, 변동 가능한 월 분배금을 20거래일마다 지급한다.",
   },
 ];
 

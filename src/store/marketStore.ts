@@ -20,6 +20,7 @@ import {
   isOrderSuccess,
 } from "@/lib/market/trading";
 import type {
+  CashPayment,
   Holding,
   MarketEvent,
   MarketSnapshot,
@@ -30,6 +31,8 @@ import type {
   Trade,
 } from "@/lib/types/market";
 import { generateOrderBook } from "@/lib/market/orderBook";
+import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { settleLocalCashflows } from "@/lib/market/cashflows";
 import { createClient } from "@/lib/supabase/client";
 import {
   cancelOpenOrder,
@@ -63,8 +66,10 @@ interface MarketStore extends MarketSnapshot {
   syncUserFromServer: (data: {
     cash: number;
     initialCash: number;
+    lastSalarySession: number;
     holdings: Holding[];
     trades: Trade[];
+    cashPayments: CashPayment[];
   }) => void;
   placeOrder: (
     stockId: string,
@@ -72,6 +77,8 @@ interface MarketStore extends MarketSnapshot {
     orderType: OrderType,
   ) => Promise<OrderResult>;
   tickMarket: () => void;
+  /** 주문 전·복원 직후 밀린 급여와 투자 분배금을 정산 */
+  settleCashflows: () => void;
   /** 서버 모드 표시용 미세 틱 */
   microTick: () => void;
   buyMarket: (stockId: string, quantity: number) => OrderResult;
@@ -95,8 +102,12 @@ function createInitialState(): MarketSnapshot & {
     marketStartedAt: now,
     cash: INITIAL_CASH,
     initialCash: INITIAL_CASH,
+    lastSalarySession: Math.floor(now / SESSION_DURATION_MS),
+    lastMonthlyDistributionSession: Math.floor(now / SESSION_DURATION_MS),
+    lastQuarterlyDividendSession: Math.floor(now / SESSION_DURATION_MS),
     holdings: [],
     trades: [],
+    cashPayments: [],
     stocks: STOCK_DEFINITIONS.map(createInitialStockState),
     events: [],
     userId: null,
@@ -129,6 +140,8 @@ function applyLocalBuySell(
   stockId: string,
   quantity: number,
 ): OrderResult {
+  // 지급 경계 뒤 첫 매매라면 기존 보유 수량으로 먼저 정산한다.
+  get().settleCashflows();
   const state = get();
   const stock = state.stocks.find((s) => s.id === stockId);
   if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
@@ -212,6 +225,10 @@ export const useMarketStore = create<MarketStore>()(
           marketStartedAt: state.marketStartedAt,
           stocks: state.stocks.map(migrateStock),
           events: state.events as MarketEvent[],
+          lastMonthlyDistributionSession:
+            state.lastMonthlyDistributionSession,
+          lastQuarterlyDividendSession:
+            state.lastQuarterlyDividendSession,
           serverPrices: Object.fromEntries(
             state.stocks.map((s) => [s.id, s.currentPrice]),
           ),
@@ -222,8 +239,10 @@ export const useMarketStore = create<MarketStore>()(
         set({
           cash: data.cash,
           initialCash: data.initialCash,
+          lastSalarySession: data.lastSalarySession,
           holdings: data.holdings,
           trades: data.trades,
+          cashPayments: data.cashPayments,
         });
       },
 
@@ -343,7 +362,8 @@ export const useMarketStore = create<MarketStore>()(
 
       tickMarket: () => {
         if (IS_SERVER_MODE) return;
-        const { tick, stocks, events, holdings, cash } = get();
+        const state = get();
+        const { tick, stocks, events } = state;
         const now = Date.now();
         const nextTick = tick + 1;
         const newEvent = maybeGenerateEvent(nextTick, now, events);
@@ -352,27 +372,46 @@ export const useMarketStore = create<MarketStore>()(
           : events;
         // 로컬 모드는 1초 틱
         const updatedStocks = tickAllStocks(stocks, allEvents, now, nextTick, 1);
-
-        // 거래일 마감 시 인컴 ETF 분배금 지급 (20거래일 기준 지급률의 1/20)
-        const prevSession = stocks[0]?.daySessionId;
-        const newSession = updatedStocks[0]?.daySessionId;
-        let income = 0;
-        if (prevSession !== undefined && newSession !== prevSession) {
-          for (const stock of updatedStocks) {
-            if (!stock.incomeYield20) continue;
-            const held = holdings.find((h) => h.stockId === stock.id);
-            if (!held || held.quantity <= 0) continue;
-            income += Math.floor(
-              held.quantity * stock.currentPrice * (stock.incomeYield20 / 100 / 20),
-            );
-          }
-        }
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const settled = settleLocalCashflows(
+          { ...state, stocks: updatedStocks },
+          currentSession,
+          now,
+        );
 
         set({
           tick: nextTick,
-          stocks: updatedStocks,
           events: allEvents,
-          ...(income > 0 ? { cash: cash + income } : {}),
+          cash: settled.cash,
+          stocks: settled.stocks,
+          lastSalarySession: settled.lastSalarySession,
+          lastMonthlyDistributionSession:
+            settled.lastMonthlyDistributionSession,
+          lastQuarterlyDividendSession:
+            settled.lastQuarterlyDividendSession,
+          cashPayments: settled.cashPayments,
+        });
+      },
+
+      settleCashflows: () => {
+        if (IS_SERVER_MODE) return;
+        const state = get();
+        const now = Date.now();
+        const settled = settleLocalCashflows(
+          state,
+          Math.floor(now / SESSION_DURATION_MS),
+          now,
+        );
+        if (!settled.changed) return;
+        set({
+          cash: settled.cash,
+          stocks: settled.stocks,
+          lastSalarySession: settled.lastSalarySession,
+          lastMonthlyDistributionSession:
+            settled.lastMonthlyDistributionSession,
+          lastQuarterlyDividendSession:
+            settled.lastQuarterlyDividendSession,
+          cashPayments: settled.cashPayments,
         });
       },
 
@@ -405,8 +444,14 @@ export const useMarketStore = create<MarketStore>()(
               marketStartedAt: state.marketStartedAt,
               cash: state.cash,
               initialCash: state.initialCash,
+              lastSalarySession: state.lastSalarySession,
+              lastMonthlyDistributionSession:
+                state.lastMonthlyDistributionSession,
+              lastQuarterlyDividendSession:
+                state.lastQuarterlyDividendSession,
               holdings: state.holdings,
               trades: state.trades,
+              cashPayments: state.cashPayments,
               stocks: state.stocks,
               events: state.events,
             },
@@ -424,6 +469,22 @@ export const useMarketStore = create<MarketStore>()(
         return {
           ...merged,
           stocks: [...restored, ...added],
+          lastSalarySession: Number.isSafeInteger(merged.lastSalarySession)
+            ? merged.lastSalarySession
+            : Math.floor(Date.now() / SESSION_DURATION_MS),
+          lastMonthlyDistributionSession: Number.isSafeInteger(
+            merged.lastMonthlyDistributionSession,
+          )
+            ? merged.lastMonthlyDistributionSession
+            : Math.floor(Date.now() / SESSION_DURATION_MS),
+          lastQuarterlyDividendSession: Number.isSafeInteger(
+            merged.lastQuarterlyDividendSession,
+          )
+            ? merged.lastQuarterlyDividendSession
+            : Math.floor(Date.now() / SESSION_DURATION_MS),
+          cashPayments: Array.isArray(merged.cashPayments)
+            ? merged.cashPayments
+            : [],
           userId: null,
           isReady: false,
         };

@@ -16,6 +16,8 @@ mkdirSync(outDir, { recursive: true });
 const FILES = [
   ["src/lib/types/market.ts", "types.ts"],
   ["src/lib/market/constants.ts", "constants.ts"],
+  ["src/lib/market/salary.ts", "salary.ts"],
+  ["src/lib/market/distributions.ts", "distributions.ts"],
   ["src/data/stocks.ts", "stocks.ts"],
   ["src/data/characters.ts", "characters.ts"],
   ["src/data/generated.ts", "generated.ts"],
@@ -28,6 +30,8 @@ const FILES = [
 const IMPORT_MAP = {
   "@/lib/types/market": "./types.ts",
   "@/lib/market/constants": "./constants.ts",
+  "@/lib/market/salary": "./salary.ts",
+  "@/lib/market/distributions": "./distributions.ts",
   "@/lib/market/orderBook": "./orderBook.ts",
   "@/lib/market/engine": "./engine.ts",
   "@/lib/market/trading": "./trading.ts",

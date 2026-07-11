@@ -7,6 +7,7 @@ import { MarketSyncRouter } from "@/components/market/MarketServerSync";
 export function StoreHydration({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(IS_SERVER_MODE);
   const setStoreReady = useMarketStore((s) => s.setReady);
+  const settleCashflows = useMarketStore((s) => s.settleCashflows);
 
   useEffect(() => {
     if (IS_SERVER_MODE) {
@@ -16,6 +17,7 @@ export function StoreHydration({ children }: { children: ReactNode }) {
     }
 
     const unsub = useMarketStore.persist.onFinishHydration(() => {
+      settleCashflows();
       setStoreReady(true);
       setReady(true);
     });
@@ -23,12 +25,13 @@ export function StoreHydration({ children }: { children: ReactNode }) {
     useMarketStore.persist.rehydrate();
 
     if (useMarketStore.persist.hasHydrated()) {
+      settleCashflows();
       setStoreReady(true);
       setReady(true);
     }
 
     return unsub;
-  }, [setStoreReady]);
+  }, [setStoreReady, settleCashflows]);
 
   if (!ready) {
     return (

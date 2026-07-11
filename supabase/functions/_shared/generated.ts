@@ -72,6 +72,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "신제품": 0,
       "실적": 0.3
     },
+    "quarterlyDividend": 130,
     "ceoId": "chr_bamlb"
   },
   {
@@ -217,6 +218,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
         "weight": 0.06
       }
     ],
+    "quarterlyDividend": 540,
     "ceoId": "chr_baspy"
   },
   {
@@ -249,6 +251,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "신제품": 0,
       "실적": 0.3
     },
+    "quarterlyDividend": 125,
     "ceoId": "chr_bakvb"
   },
   {
@@ -282,6 +285,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "신제품": 0,
       "실적": 0.5
     },
+    "quarterlyDividend": 160,
     "ceoId": "chr_baabb"
   },
   {
@@ -407,6 +411,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "신제품": 0,
       "실적": 0.5
     },
+    "quarterlyDividend": 155,
     "ceoId": "chr_baghb"
   },
   {
@@ -531,6 +536,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "신제품": 0,
       "실적": 0.3
     },
+    "quarterlyDividend": 130,
     "ceoId": "chr_batrb"
   },
   {
@@ -546,6 +552,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "eventBias": {
       "실적": 2
     },
+    "quarterlyDividend": 140,
     "ceoId": "chr_wwjin"
   },
   {
@@ -561,6 +568,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "eventBias": {
       "수주": 2
     },
+    "quarterlyDividend": 210,
     "ceoId": "chr_wwchl"
   },
   {
@@ -606,6 +614,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "eventBias": {
       "실적": 1.5
     },
+    "quarterlyDividend": 95,
     "ceoId": "chr_wwskp"
   },
   {
@@ -668,6 +677,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "eventBias": {
       "실적": 2
     },
+    "quarterlyDividend": 70,
     "ceoId": "chr_nkneo"
   },
   {
@@ -754,7 +764,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
         "stockId": "baabb",
         "weight": 0.15
       }
-    ]
+    ],
+    "quarterlyDividend": 125
   }
 ];
 

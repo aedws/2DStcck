@@ -21,6 +21,7 @@
  *   ceoBio      캐릭터 한 줄 설정
  *   ceoEmoji    아바타 이모지 (빈칸이면 👤)
  *   etfHoldings ETF 구성종목 "티커:비중;티커:비중" (설정 시 NAV 추종 모드, 비중은 자동 정규화)
+ *   quarterlyDividend  분기 배당: 60거래일마다 지급할 주당 금액(센트, 정수). 빈칸 = 무배당
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,7 +34,7 @@ const outPath = join(root, "src", "data", "generated.ts");
 const HEADER = [
   "ticker", "name", "sector", "initialPrice", "volatility", "drift", "beta",
   "description", "logo", "eventBias", "ceoName", "ceoTitle", "ceoTraits", "ceoBio", "ceoEmoji",
-  "etfHoldings",
+  "etfHoldings", "quarterlyDividend",
 ];
 
 /** 코드 관리 코어 종목 (구성종목 참조 검증용) */
@@ -171,6 +172,14 @@ rows.forEach((cols, idx) => {
       stockId: h.stockId,
       weight: Math.round((h.weight / total) * 10000) / 10000,
     }));
+  }
+
+  const dividendRaw = get("quarterlyDividend");
+  if (dividendRaw) {
+    const dividend = parseNumber(dividendRaw, "quarterlyDividend", line, { integer: true });
+    if (dividend === null) return;
+    if (dividend < 0) return fail(line, "quarterlyDividend는 0 이상");
+    if (dividend > 0) company.quarterlyDividend = dividend;
   }
 
   const ceoName = get("ceoName");

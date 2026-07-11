@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:cashflows": "node --experimental-strip-types scripts/test-cashflows.mjs",
     "sync:functions": "node scripts/sync-functions.mjs",
     "import:companies": "node scripts/import-companies.mjs && node scripts/sync-functions.mjs"
   },

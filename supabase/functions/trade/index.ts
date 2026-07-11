@@ -9,6 +9,12 @@ import {
   isOrderSuccess,
 } from "../_shared/trading.ts";
 import type { Holding, StockState } from "../_shared/types.ts";
+import { SESSION_DURATION_MS } from "../_shared/constants.ts";
+import {
+  COVERED_CALL_INTERVAL_DAYS,
+  QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+  settleDistributionSchedule,
+} from "../_shared/distributions.ts";
 
 type OrderType =
   | "buy_market"
@@ -106,6 +112,26 @@ Deno.serve(async (req) => {
     }
 
     const market = parseMarketRow(marketRow);
+    const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+    const monthlyPending = settleDistributionSchedule(
+      market.lastMonthlyDistributionSession,
+      currentSession,
+      COVERED_CALL_INTERVAL_DAYS,
+    ).dueSessions.length > 0;
+    const quarterlyPending = settleDistributionSchedule(
+      market.lastQuarterlyDividendSession,
+      currentSession,
+      QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+    ).dueSessions.length > 0;
+    if (monthlyPending || quarterlyPending) {
+      return json(
+        {
+          success: false,
+          message: "배당 기준 수량을 정산 중입니다. 잠시 후 다시 시도해 주세요.",
+        },
+        409,
+      );
+    }
     const stock = market.stocks.find((s) => s.id === stockId);
     if (!stock) {
       return json({ error: "종목을 찾을 수 없습니다." }, 404);
@@ -181,7 +207,21 @@ Deno.serve(async (req) => {
       return json({ success: false, message: result.message });
     }
 
-    await admin.from("profiles").update({ cash: result.cash }).eq("id", user.id);
+    // 읽은 뒤 급여/다른 주문이 잔액을 바꿨다면 오래된 절대값으로 덮어쓰지 않는다.
+    const { data: updatedProfile, error: cashError } = await admin
+      .from("profiles")
+      .update({ cash: result.cash })
+      .eq("id", user.id)
+      .eq("cash", profile.cash)
+      .select("cash")
+      .maybeSingle();
+    if (cashError) throw cashError;
+    if (!updatedProfile) {
+      return json({
+        success: false,
+        message: "잔액이 변경되었습니다. 주문을 다시 시도해 주세요.",
+      });
+    }
 
     const existingIds = new Set(holdings.map((h) => h.stockId));
     const newIds = new Set(result.holdings.map((h) => h.stockId));

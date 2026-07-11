@@ -17,7 +17,12 @@ npm run dev
 ### 1. Supabase 프로젝트
 
 1. [supabase.com](https://supabase.com) 에서 프로젝트 생성
-2. **SQL Editor** → `supabase/migrations/001_initial.sql` 실행
+2. **SQL Editor** → 아래 스키마 마이그레이션을 순서대로 실행
+   - `001_initial.sql`
+   - `004_minimal_auth.sql`
+   - `005_limit_orders.sql`
+   - `006_fixed_salary.sql`
+   - `007_periodic_distributions.sql`
 3. **Authentication** → Email 활성화
 
 ### 2. Edge Functions 배포
@@ -34,13 +39,14 @@ supabase functions deploy tick-market
 supabase functions deploy trade
 ```
 
-`tick-market`은 anon key JWT + 시간 게이트(50초 내 재호출 무시)로 보호되어
+`tick-market`은 anon key JWT + 시간 게이트(8초 내 재호출 무시)로 보호되어
 별도 시크릿이 필요 없습니다.
 
-### 3. 1분 tick 스케줄 (pg_cron)
+### 3. 10초 tick 스케줄 (pg_cron)
 
-`supabase/migrations/002_cron_tick.sql` 을 열어 `YOUR_PROJECT_REF`, `YOUR_ANON_KEY` 를
+`supabase/migrations/003_cron_10s.sql` 을 열어 `YOUR_PROJECT_REF`, `YOUR_ANON_KEY` 를
 교체한 뒤 **SQL Editor** 에서 실행. (Dashboard → Integrations → Cron 에서도 확인 가능)
+`002_cron_tick.sql`은 과거 1분 스케줄용이므로 신규 설치에서는 실행하지 않습니다.
 
 ### 4. GitHub Pages
 
@@ -61,12 +67,34 @@ supabase functions deploy trade
 | 주가·호가·이벤트 | `market_global` (Supabase) | Realtime |
 | 유저 현금·보유 | `profiles`, `holdings` | supabase-js 직접 조회 + Realtime |
 | 거래 | `trades` | Edge Function `trade` |
+| 고정급 지급 원장 | `salary_payments` | Edge Function `tick-market` + 원자 RPC |
+| 월 분배·분기 배당 원장 | `distribution_events`, `distribution_payments` | Edge Function `tick-market` + 원자 RPC |
 
-- **서버 시장 엔진**: pg_cron(1분) → Edge Function `tick-market` → 10틱 진행
+- **서버 시장 엔진**: pg_cron(10초) → Edge Function `tick-market` → 1틱 진행
 - **주문**: 로그인 후 Edge Function `trade` (서버가 현재 시세로 체결, JWT 검증)
 - **클라이언트**: 정적 페이지 + supabase-js (RLS로 보호) + Realtime 구독
 - **공유 로직**: `src/lib/market/*` 이 원본, `supabase/functions/_shared/` 는
   `npm run sync:functions` 로 생성되는 복사본 (직접 수정 금지)
+
+## 20거래일 고정급
+
+- 계정 생성(로컬은 게임 초기화) 시점부터 20거래일마다 `$10,000`을 현금으로 지급합니다.
+- 앱을 오래 닫아 여러 주기가 지난 경우 누락된 급여를 다음 실행에서 한 번에 정산합니다.
+- Supabase 모드는 `salary_payments` 원장으로 같은 급여의 중복 지급을 막습니다.
+- 금액과 주기는 `src/lib/market/salary.ts`의 `SALARY_AMOUNT`,
+  `SALARY_INTERVAL_DAYS`에서 조정합니다. 변경 후 `npm run sync:functions`와
+  `tick-market` 재배포가 필요합니다.
+
+## 투자 현금흐름
+
+- `VNCC`는 V-NASDAQ 하락을 그대로 반영하고 상승의 65%에 참여하면서 옵션
+  프리미엄을 쌓는 커버드콜 ETF입니다. 20거래일마다 당시 기준가와 연 목표
+  분배율을 바탕으로 변동형 월 분배금을 지급합니다.
+- 일반 주식·ETF의 `quarterlyDividend`는 주당 센트 금액이며 60거래일마다
+  분기 배당으로 지급합니다. 빈칸은 무배당입니다.
+- 지급일 직전 보유 수량을 기준으로 입금하고, 지급액만큼 배당락 가격을 반영합니다.
+- 앱이나 서버가 오래 멈춘 경우 밀린 회차를 이어서 처리합니다. 서버 모드는 지급
+  이벤트·보유 수량·현금 입금을 한 트랜잭션에 기록해 재시도 중복을 막습니다.
 
 ## 종목(캐릭터 회사) 추가 — CSV
 
@@ -91,6 +119,7 @@ supabase functions deploy trade
 | `ceoBio` | | 캐릭터 한 줄 설정 | `모습을 드러내지 않고...` |
 | `ceoEmoji` | | 아바타 이모지 (기본 👤) | `🛰️` |
 | `etfHoldings` | | ETF 구성종목 `티커:비중;티커:비중` — 설정 시 NAV 추종(가격이 구성종목 가중 수익률을 따라감), 비중 자동 정규화 | `BAGDI:0.3;BAVTS:0.2` |
+| `quarterlyDividend` | | 60거래일마다 지급할 주당 배당금(센트). 빈칸은 무배당 | `125` |
 
 - UTF-8 인코딩. 필드에 쉼표가 들어가면 `"..."` 로 감싼다(엑셀 저장 그대로 OK).
 - 현재 이벤트 태그: `수주` `신제품` `실적` `스캔들` `행보` (company) — `eventBias` 로 회사별 발생 확률을 조절.

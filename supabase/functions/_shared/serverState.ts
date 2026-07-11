@@ -1,6 +1,9 @@
 // AUTO-GENERATED from src/lib/market/serverState.ts — edit the original and run `npm run sync:functions`
 import { STOCK_DEFINITIONS } from "./stocks.ts";
-import { SERVER_TICK_SECONDS } from "./constants.ts";
+import {
+  SERVER_TICK_SECONDS,
+  SESSION_DURATION_MS,
+} from "./constants.ts";
 import {
   createInitialStockState,
   maybeGenerateEvent,
@@ -11,14 +14,19 @@ import type { MarketEvent, StockState } from "./types.ts";
 export interface ServerMarketState {
   tick: number;
   marketStartedAt: number;
+  lastMonthlyDistributionSession: number;
+  lastQuarterlyDividendSession: number;
   stocks: StockState[];
   events: MarketEvent[];
 }
 
 export function createInitialMarketState(): ServerMarketState {
+  const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
   return {
     tick: 0,
     marketStartedAt: Date.now(),
+    lastMonthlyDistributionSession: currentSession,
+    lastQuarterlyDividendSession: currentSession,
     stocks: STOCK_DEFINITIONS.map(createInitialStockState),
     events: [],
   };
@@ -29,7 +37,18 @@ export function createInitialMarketState(): ServerMarketState {
 export function applyDefinitionOverlay(stock: StockState): StockState {
   const def = STOCK_DEFINITIONS.find((d) => d.id === stock.id);
   if (!def) return stock;
-  return { ...stock, ...def };
+  return {
+    ...def,
+    currentPrice: stock.currentPrice,
+    coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
+    navDistributionAdjustment: stock.navDistributionAdjustment,
+    prevDayClose: stock.prevDayClose,
+    dayOpen: stock.dayOpen,
+    daySessionId: stock.daySessionId,
+    priceHistory: stock.priceHistory,
+    candles: stock.candles,
+    orderBook: stock.orderBook,
+  };
 }
 
 /** 정의에 새로 추가된 종목 편입 + 최신 정의 오버레이 + 삭제된 종목 정리 */
@@ -54,7 +73,11 @@ export function advanceMarket(
   tickCount = 1,
 ): ServerMarketState {
   let { tick, stocks, events } = ensureDefinedStocks(state);
-  const { marketStartedAt } = state;
+  const {
+    marketStartedAt,
+    lastMonthlyDistributionSession,
+    lastQuarterlyDividendSession,
+  } = state;
 
   for (let i = 0; i < tickCount; i++) {
     const now = Date.now();
@@ -68,7 +91,14 @@ export function advanceMarket(
     events = allEvents;
   }
 
-  return { tick, marketStartedAt, stocks, events };
+  return {
+    tick,
+    marketStartedAt,
+    lastMonthlyDistributionSession,
+    lastQuarterlyDividendSession,
+    stocks,
+    events,
+  };
 }
 
 export function parseMarketRow(row: {
@@ -76,11 +106,32 @@ export function parseMarketRow(row: {
   market_started_at: number;
   stocks: unknown;
   events: unknown;
+  last_monthly_distribution_session?: number | string | null;
+  last_quarterly_dividend_session?: number | string | null;
 }): ServerMarketState {
+  const stocks = row.stocks as StockState[];
+  const fallbackSession =
+    stocks[0]?.daySessionId ?? Math.floor(Date.now() / SESSION_DURATION_MS);
+  const monthly =
+    row.last_monthly_distribution_session === null ||
+    row.last_monthly_distribution_session === undefined
+      ? Number.NaN
+      : Number(row.last_monthly_distribution_session);
+  const quarterly =
+    row.last_quarterly_dividend_session === null ||
+    row.last_quarterly_dividend_session === undefined
+      ? Number.NaN
+      : Number(row.last_quarterly_dividend_session);
   return {
     tick: row.tick,
     marketStartedAt: row.market_started_at,
-    stocks: row.stocks as StockState[],
+    lastMonthlyDistributionSession: Number.isSafeInteger(monthly)
+      ? monthly
+      : fallbackSession,
+    lastQuarterlyDividendSession: Number.isSafeInteger(quarterly)
+      ? quarterly
+      : fallbackSession,
+    stocks,
     events: row.events as MarketEvent[],
   };
 }

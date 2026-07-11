@@ -8,12 +8,23 @@ import {
   parseMarketRow,
   type ServerMarketState,
 } from "../_shared/serverState.ts";
+import { applyCashDistributionToStock } from "../_shared/engine.ts";
 import {
   executeBuy,
   executeSell,
   isOrderSuccess,
 } from "../_shared/trading.ts";
 import { STOCK_DEFINITIONS } from "../_shared/stocks.ts";
+import {
+  calculateCoveredCallDistribution,
+  COVERED_CALL_INTERVAL_DAYS,
+  QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+  settleDistributionSchedule,
+} from "../_shared/distributions.ts";
+import {
+  SALARY_AMOUNT,
+  SALARY_INTERVAL_DAYS,
+} from "../_shared/salary.ts";
 import type { Holding } from "../_shared/types.ts";
 
 const TICKS_PER_RUN = 1;
@@ -86,10 +97,16 @@ async function matchOpenOrders(
       continue;
     }
 
-    await admin
+    const { data: updatedProfile, error: cashError } = await admin
       .from("profiles")
       .update({ cash: result.cash })
-      .eq("id", order.user_id);
+      .eq("id", order.user_id)
+      .eq("cash", profile.cash)
+      .select("cash")
+      .maybeSingle();
+    if (cashError) throw cashError;
+    // 급여·다른 주문과 겹치면 주문을 열어 둔 채 다음 tick에서 다시 시도한다.
+    if (!updatedProfile) continue;
 
     const newIds = new Set(result.holdings.map((h) => h.stockId));
     for (const h of holdings) {
@@ -135,41 +152,168 @@ async function matchOpenOrders(
   return filled;
 }
 
-/** 거래일 마감 시 인컴 ETF 보유자에게 분배금 지급 (20거래일 기준 지급률의 1/20) */
-async function payIncome(
+interface DistributionSummary {
+  state: ServerMarketState;
+  changed: boolean;
+  createdEvents: number;
+  paidRecipients: number;
+  paidAmount: number;
+}
+
+/** 월·분기 지급 이벤트를 원자 RPC로 발행하고 배당락 가격을 시장 상태에 반영한다. */
+async function processDistributions(
   admin: SupabaseClient,
-  state: ServerMarketState,
-): Promise<number> {
-  let paidUsers = 0;
-  const incomeDefs = STOCK_DEFINITIONS.filter((d) => d.incomeYield20);
+  initialState: ServerMarketState,
+): Promise<DistributionSummary> {
+  const currentSession = initialState.stocks[0]?.daySessionId;
+  if (currentSession === undefined) {
+    return {
+      state: initialState,
+      changed: false,
+      createdEvents: 0,
+      paidRecipients: 0,
+      paidAmount: 0,
+    };
+  }
 
-  for (const def of incomeDefs) {
-    const stock = state.stocks.find((s) => s.id === def.id);
-    if (!stock) continue;
-    const rate = (def.incomeYield20 ?? 0) / 100 / 20;
+  const monthly = settleDistributionSchedule(
+    initialState.lastMonthlyDistributionSession,
+    currentSession,
+    COVERED_CALL_INTERVAL_DAYS,
+  );
+  const quarterly = settleDistributionSchedule(
+    initialState.lastQuarterlyDividendSession,
+    currentSession,
+    QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+  );
+  const changed =
+    monthly.dueSessions.length > 0 || quarterly.dueSessions.length > 0;
+  if (!changed) {
+    return {
+      state: initialState,
+      changed: false,
+      createdEvents: 0,
+      paidRecipients: 0,
+      paidAmount: 0,
+    };
+  }
 
-    const { data: rows } = await admin
-      .from("holdings")
-      .select("user_id, quantity")
-      .eq("stock_id", def.id);
+  let stocks = initialState.stocks;
+  let createdEvents = 0;
+  let paidRecipients = 0;
+  let paidAmount = 0;
 
-    for (const row of rows ?? []) {
-      const income = Math.floor(row.quantity * stock.currentPrice * rate);
-      if (income <= 0) continue;
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("cash")
-        .eq("id", row.user_id)
-        .single();
-      if (!profile) continue;
-      await admin
-        .from("profiles")
-        .update({ cash: profile.cash + income })
-        .eq("id", row.user_id);
-      paidUsers++;
+  const issue = async (
+    stockId: string,
+    dueSession: number,
+    kind: "covered_call" | "dividend",
+    proposedAmountPerShare: number,
+  ) => {
+    const stock = stocks.find((candidate) => candidate.id === stockId);
+    if (!stock || proposedAmountPerShare <= 0) return;
+    const basePrice = Math.max(stock.prevDayClose || stock.currentPrice, 100);
+    const { data, error } = await admin.rpc("process_stock_distribution", {
+      p_stock_id: stock.id,
+      p_ticker: stock.ticker,
+      p_kind: kind,
+      p_due_session: dueSession,
+      p_base_price: basePrice,
+      p_amount_per_share: proposedAmountPerShare,
+    });
+    if (error) throw error;
+
+    const row = data?.[0] as
+      | {
+          event_created?: boolean;
+          settled_amount_per_share?: number | string;
+          paid_users?: number | string;
+          paid_amount?: number | string;
+        }
+      | undefined;
+    const amountPerShare = Number(
+      row?.settled_amount_per_share ?? proposedAmountPerShare,
+    );
+    if (!Number.isSafeInteger(amountPerShare) || amountPerShare <= 0) {
+      throw new Error("invalid settled distribution amount");
+    }
+
+    if (row?.event_created) createdEvents++;
+    paidRecipients += Number(row?.paid_users ?? 0);
+    paidAmount += Number(row?.paid_amount ?? 0);
+    stocks = stocks.map((candidate) =>
+      candidate.id === stock.id
+        ? applyCashDistributionToStock(candidate, amountPerShare, Date.now())
+        : candidate,
+    );
+  };
+
+  for (const dueSession of monthly.dueSessions) {
+    for (const definition of STOCK_DEFINITIONS.filter(
+      (candidate) => (candidate.coveredCallAnnualYield ?? 0) > 0,
+    )) {
+      const stock = stocks.find((candidate) => candidate.id === definition.id);
+      if (!stock) continue;
+      const basePrice = Math.max(stock.prevDayClose || stock.currentPrice, 100);
+      const proposed = calculateCoveredCallDistribution(
+        basePrice,
+        definition.coveredCallAnnualYield ?? 0,
+        definition.id,
+        dueSession,
+      );
+      await issue(definition.id, dueSession, "covered_call", proposed);
     }
   }
-  return paidUsers;
+
+  for (const dueSession of quarterly.dueSessions) {
+    for (const definition of STOCK_DEFINITIONS.filter(
+      (candidate) => (candidate.quarterlyDividend ?? 0) > 0,
+    )) {
+      await issue(
+        definition.id,
+        dueSession,
+        "dividend",
+        Math.round(definition.quarterlyDividend ?? 0),
+      );
+    }
+  }
+
+  return {
+    state: {
+      ...initialState,
+      stocks,
+      lastMonthlyDistributionSession: monthly.lastSession,
+      lastQuarterlyDividendSession: quarterly.lastSession,
+    },
+    changed: true,
+    createdEvents,
+    paidRecipients,
+    paidAmount,
+  };
+}
+
+/** 밀린 20거래일 고정급을 DB 원장에서 중복 없이 일괄 정산 */
+async function payFixedSalaries(
+  admin: SupabaseClient,
+  currentSession: number | undefined,
+): Promise<{ paidUsers: number; paidAmount: number }> {
+  if (currentSession === undefined) {
+    return { paidUsers: 0, paidAmount: 0 };
+  }
+
+  const { data, error } = await admin.rpc("process_fixed_salaries", {
+    p_current_session: currentSession,
+    p_interval_days: SALARY_INTERVAL_DAYS,
+    p_amount: SALARY_AMOUNT,
+  });
+  if (error) throw error;
+
+  const summary = data?.[0] as
+    | { paid_users?: number | string; paid_amount?: number | string }
+    | undefined;
+  return {
+    paidUsers: Number(summary?.paid_users ?? 0),
+    paidAmount: Number(summary?.paid_amount ?? 0),
+  };
 }
 
 Deno.serve(async (_req) => {
@@ -202,7 +346,6 @@ Deno.serve(async (_req) => {
       ? parseMarketRow(existing)
       : createInitialMarketState();
 
-    const prevSession = state.stocks[0]?.daySessionId;
     state = advanceMarket(state, TICKS_PER_RUN);
     const newSession = state.stocks[0]?.daySessionId;
 
@@ -210,27 +353,88 @@ Deno.serve(async (_req) => {
       id: "global",
       tick: state.tick,
       market_started_at: state.marketStartedAt,
+      last_monthly_distribution_session:
+        state.lastMonthlyDistributionSession,
+      last_quarterly_dividend_session:
+        state.lastQuarterlyDividendSession,
       stocks: state.stocks,
       events: state.events,
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await admin.from("market_global").upsert(payload);
-    if (error) throw error;
+    // SELECT 기반 시간 게이트를 동시에 통과한 요청 중 하나만 후속 지급·체결을 수행한다.
+    if (existing) {
+      const { data: saved, error } = await admin
+        .from("market_global")
+        .update(payload)
+        .eq("id", "global")
+        .eq("tick", existing.tick)
+        .select("tick")
+        .maybeSingle();
+      if (error) throw error;
+      if (!saved) {
+        return Response.json({
+          ok: true,
+          skipped: true,
+          reason: "concurrent_tick",
+        });
+      }
+    } else {
+      const { error } = await admin.from("market_global").insert(payload);
+      if (error?.code === "23505") {
+        return Response.json({
+          ok: true,
+          skipped: true,
+          reason: "concurrent_tick",
+        });
+      }
+      if (error) throw error;
+    }
+
+    // 지급 이벤트 발행과 현금 입금을 먼저 확정한 뒤 배당락 가격·체크포인트를 저장한다.
+    // 지급 뒤 저장이 끊겨도 다음 tick에서 같은 이벤트 금액을 읽어 가격 조정만 재시도한다.
+    const distributions = await processDistributions(admin, state);
+    state = distributions.state;
+    if (distributions.changed) {
+      const { data: finalized, error } = await admin
+        .from("market_global")
+        .update({
+          stocks: state.stocks,
+          last_monthly_distribution_session:
+            state.lastMonthlyDistributionSession,
+          last_quarterly_dividend_session:
+            state.lastQuarterlyDividendSession,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", "global")
+        .eq("tick", state.tick)
+        .select("tick")
+        .maybeSingle();
+      if (error) throw error;
+      if (!finalized) {
+        return Response.json({
+          ok: true,
+          skipped: true,
+          reason: "distribution_finalize_raced",
+        });
+      }
+    }
+
+    // 경계 tick이 중간 실패해도 다음 tick에서 재시도하도록 매번 호출한다 (대부분 no-op).
+    const salary = await payFixedSalaries(admin, newSession);
 
     const filled = await matchOpenOrders(admin, state);
 
-    // 거래일이 넘어갔으면 인컴 ETF 분배금 지급
-    let incomePaid = 0;
-    if (
-      prevSession !== undefined &&
-      newSession !== undefined &&
-      newSession !== prevSession
-    ) {
-      incomePaid = await payIncome(admin, state);
-    }
-
-    return Response.json({ ok: true, tick: state.tick, filled, incomePaid });
+    return Response.json({
+      ok: true,
+      tick: state.tick,
+      filled,
+      distributionEvents: distributions.createdEvents,
+      distributionPaidRecipients: distributions.paidRecipients,
+      distributionPaidAmount: distributions.paidAmount,
+      salaryPaidUsers: salary.paidUsers,
+      salaryPaidAmount: salary.paidAmount,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "tick failed";
     return Response.json({ error: message }, { status: 500 });
