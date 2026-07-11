@@ -111,6 +111,11 @@ Deno.serve(async (req) => {
       return json({ error: "종목을 찾을 수 없습니다." }, 404);
     }
 
+    // 선물은 선행지표 — 거래 불가
+    if (stock.sector === "선물") {
+      return json({ error: "선물은 선행지표라 거래할 수 없습니다." }, 400);
+    }
+
     // ── 지정가 주문: 대기 등록 (가격 도달 시 서버 틱에서 자동 체결) ──
     if (orderType === "buy_limit" || orderType === "sell_limit") {
       if (

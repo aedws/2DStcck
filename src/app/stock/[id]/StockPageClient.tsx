@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { FuturesView } from "./FuturesView";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
@@ -269,6 +270,11 @@ export function StockPageClient({ id }: { id: string }) {
         </Link>
       </div>
     );
+  }
+
+  // 선물은 선행지표 — 주문 없이 차트·뉴스 전용 화면
+  if (stock.sector === "선물") {
+    return <FuturesView stock={stock} />;
   }
 
   return (

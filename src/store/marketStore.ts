@@ -131,6 +131,9 @@ function applyLocalBuySell(
   const state = get();
   const stock = state.stocks.find((s) => s.id === stockId);
   if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
+  if (stock.sector === "선물") {
+    return { success: false, message: "선물은 선행지표라 거래할 수 없습니다." };
+  }
 
   let price: number;
   let label: string;
@@ -221,6 +224,12 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       placeOrder: async (stockId, quantity, orderType) => {
+        if (get().getStockById(stockId)?.sector === "선물") {
+          return {
+            success: false,
+            message: "선물은 선행지표라 거래할 수 없습니다.",
+          };
+        }
         if (!IS_SERVER_MODE) {
           switch (orderType) {
             case "buy_market":
@@ -272,6 +281,12 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       placeLimitOrder: async (stockId, price, quantity, side) => {
+        if (get().getStockById(stockId)?.sector === "선물") {
+          return {
+            success: false,
+            message: "선물은 선행지표라 거래할 수 없습니다.",
+          };
+        }
         if (!IS_SERVER_MODE || !get().userId) {
           return { success: false, message: "로그인 후 사용할 수 있습니다." };
         }
