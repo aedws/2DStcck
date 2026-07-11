@@ -1,4 +1,5 @@
 import { STOCK_DEFINITIONS } from "@/data/stocks";
+import { SERVER_TICK_SECONDS } from "@/lib/market/constants";
 import {
   createInitialStockState,
   maybeGenerateEvent,
@@ -61,7 +62,7 @@ export function advanceMarket(
     const allEvents = newEvent
       ? [...events, newEvent].slice(-50)
       : events;
-    stocks = tickAllStocks(stocks, allEvents, now, nextTick);
+    stocks = tickAllStocks(stocks, allEvents, now, nextTick, SERVER_TICK_SECONDS);
     tick = nextTick;
     events = allEvents;
   }

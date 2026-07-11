@@ -1,5 +1,6 @@
 // AUTO-GENERATED from src/lib/market/serverState.ts — edit the original and run `npm run sync:functions`
 import { STOCK_DEFINITIONS } from "./stocks.ts";
+import { SERVER_TICK_SECONDS } from "./constants.ts";
 import {
   createInitialStockState,
   maybeGenerateEvent,
@@ -62,7 +63,7 @@ export function advanceMarket(
     const allEvents = newEvent
       ? [...events, newEvent].slice(-50)
       : events;
-    stocks = tickAllStocks(stocks, allEvents, now, nextTick);
+    stocks = tickAllStocks(stocks, allEvents, now, nextTick, SERVER_TICK_SECONDS);
     tick = nextTick;
     events = allEvents;
   }

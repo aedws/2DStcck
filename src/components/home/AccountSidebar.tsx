@@ -3,7 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMarketStore } from "@/store/marketStore";
-import { formatPrice, formatTradeTime } from "@/lib/market/engine";
+import {
+  formatPrice,
+  formatSignedMoney,
+  formatTradeTime,
+} from "@/lib/market/engine";
 import {
   formatSignedPercent,
   upDownClass,
@@ -41,9 +45,7 @@ export function AccountSidebar() {
           {formatPrice(total)}
         </p>
         <p className={`mt-1 text-sm tabular-nums ${upDownClass(profit)}`}>
-          {profit >= 0 ? "+" : "-"}
-          {Math.abs(profit).toLocaleString("ko-KR")}원{" "}
-          {formatSignedPercent(returnRate)}
+          {formatSignedMoney(profit)} {formatSignedPercent(returnRate)}
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
           가용 현금 {formatPrice(cash)}

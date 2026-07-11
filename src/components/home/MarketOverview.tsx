@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import {
+  formatPrice,
+  formatStockValue,
   formatTradeTime,
   getDayChangeAmount,
   getDayChangePercent,
@@ -51,7 +53,8 @@ interface OverviewCard {
   name: string;
   tag?: string;
   tagImpact?: number;
-  value: number;
+  /** 표기 완료된 값 (지수·선물 = 포인트, 그 외 = $) */
+  valueDisplay: string;
   changePercent: number;
   history: number[];
 }
@@ -65,7 +68,7 @@ function buildCards(stocks: StockState[], events: MarketEvent[]): OverviewCard[]
       id: futures.id,
       name: futures.name,
       tag: "90초 선행",
-      value: futures.currentPrice,
+      valueDisplay: formatStockValue(futures, futures.currentPrice),
       changePercent: getDayChangePercent(futures),
       history: futures.priceHistory.map((p) => p.price),
     });
@@ -84,7 +87,7 @@ function buildCards(stocks: StockState[], events: MarketEvent[]): OverviewCard[]
       id: "vcomposite",
       name: "V-COMPOSITE",
       tag: "전 종목 평균",
-      value,
+      valueDisplay: formatPrice(Math.round(value)),
       changePercent,
       history: individual[0]?.priceHistory.map((p) => p.price) ?? [],
     });
@@ -105,7 +108,7 @@ function buildCards(stocks: StockState[], events: MarketEvent[]): OverviewCard[]
       name: s.name,
       tag: event?.tag,
       tagImpact: event?.impact,
-      value: s.currentPrice,
+      valueDisplay: formatStockValue(s, s.currentPrice),
       changePercent: getDayChangePercent(s),
       history: s.priceHistory.map((p) => p.price),
     });
@@ -201,7 +204,7 @@ export function MarketOverview({
                   )}
                 </p>
                 <p className="text-sm tabular-nums">
-                  {Math.round(card.value).toLocaleString("ko-KR")}{" "}
+                  {card.valueDisplay}{" "}
                   <span className={`text-xs ${upDownClass(card.changePercent)}`}>
                     {formatSignedPercent(card.changePercent)}
                   </span>

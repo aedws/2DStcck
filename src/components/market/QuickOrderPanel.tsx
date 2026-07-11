@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
 import type { OrderType, StockState } from "@/lib/types/market";
-import { formatPrice, getChangePercent } from "@/lib/market/engine";
+import {
+  formatPrice,
+  formatSignedMoney,
+  getChangePercent,
+} from "@/lib/market/engine";
 import { getBestAsk, getBestBid } from "@/lib/market/orderBook";
 import {
   formatSignedPercent,
@@ -78,8 +82,9 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   }
 
   async function orderLimit(side: "buy" | "sell") {
-    const price = parseInt(limitPrice.replace(/[^0-9]/g, ""), 10);
-    if (!price || price <= 0) {
+    // 달러 입력 → 센트 변환
+    const price = Math.round(parseFloat(limitPrice) * 100);
+    if (!Number.isFinite(price) || price <= 0) {
       setMessage("지정가를 입력해 주세요.");
       return;
     }
@@ -100,7 +105,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
               setMessage(null);
               if (i === 2) refreshOpenOrders();
               if (i === 0 && !limitPrice) {
-                setLimitPrice(String(liveStock.currentPrice));
+                setLimitPrice((liveStock.currentPrice / 100).toFixed(2));
               }
             }}
             className={`flex-1 py-3 text-xs transition ${
@@ -128,15 +133,17 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-xs text-[var(--muted)]">
-                지정가 (원)
+                지정가 ($)
               </label>
               <input
-                inputMode="numeric"
+                inputMode="decimal"
                 value={limitPrice}
                 onChange={(e) =>
-                  setLimitPrice(e.target.value.replace(/[^0-9]/g, ""))
+                  setLimitPrice(
+                    e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"),
+                  )
                 }
-                placeholder={String(liveStock.currentPrice)}
+                placeholder={(liveStock.currentPrice / 100).toFixed(2)}
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
               />
               <div className="mt-1 flex gap-1">
@@ -145,14 +152,14 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                     key={pct}
                     onClick={() =>
                       setLimitPrice(
-                        String(
+                        (
                           Math.max(
                             100,
                             Math.round(
                               liveStock.currentPrice * (1 + pct / 100),
                             ),
-                          ),
-                        ),
+                          ) / 100
+                        ).toFixed(2),
                       )
                     }
                     className="flex-1 rounded-lg bg-[var(--surface)] py-1.5 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -234,7 +241,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                       {o.ticker}
                     </p>
                     <p className="text-[11px] tabular-nums text-[var(--muted)]">
-                      {o.price.toLocaleString()}원 × {o.quantity}주
+                      {formatPrice(o.price)} × {o.quantity}주
                     </p>
                   </div>
                   <button
@@ -324,9 +331,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--muted)]">현재 수익</span>
               <span className={`font-semibold tabular-nums ${upDownClass(profit)}`}>
-                {profit >= 0 ? "+" : ""}
-                {Math.abs(profit).toLocaleString("ko-KR")}원{" "}
-                {formatSignedPercent(profitPct)}
+                {formatSignedMoney(profit)} {formatSignedPercent(profitPct)}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">

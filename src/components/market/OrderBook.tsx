@@ -9,6 +9,14 @@ import {
 import { getBestAsk, getBestBid, getSpread } from "@/lib/market/orderBook";
 import { upDownClass } from "@/lib/ui/marketColors";
 
+/** 호가 레벨: $ 없이 소수 두 자리 (헤더에 $ 표기됨) */
+function formatLevel(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 interface OrderBookProps {
   stock: StockState;
 }
@@ -95,7 +103,7 @@ function OrderBookRow({
           {formatQuantity(ask.quantity)}
         </span>
         <span className="relative z-10 px-2 text-center font-mono text-[var(--up)]">
-          {ask.price.toLocaleString()}
+          {formatLevel(ask.price)}
         </span>
         <span />
         <div
@@ -112,7 +120,7 @@ function OrderBookRow({
       <div className="relative grid grid-cols-3 items-center text-sm">
         <span />
         <span className="relative z-10 px-2 text-center font-mono text-[var(--down)]">
-          {bid.price.toLocaleString()}
+          {formatLevel(bid.price)}
         </span>
         <span className="relative z-10 px-2 font-mono text-[var(--muted)]">
           {formatQuantity(bid.quantity)}

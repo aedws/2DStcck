@@ -11,6 +11,7 @@ import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
 import { getCharacterById } from "@/data/characters";
 import {
   formatPrice,
+  formatSignedMoney,
   formatTradeTime,
   getDayChangeAmount,
   getDayChangePercent,
@@ -22,7 +23,7 @@ import {
 } from "@/lib/market/stats";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import {
-  formatCompactKRW,
+  formatCompactUSD,
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
@@ -70,8 +71,7 @@ function StockHeader({ stock }: { stock: StockState }) {
               {formatPrice(stock.currentPrice)}
             </span>
             <span className={`text-xs tabular-nums ${upDownClass(change)}`}>
-              전일보다 {diff >= 0 ? "+" : ""}
-              {diff.toLocaleString("ko-KR")}원 ({formatSignedPercent(change)})
+              전일보다 {formatSignedMoney(diff)} ({formatSignedPercent(change)})
             </span>
           </p>
         </div>
@@ -80,10 +80,10 @@ function StockHeader({ stock }: { stock: StockState }) {
       <div className="ml-auto hidden items-center gap-6 md:flex">
         <HeaderStat
           label="1일 범위"
-          value={`${low.toLocaleString()} ~ ${high.toLocaleString()}`}
+          value={`${formatPrice(low)} ~ ${formatPrice(high)}`}
         />
-        <HeaderStat label="전일 종가" value={stock.prevDayClose.toLocaleString()} />
-        <HeaderStat label="거래대금" value={formatCompactKRW(pseudoVolume(stock))} />
+        <HeaderStat label="전일 종가" value={formatPrice(stock.prevDayClose)} />
+        <HeaderStat label="거래대금" value={formatCompactUSD(pseudoVolume(stock))} />
         <HeaderStat label="체결강도" value={`${strength}%`} />
         {stock.beta !== undefined && (
           <HeaderStat label="베타" value={stock.beta.toFixed(1)} />
@@ -271,8 +271,8 @@ export function StockPageClient({ id }: { id: string }) {
     );
   }
 
-  // 선물은 선행지표 — 주문 없이 차트·뉴스 전용 화면
-  if (stock.sector === "선물") {
+  // 지수·선물은 직접 거래 불가 — 주문 없이 차트·뉴스 전용 화면
+  if (stock.sector === "선물" || stock.sector === "지수") {
     return <FuturesView stock={stock} />;
   }
 

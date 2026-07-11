@@ -13,7 +13,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     initialPrice: 21000,
     volatility: 0.012,
     drift: 0.001,
-    trendStrength: 0.0012,
+    trendStrength: 0.00004,
     description: "가상 시장 대표 100개 종목으로 구성된 기술주 중심 지수.",
     beta: 1,
   },
@@ -25,7 +25,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     initialPrice: 21200,
     volatility: 0.02,
     drift: 0.001,
-    trendStrength: 0.002,
+    trendStrength: 0.00007,
     description: "V-NASDAQ 지수 선물. 지수보다 90초 먼저 움직이는 선행지표.",
     beta: 1,
   },
@@ -39,10 +39,10 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
   ...CSV_COMPANIES,
 ];
 
-/** 지수·선물을 제외한 실제 기업 목록 (company 이벤트 대상) */
+/** 지수·선물·ETF를 제외한 실제 기업 목록 (company 이벤트 대상) */
 export function getCompanyDefinitions(): StockDefinition[] {
   return STOCK_DEFINITIONS.filter(
-    (d) => d.sector !== "지수" && d.sector !== "선물",
+    (d) => d.sector !== "지수" && d.sector !== "선물" && d.sector !== "ETF",
   );
 }
 
@@ -80,7 +80,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     tag: "위험선호",
     title: "시장 전반 조정",
     description: "투자 심리 위축으로 전 종목에 조정 압력이 가해집니다.",
-    impact: -0.025,
+    impact: -0.035,
   },
   {
     category: "macro",
@@ -88,6 +88,13 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     title: "실적 시즌 호조",
     description: "주요 기업들의 분기 실적이 시장 예상을 상회했습니다.",
     impact: 0.03,
+  },
+  {
+    category: "macro",
+    tag: "실적",
+    title: "실적 시즌 부진",
+    description: "주요 기업들의 실적이 기대에 못 미치며 실망 매물이 나옵니다.",
+    impact: -0.03,
   },
   // ── sector ──
   {
@@ -153,6 +160,71 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description: "긴 연휴를 앞두고 여행 수요가 빠르게 살아나고 있습니다.",
     sector: "관광",
     impact: 0.045,
+  },
+  // ── sector 악재 (상승 편향 방지 균형추) ──
+  {
+    category: "sector",
+    tag: "지정학",
+    title: "평화 협정 진전",
+    description: "긴장 완화 소식에 방위 예산 축소 우려가 제기됩니다.",
+    sector: "방산",
+    impact: -0.05,
+  },
+  {
+    category: "sector",
+    tag: "치안",
+    title: "과잉 진압 논란",
+    description: "경비 업계의 과잉 대응 논란으로 규제 목소리가 커집니다.",
+    sector: "PMC",
+    impact: -0.045,
+  },
+  {
+    category: "sector",
+    tag: "신작",
+    title: "기대작 혹평",
+    description: "화제의 신작이 혹평을 받으며 게임 섹터가 흔들립니다.",
+    sector: "게임",
+    impact: -0.055,
+  },
+  {
+    category: "sector",
+    tag: "규제",
+    title: "임상 실패 여파",
+    description: "대형 임상 실패 소식에 바이오 투자 심리가 얼어붙습니다.",
+    sector: "바이오",
+    impact: -0.05,
+  },
+  {
+    category: "sector",
+    tag: "보안",
+    title: "보안 예산 삭감",
+    description: "긴축 기조로 보안 투자 예산이 줄어들 것이란 전망입니다.",
+    sector: "보안",
+    impact: -0.045,
+  },
+  {
+    category: "sector",
+    tag: "소비",
+    title: "외식 수요 회복",
+    description: "외식 소비가 살아나며 요식업 실적 기대가 커집니다.",
+    sector: "요식업",
+    impact: 0.04,
+  },
+  {
+    category: "sector",
+    tag: "신용",
+    title: "안전자산 선호",
+    description: "불확실성 회피 수요가 몰리며 학원채 가격이 오릅니다.",
+    sector: "채권",
+    impact: 0.03,
+  },
+  {
+    category: "sector",
+    tag: "소비",
+    title: "악천후 여행 취소",
+    description: "이상 기후로 여행 취소가 잇따르며 관광 섹터가 약세입니다.",
+    sector: "관광",
+    impact: -0.04,
   },
   // ── company ──
   {

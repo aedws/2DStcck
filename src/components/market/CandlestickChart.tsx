@@ -24,6 +24,8 @@ interface CandlestickChartProps {
   height?: number;
   averagePrice?: number;
   prevDayClose?: number;
+  /** 축 가격 표기: dollar = 센트→$, points = 정수 포인트 (지수·선물) */
+  priceKind?: "dollar" | "points";
 }
 
 /** lightweight-charts는 UTC로만 그리므로, 로컬 시간대만큼 이동시켜 표시 */
@@ -45,6 +47,7 @@ export function CandlestickChart({
   height = 320,
   averagePrice,
   prevDayClose,
+  priceKind = "dollar",
 }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -94,7 +97,15 @@ export function CandlestickChart({
         barSpacing: 8,
       },
       localization: {
-        priceFormatter: (p: number) => Math.round(p).toLocaleString("ko-KR"),
+        priceFormatter:
+          priceKind === "points"
+            ? (p: number) => Math.round(p).toLocaleString("en-US")
+            : (p: number) =>
+                "$" +
+                (p / 100).toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }),
       },
       autoSize: true,
     });
@@ -119,7 +130,7 @@ export function CandlestickChart({
       avgLineRef.current = null;
       prevCloseLineRef.current = null;
     };
-  }, [height]);
+  }, [height, priceKind]);
 
   // 데이터 갱신 — 사용자가 스크롤한 위치는 유지, 최초 1회만 맞춤
   useEffect(() => {

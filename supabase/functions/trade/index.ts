@@ -111,9 +111,12 @@ Deno.serve(async (req) => {
       return json({ error: "종목을 찾을 수 없습니다." }, 404);
     }
 
-    // 선물은 선행지표 — 거래 불가
-    if (stock.sector === "선물") {
-      return json({ error: "선물은 선행지표라 거래할 수 없습니다." }, 400);
+    // 지수·선물은 직접 거래 불가 (ETF로 간접 투자)
+    if (stock.sector === "선물" || stock.sector === "지수") {
+      return json(
+        { error: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요." },
+        400,
+      );
     }
 
     // ── 지정가 주문: 대기 등록 (가격 도달 시 서버 틱에서 자동 체결) ──
@@ -152,7 +155,7 @@ Deno.serve(async (req) => {
       return json({
         success: true,
         pending: true,
-        message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 (${limitPrice.toLocaleString()}원 × ${quantity}주)`,
+        message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 ($${(limitPrice / 100).toFixed(2)} × ${quantity}주)`,
       });
     }
 
@@ -222,7 +225,7 @@ Deno.serve(async (req) => {
 
     return json({
       success: true,
-      message: `${labels[orderType]} (${price.toLocaleString()}원)`,
+      message: `${labels[orderType]} ($${(price / 100).toFixed(2)})`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "주문 실패";

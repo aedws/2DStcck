@@ -20,7 +20,12 @@
       "Bash(git commit -q -m 'feat: company logo support with initials fallback *)",
       "PowerShell(Move-Item \"C:\\\\Users\\\\uyess\\\\Desktop\\\\2DStock\\\\public\\\\logos\\\\ridc.png\" \"C:\\\\Users\\\\uyess\\\\Desktop\\\\2DStock\\\\public\\\\logos\\\\baridc.png\" -Force)",
       "Bash(git commit -q -m 'feat: Blue Archive world — 29 character companies from draft CSV *)",
-      "Bash(git commit -q -m 'feat: English corporate names for all BA companies *)"
+      "Bash(git commit -q -m 'feat: English corporate names for all BA companies *)",
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npx -y tsx test-realism.mts)",
+      "Bash(npx next *)",
+      "Bash(npx eslint *)"
     ]
   }
 }

@@ -8,10 +8,16 @@ import type {
 } from "@/lib/types/market";
 import {
   CANDLE_TICKS,
+  DRIFT_TIME_SCALE,
   EVENT_CHANCE_PER_TICK,
+  EVENT_IMPACT_TIME_SCALE,
   EVENT_MIN_GAP_MS,
+  MARKET_SHOCK_TIME_SCALE,
+  MARKET_TREND_BASE_PER_SEC,
   MAX_PRICE_HISTORY,
+  SERVER_TICK_SECONDS,
   SESSION_DURATION_MS,
+  VOLATILITY_TIME_SCALE,
 } from "@/lib/market/constants";
 import {
   EVENT_TEMPLATES,
@@ -21,12 +27,6 @@ import {
 import { getCharacterById } from "@/data/characters";
 import { generateOrderBook } from "@/lib/market/orderBook";
 
-const TICK_VOLATILITY_SCALE = 0.12;
-const TICK_DRIFT_SCALE = 0.002;
-/** 시장 팩터: 베타 1 기준 사인파 추세 진폭 (지수 trendStrength와 동일) */
-const MARKET_TREND_BASE = 0.0012;
-/** 시장 팩터: 전 종목 공통 충격의 틱당 변동성 (베타로 스케일) */
-const MARKET_SHOCK_VOLATILITY = 0.002;
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
 /** 선물의 추세 선행 시간 */
@@ -78,29 +78,39 @@ function getActiveEventImpact(
   return impact;
 }
 
+/** 시간 기반 가격 엔진: 모든 항이 dt(초)로 스케일되어
+ * 틱 간격(로컬 1초 / 서버 10초)과 무관하게 하루 등락폭이 동일하다. */
 export function calculateTickPrice(
   stock: StockState,
   events: MarketEvent[],
   now: number,
   marketShock = 0,
+  dtSeconds = SERVER_TICK_SECONDS,
 ): number {
+  const sqrtDt = Math.sqrt(dtSeconds);
   const eventImpact = getActiveEventImpact(stock, events, now);
-  const noise = randomNormal() * stock.volatility * TICK_VOLATILITY_SCALE;
+  const noise =
+    randomNormal() * stock.volatility * VOLATILITY_TIME_SCALE * sqrtDt;
 
   // ── 시장 팩터 (베타 모델): 종목 수익률 = 베타 × (추세 + 공통충격) + 개별 노이즈 ──
   // 약 15분 주기의 사인파 추세. 전 종목이 같은 위상을 공유하고,
   // 선물이 90초 선행한다(선행지표) → 선물을 보면 시장 방향을 미리 안다.
   const beta = stock.beta ?? 0;
   const trendLead = stock.sector === "선물" ? FUTURES_LEAD_MS : 0;
-  const trendAmplitude = stock.trendStrength ?? beta * MARKET_TREND_BASE;
+  const trendAmplitude =
+    (stock.trendStrength ?? beta * MARKET_TREND_BASE_PER_SEC) * dtSeconds;
   const trend =
     trendAmplitude *
     Math.sin(((now + trendLead) / MARKET_TREND_PERIOD_MS) * 2 * Math.PI);
   // 공통 충격: 같은 틱의 모든 종목이 같은 z를 받아 지수와 동반 등락한다
-  const shock = beta * marketShock * MARKET_SHOCK_VOLATILITY;
+  const shock = beta * marketShock * MARKET_SHOCK_TIME_SCALE * sqrtDt;
 
   const changeRate =
-    stock.drift * TICK_DRIFT_SCALE + trend + shock + eventImpact * 0.05 + noise;
+    stock.drift * DRIFT_TIME_SCALE * dtSeconds +
+    trend +
+    shock +
+    eventImpact * EVENT_IMPACT_TIME_SCALE * dtSeconds +
+    noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
 
   return Math.max(Math.round(nextPrice), 100);
@@ -139,6 +149,7 @@ export function tickStock(
   now: number,
   tick: number,
   marketShock = 0,
+  dtSeconds = SERVER_TICK_SECONDS,
 ): StockState {
   // 거래일: 벽시계 3시간 단위. 경계를 넘으면 전일 종가·시초가 롤오버.
   // (구버전 상태는 daySessionId가 없음 → 롤오버 없이 현재 거래일에 편입)
@@ -152,7 +163,7 @@ export function tickStock(
     prevDayClose = stock.currentPrice;
   }
 
-  const nextPrice = calculateTickPrice(stock, events, now, marketShock);
+  const nextPrice = calculateTickPrice(stock, events, now, marketShock, dtSeconds);
   const orderBook = generateOrderBook(nextPrice, stock.orderBook);
   const newHistory = [
     ...stock.priceHistory,
@@ -182,10 +193,10 @@ export function microTickStock(
   now: number,
   anchorPrice?: number,
 ): StockState {
-  const noise = randomNormal() * stock.volatility * 0.07;
-  // 서버 확정가 방향으로 살짝 당기는 평균회귀 (틱당 간극의 6%)
+  const noise = randomNormal() * stock.volatility * 0.012;
+  // 서버 확정가 방향으로 살짝 당기는 평균회귀 (틱당 간극의 8%)
   const anchor = anchorPrice ?? stock.currentPrice;
-  const pull = ((anchor - stock.currentPrice) / Math.max(anchor, 1)) * 0.06;
+  const pull = ((anchor - stock.currentPrice) / Math.max(anchor, 1)) * 0.08;
   const nextPrice = Math.max(
     Math.round(stock.currentPrice * (1 + pull + noise)),
     100,
@@ -208,10 +219,13 @@ export function tickAllStocks(
   events: MarketEvent[],
   now: number,
   tick: number,
+  dtSeconds = SERVER_TICK_SECONDS,
 ): StockState[] {
   // 이 틱의 공통 시장 충격 — 전 종목이 공유 (베타로 개별 스케일)
   const marketShock = randomNormal();
-  return stocks.map((stock) => tickStock(stock, events, now, tick, marketShock));
+  return stocks.map((stock) =>
+    tickStock(stock, events, now, tick, marketShock, dtSeconds),
+  );
 }
 
 function pickWeighted<T>(
@@ -331,8 +345,45 @@ export function getChangePercent(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
 }
 
-export function formatPrice(price: number): string {
-  return price.toLocaleString("ko-KR") + "원";
+/** 가격 단위: 내부 정수 = 센트. 표시 = 달러 ($1,234.56) */
+export function formatPrice(cents: number): string {
+  return (
+    "$" +
+    (cents / 100).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
+}
+
+/** 등락 금액 ($ 부호 포함): +$12.34 / -$0.50 */
+export function formatSignedMoney(cents: number): string {
+  const sign = cents >= 0 ? "+" : "-";
+  return (
+    sign +
+    "$" +
+    (Math.abs(cents) / 100).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
+}
+
+/** 지수·선물은 포인트(정수) 표기 */
+export function isIndexLike(sector: string): boolean {
+  return sector === "지수" || sector === "선물";
+}
+
+export function formatPoints(value: number): string {
+  return Math.round(value).toLocaleString("en-US");
+}
+
+/** 종목 성격에 맞는 가격 표기 (지수·선물 = 포인트, 그 외 = 달러) */
+export function formatStockValue(
+  stock: { sector: string },
+  value: number,
+): string {
+  return isIndexLike(stock.sector) ? formatPoints(value) : formatPrice(value);
 }
 
 export function formatPercent(value: number): string {

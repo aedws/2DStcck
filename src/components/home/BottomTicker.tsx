@@ -1,7 +1,7 @@
 "use client";
 
 import type { StockState } from "@/lib/types/market";
-import { getDayChangePercent } from "@/lib/market/engine";
+import { formatStockValue, getDayChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 
 /** 하단 흐르는 시세 바 (토스증권 하단 티커) */
@@ -14,7 +14,7 @@ export function BottomTicker({ stocks }: { stocks: StockState[] }) {
       <span key={s.id} className="mx-5 inline-flex items-baseline gap-1.5 text-xs">
         <span className="text-[var(--muted)]">{s.name}</span>
         <span className="tabular-nums">
-          {s.currentPrice.toLocaleString("ko-KR")}
+          {formatStockValue(s, s.currentPrice)}
         </span>
         <span className={`tabular-nums ${upDownClass(change)}`}>
           {formatSignedPercent(change)}

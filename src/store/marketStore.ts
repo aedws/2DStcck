@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
 import {
   createInitialStockState,
+  formatPrice,
   maybeGenerateEvent,
   microTickStock,
   tickAllStocks,
@@ -131,8 +132,11 @@ function applyLocalBuySell(
   const state = get();
   const stock = state.stocks.find((s) => s.id === stockId);
   if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-  if (stock.sector === "선물") {
-    return { success: false, message: "선물은 선행지표라 거래할 수 없습니다." };
+  if (stock.sector === "선물" || stock.sector === "지수") {
+    return {
+      success: false,
+      message: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요.",
+    };
   }
 
   let price: number;
@@ -190,7 +194,7 @@ function applyLocalBuySell(
 
   return {
     success: true,
-    message: `${label} (${price.toLocaleString()}원)`,
+    message: `${label} (${formatPrice(price)})`,
   };
 }
 
@@ -224,10 +228,11 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       placeOrder: async (stockId, quantity, orderType) => {
-        if (get().getStockById(stockId)?.sector === "선물") {
+        const sector = get().getStockById(stockId)?.sector;
+        if (sector === "선물" || sector === "지수") {
           return {
             success: false,
-            message: "선물은 선행지표라 거래할 수 없습니다.",
+            message: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요.",
           };
         }
         if (!IS_SERVER_MODE) {
@@ -281,10 +286,11 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       placeLimitOrder: async (stockId, price, quantity, side) => {
-        if (get().getStockById(stockId)?.sector === "선물") {
+        const limitSector = get().getStockById(stockId)?.sector;
+        if (limitSector === "선물" || limitSector === "지수") {
           return {
             success: false,
-            message: "선물은 선행지표라 거래할 수 없습니다.",
+            message: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요.",
           };
         }
         if (!IS_SERVER_MODE || !get().userId) {
@@ -344,7 +350,8 @@ export const useMarketStore = create<MarketStore>()(
         const allEvents = newEvent
           ? [...events, newEvent].slice(-50)
           : events;
-        const updatedStocks = tickAllStocks(stocks, allEvents, now, nextTick);
+        // 로컬 모드는 1초 틱
+        const updatedStocks = tickAllStocks(stocks, allEvents, now, nextTick, 1);
         set({ tick: nextTick, stocks: updatedStocks, events: allEvents });
       },
 

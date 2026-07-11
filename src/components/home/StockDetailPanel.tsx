@@ -4,12 +4,12 @@ import Link from "next/link";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import {
   formatPrice,
+  formatSignedMoney,
   getDayChangeAmount,
   getDayChangePercent,
 } from "@/lib/market/engine";
 import {
   formatSignedPercent,
-  formatSignedPrice,
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
@@ -59,7 +59,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
             {formatPrice(stock.currentPrice)}
           </p>
           <p className={`pb-0.5 text-xs tabular-nums ${upDownClass(change)}`}>
-            {formatSignedPrice(priceDiff)} {formatSignedPercent(change)}
+            {formatSignedMoney(priceDiff)} {formatSignedPercent(change)}
           </p>
         </div>
         <p className="mt-0.5 text-[11px] text-[var(--muted)]">

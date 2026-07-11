@@ -6,7 +6,7 @@ import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import {
-  formatPrice,
+  formatStockValue,
   formatTradeTime,
   getDayChangeAmount,
   getDayChangePercent,
@@ -30,10 +30,10 @@ function IndexBrowser({
 }) {
   const router = useRouter();
   const indices = stocks.filter(
-    (s) => s.sector === "지수" || s.sector === "선물",
+    (s) => s.sector === "지수" || s.sector === "선물" || s.sector === "ETF",
   );
   const companies = stocks.filter(
-    (s) => s.sector !== "지수" && s.sector !== "선물",
+    (s) => s.sector !== "지수" && s.sector !== "선물" && s.sector !== "ETF",
   );
 
   const renderRow = (s: StockState) => {
@@ -57,7 +57,7 @@ function IndexBrowser({
         </span>
         <span className="shrink-0 text-right">
           <span className="block text-xs tabular-nums">
-            {s.currentPrice.toLocaleString("ko-KR")}
+            {formatStockValue(s, s.currentPrice)}
           </span>
           <span
             className={`block text-[10px] tabular-nums ${upDownClass(change)}`}
@@ -72,7 +72,7 @@ function IndexBrowser({
   return (
     <aside className="hidden w-[290px] shrink-0 flex-col overflow-y-auto border-l border-[var(--border)] p-3 lg:flex">
       <p className="mb-1.5 px-2.5 text-xs font-semibold text-[var(--muted)]">
-        지수 · 선물
+        지수 · 선물 · ETF
       </p>
       <div className="space-y-0.5">{indices.map(renderRow)}</div>
       <p className="mb-1.5 mt-4 px-2.5 text-xs font-semibold text-[var(--muted)]">
@@ -83,11 +83,12 @@ function IndexBrowser({
   );
 }
 
-/** 선물(선행지표) 전용 페이지: 주문 불가, 차트 + 세부 뉴스만 */
+/** 지수·선물(거래 불가 지표) 전용 페이지: 주문 없이 차트 + 세부 뉴스만 */
 export function FuturesView({ stock }: { stock: StockState }) {
   const stocks = useMarketStore((s) => s.stocks);
   const events = useMarketStore((s) => s.events);
 
+  const isFutures = stock.sector === "선물";
   const change = getDayChangePercent(stock);
   const diff = getDayChangeAmount(stock);
   const { high, low } = dayRange(stock);
@@ -116,7 +117,7 @@ export function FuturesView({ stock }: { stock: StockState }) {
                 {stock.ticker}
               </span>
               <span className="shrink-0 rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
-                선행지표 · 거래 불가
+                {isFutures ? "선행지표 · 거래 불가" : "지수 · 거래 불가"}
               </span>
             </p>
             <p className="flex items-baseline gap-2">
@@ -166,6 +167,7 @@ export function FuturesView({ stock }: { stock: StockState }) {
             history={stock.priceHistory}
             height={380}
             prevDayClose={stock.prevDayClose}
+            priceKind="points"
           />
 
           <div className="mt-5 max-w-2xl">
@@ -174,9 +176,9 @@ export function FuturesView({ stock }: { stock: StockState }) {
               <h3 className="text-sm font-semibold">왜 움직였을까?</h3>
             </div>
             <p className="mb-3 rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--muted)]">
-              {stock.name}은 시장 방향을 약 90초 먼저 반영하는
-              선행지표예요. 거래할 수 없지만, 이 차트가 먼저 움직인 방향으로
-              지수와 종목들이 따라 움직입니다.
+              {isFutures
+                ? `${stock.name}은 시장 방향을 약 90초 먼저 반영하는 선행지표예요. 거래할 수 없지만, 이 차트가 먼저 움직인 방향으로 지수와 종목들이 따라 움직입니다.`
+                : `${stock.name}는 시장 전체의 흐름을 나타내는 지수예요. 직접 살 수는 없고, ETF 상품(Millennium Tech 100 · Kivotos Composite Index)으로 간접 투자할 수 있습니다.`}
             </p>
 
             {related.length === 0 ? (

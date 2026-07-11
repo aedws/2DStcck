@@ -3,14 +3,14 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MarketEvent, StockState } from "@/lib/types/market";
-import { getDayChangePercent } from "@/lib/market/engine";
+import { formatStockValue, getDayChangePercent } from "@/lib/market/engine";
 import {
   buyRatio,
   latestEventFor,
   pseudoVolume,
 } from "@/lib/market/stats";
 import {
-  formatCompactKRW,
+  formatCompactUSD,
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
@@ -134,7 +134,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
           <tbody>
             {sorted.map((stock, rank) => {
               const change = getDayChangePercent(stock);
-              const strongMove = Math.abs(change) >= 5;
+              const strongMove = Math.abs(change) >= 3;
               const buy = buyRatio(stock);
               const event = latestEventFor(stock.id, events);
 
@@ -165,7 +165,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right tabular-nums">
-                    {stock.currentPrice.toLocaleString()}
+                    {formatStockValue(stock, stock.currentPrice)}
                   </td>
                   <td className="px-2 py-3 text-right">
                     <span
@@ -181,7 +181,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                     </span>
                   </td>
                   <td className="hidden px-2 py-3 text-right tabular-nums text-[var(--muted)] lg:table-cell">
-                    {formatCompactKRW(pseudoVolume(stock))}
+                    {formatCompactUSD(pseudoVolume(stock))}
                   </td>
                   <td className="hidden px-3 py-3 xl:table-cell">
                     <div className="mx-auto flex w-28 items-center gap-1.5">
