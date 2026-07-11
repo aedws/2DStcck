@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import {
@@ -119,6 +121,7 @@ export function MarketOverview({
   stocks: StockState[];
   events: MarketEvent[];
 }) {
+  const router = useRouter();
   const featured = stocks.find((s) => s.sector === "지수") ?? stocks[0];
   const cards = buildCards(stocks, events);
   const news = [...events].reverse().slice(0, 4);
@@ -136,7 +139,10 @@ export function MarketOverview({
 
       <div className="flex items-stretch gap-4">
         {/* 대표 지수 */}
-        <div className="w-[250px] shrink-0">
+        <div
+          onClick={() => router.push(`/stock/${featured.id}`)}
+          className="-m-1.5 w-[262px] shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-[var(--surface)]/60"
+        >
           <p className="text-sm font-semibold">
             {featured.name}{" "}
             <span className="ml-1 text-lg font-bold tabular-nums">
@@ -163,9 +169,21 @@ export function MarketOverview({
         </div>
 
         {/* 지수·주요 변동 종목 미니카드 */}
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-1 xl:grid-cols-3">
           {cards.map((card) => (
-            <div key={card.id} className="flex min-w-0 items-center gap-3">
+            <div
+              key={card.id}
+              onClick={() => {
+                if (stocks.some((s) => s.id === card.id)) {
+                  router.push(`/stock/${card.id}`);
+                }
+              }}
+              className={`flex min-w-0 items-center gap-3 rounded-xl px-2 py-1 transition ${
+                stocks.some((s) => s.id === card.id)
+                  ? "cursor-pointer hover:bg-[var(--surface)]/60"
+                  : ""
+              }`}
+            >
               <Sparkline data={card.history} width={52} height={24} className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="flex items-baseline gap-1.5 truncate text-xs">
@@ -193,9 +211,14 @@ export function MarketOverview({
           ))}
         </div>
 
-        {/* 주요 뉴스 */}
-        <div className="hidden w-[290px] shrink-0 lg:block">
-          <p className="mb-1 text-xs font-semibold text-[var(--muted)]">주요 뉴스</p>
+        {/* 주요 뉴스 → 클릭 시 지난 뉴스 전체 */}
+        <Link
+          href="/news"
+          className="-m-1.5 hidden w-[302px] shrink-0 rounded-xl p-1.5 transition hover:bg-[var(--surface)]/60 lg:block"
+        >
+          <p className="mb-1 flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
+            주요 뉴스 <span className="font-normal">더보기 →</span>
+          </p>
           {news.length === 0 ? (
             <p className="text-xs text-[var(--muted)]">
               아직 발생한 뉴스가 없습니다.
@@ -217,7 +240,7 @@ export function MarketOverview({
               ))}
             </ul>
           )}
-        </div>
+        </Link>
       </div>
     </div>
   );
