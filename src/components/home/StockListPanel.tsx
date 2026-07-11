@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { StockState } from "@/lib/types/market";
+import type { MarketEvent, StockState } from "@/lib/types/market";
 import { getDayChangePercent } from "@/lib/market/engine";
 import {
   formatCompactKRW,
@@ -12,11 +12,12 @@ import {
 import { Sparkline } from "@/components/ui/Sparkline";
 
 const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별"];
+const SORTS = ["급상승", "급하락", "거래대금"] as const;
+type SortMode = (typeof SORTS)[number];
 
 interface StockListPanelProps {
   stocks: StockState[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  events: MarketEvent[];
 }
 
 function pseudoVolume(stock: StockState): number {
@@ -27,13 +28,29 @@ function pseudoVolume(stock: StockState): number {
   return total * stock.currentPrice;
 }
 
-export function StockListPanel({
-  stocks,
-  selectedId,
-  onSelect,
-}: StockListPanelProps) {
+/** 호가 잔량 기반 매수 비율 (%) */
+function buyRatio(stock: StockState): number {
+  const bid = stock.orderBook.bids.reduce((s, l) => s + l.quantity, 0);
+  const ask = stock.orderBook.asks.reduce((s, l) => s + l.quantity, 0);
+  if (bid + ask === 0) return 50;
+  return Math.round((bid / (bid + ask)) * 100);
+}
+
+/** 해당 종목에 영향을 준 가장 최근 이벤트 */
+function latestEventFor(
+  stockId: string,
+  events: MarketEvent[],
+): MarketEvent | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].affectedStockIds.includes(stockId)) return events[i];
+  }
+  return undefined;
+}
+
+export function StockListPanel({ stocks, events }: StockListPanelProps) {
   const router = useRouter();
   const [tab, setTab] = useState(0);
+  const [sort, setSort] = useState<SortMode>("급상승");
   const [sector, setSector] = useState("전체");
 
   const sectors = useMemo(
@@ -51,16 +68,18 @@ export function StockListPanel({
       list.sort((a, b) => b.volatility - a.volatility);
     } else if (tab === 2) {
       list.sort((a, b) => a.sector.localeCompare(b.sector));
+    } else if (sort === "급하락") {
+      list.sort((a, b) => getDayChangePercent(a) - getDayChangePercent(b));
+    } else if (sort === "거래대금") {
+      list.sort((a, b) => pseudoVolume(b) - pseudoVolume(a));
     } else {
-      list.sort(
-        (a, b) => getDayChangePercent(b) - getDayChangePercent(a),
-      );
+      list.sort((a, b) => getDayChangePercent(b) - getDayChangePercent(a));
     }
     return list;
-  }, [stocks, sector, tab]);
+  }, [stocks, sector, tab, sort]);
 
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--background)]">
+    <section className="flex min-w-0 flex-1 flex-col border-r border-[var(--border)] bg-[var(--background)]">
       <div className="border-b border-[var(--border)] px-4 pt-3">
         <div className="flex gap-4">
           {TABS.map((label, i) => (
@@ -77,7 +96,24 @@ export function StockListPanel({
             </button>
           ))}
         </div>
-        <div className="flex gap-1.5 overflow-x-auto py-3 scrollbar-hide">
+        <div className="flex items-center gap-1.5 overflow-x-auto py-3 scrollbar-hide">
+          {tab === 0 &&
+            SORTS.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSort(s)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${
+                  sort === s
+                    ? "bg-[var(--surface-elevated)] font-semibold text-[var(--foreground)]"
+                    : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          {tab === 0 && (
+            <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" />
+          )}
           {sectors.map((s) => (
             <button
               key={s}
@@ -96,34 +132,38 @@ export function StockListPanel({
 
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-[var(--background)] text-[var(--muted)]">
+          <thead className="sticky top-0 z-10 bg-[var(--background)] text-[var(--muted)]">
             <tr>
               <th className="px-3 py-2 text-left font-medium">순위</th>
               <th className="px-2 py-2 text-left font-medium">종목</th>
               <th className="px-2 py-2 text-right font-medium">현재가</th>
               <th className="px-2 py-2 text-right font-medium">등락률</th>
-              <th className="hidden px-2 py-2 text-right font-medium xl:table-cell">
+              <th className="hidden px-2 py-2 text-right font-medium lg:table-cell">
                 거래대금
+              </th>
+              <th className="hidden px-3 py-2 text-center font-medium xl:table-cell">
+                매수 · 매도 비율
+              </th>
+              <th className="hidden px-2 py-2 text-left font-medium lg:table-cell">
+                산업
+              </th>
+              <th className="hidden px-2 py-2 text-left font-medium xl:table-cell">
+                요약
               </th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((stock, rank) => {
               const change = getDayChangePercent(stock);
-              const selected = stock.id === selectedId;
+              const strongMove = Math.abs(change) >= 5;
+              const buy = buyRatio(stock);
+              const event = latestEventFor(stock.id, events);
 
               return (
                 <tr
                   key={stock.id}
-                  onClick={() => {
-                    onSelect(stock.id);
-                    router.push(`/stock/${stock.id}`);
-                  }}
-                  className={`cursor-pointer border-b border-[var(--border)]/50 transition ${
-                    selected
-                      ? "bg-[var(--surface-elevated)]"
-                      : "hover:bg-[var(--surface)]/60"
-                  }`}
+                  onClick={() => router.push(`/stock/${stock.id}`)}
+                  className="cursor-pointer border-b border-[var(--border)]/50 transition hover:bg-[var(--surface)]/60"
                 >
                   <td className="px-3 py-3 tabular-nums text-[var(--muted)]">
                     {rank + 1}
@@ -136,21 +176,63 @@ export function StockListPanel({
                       <div className="min-w-0">
                         <p className="truncate font-medium">{stock.name}</p>
                         <p className="text-[10px] text-[var(--muted)]">
-                          {stock.sector}
+                          {stock.ticker}
                         </p>
                       </div>
+                      <Sparkline
+                        data={stock.priceHistory.map((p) => p.price)}
+                        width={56}
+                        height={22}
+                        className="ml-1 hidden shrink-0 2xl:block"
+                      />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right tabular-nums">
                     {stock.currentPrice.toLocaleString()}
                   </td>
-                  <td
-                    className={`px-2 py-3 text-right tabular-nums ${upDownClass(change)}`}
-                  >
-                    {formatSignedPercent(change)}
+                  <td className="px-2 py-3 text-right">
+                    <span
+                      className={`inline-block rounded px-1.5 py-0.5 tabular-nums ${upDownClass(change)} ${
+                        strongMove
+                          ? change >= 0
+                            ? "bg-[var(--up)]/15"
+                            : "bg-[var(--down)]/15"
+                          : ""
+                      }`}
+                    >
+                      {formatSignedPercent(change)}
+                    </span>
                   </td>
-                  <td className="hidden px-2 py-3 text-right tabular-nums text-[var(--muted)] xl:table-cell">
+                  <td className="hidden px-2 py-3 text-right tabular-nums text-[var(--muted)] lg:table-cell">
                     {formatCompactKRW(pseudoVolume(stock))}
+                  </td>
+                  <td className="hidden px-3 py-3 xl:table-cell">
+                    <div className="mx-auto flex w-28 items-center gap-1.5">
+                      <span className="w-5 shrink-0 text-right text-[10px] tabular-nums text-[var(--up)]">
+                        {buy}
+                      </span>
+                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--down)]/50">
+                        <div
+                          className="h-full bg-[var(--up)]"
+                          style={{ width: `${buy}%` }}
+                        />
+                      </div>
+                      <span className="w-5 shrink-0 text-[10px] tabular-nums text-[var(--down)]">
+                        {100 - buy}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="hidden px-2 py-3 text-[var(--muted)] lg:table-cell">
+                    {stock.sector}
+                  </td>
+                  <td className="hidden max-w-[140px] px-2 py-3 xl:table-cell">
+                    {event ? (
+                      <span className={`truncate ${upDownClass(event.impact)}`}>
+                        {event.tag ?? event.title}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--muted)]">—</span>
+                    )}
                   </td>
                 </tr>
               );
@@ -158,16 +240,6 @@ export function StockListPanel({
           </tbody>
         </table>
       </div>
-    </aside>
-  );
-}
-
-export function StockListSparkline({ stock }: { stock: StockState }) {
-  return (
-    <Sparkline
-      data={stock.priceHistory.map((p) => p.price)}
-      width={64}
-      height={28}
-    />
+    </section>
   );
 }

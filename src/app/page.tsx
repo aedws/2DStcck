@@ -1,41 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
-import { IndexTicker } from "@/components/home/IndexTicker";
-import { NewsTicker } from "@/components/home/NewsTicker";
+import { BottomTicker } from "@/components/home/BottomTicker";
+import { MarketOverview } from "@/components/home/MarketOverview";
 import { StockDetailPanel } from "@/components/home/StockDetailPanel";
 import { StockListPanel } from "@/components/home/StockListPanel";
+import { getDayChangePercent } from "@/lib/market/engine";
 import { useMarketStore } from "@/store/marketStore";
 
 export default function MarketPage() {
   const stocks = useMarketStore((s) => s.stocks);
   const events = useMarketStore((s) => s.events);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!selectedId && stocks.length > 0) {
-      setSelectedId(stocks[0].id);
-    }
-  }, [stocks, selectedId]);
-
-  const selectedStock = stocks.find((s) => s.id === selectedId);
+  // 우측 미리보기: 등락률 1위 종목 (토스증권처럼 주도주를 보여준다)
+  const topStock =
+    stocks.length > 0
+      ? [...stocks]
+          .filter((s) => s.sector !== "지수" && s.sector !== "선물")
+          .sort((a, b) => getDayChangePercent(b) - getDayChangePercent(a))[0]
+      : undefined;
 
   return (
-    <>
-      <div className="flex items-stretch gap-3 border-b border-[var(--border)] bg-[var(--background)] px-5 py-3">
-        <IndexTicker stocks={stocks} />
-        <NewsTicker events={events} />
-      </div>
-      <div className="flex h-[calc(100vh-7rem)] overflow-hidden">
-        <StockListPanel
-          stocks={stocks}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-        <StockDetailPanel stock={selectedStock} events={events} />
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+      <MarketOverview stocks={stocks} events={events} />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <StockListPanel stocks={stocks} events={events} />
+        <StockDetailPanel stock={topStock} events={events} />
         <AccountSidebar />
       </div>
-    </>
+      <BottomTicker stocks={stocks} />
+    </div>
   );
 }
