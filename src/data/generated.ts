@@ -21,7 +21,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baqqq",
     "ticker": "BAQQQ",
-    "name": "밀레니엄 테크 지수",
+    "name": "Millennium Tech 100",
     "sector": "지수",
     "initialPrice": 32000,
     "volatility": 0.012,
@@ -33,7 +33,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bamlb",
     "ticker": "BAMLB",
-    "name": "밀레니엄 학원채",
+    "name": "Millennium Academy Bond",
     "sector": "채권",
     "initialPrice": 10200,
     "volatility": 0.006,
@@ -50,7 +50,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bagdi",
     "ticker": "BAGDI",
-    "name": "게임개발부 인터랙티브",
+    "name": "GameDev Interactive",
     "sector": "게임",
     "initialPrice": 45000,
     "volatility": 0.042,
@@ -66,7 +66,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bavts",
     "ticker": "BAVTS",
-    "name": "베리타스 시큐리티",
+    "name": "Veritas Security",
     "sector": "보안",
     "initialPrice": 88000,
     "volatility": 0.03,
@@ -82,7 +82,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "banru",
     "ticker": "BANRU",
-    "name": "네루 태스크포스",
+    "name": "NERU Tactical Group",
     "sector": "PMC",
     "initialPrice": 52000,
     "volatility": 0.045,
@@ -98,7 +98,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bahbk",
     "ticker": "BAHBK",
-    "name": "엔지니어부 오드넌스",
+    "name": "Hibiki Ordnance Systems",
     "sector": "방산",
     "initialPrice": 120000,
     "volatility": 0.032,
@@ -114,7 +114,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "basmr",
     "ticker": "BASMR",
-    "name": "밀레니엄 메디컬",
+    "name": "Millennium Medical",
     "sector": "헬스케어",
     "initialPrice": 63000,
     "volatility": 0.022,
@@ -129,7 +129,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baspy",
     "ticker": "BASPY",
-    "name": "키보토스 종합 지수",
+    "name": "Kivotos Composite Index",
     "sector": "지수",
     "initialPrice": 54000,
     "volatility": 0.01,
@@ -141,7 +141,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bakaya",
     "ticker": "BAKAYA",
-    "name": "시라누이 중공업",
+    "name": "Shiranui Heavy Industries",
     "sector": "방산",
     "initialPrice": 97000,
     "volatility": 0.03,
@@ -156,7 +156,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bakvb",
     "ticker": "BAKVB",
-    "name": "키보토스 지역채",
+    "name": "Kivotos Municipal Bond",
     "sector": "채권",
     "initialPrice": 10100,
     "volatility": 0.005,
@@ -173,7 +173,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baabs",
     "ticker": "BAABS",
-    "name": "아비도스 시큐리티",
+    "name": "Abydos Security",
     "sector": "PMC",
     "initialPrice": 38000,
     "volatility": 0.05,
@@ -189,7 +189,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baabb",
     "ticker": "BAABB",
-    "name": "아비도스 학원채",
+    "name": "Abydos Academy Bond",
     "sector": "채권",
     "initialPrice": 9400,
     "volatility": 0.015,
@@ -206,7 +206,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "ba68",
     "ticker": "BA68",
-    "name": "해결사68 홀딩스",
+    "name": "Problem Solver 68",
     "sector": "PMC",
     "initialPrice": 21000,
     "volatility": 0.055,
@@ -222,7 +222,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bahina",
     "ticker": "BAHINA",
-    "name": "프레펙트 디펜스",
+    "name": "Prefect Defense Corporation",
     "sector": "PMC",
     "initialPrice": 142000,
     "volatility": 0.038,
@@ -238,7 +238,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bahrn",
     "ticker": "BAHRN",
-    "name": "미식연구회 다이닝",
+    "name": "Gourmet Research Dining",
     "sector": "요식업",
     "initialPrice": 47000,
     "volatility": 0.028,
@@ -253,7 +253,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bafka",
     "ticker": "BAFKA",
-    "name": "게헨나 키친",
+    "name": "Gehenna Kitchen Foods",
     "sector": "요식업",
     "initialPrice": 26000,
     "volatility": 0.03,
@@ -268,7 +268,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "basena",
     "ticker": "BASENA",
-    "name": "구호기사단 바이오",
+    "name": "Rescue Knights Biotech",
     "sector": "바이오",
     "initialPrice": 71000,
     "volatility": 0.048,
@@ -284,7 +284,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baksm",
     "ticker": "BAKSM",
-    "name": "카스미 건설",
+    "name": "Kasumi Construction",
     "sector": "건설",
     "initialPrice": 33000,
     "volatility": 0.028,
@@ -299,7 +299,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bakrr",
     "ticker": "BAKRR",
-    "name": "키라라 코스메틱",
+    "name": "Kirara Cosmetics",
     "sector": "화장품",
     "initialPrice": 41000,
     "volatility": 0.032,
@@ -314,7 +314,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baghb",
     "ticker": "BAGHB",
-    "name": "게헨나 학원채",
+    "name": "Gehenna Academy Bond",
     "sector": "채권",
     "initialPrice": 9700,
     "volatility": 0.012,
@@ -331,7 +331,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bahnk",
     "ticker": "BAHNK",
-    "name": "하나코 에듀케이션",
+    "name": "Hanako Education Group",
     "sector": "교육",
     "initialPrice": 29000,
     "volatility": 0.02,
@@ -346,7 +346,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baszm",
     "ticker": "BASZM",
-    "name": "스즈미 가드",
+    "name": "Suzumi Guard Services",
     "sector": "PMC",
     "initialPrice": 24000,
     "volatility": 0.035,
@@ -361,7 +361,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baui",
     "ticker": "BAUI",
-    "name": "도서부 미디어웍스",
+    "name": "Archive Mediaworks",
     "sector": "미디어",
     "initialPrice": 19000,
     "volatility": 0.03,
@@ -376,7 +376,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "baair",
     "ticker": "BAAIR",
-    "name": "카페 아이리",
+    "name": "Airi Coffee Company",
     "sector": "요식업",
     "initialPrice": 15000,
     "volatility": 0.025,
@@ -391,7 +391,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bamine",
     "ticker": "BAMINE",
-    "name": "미네 제약",
+    "name": "Mine Pharmaceuticals",
     "sector": "바이오",
     "initialPrice": 58000,
     "volatility": 0.05,
@@ -407,7 +407,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "batrg",
     "ticker": "BATRG",
-    "name": "정의실현 시큐리티",
+    "name": "Justice Task Force Security",
     "sector": "PMC",
     "initialPrice": 31000,
     "volatility": 0.045,
@@ -423,7 +423,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "bamari",
     "ticker": "BAMARI",
-    "name": "마리 투어리즘",
+    "name": "Mari Pilgrim Tours",
     "sector": "관광",
     "initialPrice": 23000,
     "volatility": 0.026,
@@ -438,7 +438,7 @@ export const CSV_COMPANIES: StockDefinition[] = [
   {
     "id": "batrb",
     "ticker": "BATRB",
-    "name": "트리니티 학원채",
+    "name": "Trinity Academy Bond",
     "sector": "채권",
     "initialPrice": 10300,
     "volatility": 0.006,
