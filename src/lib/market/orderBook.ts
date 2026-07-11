@@ -1,10 +1,12 @@
 import type { OrderBook, OrderBookLevel } from "@/lib/types/market";
 import { ORDER_BOOK_LEVELS } from "@/lib/market/constants";
 
+/** 호가 단위(센트). 스프레드가 가격의 ~0.05-0.15%가 되도록 보정 */
 export function getTickSize(price: number): number {
-  if (price >= 50000) return 100;
-  if (price >= 10000) return 50;
-  return 10;
+  if (price >= 100000) return 50; // $1,000+ → $0.50
+  if (price >= 20000) return 10; // $200+ → $0.10
+  if (price >= 5000) return 5; // $50+ → $0.05
+  return 1; // 그 이하 → $0.01
 }
 
 function randomQuantity(): number {

@@ -13,6 +13,7 @@ import {
   EVENT_CHANCE_PER_TICK,
   EVENT_IMPACT_TIME_SCALE,
   EVENT_MIN_GAP_MS,
+  MARKET_ORDER_SLIPPAGE,
   MARKET_SHOCK_TIME_SCALE,
   MARKET_TREND_BASE_PER_SEC,
   MAX_PRICE_HISTORY,
@@ -34,15 +35,44 @@ const MARKET_TREND_PERIOD_MS = 900_000;
 /** 선물의 추세 선행 시간 */
 const FUTURES_LEAD_MS = 90_000;
 
-function randomNormal(): number {
-  const u1 = Math.random();
-  const u2 = Math.random();
+export function randomNormal(rand: () => number = Math.random): number {
+  const u1 = Math.max(rand(), 1e-12);
+  const u2 = rand();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
-export function createInitialStockState(def: StockDefinition): StockState {
+// ── 결정론 시뮬레이션용 시드 RNG ──
+// 같은 (tick, key)면 항상 같은 난수열 → 모든 클라이언트가 동일한 시장을 계산한다.
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** (tick, key)로 고정된 난수 스트림. 종목 배열 순서와 무관하게 결정론적이다. */
+export function seededRand(simTick: number, key: string): () => number {
+  return mulberry32(fnv1a(`${simTick}:${key}`));
+}
+
+export function createInitialStockState(
+  def: StockDefinition,
+  at?: number,
+): StockState {
   const orderBook = generateOrderBook(def.initialPrice);
-  const now = Date.now();
+  const now = at ?? Date.now();
   return {
     ...def,
     currentPrice: def.initialPrice,
@@ -88,11 +118,12 @@ export function calculateTickPrice(
   now: number,
   marketShock = 0,
   dtSeconds = SERVER_TICK_SECONDS,
+  rand: () => number = Math.random,
 ): number {
   const sqrtDt = Math.sqrt(dtSeconds);
   const eventImpact = getActiveEventImpact(stock, events, now);
   const noise =
-    randomNormal() * stock.volatility * VOLATILITY_TIME_SCALE * sqrtDt;
+    randomNormal(rand) * stock.volatility * VOLATILITY_TIME_SCALE * sqrtDt;
 
   // ── 시장 팩터 (베타 모델): 종목 수익률 = 베타 × (추세 + 공통충격) + 개별 노이즈 ──
   // 약 15분 주기의 사인파 추세. 전 종목이 같은 위상을 공유하고,
@@ -240,8 +271,16 @@ export function tickStock(
   tick: number,
   marketShock = 0,
   dtSeconds = SERVER_TICK_SECONDS,
+  rand: () => number = Math.random,
 ): StockState {
-  const nextPrice = calculateTickPrice(stock, events, now, marketShock, dtSeconds);
+  const nextPrice = calculateTickPrice(
+    stock,
+    events,
+    now,
+    marketShock,
+    dtSeconds,
+    rand,
+  );
   return applyTickPrice(stock, nextPrice, now);
 }
 
@@ -270,10 +309,9 @@ export function computeCoveredCallTick(
     1,
     Math.max(0, etf.coveredCallUpsideCapture ?? 0.65),
   );
-  const strategyReturn =
-    underlyingTickReturn > 0
-      ? underlyingTickReturn * upsideCapture
-      : underlyingTickReturn;
+  // 틱 단위 비대칭 캡처(상승만 축소)는 변동성 잠식으로 가격이 붕괴하므로
+  // 대칭 축소 노출로 단순화한다. 대신 옵션 프리미엄이 NAV에 꾸준히 쌓인다.
+  const strategyReturn = underlyingTickReturn * upsideCapture;
   const monthlyPremiumRate = (etf.coveredCallAnnualYield ?? 0) / 100 / 12;
   const intervalSeconds =
     COVERED_CALL_INTERVAL_DAYS * (SESSION_DURATION_MS / 1_000);
@@ -347,9 +385,13 @@ export function tickAllStocks(
   now: number,
   tick: number,
   dtSeconds = SERVER_TICK_SECONDS,
+  simTick?: number,
 ): StockState[] {
   // 이 틱의 공통 시장 충격 — 전 종목이 공유 (베타로 개별 스케일)
-  const marketShock = randomNormal();
+  // simTick이 주어지면 시드 고정(결정론) — 모든 클라이언트가 같은 시장을 계산한다.
+  const marketShock = randomNormal(
+    simTick !== undefined ? seededRand(simTick, "shock") : Math.random,
+  );
 
   // 1차: 일반 종목 (파생 ETF 제외) — NAV·레버리지 계산의 기준이 된다
   const isDerived = (s: StockState) =>
@@ -359,7 +401,15 @@ export function tickAllStocks(
   const ticked = stocks.map((stock) =>
     isDerived(stock)
       ? stock
-      : tickStock(stock, events, now, tick, marketShock, dtSeconds),
+      : tickStock(
+          stock,
+          events,
+          now,
+          tick,
+          marketShock,
+          dtSeconds,
+          simTick !== undefined ? seededRand(simTick, stock.id) : Math.random,
+        ),
   );
 
   // 기초지수 틱 수익률 (레버리지 합성용)
@@ -408,10 +458,11 @@ export function tickAllStocks(
 function pickWeighted<T>(
   items: T[],
   weightOf: (item: T) => number,
+  rand: () => number = Math.random,
 ): T | null {
   const total = items.reduce((sum, item) => sum + Math.max(weightOf(item), 0), 0);
   if (total <= 0) return null;
-  let r = Math.random() * total;
+  let r = rand() * total;
   for (const item of items) {
     r -= Math.max(weightOf(item), 0);
     if (r <= 0) return item;
@@ -423,6 +474,7 @@ function pickWeighted<T>(
 export function resolveEventTemplate(
   template: EventTemplate,
   now: number,
+  rand: () => number = Math.random,
 ): MarketEvent | null {
   let title = template.title;
   let description = template.description;
@@ -435,6 +487,7 @@ export function resolveEventTemplate(
     const company = pickWeighted(
       candidates,
       (c) => c.eventBias?.[template.tag] ?? 1,
+      rand,
     );
     if (!company) return null;
 
@@ -457,7 +510,7 @@ export function resolveEventTemplate(
   }
 
   return {
-    id: `event-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    id: `event-${now}-${Math.floor(rand() * 1e9).toString(36)}`,
     title,
     description,
     affectedStockIds,
@@ -474,17 +527,33 @@ export function maybeGenerateEvent(
   tick: number,
   now: number,
   events: MarketEvent[] = [],
+  simTick?: number,
 ): MarketEvent | null {
+  const rand =
+    simTick !== undefined ? seededRand(simTick, "event") : Math.random;
   const lastEventAt = events.length
     ? Math.max(...events.map((e) => e.timestamp))
     : 0;
   if (now - lastEventAt < EVENT_MIN_GAP_MS) return null;
-  if (Math.random() > EVENT_CHANCE_PER_TICK) return null;
+  if (rand() > EVENT_CHANCE_PER_TICK) return null;
 
   const template =
-    EVENT_TEMPLATES[Math.floor(Math.random() * EVENT_TEMPLATES.length)];
+    EVENT_TEMPLATES[Math.floor(rand() * EVENT_TEMPLATES.length)];
 
-  return resolveEventTemplate(template, now);
+  return resolveEventTemplate(template, now, rand);
+}
+
+/** 시장가 매수 체결가: 현재가 + 0.005% (최소 현재가) */
+export function getMarketBuyPrice(currentPrice: number): number {
+  return Math.max(
+    Math.ceil(currentPrice * (1 + MARKET_ORDER_SLIPPAGE)),
+    currentPrice,
+  );
+}
+
+/** 시장가 매도 체결가: 현재가 - 0.005% (최소 $1) */
+export function getMarketSellPrice(currentPrice: number): number {
+  return Math.max(Math.floor(currentPrice * (1 - MARKET_ORDER_SLIPPAGE)), 100);
 }
 
 /** 전일 종가 대비 등락률 */

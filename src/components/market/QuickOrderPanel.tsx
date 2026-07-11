@@ -9,7 +9,10 @@ import {
   formatSignedMoney,
   getChangePercent,
 } from "@/lib/market/engine";
-import { getBestAsk, getBestBid } from "@/lib/market/orderBook";
+import {
+  getMarketBuyPrice,
+  getMarketSellPrice,
+} from "@/lib/market/engine";
 import {
   formatSignedPercent,
   upDownClass,
@@ -43,8 +46,9 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     s.holdings.find((h) => h.stockId === stock.id),
   );
 
-  const bestAsk = getBestAsk(liveStock.orderBook);
-  const bestBid = getBestBid(liveStock.orderBook);
+  // 시장가 = 현재가 ± 0.005% (표시가 = 체결가)
+  const bestAsk = getMarketBuyPrice(liveStock.currentPrice);
+  const bestBid = getMarketSellPrice(liveStock.currentPrice);
   const maxBuy = bestAsk > 0 ? Math.floor(cash / bestAsk) : 0;
   const maxSell = holding?.quantity ?? 0;
 

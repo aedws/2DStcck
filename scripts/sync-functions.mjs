@@ -25,6 +25,7 @@ const FILES = [
   ["src/lib/market/engine.ts", "engine.ts"],
   ["src/lib/market/trading.ts", "trading.ts"],
   ["src/lib/market/serverState.ts", "serverState.ts"],
+  ["src/lib/market/localSim.ts", "localSim.ts"],
 ];
 
 const IMPORT_MAP = {
@@ -32,6 +33,7 @@ const IMPORT_MAP = {
   "@/lib/market/constants": "./constants.ts",
   "@/lib/market/salary": "./salary.ts",
   "@/lib/market/distributions": "./distributions.ts",
+  "@/lib/market/localSim": "./localSim.ts",
   "@/lib/market/orderBook": "./orderBook.ts",
   "@/lib/market/engine": "./engine.ts",
   "@/lib/market/trading": "./trading.ts",

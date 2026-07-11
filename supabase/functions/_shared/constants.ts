@@ -3,6 +3,15 @@ export const TICK_INTERVAL_MS = 1000;
 /** 서버 tick 간격 (pg_cron) — 초 */
 export const SERVER_TICK_SECONDS = 10;
 
+/** 공통 시장 기원점 (UTC). 로컬 모드는 이 시점부터 시드 고정 결정론 시뮬레이션으로
+ * 시장을 계산하므로, 서버 없이도 모든 접속자가 동일한 시장을 본다. */
+export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
+/** 결정론 시뮬레이션 tick 간격 (ms) — 로컬 모드 1초 */
+export const SIM_TICK_MS = 1000;
+
+/** 시장가 슬리피지: 체결가 = 현재가 × (1 ± 0.005%) */
+export const MARKET_ORDER_SLIPPAGE = 0.00005;
+
 // ── 가격 엔진 (시간 기반: 틱 간격과 무관하게 하루 등락폭이 일정) ──
 // 목표 일변동(3시간 거래일): 개별주 σ ≈ volatility×0.008×√86400/8 → vol 0.03이면 ~2.5%,
 // 지수 ~1%, 채권 ~0.5%. 실제 시장 수준.

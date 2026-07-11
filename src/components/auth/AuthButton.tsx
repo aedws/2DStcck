@@ -28,10 +28,9 @@ export function AuthButton() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // 로컬(공통 시장) 모드: 로그인 개념 없음 — 아무것도 표시하지 않는다
   if (!IS_SERVER_MODE) {
-    return (
-      <span className="text-xs text-[var(--muted)]">로컬 모드</span>
-    );
+    return null;
   }
 
   if (loading) return null;

@@ -31,7 +31,15 @@
       "Bash(npx -y tsx test-nav.mts)",
       "Bash(git commit -q -m 'feat: NAV-tracking ETFs with holdings donut + WW/NIKKE sector expansion *)",
       "Bash(npx -y tsx test-lev.mts)",
-      "Bash(git commit -q -m 'feat: synthetic ETFs \\(inverse/2x/covered call\\) + session income payouts *)"
+      "Bash(git commit -q -m 'feat: synthetic ETFs \\(inverse/2x/covered call\\) + session income payouts *)",
+      "Bash(curl -s https://stockch-2d.vercel.app/)",
+      "Bash(curl -s \"https://stockch-2d.vercel.app/_next/static/chunks/962-68c875ff57abfece.js\")",
+      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('scripts/sync-functions.mjs','utf8'\\); console.log\\(s.includes\\('localSim'\\) ? 'localSim synced' : 'localSim NOT in sync list'\\);\")",
+      "Bash(npx -y tsx test-determinism.mts)",
+      "Bash(npx -y tsx test-fullreplay.mts)",
+      "Bash(npx -y tsx test-levels.mts)",
+      "Bash(git commit -q -m 'feat: unified deterministic local market + market-order/ticker/login fixes *)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -2,7 +2,10 @@
 // 배포: supabase functions deploy trade
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseMarketRow } from "../_shared/serverState.ts";
-import { getBestAsk, getBestBid } from "../_shared/orderBook.ts";
+import {
+  getMarketBuyPrice,
+  getMarketSellPrice,
+} from "../_shared/engine.ts";
 import {
   executeBuy,
   executeSell,
@@ -49,9 +52,9 @@ function json(body: unknown, status = 200): Response {
 function getOrderPrice(stock: StockState, orderType: OrderType): number {
   switch (orderType) {
     case "buy_market":
-      return getBestAsk(stock.orderBook);
+      return getMarketBuyPrice(stock.currentPrice);
     case "sell_market":
-      return getBestBid(stock.orderBook);
+      return getMarketSellPrice(stock.currentPrice);
     case "buy_current":
     case "sell_current":
       return stock.currentPrice;
