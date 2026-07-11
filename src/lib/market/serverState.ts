@@ -30,16 +30,18 @@ export function applyDefinitionOverlay(stock: StockState): StockState {
   return { ...stock, ...def };
 }
 
-/** 정의에 새로 추가된 종목 편입 + 기존 종목에 최신 정의 오버레이 */
+/** 정의에 새로 추가된 종목 편입 + 최신 정의 오버레이 + 삭제된 종목 정리 */
 export function ensureDefinedStocks(
   state: ServerMarketState,
 ): ServerMarketState {
-  const have = new Set(state.stocks.map((s) => s.id));
+  const definedIds = new Set(STOCK_DEFINITIONS.map((d) => d.id));
+  const kept = state.stocks.filter((s) => definedIds.has(s.id));
+  const have = new Set(kept.map((s) => s.id));
   const missing = STOCK_DEFINITIONS.filter((d) => !have.has(d.id));
   return {
     ...state,
     stocks: [
-      ...state.stocks.map(applyDefinitionOverlay),
+      ...kept.map(applyDefinitionOverlay),
       ...missing.map(createInitialStockState),
     ],
   };

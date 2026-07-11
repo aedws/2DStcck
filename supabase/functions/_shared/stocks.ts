@@ -4,7 +4,7 @@ import { CSV_COMPANIES } from "./generated.ts";
 
 export const INITIAL_CASH = 10_000_000;
 
-/** 코드 관리 종목 (지수·선물·기본 회사). 캐릭터 회사는 data/companies.csv가 원본. */
+/** 코드 관리 종목 (시장 코어: 지수·선물). 회사·캐릭터는 data/companies.csv가 원본. */
 const CORE_DEFINITIONS: StockDefinition[] = [
   {
     id: "vnasdaq",
@@ -30,105 +30,6 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     description: "V-NASDAQ 지수 선물. 지수보다 90초 먼저 움직이는 선행지표.",
     beta: 1,
   },
-  {
-    id: "vtech",
-    ticker: "VTECH",
-    name: "Virtual Tech",
-    sector: "기술",
-    initialPrice: 85000,
-    volatility: 0.035,
-    drift: 0.0008,
-    description: "클라우드와 소비자 플랫폼을 아우르는 종합 기술 기업.",
-    beta: 1.3,
-  },
-  {
-    id: "vchip",
-    ticker: "VCHP",
-    name: "Virtual Semicon",
-    sector: "반도체",
-    initialPrice: 152000,
-    volatility: 0.04,
-    drift: 0.0009,
-    description: "AI 가속기와 메모리를 설계·양산하는 반도체 기업.",
-    beta: 1.5,
-  },
-  {
-    id: "vbatt",
-    ticker: "VBAT",
-    name: "Virtual Battery",
-    sector: "2차전지",
-    initialPrice: 37500,
-    volatility: 0.045,
-    drift: 0.0004,
-    description: "전기차·ESS용 차세대 배터리 제조사.",
-    beta: 1.4,
-  },
-  {
-    id: "vgame",
-    ticker: "VGME",
-    name: "Virtual Games",
-    sector: "게임",
-    initialPrice: 54000,
-    volatility: 0.038,
-    drift: 0.0006,
-    description: "글로벌 히트작을 보유한 게임 퍼블리셔.",
-    beta: 1.2,
-  },
-  {
-    id: "venergy",
-    ticker: "VNRG",
-    name: "Virtual Energy",
-    sector: "에너지",
-    initialPrice: 42000,
-    volatility: 0.028,
-    drift: 0.0003,
-    description: "정유·신재생을 겸하는 에너지 기업.",
-    beta: 0.6,
-  },
-  {
-    id: "vhealth",
-    ticker: "VHLT",
-    name: "Virtual Health",
-    sector: "헬스케어",
-    initialPrice: 63000,
-    volatility: 0.022,
-    drift: 0.0005,
-    description: "신약 파이프라인 중심의 바이오·헬스케어 기업.",
-    beta: 0.7,
-  },
-  {
-    id: "vretail",
-    ticker: "VRTL",
-    name: "Virtual Retail",
-    sector: "소비재",
-    initialPrice: 28000,
-    volatility: 0.03,
-    drift: 0.0002,
-    description: "온·오프라인을 잇는 유통·소비재 기업.",
-    beta: 0.9,
-  },
-  {
-    id: "vfinance",
-    ticker: "VFIN",
-    name: "Virtual Finance",
-    sector: "금융",
-    initialPrice: 51000,
-    volatility: 0.025,
-    drift: 0.0004,
-    description: "은행·증권·핀테크를 아우르는 금융 지주.",
-    beta: 1.1,
-  },
-  {
-    id: "vmedia",
-    ticker: "VMDA",
-    name: "Virtual Media",
-    sector: "미디어",
-    initialPrice: 19000,
-    volatility: 0.04,
-    drift: 0.0001,
-    description: "스트리밍과 디지털 광고 기반 미디어 기업.",
-    beta: 1.2,
-  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -148,26 +49,24 @@ export function getCompanyDefinitions(): StockDefinition[] {
 
 /**
  * 이벤트 템플릿.
- * - macro: affectedStockIds 고정 (시장 전반)
- * - sector: 해당 섹터 전 종목 + 지수·선물
+ * - macro: affectedStockIds 생략 → 전 종목 (임팩트는 베타로 스케일)
+ * - sector: 해당 섹터 전 종목 대상
  * - company: 생성 시 eventBias 가중 추첨으로 회사 1곳 선택, {company}/{ceo} 치환
  */
 export const EVENT_TEMPLATES: EventTemplate[] = [
-  // ── macro ──
+  // ── macro (전 종목 × 베타) ──
   {
     category: "macro",
     tag: "금리",
     title: "금리 인하 기대",
     description: "중앙은행의 완화적 통화정책 기대감이 시장 전반에 확산됩니다.",
-    affectedStockIds: ["vnasdaq", "vnasfut", "vfinance", "vtech", "vretail"],
     impact: 0.04,
   },
   {
     category: "macro",
     tag: "금리",
-    title: "미 금리 동결 실망",
+    title: "금리 동결 실망",
     description: "기대했던 금리 인하가 미뤄지며 위험자산 전반이 약세입니다.",
-    affectedStockIds: ["vnasdaq", "vnasfut", "vfinance", "vtech"],
     impact: -0.04,
   },
   {
@@ -175,7 +74,6 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     tag: "위험선호",
     title: "글로벌 위험선호 회복",
     description: "위험자산 선호가 살아나며 성장주 중심으로 반등합니다.",
-    affectedStockIds: ["vnasdaq", "vnasfut", "vtech", "vchip", "vgame"],
     impact: 0.035,
   },
   {
@@ -190,50 +88,9 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     tag: "실적",
     title: "실적 시즌 호조",
     description: "주요 기업들의 분기 실적이 시장 예상을 상회했습니다.",
-    affectedStockIds: ["vnasdaq", "vnasfut", "vtech", "vchip", "vfinance", "vhealth"],
     impact: 0.03,
   },
   // ── sector ──
-  {
-    category: "sector",
-    tag: "AI",
-    title: "AI 서버 수요 폭증",
-    description: "데이터센터 투자 확대에 반도체·기술주가 급등합니다.",
-    sector: "반도체",
-    impact: 0.06,
-  },
-  {
-    category: "sector",
-    tag: "감산",
-    title: "반도체 감산 발표",
-    description: "주요 업체의 감산으로 메모리 가격 반등 기대가 커집니다.",
-    sector: "반도체",
-    impact: 0.05,
-  },
-  {
-    category: "sector",
-    tag: "수요둔화",
-    title: "전기차 판매 부진",
-    description: "전방 수요 둔화로 2차전지 섹터에 매도세가 몰립니다.",
-    sector: "2차전지",
-    impact: -0.055,
-  },
-  {
-    category: "sector",
-    tag: "유가",
-    title: "유가 급등",
-    description: "국제 유가 상승으로 에너지 섹터가 강세를 보입니다.",
-    sector: "에너지",
-    impact: 0.06,
-  },
-  {
-    category: "sector",
-    tag: "규제",
-    title: "규제 강화 우려",
-    description: "플랫폼 규제 논의로 기술·미디어주에 매도 압력이 나타납니다.",
-    sector: "기술",
-    impact: -0.05,
-  },
   {
     category: "sector",
     tag: "지정학",
@@ -244,19 +101,59 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   },
   {
     category: "sector",
-    tag: "소비",
-    title: "소비 둔화",
-    description: "소매 판매 지표 부진으로 소비재 섹터가 약세입니다.",
-    sector: "소비재",
+    tag: "치안",
+    title: "키보토스 치안 불안 고조",
+    description: "곳곳의 소요 사태로 경비·경호 수요가 급증하고 있습니다.",
+    sector: "PMC",
+    impact: 0.05,
+  },
+  {
+    category: "sector",
+    tag: "보안",
+    title: "대규모 해킹 사태",
+    description: "연쇄 해킹 공격에 보안 솔루션 수요가 폭증합니다.",
+    sector: "보안",
+    impact: 0.06,
+  },
+  {
+    category: "sector",
+    tag: "신작",
+    title: "신작 게임 글로벌 흥행",
+    description: "신작 게임의 글로벌 흥행으로 게임 섹터가 강세입니다.",
+    sector: "게임",
+    impact: 0.065,
+  },
+  {
+    category: "sector",
+    tag: "규제",
+    title: "임상 규제 완화",
+    description: "신약 승인 절차 간소화 소식에 바이오 섹터가 급등합니다.",
+    sector: "바이오",
+    impact: 0.055,
+  },
+  {
+    category: "sector",
+    tag: "원가",
+    title: "식자재 가격 급등",
+    description: "식자재 가격 상승으로 요식업 마진 우려가 커집니다.",
+    sector: "요식업",
     impact: -0.04,
   },
   {
     category: "sector",
-    tag: "광고",
-    title: "광고 수요 감소",
-    description: "디지털 광고 지출 축소로 미디어 섹터가 하락합니다.",
-    sector: "미디어",
-    impact: -0.045,
+    tag: "신용",
+    title: "신용 스프레드 확대",
+    description: "신용 경계감이 커지며 학원채 가격이 일제히 밀립니다.",
+    sector: "채권",
+    impact: -0.025,
+  },
+  {
+    category: "sector",
+    tag: "소비",
+    title: "연휴 특수 기대",
+    description: "긴 연휴를 앞두고 여행 수요가 빠르게 살아나고 있습니다.",
+    sector: "관광",
+    impact: 0.045,
   },
   // ── company ──
   {

@@ -385,7 +385,10 @@ export const useMarketStore = create<MarketStore>()(
       merge: (persisted, current) => {
         if (IS_SERVER_MODE) return current;
         const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
-        const restored = (merged.stocks ?? current.stocks).map(migrateStock);
+        const definedIds = new Set(STOCK_DEFINITIONS.map((d) => d.id));
+        const restored = (merged.stocks ?? current.stocks)
+          .filter((s) => definedIds.has(s.id))
+          .map(migrateStock);
         const have = new Set(restored.map((s) => s.id));
         const added = STOCK_DEFINITIONS.filter((d) => !have.has(d.id)).map(
           createInitialStockState,

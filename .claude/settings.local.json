@@ -17,7 +17,9 @@
       "Bash(node -e \"require\\('fs'\\).rmSync\\('.next',{recursive:true,force:true}\\)\")",
       "Bash(git commit -q -m 'feat: futures become view-only leading indicator with dedicated page *)",
       "Bash(git commit -q -m 'feat: clickable overview charts + news archive page *)",
-      "Bash(git commit -q -m 'feat: company logo support with initials fallback *)"
+      "Bash(git commit -q -m 'feat: company logo support with initials fallback *)",
+      "PowerShell(Move-Item \"C:\\\\Users\\\\uyess\\\\Desktop\\\\2DStock\\\\public\\\\logos\\\\ridc.png\" \"C:\\\\Users\\\\uyess\\\\Desktop\\\\2DStock\\\\public\\\\logos\\\\baridc.png\" -Force)",
+      "Bash(git commit -q -m 'feat: Blue Archive world — 29 character companies from draft CSV *)"
     ]
   }
 }
