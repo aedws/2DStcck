@@ -83,6 +83,7 @@ supabase functions deploy trade
 | `drift` | ✅ | 장기 성향, -0.001~0.002 권장 | `0.0005` |
 | `beta` | ✅ | 시장(선물) 민감도, 1 = 시장과 동일 | `0.7` |
 | `description` | | 회사 한 줄 소개 | `궤도 방위 시스템...` |
+| `logo` | | 로고 경로/URL. 빈칸이면 `public/logos/<id>.png` 자동 시도, 그것도 없으면 티커 이니셜 | `/logos/ridc.png` |
 | `eventBias` | | 이벤트 태그별 가중치 `태그:배수;태그:배수` (기본 1) | `수주:4;스캔들:0.5` |
 | `ceoName` | | 캐릭터 이름 (빈칸이면 캐릭터 없는 회사) | `츠카츠키 리오` |
 | `ceoTitle` | | 직함 (기본 CEO) | `CEO` |

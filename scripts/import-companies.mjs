@@ -13,6 +13,7 @@
  *   drift       장기 성향, -0.001~0.002 권장
  *   beta        시장(선물) 민감도, 1 = 시장과 동일
  *   description 회사 한 줄 소개
+ *   logo        기업 로고 경로/URL (빈칸이면 public/logos/<id>.png 자동 시도, 없으면 이니셜)
  *   eventBias   이벤트 태그별 가중치 "태그:배수;태그:배수" (빈칸 가능, 기본 1)
  *   ceoName     캐릭터 이름 (빈칸이면 캐릭터 없는 회사)
  *   ceoTitle    직함 (빈칸이면 CEO)
@@ -30,7 +31,7 @@ const outPath = join(root, "src", "data", "generated.ts");
 
 const HEADER = [
   "ticker", "name", "sector", "initialPrice", "volatility", "drift", "beta",
-  "description", "eventBias", "ceoName", "ceoTitle", "ceoTraits", "ceoBio", "ceoEmoji",
+  "description", "logo", "eventBias", "ceoName", "ceoTitle", "ceoTraits", "ceoBio", "ceoEmoji",
 ];
 
 /** 최소 RFC4180 파서: 따옴표 필드, "" 이스케이프, CRLF 지원 */
@@ -143,6 +144,7 @@ rows.forEach((cols, idx) => {
     drift,
     beta,
     description: get("description") || undefined,
+    logo: get("logo") || undefined,
     eventBias: parseEventBias(get("eventBias"), line),
   };
 

@@ -41,6 +41,8 @@ export interface StockDefinition {
   ceoId?: string;
   /** 회사 한 줄 소개 */
   description?: string;
+  /** 기업 로고 경로/URL. 비우면 /logos/<id>.png 관례 경로 시도, 없으면 티커 이니셜 */
+  logo?: string;
   /** 시장(선물) 민감도. 1 = 시장과 동일 — MVP에선 엔진 미연결, 값만 채워둠 */
   beta?: number;
   /** 이벤트 태그별 발생 가중치 (기본 1). 예: { 수주: 4, 스캔들: 0.5 } */

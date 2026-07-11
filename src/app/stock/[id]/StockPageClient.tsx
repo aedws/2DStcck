@@ -26,6 +26,7 @@ import {
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
+import { StockLogo } from "@/components/ui/StockLogo";
 import { useMarketStore } from "@/store/marketStore";
 
 const SUB_TABS = ["차트 · 호가", "종목정보", "뉴스"] as const;
@@ -56,9 +57,7 @@ function StockHeader({ stock }: { stock: StockState }) {
         >
           ←
         </Link>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[11px] font-bold text-[var(--muted)]">
-          {stock.ticker.slice(0, 2)}
-        </div>
+        <StockLogo stock={stock} size={36} />
         <div className="min-w-0">
           <p className="flex items-baseline gap-2">
             <span className="truncate text-sm font-semibold">{stock.name}</span>

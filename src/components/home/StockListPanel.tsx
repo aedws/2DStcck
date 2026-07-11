@@ -15,6 +15,7 @@ import {
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { Sparkline } from "@/components/ui/Sparkline";
+import { StockLogo } from "@/components/ui/StockLogo";
 
 const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별"];
 const SORTS = ["급상승", "급하락", "거래대금"] as const;
@@ -148,9 +149,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                   </td>
                   <td className="px-2 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[10px] font-bold text-[var(--muted)]">
-                        {stock.ticker.slice(0, 2)}
-                      </div>
+                      <StockLogo stock={stock} size={28} />
                       <div className="min-w-0">
                         <p className="truncate font-medium">{stock.name}</p>
                         <p className="text-[10px] text-[var(--muted)]">

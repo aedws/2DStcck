@@ -16,7 +16,8 @@
       "Bash(git commit -q -m 'feat: stock detail page redesign following Toss-style reference *)",
       "Bash(node -e \"require\\('fs'\\).rmSync\\('.next',{recursive:true,force:true}\\)\")",
       "Bash(git commit -q -m 'feat: futures become view-only leading indicator with dedicated page *)",
-      "Bash(git commit -q -m 'feat: clickable overview charts + news archive page *)"
+      "Bash(git commit -q -m 'feat: clickable overview charts + news archive page *)",
+      "Bash(git commit -q -m 'feat: company logo support with initials fallback *)"
     ]
   }
 }
