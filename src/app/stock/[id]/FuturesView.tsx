@@ -160,8 +160,8 @@ export function FuturesView({ stock }: { stock: StockState }) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <main className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
+        <main className="min-w-0 flex-1 px-4 py-4 md:overflow-y-auto md:px-5">
           <CandlestickChart
             candles={stock.candles}
             dailyCandles={stock.dailyCandles}

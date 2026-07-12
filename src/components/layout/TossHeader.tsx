@@ -58,6 +58,9 @@ export function TossHeader() {
           <AuthButton />
         </div>
       </div>
+      <div className="px-3 pb-3 md:hidden">
+        <StockSearch />
+      </div>
     </header>
   );
 }

@@ -24,7 +24,7 @@ export function BottomTicker({ stocks }: { stocks: StockState[] }) {
   });
 
   return (
-    <div className="shrink-0 overflow-hidden border-t border-[var(--border)] bg-[var(--background)] py-1.5">
+    <div className="hidden shrink-0 overflow-hidden border-t border-[var(--border)] bg-[var(--background)] py-1.5 md:block">
       <div
         className="ticker-marquee flex w-max"
         style={{ animationDuration: `${Math.max(items.length * 3, 45)}s` }}

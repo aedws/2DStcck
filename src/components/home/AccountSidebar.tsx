@@ -43,7 +43,7 @@ export function AccountSidebar() {
   const salaryActive = !IS_SERVER_MODE || Boolean(userId);
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--background)]">
+    <aside className="hidden w-[300px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--background)] lg:flex">
       <div className="border-b border-[var(--border)] p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">내 투자</h2>

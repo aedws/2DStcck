@@ -29,7 +29,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
 
   if (!stock) {
     return (
-      <div className="flex w-[400px] shrink-0 items-center justify-center text-[var(--muted)]">
+      <div className="hidden w-[400px] shrink-0 items-center justify-center text-[var(--muted)] lg:flex">
         종목을 선택해 주세요
       </div>
     );
@@ -43,7 +43,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
   const ceo = getCharacterById(stock.ceoId);
 
   return (
-    <section className="flex w-[400px] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--background)]">
+    <section className="hidden w-[400px] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--background)] lg:flex">
       <div className="border-b border-[var(--border)] px-4 py-3">
         <p className="text-xs text-[var(--muted)]">
           {stock.ticker} · {stock.sector}
