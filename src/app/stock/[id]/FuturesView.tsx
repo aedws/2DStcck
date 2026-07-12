@@ -164,6 +164,7 @@ export function FuturesView({ stock }: { stock: StockState }) {
         <main className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
           <CandlestickChart
             candles={stock.candles}
+            dailyCandles={stock.dailyCandles}
             history={stock.priceHistory}
             height={380}
             prevDayClose={stock.prevDayClose}
@@ -178,7 +179,7 @@ export function FuturesView({ stock }: { stock: StockState }) {
             <p className="mb-3 rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--muted)]">
               {isFutures
                 ? `${stock.name}은 시장 방향을 약 90초 먼저 반영하는 선행지표예요. 거래할 수 없지만, 이 차트가 먼저 움직인 방향으로 지수와 종목들이 따라 움직입니다.`
-                : `${stock.name}는 시장 전체의 흐름을 나타내는 지수예요. 직접 살 수는 없고, ETF 상품(Millennium Tech 100 · Kivotos Composite Index)으로 간접 투자할 수 있습니다.`}
+                : `${stock.name}는 시장 전체의 흐름을 나타내는 지수예요. 직접 살 수는 없고, ETF 상품(밀레니엄 테크 100 · 키보토스 종합지수)으로 간접 투자할 수 있습니다.`}
             </p>
 
             {related.length === 0 ? (

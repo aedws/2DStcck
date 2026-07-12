@@ -14,6 +14,9 @@ import {
   EVENT_IMPACT_TIME_SCALE,
   EVENT_MIN_GAP_MS,
   MARKET_ORDER_SLIPPAGE,
+  MARKET_DOWNSIDE_REVERSION_PER_SESSION,
+  MARKET_EPOCH_MS,
+  MARKET_SECULAR_GROWTH_PER_SESSION,
   MARKET_SHOCK_TIME_SCALE,
   MARKET_TREND_BASE_PER_SEC,
   MAX_PRICE_HISTORY,
@@ -34,6 +37,7 @@ import { COVERED_CALL_INTERVAL_DAYS } from "./distributions.ts";
 const MARKET_TREND_PERIOD_MS = 900_000;
 /** 선물의 추세 선행 시간 */
 const FUTURES_LEAD_MS = 90_000;
+const SECULAR_GROWTH_BENCHMARK_IDS = new Set(["vnasdaq", "vnasfut"]);
 
 export function randomNormal(rand: () => number = Math.random): number {
   const u1 = Math.max(rand(), 1e-12);
@@ -89,6 +93,16 @@ export function createInitialStockState(
         close: def.initialPrice,
       },
     ],
+    dailyCandles: [
+      {
+        timestamp:
+          Math.floor(now / SESSION_DURATION_MS) * SESSION_DURATION_MS,
+        open: def.initialPrice,
+        high: def.initialPrice,
+        low: def.initialPrice,
+        close: def.initialPrice,
+      },
+    ],
     orderBook,
   };
 }
@@ -108,6 +122,38 @@ function getActiveEventImpact(
     }
   }
   return impact;
+}
+
+/**
+ * Keeps the broad benchmarks on a rising long-run path while preserving normal
+ * corrections. Support only activates below the compound-growth baseline, so
+ * rallies, pullbacks, volatility, and event shocks remain market-driven.
+ */
+export function calculateSecularGrowthSupport(
+  stock: StockState,
+  now: number,
+  dtSeconds: number,
+): number {
+  if (!SECULAR_GROWTH_BENCHMARK_IDS.has(stock.id)) return 0;
+
+  const elapsedSessions = Math.max(
+    0,
+    (now - MARKET_EPOCH_MS) / SESSION_DURATION_MS,
+  );
+  const targetPrice =
+    stock.initialPrice *
+    Math.exp(MARKET_SECULAR_GROWTH_PER_SESSION * elapsedSessions);
+  if (stock.currentPrice >= targetPrice) return 0;
+
+  const downsideGap = Math.log(
+    targetPrice / Math.max(stock.currentPrice, 100),
+  );
+  const sessionFraction = dtSeconds / (SESSION_DURATION_MS / 1_000);
+  return (
+    downsideGap *
+    MARKET_DOWNSIDE_REVERSION_PER_SESSION *
+    sessionFraction
+  );
 }
 
 /** 시간 기반 가격 엔진: 모든 항이 dt(초)로 스케일되어
@@ -137,9 +183,15 @@ export function calculateTickPrice(
     Math.sin(((now + trendLead) / MARKET_TREND_PERIOD_MS) * 2 * Math.PI);
   // 공통 충격: 같은 틱의 모든 종목이 같은 z를 받아 지수와 동반 등락한다
   const shock = beta * marketShock * MARKET_SHOCK_TIME_SCALE * sqrtDt;
+  const secularGrowthSupport = calculateSecularGrowthSupport(
+    stock,
+    now,
+    dtSeconds,
+  );
 
   const changeRate =
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
+    secularGrowthSupport +
     trend +
     shock +
     eventImpact * EVENT_IMPACT_TIME_SCALE * dtSeconds +
@@ -151,6 +203,7 @@ export function calculateTickPrice(
 
 /** 1분봉 유지: 같은 분이면 고저종 갱신, 새 분이면 새 봉 시작 */
 export const MAX_CANDLES = 180;
+export const MAX_DAILY_CANDLES = 240;
 
 export function applyTickToCandles(
   candles: Candle[],
@@ -174,6 +227,64 @@ export function applyTickToCandles(
     ...candles,
     { timestamp: minuteStart, open: price, high: price, low: price, close: price },
   ].slice(-MAX_CANDLES);
+}
+
+/** 게임 거래일(3시간) 단위 OHLC 유지 */
+export function applyTickToDailyCandles(
+  candles: Candle[],
+  price: number,
+  now: number,
+): Candle[] {
+  const sessionStart =
+    Math.floor(now / SESSION_DURATION_MS) * SESSION_DURATION_MS;
+  const last = candles[candles.length - 1];
+
+  if (last && last.timestamp === sessionStart) {
+    return [
+      ...candles.slice(0, -1),
+      {
+        ...last,
+        high: Math.max(last.high, price),
+        low: Math.min(last.low, price),
+        close: price,
+      },
+    ];
+  }
+
+  return [
+    ...candles,
+    {
+      timestamp: sessionStart,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    },
+  ].slice(-MAX_DAILY_CANDLES);
+}
+
+/** 연속 일봉을 5거래일 주봉 또는 20거래일 월봉으로 집계 */
+export function aggregateCandlesBySessions(
+  candles: Candle[],
+  sessionsPerBar: number,
+): Candle[] {
+  const size = Math.max(1, Math.floor(sessionsPerBar));
+  const buckets = new Map<number, Candle>();
+
+  for (const candle of candles) {
+    const session = Math.floor(candle.timestamp / SESSION_DURATION_MS);
+    const bucket = Math.floor(session / size);
+    const current = buckets.get(bucket);
+    if (!current) {
+      buckets.set(bucket, { ...candle });
+      continue;
+    }
+    current.high = Math.max(current.high, candle.high);
+    current.low = Math.min(current.low, candle.low);
+    current.close = candle.close;
+  }
+
+  return [...buckets.values()];
 }
 
 /** 결정된 다음 가격을 종목 상태에 반영 (거래일 롤오버·호가·히스토리·캔들) */
@@ -210,6 +321,11 @@ function applyTickPrice(
     orderBook,
     priceHistory: newHistory,
     candles: applyTickToCandles(stock.candles ?? [], nextPrice, now),
+    dailyCandles: applyTickToDailyCandles(
+      stock.dailyCandles ?? [],
+      nextPrice,
+      now,
+    ),
   };
 }
 
@@ -248,6 +364,23 @@ export function applyCashDistributionToStock(
       ? [...stock.priceHistory.slice(0, -1), { timestamp: now, price: nextPrice }]
       : [...stock.priceHistory, { timestamp: now, price: nextPrice }]
   ).slice(-MAX_PRICE_HISTORY);
+  const sessionStart =
+    Math.floor(now / SESSION_DURATION_MS) * SESSION_DURATION_MS;
+  const previousDailyCandles = stock.dailyCandles ?? [];
+  const lastDailyCandle = previousDailyCandles[previousDailyCandles.length - 1];
+  const dailyCandles =
+    lastDailyCandle?.timestamp === sessionStart
+      ? [
+          ...previousDailyCandles.slice(0, -1),
+          {
+            ...lastDailyCandle,
+            open: Math.max(lastDailyCandle.open - amountPerShare, 100),
+            high: Math.max(lastDailyCandle.high - amountPerShare, 100),
+            low: Math.max(lastDailyCandle.low - amountPerShare, 100),
+            close: nextPrice,
+          },
+        ]
+      : applyTickToDailyCandles(previousDailyCandles, nextPrice, now);
 
   return {
     ...stock,
@@ -261,6 +394,7 @@ export function applyCashDistributionToStock(
     orderBook: generateOrderBook(nextPrice, stock.orderBook),
     priceHistory,
     candles,
+    dailyCandles,
   };
 }
 

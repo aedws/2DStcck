@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ColorType,
   CrosshairMode,
@@ -12,7 +12,10 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle, PricePoint } from "@/lib/types/market";
-import { buildCandles } from "@/lib/market/engine";
+import {
+  aggregateCandlesBySessions,
+  buildCandles,
+} from "@/lib/market/engine";
 
 const UP_COLOR = "#f04452";
 const DOWN_COLOR = "#3182f6";
@@ -20,6 +23,8 @@ const DOWN_COLOR = "#3182f6";
 interface CandlestickChartProps {
   /** 서버 관리 1분봉 (없으면 history에서 임시 생성) */
   candles?: Candle[];
+  /** 게임 거래일(3시간) 기준 일봉 */
+  dailyCandles?: Candle[];
   history?: PricePoint[];
   height?: number;
   averagePrice?: number;
@@ -30,6 +35,14 @@ interface CandlestickChartProps {
 
 /** lightweight-charts는 UTC로만 그리므로, 로컬 시간대만큼 이동시켜 표시 */
 const TZ_OFFSET_MS = -new Date().getTimezoneOffset() * 60_000;
+type ChartTimeframe = "minute" | "day" | "week" | "month";
+
+const TIMEFRAMES: Array<{ id: ChartTimeframe; label: string }> = [
+  { id: "minute", label: "1분" },
+  { id: "day", label: "일" },
+  { id: "week", label: "주" },
+  { id: "month", label: "월" },
+];
 
 function toSeriesData(candles: Candle[]) {
   return candles.map((c) => ({
@@ -43,12 +56,14 @@ function toSeriesData(candles: Candle[]) {
 
 export function CandlestickChart({
   candles,
+  dailyCandles,
   history,
   height = 320,
   averagePrice,
   prevDayClose,
   priceKind = "dollar",
 }: CandlestickChartProps) {
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("day");
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -57,14 +72,28 @@ export function CandlestickChart({
   const initialFitDoneRef = useRef(false);
 
   const data = useMemo(() => {
-    const source =
+    const minuteSource =
       candles && candles.length > 0
         ? candles
         : history
           ? buildCandles(history)
           : [];
+    const daySource =
+      dailyCandles && dailyCandles.length > 0
+        ? dailyCandles
+        : minuteSource;
+    const source =
+      timeframe === "minute"
+        ? minuteSource
+        : timeframe === "day"
+          ? daySource
+          : aggregateCandlesBySessions(
+              daySource,
+              timeframe === "week" ? 5 : 20,
+            );
     return toSeriesData(source);
-  }, [candles, history]);
+  }, [candles, dailyCandles, history, timeframe]);
+  const hasData = data.length > 0;
 
   // 차트 생성/해제
   useEffect(() => {
@@ -91,7 +120,7 @@ export function CandlestickChart({
       leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
-        timeVisible: true,
+        timeVisible: timeframe === "minute",
         secondsVisible: false,
         rightOffset: 4,
         barSpacing: 8,
@@ -130,7 +159,7 @@ export function CandlestickChart({
       avgLineRef.current = null;
       prevCloseLineRef.current = null;
     };
-  }, [height, priceKind]);
+  }, [hasData, height, priceKind, timeframe]);
 
   // 데이터 갱신 — 사용자가 스크롤한 위치는 유지, 최초 1회만 맞춤
   useEffect(() => {
@@ -180,22 +209,53 @@ export function CandlestickChart({
         title: "전일",
       });
     }
-  }, [averagePrice, prevDayClose, data.length > 0]);
+  }, [averagePrice, prevDayClose, hasData]);
 
-  if (data.length === 0) {
+  if (!hasData) {
     return (
-      <div
-        className="flex items-center justify-center rounded-2xl bg-[var(--surface)] text-sm text-[var(--muted)]"
-        style={{ height }}
-      >
-        캔들 차트 수집 중...
+      <div className="rounded-2xl bg-[var(--surface)] p-2">
+        <TimeframeTabs value={timeframe} onChange={setTimeframe} />
+        <div
+          className="flex items-center justify-center text-sm text-[var(--muted)]"
+          style={{ height }}
+        >
+          캔들 차트 수집 중...
+        </div>
       </div>
     );
   }
 
   return (
     <div className="rounded-2xl bg-[var(--surface)] p-2">
+      <TimeframeTabs value={timeframe} onChange={setTimeframe} />
       <div ref={containerRef} style={{ height }} />
+    </div>
+  );
+}
+
+function TimeframeTabs({
+  value,
+  onChange,
+}: {
+  value: ChartTimeframe;
+  onChange: (value: ChartTimeframe) => void;
+}) {
+  return (
+    <div className="mb-1 flex gap-1 px-1 pt-1">
+      {TIMEFRAMES.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onChange(item.id)}
+          className={`rounded-lg px-3 py-1.5 text-xs transition ${
+            value === item.id
+              ? "bg-[var(--surface-elevated)] font-semibold text-[var(--foreground)]"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }

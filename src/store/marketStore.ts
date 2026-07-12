@@ -152,6 +152,7 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
       withBook.currentPrice,
     dayOpen: withBook.dayOpen ?? withBook.currentPrice,
     candles: withBook.candles ?? [],
+    dailyCandles: withBook.dailyCandles ?? [],
   });
 }
 
@@ -568,7 +569,9 @@ export const useMarketStore = create<MarketStore>()(
         const definedIds = new Set(STOCK_DEFINITIONS.map((d) => d.id));
         const sameUniverse =
           persistedStocks.length === STOCK_DEFINITIONS.length &&
-          persistedStocks.every((s) => definedIds.has(s.id));
+          persistedStocks.every(
+            (s) => definedIds.has(s.id) && Array.isArray(s.dailyCandles),
+          );
         const marketValid =
           merged.marketStartedAt === MARKET_EPOCH_MS &&
           Number.isSafeInteger(merged.tick) &&

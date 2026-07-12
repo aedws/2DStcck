@@ -46,6 +46,7 @@ export function applyDefinitionOverlay(stock: StockState): StockState {
     daySessionId: stock.daySessionId,
     priceHistory: stock.priceHistory,
     candles: stock.candles,
+    dailyCandles: stock.dailyCandles ?? [],
     orderBook: stock.orderBook,
   };
 }

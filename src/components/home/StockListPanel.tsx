@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import { formatStockValue, getDayChangePercent } from "@/lib/market/engine";
@@ -31,6 +31,62 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
   const [tab, setTab] = useState(0);
   const [sort, setSort] = useState<SortMode>("급상승");
   const [sector, setSector] = useState("전체");
+  const filterStripRef = useRef<HTMLDivElement>(null);
+  const filterDragRef = useRef({
+    active: false,
+    startX: 0,
+    startScrollLeft: 0,
+    moved: false,
+  });
+  const suppressFilterClickRef = useRef(false);
+  const [isDraggingFilters, setIsDraggingFilters] = useState(false);
+
+  const handleFilterPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+
+    const strip = filterStripRef.current;
+    if (!strip) return;
+
+    filterDragRef.current = {
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: strip.scrollLeft,
+      moved: false,
+    };
+    setIsDraggingFilters(true);
+    strip.setPointerCapture(event.pointerId);
+  };
+
+  const handleFilterPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const strip = filterStripRef.current;
+    const drag = filterDragRef.current;
+    if (!strip || !drag.active) return;
+
+    const deltaX = event.clientX - drag.startX;
+    if (Math.abs(deltaX) > 4) drag.moved = true;
+    if (!drag.moved) return;
+
+    event.preventDefault();
+    strip.scrollLeft = drag.startScrollLeft - deltaX;
+  };
+
+  const finishFilterDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const strip = filterStripRef.current;
+    const drag = filterDragRef.current;
+    if (!drag.active) return;
+
+    suppressFilterClickRef.current = drag.moved;
+    drag.active = false;
+    setIsDraggingFilters(false);
+
+    if (strip?.hasPointerCapture(event.pointerId)) {
+      strip.releasePointerCapture(event.pointerId);
+    }
+
+    window.setTimeout(() => {
+      suppressFilterClickRef.current = false;
+    }, 0);
+  };
 
   const sectors = useMemo(
     () => ["전체", ...Array.from(new Set(stocks.map((s) => s.sector)))],
@@ -75,7 +131,26 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto py-3 scrollbar-hide">
+        <div
+          ref={filterStripRef}
+          aria-label="종목 필터 가로 스크롤"
+          data-testid="stock-filter-strip"
+          onPointerDown={handleFilterPointerDown}
+          onPointerMove={handleFilterPointerMove}
+          onPointerUp={finishFilterDrag}
+          onPointerCancel={finishFilterDrag}
+          onLostPointerCapture={finishFilterDrag}
+          onClickCapture={(event) => {
+            if (!suppressFilterClickRef.current) return;
+            event.preventDefault();
+            event.stopPropagation();
+            suppressFilterClickRef.current = false;
+          }}
+          onDragStart={(event) => event.preventDefault()}
+          className={`flex select-none items-center gap-1.5 overflow-x-auto py-3 scrollbar-hide ${
+            isDraggingFilters ? "cursor-grabbing" : "cursor-grab"
+          }`}
+        >
           {tab === 0 &&
             SORTS.map((s) => (
               <button

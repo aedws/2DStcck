@@ -338,6 +338,7 @@ export function StockPageClient({ id }: { id: string }) {
             <div className="space-y-4">
               <CandlestickChart
                 candles={stock.candles}
+                dailyCandles={stock.dailyCandles}
                 history={stock.priceHistory}
                 height={360}
                 averagePrice={holding?.averagePrice}

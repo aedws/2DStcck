@@ -7,6 +7,7 @@ import {
 } from "@/lib/market/constants";
 import {
   MAX_CANDLES,
+  MAX_DAILY_CANDLES,
   calculateTickPrice,
   computeCoveredCallTick,
   computeEtfNav,
@@ -22,7 +23,13 @@ import {
   calculateCoveredCallDistribution,
 } from "@/lib/market/distributions";
 import { generateOrderBook } from "@/lib/market/orderBook";
-import type { Candle, MarketEvent, PricePoint, StockState } from "@/lib/types/market";
+import type {
+  Candle,
+  MarketEvent,
+  PricePoint,
+  StockDefinition,
+  StockState,
+} from "@/lib/types/market";
 
 /**
  * 로컬 공통 시장: 고정 기원점(MARKET_EPOCH_MS)부터 시드 고정 결정론 시뮬레이션.
@@ -52,11 +59,51 @@ export function simTickTime(tick: number): number {
   return MARKET_EPOCH_MS + tick * SIM_TICK_MS;
 }
 
+const SYNTHETIC_HISTORY_SESSIONS = 120;
+
+/** 신규 접속자도 일·주·월봉을 바로 볼 수 있게 만드는 결정론적 과거 일봉 */
+function createHistoricalDailyCandles(def: StockDefinition): Candle[] {
+  let laterPrice = def.initialPrice;
+  const reversed: Candle[] = [];
+
+  for (let offset = 1; offset <= SYNTHETIC_HISTORY_SESSIONS; offset++) {
+    const rand = seededRand(-offset, `${def.id}:daily-history`);
+    const dailyReturn =
+      def.drift * 0.1 + randomNormal(rand) * def.volatility * 0.45;
+    const open = Math.max(
+      Math.round(laterPrice / Math.max(1 + dailyReturn, 0.2)),
+      100,
+    );
+    const range =
+      Math.abs(randomNormal(rand)) * def.volatility * 0.18 * laterPrice;
+    reversed.push({
+      timestamp: (EPOCH_SESSION - offset) * SESSION_DURATION_MS,
+      open,
+      high: Math.max(open, laterPrice, Math.round(Math.max(open, laterPrice) + range)),
+      low: Math.max(
+        Math.min(open, laterPrice, Math.round(Math.min(open, laterPrice) - range)),
+        100,
+      ),
+      close: laterPrice,
+    });
+    laterPrice = open;
+  }
+
+  return reversed.reverse();
+}
+
 /** 기원점 시각의 초기 시장 (모든 클라이언트 공통 제네시스) */
 export function createGenesisStocks(): StockState[] {
-  return STOCK_DEFINITIONS.map((def) =>
-    createInitialStockState(def, MARKET_EPOCH_MS),
-  );
+  return STOCK_DEFINITIONS.map((def) => {
+    const state = createInitialStockState(def, MARKET_EPOCH_MS);
+    return {
+      ...state,
+      dailyCandles: [
+        ...createHistoricalDailyCandles(def),
+        ...state.dailyCandles,
+      ].slice(-MAX_DAILY_CANDLES),
+    };
+  });
 }
 
 interface SimResult {
@@ -97,9 +144,14 @@ export function replayMarket(
   const historyWindowStart = toTick - MAX_PRICE_HISTORY;
   const historyMap = new Map<string, PricePoint[]>();
   const candleMap = new Map<string, Candle[]>();
+  const dailyMap = new Map<string, Candle[]>();
   for (const s of stocks) {
     historyMap.set(s.id, []);
     candleMap.set(s.id, []);
+    dailyMap.set(
+      s.id,
+      (s.dailyCandles ?? []).map((candle) => ({ ...candle })),
+    );
   }
 
   let prevSession = Math.floor(simTickTime(fromTick) / SESSION_DURATION_MS);
@@ -205,6 +257,28 @@ export function replayMarket(
       prevSession = session;
     }
 
+    // 일봉은 전체 리플레이 구간을 보존해 주봉·월봉의 원본으로 사용한다.
+    for (const stock of stocks) {
+      const dailyCandles = dailyMap.get(stock.id) ?? [];
+      const sessionStart = session * SESSION_DURATION_MS;
+      const last = dailyCandles[dailyCandles.length - 1];
+      if (last?.timestamp === sessionStart) {
+        last.high = Math.max(last.high, stock.currentPrice);
+        last.low = Math.min(last.low, stock.currentPrice);
+        last.close = stock.currentPrice;
+      } else {
+        dailyCandles.push({
+          timestamp: sessionStart,
+          open: stock.currentPrice,
+          high: stock.currentPrice,
+          low: stock.currentPrice,
+          close: stock.currentPrice,
+        });
+        if (dailyCandles.length > MAX_DAILY_CANDLES) dailyCandles.shift();
+      }
+      dailyMap.set(stock.id, dailyCandles);
+    }
+
     // 이벤트 (시드 고정 — 모두가 같은 뉴스를 본다)
     const event = maybeGenerateEvent(tick, now, events, tick);
     if (event) {
@@ -261,6 +335,7 @@ export function replayMarket(
       ...(defById.get(s.id) ?? {}),
       priceHistory,
       candles,
+      dailyCandles: dailyMap.get(s.id) ?? [],
       orderBook: generateOrderBook(s.currentPrice, s.orderBook),
     };
   });

@@ -22,6 +22,10 @@ export const MARKET_SHOCK_TIME_SCALE = 0.00012;
 export const MARKET_TREND_BASE_PER_SEC = 0.00003;
 /** 장기 성향: drift × 이 값 × dt초 (drift 0.001이면 하루 +0.03%) */
 export const DRIFT_TIME_SCALE = 0.00003;
+/** Broad-market long-run growth target per 3-hour trading session (~10% over 240 sessions). */
+export const MARKET_SECULAR_GROWTH_PER_SESSION = 0.0004;
+/** Fraction of a benchmark's downside gap recovered per trading session. */
+export const MARKET_DOWNSIDE_REVERSION_PER_SESSION = 0.025;
 /** 이벤트 임팩트: impact × 이 값 × dt초 × 감쇠 (impact 0.04면 총 ~0.6% 반영) */
 export const EVENT_IMPACT_TIME_SCALE = 0.0035;
 export const MAX_PRICE_HISTORY = 120;

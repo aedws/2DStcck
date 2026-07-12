@@ -21,9 +21,9 @@ export default function MarketPage() {
       : undefined;
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col lg:h-[calc(100vh-3.5rem)]">
       <MarketOverview stocks={stocks} events={events} />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:overflow-hidden">
         <StockListPanel stocks={stocks} events={events} />
         <StockDetailPanel stock={topStock} events={events} />
         <AccountSidebar />

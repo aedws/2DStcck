@@ -108,6 +108,8 @@ export interface StockState extends StockDefinition {
   priceHistory: PricePoint[];
   /** 1분봉 (서버가 직접 관리, 최근 240개) */
   candles: Candle[];
+  /** 게임 거래일(3시간) 기준 일봉. 주봉·월봉 집계의 원본 */
+  dailyCandles: Candle[];
   orderBook: OrderBook;
 }
 

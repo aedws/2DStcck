@@ -69,9 +69,9 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
       </div>
 
       <div className="px-4 py-3">
-        <p className="mb-1 text-[11px] text-[var(--muted)]">1분봉</p>
         <CandlestickChart
           candles={stock.candles}
+          dailyCandles={stock.dailyCandles}
           history={stock.priceHistory}
           height={220}
           averagePrice={holding?.averagePrice}

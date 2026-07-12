@@ -4,6 +4,57 @@ import { CSV_COMPANIES } from "./generated.ts";
 
 export const INITIAL_CASH = 10_000_000;
 
+/** 화면 표시용 한국어 종목명. 티커와 CSV 원문명은 그대로 유지한다. */
+const KOREAN_STOCK_NAMES: Record<string, string> = {
+  vnasdaq: "V-나스닥",
+  vnasfut: "V-나스닥 선물",
+  vnsl2: "V-나스닥 2배 레버리지",
+  vnsi: "V-나스닥 인버스",
+  vnsi2: "V-나스닥 2배 인버스",
+  vncc: "V-나스닥 커버드콜",
+  baridc: "리오 방위산업",
+  baqqq: "밀레니엄 테크 100",
+  bamlb: "밀레니엄 학원채",
+  bagdi: "게임개발 인터랙티브",
+  bavts: "베리타스 시큐리티",
+  banru: "네루 택티컬 그룹",
+  bahbk: "히비키 병기 시스템",
+  basmr: "밀레니엄 메디컬",
+  baspy: "키보토스 종합지수",
+  bakaya: "시라누이 중공업",
+  bakvb: "키보토스 지방채",
+  baabs: "아비도스 시큐리티",
+  baabb: "아비도스 학원채",
+  ba68: "흥신소 68",
+  bahina: "선도부 방위산업",
+  bahrn: "미식연구회 다이닝",
+  bafka: "게헨나 키친 푸드",
+  basena: "구호기사단 바이오텍",
+  baksm: "카스미 건설",
+  bakrr: "키라라 코스메틱",
+  baghb: "게헨나 학원채",
+  bahnk: "하나코 교육그룹",
+  baszm: "스즈미 경비서비스",
+  baui: "아카이브 미디어웍스",
+  baair: "아이리 커피",
+  bamine: "미네 제약",
+  batrg: "정의실현부 시큐리티",
+  bamari: "마리 성지순례 관광",
+  batrb: "트리니티 학원채",
+  wwjin: "금주 금융그룹",
+  wwchl: "장리 에너지 홀딩스",
+  wwxly: "상리요 연구소",
+  wwjyn: "청룡 항공물류",
+  wwskp: "블랙쇼어 텔레콤",
+  wwcam: "카멜리야 보태니컬",
+  nkltr: "리터 개발",
+  nkvol: "볼륨 방송",
+  nkneo: "네온 메가스토어",
+  nkexa: "엑시아 인터랙티브",
+  pmcx: "키보토스 치안 ETF",
+  bndx: "학원채 ETF",
+};
+
 /** 코드 관리 종목 (시장 코어: 지수·선물). 회사·캐릭터는 data/companies.csv가 원본. */
 const CORE_DEFINITIONS: StockDefinition[] = [
   {
@@ -87,12 +138,18 @@ const CORE_DEFINITIONS: StockDefinition[] = [
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
-export const STOCK_DEFINITIONS: StockDefinition[] = [
+const BASE_STOCK_DEFINITIONS: StockDefinition[] = [
   ...CORE_DEFINITIONS.filter(
     (c) => !CSV_COMPANIES.some((g) => g.id === c.id),
   ),
   ...CSV_COMPANIES,
 ];
+
+export const STOCK_DEFINITIONS: StockDefinition[] =
+  BASE_STOCK_DEFINITIONS.map((definition) => ({
+    ...definition,
+    name: KOREAN_STOCK_NAMES[definition.id] ?? definition.name,
+  }));
 
 /** 지수·선물·ETF를 제외한 실제 기업 목록 (company 이벤트 대상) */
 export function getCompanyDefinitions(): StockDefinition[] {
