@@ -12,6 +12,7 @@ const navItems = [
   { href: "/", label: "홈" },
   { href: "/portfolio", label: "내 계좌" },
   { href: "/history", label: "주문내역" },
+  { href: "/settings", label: "설정" },
 ];
 
 export function TossHeader() {

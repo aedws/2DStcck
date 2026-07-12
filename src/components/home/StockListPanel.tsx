@@ -16,6 +16,7 @@ import {
 } from "@/lib/ui/marketColors";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StockLogo } from "@/components/ui/StockLogo";
+import { useSettingsStore } from "@/store/settingsStore";
 
 const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별"];
 const SORTS = ["급상승", "급하락", "거래대금"] as const;
@@ -31,6 +32,10 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
   const [tab, setTab] = useState(0);
   const [sort, setSort] = useState<SortMode>("급상승");
   const [sector, setSector] = useState("전체");
+  const [expandedUnderlyings, setExpandedUnderlyings] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const groupDerivatives = useSettingsStore((state) => state.groupDerivatives);
   const filterStripRef = useRef<HTMLDivElement>(null);
   const filterDragRef = useRef({
     active: false,
@@ -114,6 +119,62 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     }
     return list;
   }, [stocks, sector, tab, sort]);
+
+  const displayRows = useMemo(() => {
+    if (!groupDerivatives || sector !== "전체") {
+      return sorted.map((stock, index) => ({
+        stock,
+        depth: 0,
+        childCount: 0,
+        rank: index + 1,
+      }));
+    }
+
+    const childrenByUnderlying = new Map<string, StockState[]>();
+    for (const stock of sorted) {
+      const underlyingId =
+        stock.leverageUnderlyingId ?? stock.coveredCallUnderlyingId;
+      if (!underlyingId) continue;
+      const children = childrenByUnderlying.get(underlyingId) ?? [];
+      children.push(stock);
+      childrenByUnderlying.set(underlyingId, children);
+    }
+
+    let baseRank = 0;
+    return sorted.flatMap((stock) => {
+      const underlyingId =
+        stock.leverageUnderlyingId ?? stock.coveredCallUnderlyingId;
+      if (underlyingId) return [];
+
+      baseRank += 1;
+      const children = childrenByUnderlying.get(stock.id) ?? [];
+      const parent = {
+        stock,
+        depth: 0,
+        childCount: children.length,
+        rank: baseRank,
+      };
+      if (!expandedUnderlyings.has(stock.id)) return [parent];
+      return [
+        parent,
+        ...children.map((child) => ({
+          stock: child,
+          depth: 1,
+          childCount: 0,
+          rank: 0,
+        })),
+      ];
+    });
+  }, [expandedUnderlyings, groupDerivatives, sector, sorted]);
+
+  const toggleUnderlying = (stockId: string) => {
+    setExpandedUnderlyings((current) => {
+      const next = new Set(current);
+      if (next.has(stockId)) next.delete(stockId);
+      else next.add(stockId);
+      return next;
+    });
+  };
 
   return (
     <section className="flex min-w-0 flex-1 flex-col border-r border-[var(--border)] bg-[var(--background)]">
@@ -209,7 +270,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((stock, rank) => {
+            {displayRows.map(({ stock, depth, childCount, rank }) => {
               const change = getDayChangePercent(stock);
               const strongMove = Math.abs(change) >= 3;
               const buy = buyRatio(stock);
@@ -222,10 +283,27 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                   className="cursor-pointer border-b border-[var(--border)]/50 transition hover:bg-[var(--surface)]/60"
                 >
                   <td className="px-3 py-3 tabular-nums text-[var(--muted)]">
-                    {rank + 1}
+                    {depth ? "↳" : rank}
                   </td>
                   <td className="px-2 py-3">
-                    <div className="flex items-center gap-2">
+                    <div
+                      className={`flex items-center gap-2 ${depth ? "pl-4" : ""}`}
+                    >
+                      {childCount > 0 && (
+                        <button
+                          type="button"
+                          aria-label={`${stock.name} 파생상품 ${
+                            expandedUnderlyings.has(stock.id) ? "접기" : "펼치기"
+                          }`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleUnderlying(stock.id);
+                          }}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
+                        >
+                          {expandedUnderlyings.has(stock.id) ? "−" : `+${childCount}`}
+                        </button>
+                      )}
                       <StockLogo stock={stock} size={28} />
                       <div className="min-w-0">
                         <p className="truncate font-medium">{stock.name}</p>

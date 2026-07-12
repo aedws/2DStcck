@@ -23,6 +23,7 @@ npm run dev
    - `005_limit_orders.sql`
    - `006_fixed_salary.sql`
    - `007_periodic_distributions.sql`
+   - `008_game_accounts.sql`
 3. **Authentication** → Email 활성화
 
 ### 2. Edge Functions 배포
@@ -37,7 +38,11 @@ npm run sync:functions
 
 supabase functions deploy tick-market
 supabase functions deploy trade
+supabase functions deploy game-account
 ```
+
+`game-account`는 첫 아이디 입력 시 이메일 확인 없는 내부 계정을 생성합니다.
+PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시만 사용합니다.
 
 `tick-market`은 anon key JWT + 시간 게이트(8초 내 재호출 무시)로 보호되어
 별도 시크릿이 필요 없습니다.

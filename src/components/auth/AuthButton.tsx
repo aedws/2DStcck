@@ -6,7 +6,7 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { IS_SERVER_MODE } from "@/store/marketStore";
 
 export function AuthButton() {
-  const [email, setEmail] = useState<string | null>(null);
+  const [gameId, setGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,12 +17,20 @@ export function AuthButton() {
 
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null);
+      setGameId(
+        (data.user?.user_metadata?.game_id as string | undefined) ??
+          data.user?.email?.split("@")[0] ??
+          null,
+      );
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setEmail(session?.user?.email ?? null);
+      setGameId(
+        (session?.user?.user_metadata?.game_id as string | undefined) ??
+          session?.user?.email?.split("@")[0] ??
+          null,
+      );
     });
 
     return () => listener.subscription.unsubscribe();
@@ -35,11 +43,11 @@ export function AuthButton() {
 
   if (loading) return null;
 
-  if (email) {
+  if (gameId) {
     return (
       <div className="flex items-center gap-2">
         <span className="hidden max-w-[120px] truncate text-xs text-[var(--muted)] sm:inline">
-          {email.split("@")[0]}
+          {gameId}
         </span>
         <button
           onClick={async () => {
