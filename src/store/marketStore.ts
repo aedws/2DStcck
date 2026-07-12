@@ -6,12 +6,8 @@ import {
   formatPrice,
   getMarketBuyPrice,
   getMarketSellPrice,
-  microTickStock,
 } from "@/lib/market/engine";
-import {
-  applyDefinitionOverlay,
-  type ServerMarketState,
-} from "@/lib/market/serverState";
+import { applyDefinitionOverlay } from "@/lib/market/serverState";
 import {
   calculatePortfolioValue,
   executeBuy,
@@ -19,15 +15,11 @@ import {
   isOrderSuccess,
 } from "@/lib/market/trading";
 import type {
-  CashPayment,
-  Holding,
-  MarketEvent,
   MarketSnapshot,
   OpenOrder,
   OrderResult,
   OrderType,
   StockState,
-  Trade,
 } from "@/lib/types/market";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
@@ -46,14 +38,13 @@ import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
 } from "@/lib/market/distributions";
-import { createClient } from "@/lib/supabase/client";
-import {
-  cancelOpenOrder,
-  fetchOpenOrders,
-  fetchPortfolio,
-} from "@/lib/supabase/queries";
+import { loadGameSave, saveGameSave } from "@/lib/supabase/cloudSave";
 
-export const IS_SERVER_MODE = Boolean(
+/**
+ * 클라우드 계정 동기화 사용 가능 여부 (Supabase 설정 시).
+ * 시장은 항상 로컬 결정론으로 계산되고, 이 플래그는 로그인·지갑 저장에만 관여한다.
+ */
+export const IS_CLOUD_ENABLED = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 );
@@ -61,11 +52,8 @@ export const IS_SERVER_MODE = Boolean(
 interface MarketStore extends MarketSnapshot {
   userId: string | null;
   isReady: boolean;
-  /** 서버 확정가 (미세틱 평균회귀 기준점) */
-  serverPrices: Record<string, number>;
   /** 미체결 지정가 주문 */
   openOrders: OpenOrder[];
-  refreshOpenOrders: () => Promise<void>;
   placeLimitOrder: (
     stockId: string,
     price: number,
@@ -75,15 +63,10 @@ interface MarketStore extends MarketSnapshot {
   cancelOrder: (orderId: string) => Promise<void>;
   setReady: (ready: boolean) => void;
   setUserId: (id: string | null) => void;
-  syncMarketFromServer: (state: ServerMarketState) => void;
-  syncUserFromServer: (data: {
-    cash: number;
-    initialCash: number;
-    lastSalarySession: number;
-    holdings: Holding[];
-    trades: Trade[];
-    cashPayments: CashPayment[];
-  }) => void;
+  /** 로그인 시 클라우드 저장분(지갑)을 불러와 반영 */
+  loadCloudSave: () => Promise<void>;
+  /** 현재 지갑을 클라우드에 저장 (로그인 시에만) */
+  saveCloud: () => Promise<void>;
   placeOrder: (
     stockId: string,
     quantity: number,
@@ -92,8 +75,6 @@ interface MarketStore extends MarketSnapshot {
   tickMarket: () => void;
   /** 주문 전·복원 직후 밀린 급여와 투자 분배금을 정산 */
   settleCashflows: () => void;
-  /** 서버 모드 표시용 미세 틱 */
-  microTick: () => void;
   buyMarket: (stockId: string, quantity: number) => OrderResult;
   sellMarket: (stockId: string, quantity: number) => OrderResult;
   buyCurrent: (stockId: string, quantity: number) => OrderResult;
@@ -106,14 +87,13 @@ interface MarketStore extends MarketSnapshot {
 function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
-  serverPrices: Record<string, number>;
   openOrders: OpenOrder[];
 } {
   const now = Date.now();
   return {
     tick: 0,
-    // 로컬 모드는 고정 기원점 기반 결정론 시장 — 모든 클라이언트가 동일한 시장을 본다
-    marketStartedAt: IS_SERVER_MODE ? now : MARKET_EPOCH_MS,
+    // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
+    marketStartedAt: MARKET_EPOCH_MS,
     cash: INITIAL_CASH,
     initialCash: INITIAL_CASH,
     lastSalarySession: Math.floor(now / SESSION_DURATION_MS),
@@ -129,13 +109,10 @@ function createInitialState(): MarketSnapshot & {
     holdings: [],
     trades: [],
     cashPayments: [],
-    stocks: IS_SERVER_MODE
-      ? STOCK_DEFINITIONS.map((d) => createInitialStockState(d))
-      : createGenesisStocks(),
+    stocks: createGenesisStocks(),
     events: [],
     userId: null,
     isReady: false,
-    serverPrices: {},
     openOrders: [],
   };
 }
@@ -243,30 +220,43 @@ export const useMarketStore = create<MarketStore>()(
       setReady: (ready) => set({ isReady: ready }),
       setUserId: (userId) => set({ userId }),
 
-      syncMarketFromServer: (state) => {
+      loadCloudSave: async () => {
+        if (!IS_CLOUD_ENABLED || !get().userId) return;
+        const wallet = await loadGameSave();
+        if (!wallet) {
+          // 첫 로그인: 현재 로컬 지갑을 그대로 클라우드에 올려 시작점으로 삼는다
+          await get().saveCloud();
+          return;
+        }
+        // 클라우드 지갑을 로컬 계산 시장 위에 얹고, 그동안 밀린 급여·배당을 정산
         set({
-          tick: state.tick,
-          marketStartedAt: state.marketStartedAt,
-          stocks: state.stocks.map(migrateStock),
-          events: state.events as MarketEvent[],
+          cash: wallet.cash,
+          initialCash: wallet.initialCash,
+          holdings: wallet.holdings ?? [],
+          trades: wallet.trades ?? [],
+          openOrders: wallet.openOrders ?? [],
+          cashPayments: wallet.cashPayments ?? [],
+          lastSalarySession: wallet.lastSalarySession,
           lastMonthlyDistributionSession:
-            state.lastMonthlyDistributionSession,
-          lastQuarterlyDividendSession:
-            state.lastQuarterlyDividendSession,
-          serverPrices: Object.fromEntries(
-            state.stocks.map((s) => [s.id, s.currentPrice]),
-          ),
+            wallet.lastMonthlyDistributionSession,
+          lastQuarterlyDividendSession: wallet.lastQuarterlyDividendSession,
         });
+        get().settleCashflows();
       },
 
-      syncUserFromServer: (data) => {
-        set({
-          cash: data.cash,
-          initialCash: data.initialCash,
-          lastSalarySession: data.lastSalarySession,
-          holdings: data.holdings,
-          trades: data.trades,
-          cashPayments: data.cashPayments,
+      saveCloud: async () => {
+        if (!IS_CLOUD_ENABLED || !get().userId) return;
+        const s = get();
+        await saveGameSave({
+          cash: s.cash,
+          initialCash: s.initialCash,
+          holdings: s.holdings,
+          trades: s.trades.slice(0, 200),
+          openOrders: s.openOrders,
+          cashPayments: s.cashPayments.slice(0, 50),
+          lastSalarySession: s.lastSalarySession,
+          lastMonthlyDistributionSession: s.lastMonthlyDistributionSession,
+          lastQuarterlyDividendSession: s.lastQuarterlyDividendSession,
         });
       },
 
@@ -278,54 +268,16 @@ export const useMarketStore = create<MarketStore>()(
             message: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요.",
           };
         }
-        if (!IS_SERVER_MODE) {
-          switch (orderType) {
-            case "buy_market":
-              return get().buyMarket(stockId, quantity);
-            case "sell_market":
-              return get().sellMarket(stockId, quantity);
-            case "buy_current":
-              return get().buyCurrent(stockId, quantity);
-            case "sell_current":
-              return get().sellCurrent(stockId, quantity);
-          }
+        switch (orderType) {
+          case "buy_market":
+            return get().buyMarket(stockId, quantity);
+          case "sell_market":
+            return get().sellMarket(stockId, quantity);
+          case "buy_current":
+            return get().buyCurrent(stockId, quantity);
+          case "sell_current":
+            return get().sellCurrent(stockId, quantity);
         }
-
-        const supabase = createClient();
-        const { data, error } = await supabase.functions.invoke("trade", {
-          body: { stockId, quantity, orderType },
-        });
-
-        if (error) {
-          // Edge Function이 4xx/5xx로 응답하면 본문에서 메시지를 꺼낸다
-          let message = "주문 실패";
-          try {
-            const ctx = (error as { context?: Response }).context;
-            if (ctx) {
-              const body = await ctx.json();
-              message = body.error ?? body.message ?? message;
-            }
-          } catch {
-            // ignore
-          }
-          return { success: false, message };
-        }
-
-        if (data?.success) {
-          const portfolio = await fetchPortfolio();
-          if (portfolio) get().syncUserFromServer(portfolio);
-        }
-
-        return {
-          success: Boolean(data?.success),
-          message: data?.message ?? data?.error ?? "주문 실패",
-        };
-      },
-
-      refreshOpenOrders: async () => {
-        if (!IS_SERVER_MODE) return;
-        const orders = await fetchOpenOrders();
-        if (orders) set({ openOrders: orders });
       },
 
       placeLimitOrder: async (stockId, price, quantity, side) => {
@@ -337,95 +289,45 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
 
-        // 로컬 모드: 대기 주문을 로컬에 저장, tickMarket이 가격 도달 시 체결
-        if (!IS_SERVER_MODE) {
-          const state = get();
-          const stock = state.stocks.find((s) => s.id === stockId);
-          if (!stock) {
-            return { success: false, message: "종목을 찾을 수 없습니다." };
-          }
-          if (quantity <= 0 || !Number.isInteger(quantity)) {
-            return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
-          }
-          if (side === "buy" && price * quantity > state.cash) {
-            return { success: false, message: "보유 현금이 부족합니다." };
-          }
-          if (side === "sell") {
-            const held = state.holdings.find((h) => h.stockId === stockId);
-            if (!held || held.quantity < quantity) {
-              return { success: false, message: "보유 수량이 부족합니다." };
-            }
-          }
-          const order: OpenOrder = {
-            id: `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            stockId,
-            ticker: stock.ticker,
-            side,
-            price,
-            quantity,
-            createdAt: Date.now(),
-          };
-          set({ openOrders: [order, ...state.openOrders] });
-          return {
-            success: true,
-            message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 (${formatPrice(price)} × ${quantity}주)`,
-          };
+        // 대기 주문을 로컬에 저장 → tickMarket이 가격 도달 시 체결
+        const state = get();
+        const stock = state.stocks.find((s) => s.id === stockId);
+        if (!stock) {
+          return { success: false, message: "종목을 찾을 수 없습니다." };
         }
-
-        if (!get().userId) {
-          return { success: false, message: "로그인 후 사용할 수 있습니다." };
+        if (quantity <= 0 || !Number.isInteger(quantity)) {
+          return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
         }
-        const supabase = createClient();
-        const { data, error } = await supabase.functions.invoke("trade", {
-          body: {
-            stockId,
-            quantity,
-            orderType: side === "buy" ? "buy_limit" : "sell_limit",
-            limitPrice: price,
-          },
-        });
-        if (error) {
-          let message = "주문 실패";
-          try {
-            const ctx = (error as { context?: Response }).context;
-            if (ctx) {
-              const body = await ctx.json();
-              message = body.error ?? body.message ?? message;
-            }
-          } catch {
-            // ignore
+        if (side === "buy" && price * quantity > state.cash) {
+          return { success: false, message: "보유 현금이 부족합니다." };
+        }
+        if (side === "sell") {
+          const held = state.holdings.find((h) => h.stockId === stockId);
+          if (!held || held.quantity < quantity) {
+            return { success: false, message: "보유 수량이 부족합니다." };
           }
-          return { success: false, message };
         }
-        await get().refreshOpenOrders();
+        const order: OpenOrder = {
+          id: `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          stockId,
+          ticker: stock.ticker,
+          side,
+          price,
+          quantity,
+          createdAt: Date.now(),
+        };
+        set({ openOrders: [order, ...state.openOrders] });
         return {
-          success: Boolean(data?.success),
-          message: data?.message ?? data?.error ?? "주문 실패",
+          success: true,
+          message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 (${formatPrice(price)} × ${quantity}주)`,
         };
       },
 
       cancelOrder: async (orderId) => {
-        if (!IS_SERVER_MODE) {
-          set({ openOrders: get().openOrders.filter((o) => o.id !== orderId) });
-          return;
-        }
-        await cancelOpenOrder(orderId);
-        await get().refreshOpenOrders();
-      },
-
-      microTick: () => {
-        if (!IS_SERVER_MODE) return;
-        const { stocks, serverPrices } = get();
-        const now = Date.now();
-        set({
-          stocks: stocks.map((s) =>
-            microTickStock(s, now, serverPrices[s.id]),
-          ),
-        });
+        set({ openOrders: get().openOrders.filter((o) => o.id !== orderId) });
       },
 
       tickMarket: () => {
-        if (IS_SERVER_MODE) return;
         const state = get();
         const { tick, stocks, events, openOrders } = state;
         const now = Date.now();
@@ -497,7 +399,6 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       settleCashflows: () => {
-        if (IS_SERVER_MODE) return;
         const state = get();
         const now = Date.now();
         const settled = settleLocalCashflows(
@@ -538,32 +439,25 @@ export const useMarketStore = create<MarketStore>()(
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
     {
-      name: IS_SERVER_MODE ? "2dstock-server-cache" : "2dstock-market-local",
-      partialize: (state) =>
-        IS_SERVER_MODE
-          ? {}
-          : {
-              tick: state.tick,
-              marketStartedAt: state.marketStartedAt,
-              cash: state.cash,
-              initialCash: state.initialCash,
-              lastSalarySession: state.lastSalarySession,
-              lastMonthlyDistributionSession:
-                state.lastMonthlyDistributionSession,
-              lastQuarterlyDividendSession:
-                state.lastQuarterlyDividendSession,
-              holdings: state.holdings,
-              trades: state.trades,
-              cashPayments: state.cashPayments,
-              // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
-              // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
-              stocks: state.stocks.filter(
-                (stock) => !stock.universalDerivative,
-              ),
-              events: state.events,
-            },
+      name: "2dstock-market-local",
+      partialize: (state) => ({
+        tick: state.tick,
+        marketStartedAt: state.marketStartedAt,
+        cash: state.cash,
+        initialCash: state.initialCash,
+        lastSalarySession: state.lastSalarySession,
+        lastMonthlyDistributionSession: state.lastMonthlyDistributionSession,
+        lastQuarterlyDividendSession: state.lastQuarterlyDividendSession,
+        holdings: state.holdings,
+        trades: state.trades,
+        openOrders: state.openOrders,
+        cashPayments: state.cashPayments,
+        // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
+        // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
+        stocks: state.stocks.filter((stock) => !stock.universalDerivative),
+        events: state.events,
+      }),
       merge: (persisted, current) => {
-        if (IS_SERVER_MODE) return current;
         const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
 

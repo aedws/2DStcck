@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { IS_SERVER_MODE } from "@/store/marketStore";
+import { IS_CLOUD_ENABLED } from "@/store/marketStore";
 
 export function AuthButton() {
   const [gameId, setGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!IS_SERVER_MODE || !isSupabaseConfigured()) {
+    if (!IS_CLOUD_ENABLED || !isSupabaseConfigured()) {
       setLoading(false);
       return;
     }
@@ -36,8 +36,8 @@ export function AuthButton() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // 로컬(공통 시장) 모드: 로그인 개념 없음 — 아무것도 표시하지 않는다
-  if (!IS_SERVER_MODE) {
+  // 클라우드 미설정(순수 로컬): 계정 개념 없음 — 아무것도 표시하지 않는다
+  if (!IS_CLOUD_ENABLED) {
     return null;
   }
 

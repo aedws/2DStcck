@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
+import { useMarketStore } from "@/store/marketStore";
 import {
   formatPrice,
   formatSignedMoney,
@@ -29,7 +29,6 @@ export function AccountSidebar() {
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
-  const userId = useMarketStore((s) => s.userId);
   const reset = useMarketStore((s) => s.reset);
 
   const total = getTotalAssets();
@@ -40,7 +39,8 @@ export function AccountSidebar() {
     lastSalarySession,
     currentSession,
   );
-  const salaryActive = !IS_SERVER_MODE || Boolean(userId);
+  // 시장은 항상 로컬 결정론 — 급여는 늘 활성 (로그인은 저장용일 뿐)
+  const salaryActive = true;
 
   return (
     <aside className="hidden w-[300px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--background)] lg:flex">

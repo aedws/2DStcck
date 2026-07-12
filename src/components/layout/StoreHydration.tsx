@@ -1,21 +1,15 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
+import { useMarketStore } from "@/store/marketStore";
 import { MarketSyncRouter } from "@/components/market/MarketServerSync";
 
 export function StoreHydration({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(IS_SERVER_MODE);
+  const [ready, setReady] = useState(false);
   const setStoreReady = useMarketStore((s) => s.setReady);
   const settleCashflows = useMarketStore((s) => s.settleCashflows);
 
   useEffect(() => {
-    if (IS_SERVER_MODE) {
-      setStoreReady(true);
-      setReady(true);
-      return;
-    }
-
     const unsub = useMarketStore.persist.onFinishHydration(() => {
       settleCashflows();
       setStoreReady(true);

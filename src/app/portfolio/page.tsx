@@ -12,7 +12,7 @@ import {
   getDistributionDaysRemaining,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
 } from "@/lib/market/distributions";
-import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
+import { useMarketStore } from "@/store/marketStore";
 
 export default function PortfolioPage() {
   const cash = useMarketStore((s) => s.cash);
@@ -27,7 +27,6 @@ export default function PortfolioPage() {
   const lastQuarterlyDividendSession = useMarketStore(
     (s) => s.lastQuarterlyDividendSession,
   );
-  const userId = useMarketStore((s) => s.userId);
 
   const total = getTotalAssets();
   const stockValue = total - cash;
@@ -52,11 +51,7 @@ export default function PortfolioPage() {
         />
         <SummaryCard
           label={`다음 고정급 (${formatPrice(SALARY_AMOUNT)})`}
-          value={
-            !IS_SERVER_MODE || userId
-              ? `${salaryDays}거래일 후`
-              : "로그인 후 시작"
-          }
+          value={`${salaryDays}거래일 후`}
           color="text-emerald-400"
         />
       </div>

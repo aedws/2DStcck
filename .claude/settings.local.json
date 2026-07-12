@@ -39,7 +39,25 @@
       "Bash(npx -y tsx test-fullreplay.mts)",
       "Bash(npx -y tsx test-levels.mts)",
       "Bash(git commit -q -m 'feat: unified deterministic local market + market-order/ticker/login fixes *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git rev-list *)",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__list_edge_functions",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__apply_migration",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__deploy_edge_function",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__list_migrations",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__get_publishable_keys",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__get_advisors",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" -X POST \"https://mhhyolagigidjwecelet.supabase.co/functions/v1/game-account\" -H \"Content-Type: application/json\" -d '{\"gameId\":\"zz\",\"pin\":\"1\"}')",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST https://mhhyolagigidjwecelet.supabase.co/functions/v1/game-account -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaHlvbGFnaWdpZGp3ZWNlbGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzk5NzIsImV4cCI6MjA5ODc1NTk3Mn0.pz-VETSXl2CDBMo7zzN6iwlXzmNuu5_lHqPRMo2CTJQ' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaHlvbGFnaWdpZGp3ZWNlbGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzk5NzIsImV4cCI6MjA5ODc1NTk3Mn0.pz-VETSXl2CDBMo7zzN6iwlXzmNuu5_lHqPRMo2CTJQ' -H 'Content-Type: application/json' -d '{\"gameId\":\"zz\",\"pin\":\"1\"}')",
+      "Bash(read c *)",
+      "Bash(curl -s https://stockch-2d.vercel.app__TRACKED_VAR__)",
+      "Bash(node \"C:\\\\Users\\\\uyess\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-uyess-Desktop-2DStock\\\\913d085d-e63e-4121-bccd-8db3047abd05\\\\scratchpad\\\\test-cloudsave.mjs\")",
+      "Bash(cp \"C:\\\\Users\\\\uyess\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-uyess-Desktop-2DStock\\\\913d085d-e63e-4121-bccd-8db3047abd05\\\\scratchpad\\\\test-cloudsave.mjs\" ./_tmp_cloudtest.mjs)",
+      "Bash(node ./_tmp_cloudtest.mjs)",
+      "Bash(rm -f ./_tmp_cloudtest.mjs)",
+      "mcp__d000a180-df77-42a8-bb09-080669c3d4c3__execute_sql",
+      "Bash(git commit -q -m 'feat: lightweight cloud account sync \\(deterministic market + wallet save\\) *)"
     ]
   }
 }

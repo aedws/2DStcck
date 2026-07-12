@@ -2,107 +2,81 @@
 
 import { useEffect } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { IS_SERVER_MODE, useMarketStore } from "@/store/marketStore";
-import {
-  parseMarketRow,
-  type ServerMarketState,
-} from "@/lib/market/serverState";
+import { IS_CLOUD_ENABLED, useMarketStore } from "@/store/marketStore";
 import { MarketRealtime } from "@/components/market/MarketRealtime";
-import { fetchMarketState, fetchPortfolio } from "@/lib/supabase/queries";
 
-export function MarketServerSync() {
-  const syncMarket = useMarketStore((s) => s.syncMarketFromServer);
-  const microTick = useMarketStore((s) => s.microTick);
-  const syncUser = useMarketStore((s) => s.syncUserFromServer);
+/**
+ * 클라우드 계정 동기화 (선택적):
+ * - 로그인 상태를 추적하고, 로그인 시 저장된 지갑을 불러온다.
+ * - 지갑이 바뀌면 디바운스로 클라우드에 저장한다.
+ * 시장 자체는 MarketRealtime의 로컬 결정론 틱이 담당한다.
+ */
+function CloudSaveSync() {
   const setUserId = useMarketStore((s) => s.setUserId);
+  const loadCloudSave = useMarketStore((s) => s.loadCloudSave);
+  const saveCloud = useMarketStore((s) => s.saveCloud);
 
+  // 로그인 상태 추적 + 로그인 시 저장분 로드
   useEffect(() => {
-    if (!IS_SERVER_MODE || !isSupabaseConfigured()) return;
-
+    if (!IS_CLOUD_ENABLED || !isSupabaseConfigured()) return;
+    const supabase = createClient();
     let cancelled = false;
 
-    async function load() {
-      const market = await fetchMarketState();
-      if (!cancelled && market) syncMarket(market);
-
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        setUserId(user.id);
-        const portfolio = await fetchPortfolio();
-        if (!cancelled && portfolio) {
-          syncUser(portfolio);
-        }
-      }
-    }
-
-    load();
-
-    const supabase = createClient();
-
-    const marketChannel = supabase
-      .channel("market-global")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "market_global" },
-        (payload) => {
-          const row = payload.new as {
-            tick: number;
-            market_started_at: number;
-            stocks: ServerMarketState["stocks"];
-            events: ServerMarketState["events"];
-            last_monthly_distribution_session?: number;
-            last_quarterly_dividend_session?: number;
-          };
-          if (row?.stocks) {
-            syncMarket(parseMarketRow({ ...row, events: row.events ?? [] }));
-          }
-        },
-      )
-      .subscribe();
-
-    const authListener = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        setUserId(session.user.id);
-        const portfolio = await fetchPortfolio();
-        if (portfolio) {
-          syncUser(portfolio);
-        }
-      } else {
-        setUserId(null);
-      }
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (cancelled || !data.user) return;
+      setUserId(data.user.id);
+      await loadCloudSave();
     });
 
-    // 서버 확정 틱(10초) 사이를 살아있게: 0.25초마다 표시용 미세 틱
-    const microTimer = setInterval(() => microTick(), 250);
-
-    // 지정가 자동 체결 반영: 로그인 상태면 15초마다 포트폴리오·대기주문 갱신
-    const pollTimer = setInterval(async () => {
-      const store = useMarketStore.getState();
-      if (!store.userId) return;
-      const portfolio = await fetchPortfolio();
-      if (portfolio) store.syncUserFromServer(portfolio);
-      await store.refreshOpenOrders();
-    }, 15_000);
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user) {
+          setUserId(session.user.id);
+          await loadCloudSave();
+        } else {
+          setUserId(null);
+        }
+      },
+    );
 
     return () => {
       cancelled = true;
-      clearInterval(microTimer);
-      clearInterval(pollTimer);
-      supabase.removeChannel(marketChannel);
-      authListener.data.subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
-  }, [syncMarket, syncUser, setUserId, microTick]);
+  }, [setUserId, loadCloudSave]);
+
+  // 지갑 변경 시 디바운스 저장 (로그인 상태에서만)
+  useEffect(() => {
+    if (!IS_CLOUD_ENABLED) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const unsub = useMarketStore.subscribe((state, prev) => {
+      if (!state.userId) return;
+      const walletChanged =
+        state.cash !== prev.cash ||
+        state.holdings !== prev.holdings ||
+        state.trades !== prev.trades ||
+        state.openOrders !== prev.openOrders ||
+        state.cashPayments !== prev.cashPayments;
+      if (!walletChanged) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => saveCloud(), 2000);
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsub();
+    };
+  }, [saveCloud]);
 
   return null;
 }
 
 export function MarketSyncRouter() {
-  if (IS_SERVER_MODE) {
-    return <MarketServerSync />;
-  }
-  return <MarketRealtime />;
+  return (
+    <>
+      <MarketRealtime />
+      {IS_CLOUD_ENABLED && <CloudSaveSync />}
+    </>
+  );
 }

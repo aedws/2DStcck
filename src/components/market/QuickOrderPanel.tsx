@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
 import type { OrderType, StockState } from "@/lib/types/market";
@@ -8,8 +7,6 @@ import {
   formatPrice,
   formatSignedMoney,
   getChangePercent,
-} from "@/lib/market/engine";
-import {
   getMarketBuyPrice,
   getMarketSellPrice,
 } from "@/lib/market/engine";
@@ -17,7 +14,6 @@ import {
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
-import { IS_SERVER_MODE } from "@/store/marketStore";
 
 const QTY_PRESETS = [1, 10, 100] as const;
 
@@ -30,15 +26,12 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const placeOrder = useMarketStore((s) => s.placeOrder);
   const buyMarket = useMarketStore((s) => s.buyMarket);
   const sellMarket = useMarketStore((s) => s.sellMarket);
   const buyCurrent = useMarketStore((s) => s.buyCurrent);
   const sellCurrent = useMarketStore((s) => s.sellCurrent);
-  const userId = useMarketStore((s) => s.userId);
   const cash = useMarketStore((s) => s.cash);
   const openOrders = useMarketStore((s) => s.openOrders);
-  const refreshOpenOrders = useMarketStore((s) => s.refreshOpenOrders);
   const placeLimitOrder = useMarketStore((s) => s.placeLimitOrder);
   const cancelOrder = useMarketStore((s) => s.cancelOrder);
   const liveStock = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
@@ -61,26 +54,14 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     : 0;
 
   async function order(orderType: OrderType) {
-    if (IS_SERVER_MODE && !userId) {
-      setMessage("로그인 후 주문할 수 있습니다.");
-      return;
-    }
-
     setLoading(true);
-    let result;
-
-    if (IS_SERVER_MODE) {
-      result = await placeOrder(stock.id, quantity, orderType);
-    } else {
-      const localMap = {
-        buy_market: buyMarket,
-        sell_market: sellMarket,
-        buy_current: buyCurrent,
-        sell_current: sellCurrent,
-      };
-      result = localMap[orderType](stock.id, quantity);
-    }
-
+    const localMap = {
+      buy_market: buyMarket,
+      sell_market: sellMarket,
+      buy_current: buyCurrent,
+      sell_current: sellCurrent,
+    };
+    const result = localMap[orderType](stock.id, quantity);
     setMessage(result.message);
     setLoading(false);
   }
@@ -107,7 +88,6 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             onClick={() => {
               setActiveTab(i);
               setMessage(null);
-              if (i === 2) refreshOpenOrders();
               if (i === 0 && !limitPrice) {
                 setLimitPrice((liveStock.currentPrice / 100).toFixed(2));
               }
@@ -124,15 +104,6 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {IS_SERVER_MODE && !userId && (
-          <p className="mb-3 rounded-xl bg-[var(--surface)] px-3 py-2 text-center text-xs text-[var(--muted)]">
-            <Link href="/login" className="text-[var(--accent)] hover:underline">
-              로그인
-            </Link>
-            하면 주문·포트폴리오가 저장됩니다.
-          </p>
-        )}
-
         {activeTab === 0 && (
           <div className="space-y-3">
             <div>
