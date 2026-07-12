@@ -72,12 +72,11 @@ export function CandlestickChart({
   const initialFitDoneRef = useRef(false);
 
   const data = useMemo(() => {
+    const historyCandles = history ? buildCandles(history) : [];
     const minuteSource =
-      candles && candles.length > 0
+      candles && candles.length >= historyCandles.length
         ? candles
-        : history
-          ? buildCandles(history)
-          : [];
+        : historyCandles;
     const daySource =
       dailyCandles && dailyCandles.length > 0
         ? dailyCandles
@@ -116,14 +115,19 @@ export function CandlestickChart({
         horzLines: { color: border, style: LineStyle.Dotted },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: border },
+      rightPriceScale: {
+        borderColor: border,
+        minimumWidth: 68,
+        scaleMargins: { top: 0.06, bottom: 0.06 },
+      },
       leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
         timeVisible: timeframe === "minute",
         secondsVisible: false,
         rightOffset: 4,
-        barSpacing: 8,
+        barSpacing: timeframe === "minute" ? 12 : 9,
+        minBarSpacing: timeframe === "minute" ? 6 : 4,
       },
       localization: {
         priceFormatter:
@@ -146,6 +150,8 @@ export function CandlestickChart({
       borderDownColor: DOWN_COLOR,
       wickUpColor: UP_COLOR,
       wickDownColor: DOWN_COLOR,
+      borderVisible: true,
+      wickVisible: true,
     });
 
     chartRef.current = chart;
@@ -213,7 +219,12 @@ export function CandlestickChart({
 
   if (!hasData) {
     return (
-      <div className="rounded-2xl bg-[var(--surface)] p-2">
+      <div
+        data-testid="candlestick-chart"
+        data-timeframe={timeframe}
+        data-bar-count={data.length}
+        className="rounded-2xl bg-[var(--surface)] p-2"
+      >
         <TimeframeTabs value={timeframe} onChange={setTimeframe} />
         <div
           className="flex items-center justify-center text-sm text-[var(--muted)]"
@@ -226,7 +237,12 @@ export function CandlestickChart({
   }
 
   return (
-    <div className="rounded-2xl bg-[var(--surface)] p-2">
+    <div
+      data-testid="candlestick-chart"
+      data-timeframe={timeframe}
+      data-bar-count={data.length}
+      className="rounded-2xl bg-[var(--surface)] p-2"
+    >
       <TimeframeTabs value={timeframe} onChange={setTimeframe} />
       <div ref={containerRef} style={{ height }} />
     </div>

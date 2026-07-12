@@ -53,8 +53,6 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
       startScrollLeft: strip.scrollLeft,
       moved: false,
     };
-    setIsDraggingFilters(true);
-    strip.setPointerCapture(event.pointerId);
   };
 
   const handleFilterPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -63,7 +61,11 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     if (!strip || !drag.active) return;
 
     const deltaX = event.clientX - drag.startX;
-    if (Math.abs(deltaX) > 4) drag.moved = true;
+    if (Math.abs(deltaX) > 4 && !drag.moved) {
+      drag.moved = true;
+      setIsDraggingFilters(true);
+      strip.setPointerCapture(event.pointerId);
+    }
     if (!drag.moved) return;
 
     event.preventDefault();

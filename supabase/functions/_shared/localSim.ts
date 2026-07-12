@@ -151,9 +151,6 @@ export function replayMarket(
   const coveredCallEtfs = deriveds.filter(
     (stock) => stock.coveredCallUnderlyingId,
   );
-  const replayStartPrices = new Map(
-    stocks.map((stock) => [stock.id, stock.currentPrice]),
-  );
   const replayedStocks = stocks.filter((stock) => !stock.universalDerivative);
 
   // 차트 데이터: 캔들은 최근 MAX_CANDLES분, 히스토리는 최근 MAX_PRICE_HISTORY틱만
@@ -178,13 +175,6 @@ export function replayMarket(
     const session = Math.floor(now / SESSION_DURATION_MS);
     const marketShock = randomNormal(seededRand(tick, "shock"));
 
-    const leverageBefore = new Map(
-      replayedLeveragedEtfs
-        .map((s) => {
-          const underlyingId = s.leverageUnderlyingId ?? "vnasdaq";
-          return [s.id, byId.get(underlyingId)?.currentPrice ?? 0] as const;
-        }),
-    );
     const ccBefore = new Map(
       coveredCallEtfs
         .map((s) => [
@@ -228,10 +218,9 @@ export function replayMarket(
         s.daySessionId !== undefined && s.daySessionId !== session;
       if (isNewSession) s.prevDayClose = s.currentPrice;
       const underlyingId = s.leverageUnderlyingId ?? "vnasdaq";
-      const before = leverageBefore.get(s.id) ?? 0;
-      const after = byId.get(underlyingId)?.currentPrice ?? 0;
-      const underlyingReturn = before > 0 ? after / before - 1 : 0;
-      const next = computeLeveragedPrice(s, underlyingReturn);
+      const underlying = byId.get(underlyingId);
+      if (!underlying) continue;
+      const next = computeLeveragedPrice(s, underlying);
       if (isNewSession) s.dayOpen = next;
       s.daySessionId = session;
       s.currentPrice = next;
@@ -354,16 +343,8 @@ export function replayMarket(
   for (const stock of universalDerivatives) {
     const underlyingId = stock.leverageUnderlyingId;
     const underlying = underlyingId ? byId.get(underlyingId) : undefined;
-    const start = underlyingId ? replayStartPrices.get(underlyingId) : undefined;
-    if (!underlying || !start || start <= 0) continue;
-    const ratio = Math.max(underlying.currentPrice / start, 0.01);
-    const leveragedRatio = Math.pow(ratio, stock.leverage ?? 1);
-    stock.currentPrice = Math.max(
-      Math.round(stock.initialPrice * leveragedRatio),
-      100,
-    );
-    stock.prevDayClose = stock.currentPrice;
-    stock.dayOpen = stock.currentPrice;
+    if (!underlying) continue;
+    stock.currentPrice = computeLeveragedPrice(stock, underlying);
 
     const dailyCandles = dailyMap.get(stock.id) ?? [];
     const lastDaily = dailyCandles[dailyCandles.length - 1];

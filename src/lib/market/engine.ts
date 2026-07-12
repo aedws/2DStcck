@@ -417,12 +417,17 @@ export function tickStock(
   return applyTickPrice(stock, nextPrice, now);
 }
 
-/** 레버리지 합성 ETF: 기초지수 틱 수익률 × 배수로 복리 추종 (틱 단위 리밸런싱) */
+/** 레버리지·인버스 ETF: 기초종목의 당일 등락률을 지정 배수로 단순 추종한다. */
 export function computeLeveragedPrice(
   etf: StockState,
-  underlyingTickReturn: number,
+  underlying: StockState,
 ): number {
-  const nextPrice = etf.currentPrice * (1 + (etf.leverage ?? 1) * underlyingTickReturn);
+  const underlyingDayReturn =
+    underlying.prevDayClose > 0
+      ? underlying.currentPrice / underlying.prevDayClose - 1
+      : 0;
+  const nextPrice =
+    etf.prevDayClose * (1 + (etf.leverage ?? 1) * underlyingDayReturn);
   return Math.max(Math.round(nextPrice), 100);
 }
 
@@ -561,15 +566,11 @@ export function tickAllStocks(
   calculated = calculated.map((stock) => {
     if (stock.leverage !== undefined) {
       const underlyingId = stock.leverageUnderlyingId ?? "vnasdaq";
-      const before = beforeById.get(underlyingId);
       const after = afterById.get(underlyingId);
-      const underlyingReturn =
-        before && after && before.currentPrice > 0
-          ? after.currentPrice / before.currentPrice - 1
-          : 0;
+      if (!after) return stock;
       return applyTickPrice(
         stock,
-        computeLeveragedPrice(stock, underlyingReturn),
+        computeLeveragedPrice(stock, after),
         now,
       );
     }

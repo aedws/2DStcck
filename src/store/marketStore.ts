@@ -555,7 +555,11 @@ export const useMarketStore = create<MarketStore>()(
               holdings: state.holdings,
               trades: state.trades,
               cashPayments: state.cashPayments,
-              stocks: state.stocks,
+              // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
+              // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
+              stocks: state.stocks.filter(
+                (stock) => !stock.universalDerivative,
+              ),
               events: state.events,
             },
       merge: (persisted, current) => {
