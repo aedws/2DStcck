@@ -167,6 +167,7 @@ export function FuturesView({ stock }: { stock: StockState }) {
             dailyCandles={stock.dailyCandles}
             history={stock.priceHistory}
             height={380}
+            mobileHeight={280}
             prevDayClose={stock.prevDayClose}
             priceKind="points"
           />

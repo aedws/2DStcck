@@ -112,7 +112,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                 setLimitPrice((liveStock.currentPrice / 100).toFixed(2));
               }
             }}
-            className={`flex-1 py-3 text-xs transition ${
+            className={`min-h-12 flex-1 py-3 text-xs transition ${
               i === activeTab
                 ? "border-b-2 border-[var(--foreground)] font-semibold text-[var(--foreground)]"
                 : "text-[var(--muted)]"
@@ -166,7 +166,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                         ).toFixed(2),
                       )
                     }
-                    className="flex-1 rounded-lg bg-[var(--surface)] py-1.5 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
+                    className="min-h-10 flex-1 rounded-lg bg-[var(--surface)] py-1.5 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
                   >
                     {pct > 0 ? `+${pct}%` : `${pct}%`}
                   </button>
@@ -179,7 +179,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                 <button
                   key={q}
                   onClick={() => setQuantity(q)}
-                  className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition ${
+                  className={`min-h-11 flex-1 rounded-xl py-2.5 text-sm font-medium transition ${
                     quantity === q
                       ? "bg-[var(--surface-elevated)] text-[var(--foreground)] ring-1 ring-[var(--border)]"
                       : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -267,7 +267,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             <button
               key={q}
               onClick={() => setQuantity(q)}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition ${
+              className={`min-h-11 flex-1 rounded-xl py-2.5 text-sm font-medium transition ${
                 quantity === q
                   ? "bg-[var(--surface-elevated)] text-[var(--foreground)] ring-1 ring-[var(--border)]"
                   : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -279,7 +279,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
           <button
             onClick={() => setQuantity(Math.max(1, maxBuy))}
             disabled={maxBuy <= 0}
-            className="flex-1 rounded-xl bg-[var(--surface)] py-2.5 text-sm text-[var(--muted)] disabled:opacity-40"
+            className="min-h-11 flex-1 rounded-xl bg-[var(--surface)] py-2.5 text-sm text-[var(--muted)] disabled:opacity-40"
           >
             최대
           </button>

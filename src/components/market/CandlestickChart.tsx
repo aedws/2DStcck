@@ -27,6 +27,7 @@ interface CandlestickChartProps {
   dailyCandles?: Candle[];
   history?: PricePoint[];
   height?: number;
+  mobileHeight?: number;
   averagePrice?: number;
   prevDayClose?: number;
   /** 축 가격 표기: dollar = 센트→$, points = 정수 포인트 (지수·선물) */
@@ -59,17 +60,28 @@ export function CandlestickChart({
   dailyCandles,
   history,
   height = 320,
+  mobileHeight,
   averagePrice,
   prevDayClose,
   priceKind = "dollar",
 }: CandlestickChartProps) {
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("day");
+  const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const avgLineRef = useRef<IPriceLine | null>(null);
   const prevCloseLineRef = useRef<IPriceLine | null>(null);
   const initialFitDoneRef = useRef(false);
+  const chartHeight = isMobile && mobileHeight ? mobileHeight : height;
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const data = useMemo(() => {
     const historyCandles = history ? buildCandles(history) : [];
@@ -104,7 +116,7 @@ export function CandlestickChart({
     const border = styles.getPropertyValue("--border").trim() || "#333d4b";
 
     const chart = createChart(el, {
-      height,
+      height: chartHeight,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: muted,
@@ -165,7 +177,7 @@ export function CandlestickChart({
       avgLineRef.current = null;
       prevCloseLineRef.current = null;
     };
-  }, [hasData, height, priceKind, timeframe]);
+  }, [chartHeight, hasData, priceKind, timeframe]);
 
   // 데이터 갱신 — 사용자가 스크롤한 위치는 유지, 최초 1회만 맞춤
   useEffect(() => {
@@ -228,7 +240,7 @@ export function CandlestickChart({
         <TimeframeTabs value={timeframe} onChange={setTimeframe} />
         <div
           className="flex items-center justify-center text-sm text-[var(--muted)]"
-          style={{ height }}
+          style={{ height: chartHeight }}
         >
           캔들 차트 수집 중...
         </div>
@@ -244,7 +256,7 @@ export function CandlestickChart({
       className="rounded-2xl bg-[var(--surface)] p-2"
     >
       <TimeframeTabs value={timeframe} onChange={setTimeframe} />
-      <div ref={containerRef} style={{ height }} />
+      <div ref={containerRef} style={{ height: chartHeight }} />
     </div>
   );
 }

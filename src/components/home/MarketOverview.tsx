@@ -135,7 +135,7 @@ export function MarketOverview({
   const { high: dayHigh, low: dayLow } = dayRange(featured);
 
   return (
-    <div className="shrink-0 border-b border-[var(--border)] bg-[var(--background)] px-5 py-3">
+    <div className="shrink-0 border-b border-[var(--border)] bg-[var(--background)] px-3 py-3 md:px-5">
       <div className="mb-2.5">
         <MarketStatusBar />
       </div>
@@ -144,7 +144,7 @@ export function MarketOverview({
         {/* 대표 지수 */}
         <div
           onClick={() => router.push(`/stock/${featured.id}`)}
-          className="-m-1.5 w-[262px] shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-[var(--surface)]/60"
+          className="-m-1.5 w-full shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-[var(--surface)]/60 md:w-[262px]"
         >
           <p className="text-sm font-semibold">
             {featured.name}{" "}
@@ -172,7 +172,7 @@ export function MarketOverview({
         </div>
 
         {/* 지수·주요 변동 종목 미니카드 */}
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-1 xl:grid-cols-3">
+        <div className="hidden min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-1 md:grid xl:grid-cols-3">
           {cards.map((card) => (
             <div
               key={card.id}

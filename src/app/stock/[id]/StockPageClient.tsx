@@ -50,7 +50,7 @@ function StockHeader({ stock }: { stock: StockState }) {
   const strength = buyStrength(stock);
 
   return (
-    <div className="flex shrink-0 items-center gap-6 border-b border-[var(--border)] px-5 py-3">
+    <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 py-3 md:gap-6 md:px-5">
       <div className="flex min-w-0 items-center gap-3">
         <Link
           href="/"
@@ -322,12 +322,12 @@ export function StockPageClient({ id }: { id: string }) {
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
       <StockHeader stock={stock} />
 
-      <div className="flex shrink-0 gap-5 border-b border-[var(--border)] px-5">
+      <div className="flex shrink-0 items-center gap-4 border-b border-[var(--border)] px-3 md:gap-5 md:px-5">
         {SUB_TABS.map((label, i) => (
           <button
             key={label}
             onClick={() => setTab(i)}
-            className={`py-2.5 text-sm transition ${
+            className={`min-h-11 py-2.5 text-sm transition ${
               tab === i
                 ? "border-b-2 border-[var(--foreground)] font-semibold text-[var(--foreground)]"
                 : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -336,6 +336,12 @@ export function StockPageClient({ id }: { id: string }) {
             {label}
           </button>
         ))}
+        <a
+          href="#quick-order"
+          className="ml-auto flex min-h-11 items-center text-xs font-semibold text-[var(--accent)] md:hidden"
+        >
+          주문하기 ↓
+        </a>
       </div>
 
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
@@ -347,6 +353,7 @@ export function StockPageClient({ id }: { id: string }) {
                 dailyCandles={stock.dailyCandles}
                 history={stock.priceHistory}
                 height={360}
+                mobileHeight={260}
                 averagePrice={holding?.averagePrice}
                 prevDayClose={stock.prevDayClose}
               />
@@ -360,7 +367,10 @@ export function StockPageClient({ id }: { id: string }) {
           {tab === 2 && <StockNewsTab stock={stock} events={events} />}
         </main>
 
-        <div className="w-full shrink-0 border-t border-[var(--border)] md:w-[320px] md:border-l md:border-t-0">
+        <div
+          id="quick-order"
+          className="w-full scroll-mt-28 shrink-0 border-t border-[var(--border)] md:w-[320px] md:border-l md:border-t-0"
+        >
           <QuickOrderPanel stock={stock} />
         </div>
 
