@@ -417,9 +417,6 @@ export function tickStock(
   return applyTickPrice(stock, nextPrice, now);
 }
 
-/** 합성 ETF의 기초지수 */
-const LEVERAGE_UNDERLYING_ID = "vnasdaq";
-
 /** 레버리지 합성 ETF: 기초지수 틱 수익률 × 배수로 복리 추종 (틱 단위 리밸런싱) */
 export function computeLeveragedPrice(
   etf: StockState,
@@ -545,31 +542,46 @@ export function tickAllStocks(
         ),
   );
 
-  // 기초지수 틱 수익률 (레버리지 합성용)
-  const idxBefore = stocks.find((s) => s.id === LEVERAGE_UNDERLYING_ID);
-  const idxAfter = ticked.find((s) => s.id === LEVERAGE_UNDERLYING_ID);
-  const underlyingReturn =
-    idxBefore && idxAfter && idxBefore.currentPrice > 0
-      ? idxAfter.currentPrice / idxBefore.currentPrice - 1
-      : 0;
+  // 2차: NAV ETF를 먼저 산출해 해당 ETF를 기초로 하는 파생상품도 같은 틱을 추종한다.
+  const baseById = new Map(ticked.map((s) => [s.id, s]));
+  let calculated = ticked.map((stock) =>
+    stock.etfHoldings?.length
+      ? applyTickPrice(
+          stock,
+          computeEtfNav(stock, baseById),
+          now,
+        )
+      : stock,
+  );
 
-  // 2차: 파생 ETF — 같은 틱의 구성종목/지수 가격으로 산출
-  const byId = new Map(ticked.map((s) => [s.id, s]));
   const beforeById = new Map(stocks.map((s) => [s.id, s]));
-  return ticked.map((stock) => {
-    if (stock.etfHoldings?.length) {
-      return applyTickPrice(stock, computeEtfNav(stock, byId), now);
-    }
+  let afterById = new Map(calculated.map((s) => [s.id, s]));
+
+  // 3차: 각 상품에 지정된 기초자산의 틱 수익률을 배수 추종한다.
+  calculated = calculated.map((stock) => {
     if (stock.leverage !== undefined) {
+      const underlyingId = stock.leverageUnderlyingId ?? "vnasdaq";
+      const before = beforeById.get(underlyingId);
+      const after = afterById.get(underlyingId);
+      const underlyingReturn =
+        before && after && before.currentPrice > 0
+          ? after.currentPrice / before.currentPrice - 1
+          : 0;
       return applyTickPrice(
         stock,
         computeLeveragedPrice(stock, underlyingReturn),
         now,
       );
     }
+    return stock;
+  });
+
+  // 4차: 커버드콜은 갱신된 기초자산 흐름에 상승 참여율을 적용한다.
+  afterById = new Map(calculated.map((s) => [s.id, s]));
+  return calculated.map((stock) => {
     if (stock.coveredCallUnderlyingId) {
       const before = beforeById.get(stock.coveredCallUnderlyingId);
-      const after = byId.get(stock.coveredCallUnderlyingId);
+      const after = afterById.get(stock.coveredCallUnderlyingId);
       const coveredCallReturn =
         before && after && before.currentPrice > 0
           ? after.currentPrice / before.currentPrice - 1

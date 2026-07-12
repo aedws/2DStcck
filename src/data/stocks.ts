@@ -91,6 +91,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     drift: 0,
     beta: 0,
     leverage: 2,
+    leverageUnderlyingId: "vnasdaq",
     description:
       "V-NASDAQ 틱 수익률을 2배로 추종하는 레버리지 ETF. 고위험 고수익.",
   },
@@ -104,6 +105,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     drift: 0,
     beta: 0,
     leverage: -1,
+    leverageUnderlyingId: "vnasdaq",
     description: "지수가 1% 내리면 1% 오르는 인버스 ETF. 하락장 방어 수단.",
   },
   {
@@ -116,6 +118,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     drift: 0,
     beta: 0,
     leverage: -2,
+    leverageUnderlyingId: "vnasdaq",
     description:
       "하락에 2배로 베팅하는 곱버스 ETF. 방향을 맞추면 크게 벌고 틀리면 크게 잃는다.",
   },
@@ -144,11 +147,55 @@ const BASE_STOCK_DEFINITIONS: StockDefinition[] = [
   ...CSV_COMPANIES,
 ];
 
-export const STOCK_DEFINITIONS: StockDefinition[] =
+const DISPLAY_BASE_STOCK_DEFINITIONS: StockDefinition[] =
   BASE_STOCK_DEFINITIONS.map((definition) => ({
     ...definition,
     name: KOREAN_STOCK_NAMES[definition.id] ?? definition.name,
   }));
+
+const DERIVATIVE_FACTORS = [
+  { leverage: -1, idSuffix: "inverse", tickerSuffix: "I", name: "인버스" },
+  { leverage: -2, idSuffix: "inverse-2x", tickerSuffix: "I2", name: "2배 인버스" },
+  { leverage: 2, idSuffix: "leverage-2x", tickerSuffix: "L2", name: "2배 레버리지" },
+] as const;
+
+const existingDerivativeKeys = new Set(
+  DISPLAY_BASE_STOCK_DEFINITIONS.filter(
+    (stock) => stock.leverage !== undefined && stock.leverageUnderlyingId,
+  ).map(
+    (stock) => `${stock.leverageUnderlyingId}:${stock.leverage}`,
+  ),
+);
+
+/** 기존 합성상품을 제외한 모든 상장 기초자산에 -1배·-2배·+2배 상품을 제공한다. */
+const UNIVERSAL_DERIVATIVES: StockDefinition[] =
+  DISPLAY_BASE_STOCK_DEFINITIONS.filter(
+    (stock) =>
+      stock.leverage === undefined && !stock.coveredCallUnderlyingId,
+  ).flatMap((underlying) =>
+    DERIVATIVE_FACTORS.filter(
+      ({ leverage }) =>
+        !existingDerivativeKeys.has(`${underlying.id}:${leverage}`),
+    ).map(({ leverage, idSuffix, tickerSuffix, name }) => ({
+      id: `${underlying.id}-${idSuffix}`,
+      ticker: `${underlying.ticker}${tickerSuffix}`,
+      name: `${underlying.name} ${name}`,
+      sector: "ETF",
+      initialPrice: 10_000,
+      volatility: underlying.volatility,
+      drift: 0,
+      beta: 0,
+      leverage,
+      leverageUnderlyingId: underlying.id,
+      universalDerivative: true,
+      description: `${underlying.name}의 틱 수익률을 ${leverage}배로 추종하는 합성 ETF.`,
+    })),
+  );
+
+export const STOCK_DEFINITIONS: StockDefinition[] = [
+  ...DISPLAY_BASE_STOCK_DEFINITIONS,
+  ...UNIVERSAL_DERIVATIVES,
+];
 
 /** 지수·선물·ETF를 제외한 실제 기업 목록 (company 이벤트 대상) */
 export function getCompanyDefinitions(): StockDefinition[] {

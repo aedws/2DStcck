@@ -39,7 +39,6 @@ import type {
  * 파생 ETF 처리와 동일한 순서를 유지해야 한다).
  */
 
-const LEVERAGE_UNDERLYING_ID = "vnasdaq";
 const DT_SECONDS = SIM_TICK_MS / 1000;
 
 /** 기원점의 거래일 번호 — 배당락·분배락 절대 그리드의 기준점 */
@@ -139,6 +138,23 @@ export function replayMarket(
     Boolean(s.coveredCallUnderlyingId);
   const normals = stocks.filter((s) => !isDerived(s));
   const deriveds = stocks.filter(isDerived);
+  const navEtfs = deriveds.filter((stock) => stock.etfHoldings?.length);
+  const leveragedEtfs = deriveds.filter(
+    (stock) => stock.leverage !== undefined,
+  );
+  const replayedLeveragedEtfs = leveragedEtfs.filter(
+    (stock) => !stock.universalDerivative,
+  );
+  const universalDerivatives = leveragedEtfs.filter(
+    (stock) => stock.universalDerivative,
+  );
+  const coveredCallEtfs = deriveds.filter(
+    (stock) => stock.coveredCallUnderlyingId,
+  );
+  const replayStartPrices = new Map(
+    stocks.map((stock) => [stock.id, stock.currentPrice]),
+  );
+  const replayedStocks = stocks.filter((stock) => !stock.universalDerivative);
 
   // 차트 데이터: 캔들은 최근 MAX_CANDLES분, 히스토리는 최근 MAX_PRICE_HISTORY틱만
   const candleWindowStart = toTick - (MAX_CANDLES * 60_000) / SIM_TICK_MS;
@@ -162,10 +178,15 @@ export function replayMarket(
     const session = Math.floor(now / SESSION_DURATION_MS);
     const marketShock = randomNormal(seededRand(tick, "shock"));
 
-    const idxBefore = byId.get(LEVERAGE_UNDERLYING_ID)?.currentPrice ?? 0;
+    const leverageBefore = new Map(
+      replayedLeveragedEtfs
+        .map((s) => {
+          const underlyingId = s.leverageUnderlyingId ?? "vnasdaq";
+          return [s.id, byId.get(underlyingId)?.currentPrice ?? 0] as const;
+        }),
+    );
     const ccBefore = new Map(
-      deriveds
-        .filter((s) => s.coveredCallUnderlyingId)
+      coveredCallEtfs
         .map((s) => [
           s.id,
           byId.get(s.coveredCallUnderlyingId!)?.currentPrice ?? 0,
@@ -190,33 +211,45 @@ export function replayMarket(
       s.currentPrice = next;
     }
 
-    // 2차: 파생 ETF (NAV / 레버리지 / 커버드콜)
-    const idxAfter = byId.get(LEVERAGE_UNDERLYING_ID)?.currentPrice ?? 0;
-    const underlyingReturn =
-      idxBefore > 0 ? idxAfter / idxBefore - 1 : 0;
-
-    for (const s of deriveds) {
+    // 2차: NAV ETF. 이 결과를 기초로 하는 레버리지 상품보다 먼저 갱신한다.
+    for (const s of navEtfs) {
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
       if (isNewSession) s.prevDayClose = s.currentPrice;
-
-      let next = s.currentPrice;
-      if (s.etfHoldings?.length) {
-        next = computeEtfNav(s, byId);
-      } else if (s.leverage !== undefined) {
-        next = computeLeveragedPrice(s, underlyingReturn);
-      } else if (s.coveredCallUnderlyingId) {
-        const before = ccBefore.get(s.id) ?? 0;
-        const after = byId.get(s.coveredCallUnderlyingId)?.currentPrice ?? 0;
-        const ccReturn = before > 0 ? after / before - 1 : 0;
-        const result = computeCoveredCallTick(s, ccReturn, DT_SECONDS);
-        next = result.price;
-        s.coveredCallPremiumReserve = result.premiumReserve;
-      }
-
+      const next = computeEtfNav(s, byId);
       if (isNewSession) s.dayOpen = next;
       s.daySessionId = session;
       s.currentPrice = next;
+    }
+
+    // 3차: 각 레버리지·인버스 상품이 지정된 기초자산 수익률을 추종한다.
+    for (const s of replayedLeveragedEtfs) {
+      const isNewSession =
+        s.daySessionId !== undefined && s.daySessionId !== session;
+      if (isNewSession) s.prevDayClose = s.currentPrice;
+      const underlyingId = s.leverageUnderlyingId ?? "vnasdaq";
+      const before = leverageBefore.get(s.id) ?? 0;
+      const after = byId.get(underlyingId)?.currentPrice ?? 0;
+      const underlyingReturn = before > 0 ? after / before - 1 : 0;
+      const next = computeLeveragedPrice(s, underlyingReturn);
+      if (isNewSession) s.dayOpen = next;
+      s.daySessionId = session;
+      s.currentPrice = next;
+    }
+
+    // 4차: 커버드콜 상품 갱신.
+    for (const s of coveredCallEtfs) {
+      const isNewSession =
+        s.daySessionId !== undefined && s.daySessionId !== session;
+      if (isNewSession) s.prevDayClose = s.currentPrice;
+      const before = ccBefore.get(s.id) ?? 0;
+      const after = byId.get(s.coveredCallUnderlyingId!)?.currentPrice ?? 0;
+      const ccReturn = before > 0 ? after / before - 1 : 0;
+      const result = computeCoveredCallTick(s, ccReturn, DT_SECONDS);
+      if (isNewSession) s.dayOpen = result.price;
+      s.daySessionId = session;
+      s.currentPrice = result.price;
+      s.coveredCallPremiumReserve = result.premiumReserve;
     }
 
     // 배당락·분배락: 기원점 기준 절대 그리드(20/60거래일 배수)에서 전 클라이언트 동일 적용.
@@ -259,7 +292,7 @@ export function replayMarket(
     }
 
     // 일봉은 전체 리플레이 구간을 보존해 주봉·월봉의 원본으로 사용한다.
-    for (const stock of stocks) {
+    for (const stock of replayedStocks) {
       const dailyCandles = dailyMap.get(stock.id) ?? [];
       const sessionStart = session * SESSION_DURATION_MS;
       const last = dailyCandles[dailyCandles.length - 1];
@@ -313,6 +346,31 @@ export function replayMarket(
           if (candles.length > MAX_CANDLES) candles.shift();
         }
       }
+    }
+  }
+
+  // 자동 생성 상품은 긴 초기 리플레이에서 매 틱 126개를 반복 계산하지 않고,
+  // 기초자산의 누적 수익률로 동일한 결정론적 현재가를 구성한다.
+  for (const stock of universalDerivatives) {
+    const underlyingId = stock.leverageUnderlyingId;
+    const underlying = underlyingId ? byId.get(underlyingId) : undefined;
+    const start = underlyingId ? replayStartPrices.get(underlyingId) : undefined;
+    if (!underlying || !start || start <= 0) continue;
+    const ratio = Math.max(underlying.currentPrice / start, 0.01);
+    const leveragedRatio = Math.pow(ratio, stock.leverage ?? 1);
+    stock.currentPrice = Math.max(
+      Math.round(stock.initialPrice * leveragedRatio),
+      100,
+    );
+    stock.prevDayClose = stock.currentPrice;
+    stock.dayOpen = stock.currentPrice;
+
+    const dailyCandles = dailyMap.get(stock.id) ?? [];
+    const lastDaily = dailyCandles[dailyCandles.length - 1];
+    if (lastDaily) {
+      lastDaily.high = Math.max(lastDaily.high, stock.currentPrice);
+      lastDaily.low = Math.min(lastDaily.low, stock.currentPrice);
+      lastDaily.close = stock.currentPrice;
     }
   }
 

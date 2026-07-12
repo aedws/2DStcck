@@ -48,8 +48,12 @@ export interface StockDefinition {
   eventBias?: Record<string, number>;
   /** ETF 구성종목 (설정 시 NAV 추종 모드 — 가격이 구성종목 가중 수익률을 따라감) */
   etfHoldings?: EtfConstituent[];
-  /** 합성 ETF: V-NASDAQ 틱 수익률 × 배수 추종 (-1 인버스, -2 곱버스, 2 레버리지) */
+  /** 합성 ETF: 기초자산 틱 수익률 × 배수 추종 (-1 인버스, -2 곱버스, 2 레버리지) */
   leverage?: number;
+  /** 레버리지·인버스 ETF의 기초자산 종목 id */
+  leverageUnderlyingId?: string;
+  /** 전 종목 공통 규칙으로 자동 생성된 파생상품 여부 */
+  universalDerivative?: boolean;
   /** 커버드콜 ETF의 기초자산 종목 id */
   coveredCallUnderlyingId?: string;
   /** 커버드콜 ETF의 연 환산 목표 분배율(%). 실제 월 분배금은 옵션 프리미엄처럼 변동한다. */

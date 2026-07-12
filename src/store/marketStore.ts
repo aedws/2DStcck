@@ -40,6 +40,7 @@ import {
   createGenesisStocks,
   currentSimTick,
   replayMarket,
+  simTickTime,
 } from "@/lib/market/localSim";
 import {
   COVERED_CALL_INTERVAL_DAYS,
@@ -567,8 +568,8 @@ export const useMarketStore = create<MarketStore>()(
         // (포트폴리오는 유지 — 시장만 공통 상태로 재계산).
         const persistedStocks = Array.isArray(merged.stocks) ? merged.stocks : [];
         const definedIds = new Set(STOCK_DEFINITIONS.map((d) => d.id));
-        const sameUniverse =
-          persistedStocks.length === STOCK_DEFINITIONS.length &&
+        const compatibleUniverse =
+          persistedStocks.length > 0 &&
           persistedStocks.every(
             (s) => definedIds.has(s.id) && Array.isArray(s.dailyCandles),
           );
@@ -577,15 +578,27 @@ export const useMarketStore = create<MarketStore>()(
           Number.isSafeInteger(merged.tick) &&
           merged.tick >= 0 &&
           merged.tick <= currentSimTick() + 60 &&
-          sameUniverse;
+          compatibleUniverse;
+        const persistedById = new Map(
+          persistedStocks.map((stock) => [stock.id, stock]),
+        );
+        const restoredStocks = marketValid
+          ? STOCK_DEFINITIONS.map((definition) => {
+              const persistedStock = persistedById.get(definition.id);
+              return persistedStock
+                ? migrateStock(persistedStock)
+                : createInitialStockState(
+                    definition,
+                    simTickTime(merged.tick),
+                  );
+            })
+          : createGenesisStocks();
 
         return {
           ...merged,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
-          stocks: marketValid
-            ? persistedStocks.map(migrateStock)
-            : createGenesisStocks(),
+          stocks: restoredStocks,
           events:
             marketValid && Array.isArray(merged.events) ? merged.events : [],
           lastSalarySession: Number.isSafeInteger(merged.lastSalarySession)
