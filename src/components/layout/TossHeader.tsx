@@ -78,7 +78,8 @@ function StockSearch() {
         (s) =>
           s.ticker.toLowerCase().includes(q) ||
           s.name.toLowerCase().includes(q) ||
-          s.sector.toLowerCase().includes(q),
+          s.sector.toLowerCase().includes(q) ||
+          s.subsector?.toLowerCase().includes(q),
       )
       .slice(0, 8);
   }, [stocks, query]);
@@ -131,7 +132,7 @@ function StockSearch() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="티커, 종목명, 섹터 검색"
+          placeholder="티커, 종목명, 섹터·세부 섹터 검색"
           className="ml-2 w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
         />
       </div>
@@ -161,6 +162,7 @@ function StockSearch() {
                     {s.name}
                     <span className="ml-2 text-xs text-[var(--muted)]">
                       {s.sector}
+                      {s.subsector ? ` · ${s.subsector}` : ""}
                     </span>
                   </span>
                   <span className="shrink-0 text-sm tabular-nums">

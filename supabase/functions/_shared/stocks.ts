@@ -55,6 +55,57 @@ const KOREAN_STOCK_NAMES: Record<string, string> = {
   bndx: "학원채 ETF",
 };
 
+/** CSV에서 세부 섹터를 비워 둔 경우 사용하는 기본 분류. CSV 값이 있으면 그 값이 우선한다. */
+const DEFAULT_SUBSECTORS: Record<string, string> = {
+  vnasdaq: "시장대표 지수",
+  vnasfut: "주가지수 선물",
+  vnsl2: "레버리지 ETF",
+  vnsi: "인버스 ETF",
+  vnsi2: "곱버스 ETF",
+  vncc: "커버드콜 ETF",
+  baridc: "방위 시스템",
+  baqqq: "기술주 ETF",
+  bamlb: "학원채",
+  bagdi: "게임 개발",
+  bavts: "사이버 보안",
+  banru: "민간 군사",
+  bahbk: "병기 제조",
+  basmr: "의료 서비스",
+  baspy: "시장대표 ETF",
+  bakaya: "중공업",
+  bakvb: "지방채",
+  baabs: "시설 경비",
+  baabb: "학원채",
+  ba68: "조사·해결 서비스",
+  bahina: "치안 서비스",
+  bahrn: "외식",
+  bafka: "식품 서비스",
+  basena: "바이오테크",
+  baksm: "종합 건설",
+  bakrr: "화장품 제조",
+  baghb: "학원채",
+  bahnk: "교육 서비스",
+  baszm: "민간 경호",
+  baui: "콘텐츠 제작",
+  baair: "카페",
+  bamine: "제약",
+  batrg: "치안 서비스",
+  bamari: "여행 서비스",
+  batrb: "학원채",
+  wwjin: "금융지주",
+  wwchl: "종합 에너지",
+  wwxly: "기술 연구개발",
+  wwjyn: "항공 물류",
+  wwskp: "통신 서비스",
+  wwcam: "원예·식물",
+  nkltr: "부동산 개발",
+  nkvol: "방송",
+  nkneo: "종합 소매",
+  nkexa: "게임 개발",
+  pmcx: "치안·보안 ETF",
+  bndx: "채권 ETF",
+};
+
 /** 코드 관리 종목 (시장 코어: 지수·선물). 회사·캐릭터는 data/companies.csv가 원본. */
 const CORE_DEFINITIONS: StockDefinition[] = [
   {
@@ -152,6 +203,7 @@ const DISPLAY_BASE_STOCK_DEFINITIONS: StockDefinition[] =
   BASE_STOCK_DEFINITIONS.map((definition) => ({
     ...definition,
     name: KOREAN_STOCK_NAMES[definition.id] ?? definition.name,
+    subsector: definition.subsector ?? DEFAULT_SUBSECTORS[definition.id],
   }));
 
 const DERIVATIVE_FACTORS = [
@@ -182,6 +234,12 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
       ticker: `${underlying.ticker}${tickerSuffix}`,
       name: `${underlying.name} ${name}`,
       sector: "ETF",
+      subsector:
+        leverage === -1
+          ? "인버스 ETF"
+          : leverage === -2
+            ? "곱버스 ETF"
+            : "레버리지 ETF",
       initialPrice: 10_000,
       volatility: underlying.volatility,
       drift: 0,

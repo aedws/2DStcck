@@ -8,6 +8,7 @@
  *   ticker      영문 대문자 1~6자, 고유 (id는 소문자 변환)
  *   name        회사명
  *   sector      섹터 (같은 문자열끼리 섹터 이벤트로 묶임)
+ *   subsector   선택형 세부 섹터 (표시·검색용)
  *   initialPrice 상장가, 양의 정수(원)
  *   volatility  틱당 변동성 계수, 0.01~0.06 권장
  *   drift       장기 성향, -0.001~0.002 권장
@@ -34,7 +35,7 @@ const outPath = join(root, "src", "data", "generated.ts");
 const HEADER = [
   "ticker", "name", "sector", "initialPrice", "volatility", "drift", "beta",
   "description", "logo", "eventBias", "ceoName", "ceoTitle", "ceoTraits", "ceoBio", "ceoEmoji",
-  "etfHoldings", "quarterlyDividend",
+  "etfHoldings", "quarterlyDividend", "subsector",
 ];
 
 /** 코드 관리 코어 종목 (구성종목 참조 검증용) */
@@ -129,6 +130,7 @@ rows.forEach((cols, idx) => {
 
   const name = get("name");
   const sector = get("sector");
+  const subsector = get("subsector");
   if (!name || !sector) return fail(line, "name/sector는 필수");
 
   const initialPrice = parseNumber(get("initialPrice"), "initialPrice", line, { integer: true });
@@ -145,6 +147,7 @@ rows.forEach((cols, idx) => {
     ticker,
     name,
     sector,
+    ...(subsector ? { subsector } : {}),
     initialPrice,
     volatility,
     drift,

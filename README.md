@@ -113,6 +113,7 @@ supabase functions deploy trade
 | `ticker` | ✅ | 영문 대문자·숫자 1~6자, 고유. id는 소문자 변환 | `RIDC` |
 | `name` | ✅ | 회사명 | `RIO Defense Corporation` |
 | `sector` | ✅ | 섹터 — 같은 문자열끼리 섹터 이벤트로 묶임 | `방산` |
+| `subsector` | | 선택형 세부 섹터 — 표시와 검색에 사용하며 빈칸이면 기본 분류 적용 | `병기 제조` |
 | `initialPrice` | ✅ | 상장가, 양의 정수(원) | `98000` |
 | `volatility` | ✅ | 틱당 변동성 계수, 0.01~0.06 권장 | `0.03` |
 | `drift` | ✅ | 장기 성향, -0.001~0.002 권장 | `0.0005` |

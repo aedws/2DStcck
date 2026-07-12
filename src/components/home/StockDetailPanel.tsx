@@ -47,6 +47,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
       <div className="border-b border-[var(--border)] px-4 py-3">
         <p className="text-xs text-[var(--muted)]">
           {stock.ticker} · {stock.sector}
+          {stock.subsector ? ` · ${stock.subsector}` : ""}
         </p>
         <Link
           href={`/stock/${stock.id}`}

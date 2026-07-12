@@ -31,6 +31,8 @@ export interface StockDefinition {
   ticker: string;
   name: string;
   sector: string;
+  /** 선택형 세부 산업 분류. 비어 있으면 상위 섹터만 사용한다. */
+  subsector?: string;
   initialPrice: number;
   volatility: number;
   drift: number;

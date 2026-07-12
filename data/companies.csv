@@ -1,4 +1,4 @@
-ticker,name,sector,initialPrice,volatility,drift,beta,description,logo,eventBias,ceoName,ceoTitle,ceoTraits,ceoBio,ceoEmoji,etfHoldings,quarterlyDividend
+ticker,name,sector,initialPrice,volatility,drift,beta,description,logo,eventBias,ceoName,ceoTitle,ceoTraits,ceoBio,ceoEmoji,etfHoldings,quarterlyDividend,subsector
 BARIDC,RIO Defense Corporation,방산,98000,0.03,0.0005,0.7,궤도 방위 시스템과 전술 AI를 개발하는 방산 기업.,,수주:4;스캔들:0.5,츠카츠키 리오,CEO,천재;은둔형;회피형,모습을 드러내지 않고 태스크 목록만으로 회사 전체를 지휘하는 은둔형 천재.,🛰️,
 BAQQQ,Millennium Tech 100,ETF,32000,0.012,0.001,1.1,키보토스 테크 기업에 집중 투자하는 기술주 ETF.,,,우시오 노아,운용책임자,성실;천재,모든 지표를 외우고 다니는 세미나의 서기. 미소 뒤에 데이터가 있다.,📘,WWXLY:0.25;BAGDI:0.2;BAVTS:0.2;NKEXA:0.15;BAUI:0.1;NKVOL:0.1
 BAMLB,Millennium Academy Bond,채권,10200,0.006,0.0004,0.15,밀레니엄 사이언스 스쿨이 발행한 우량 학원채.,,수주:0;신제품:0;실적:0.3,하야세 유우카,회계책임자,천재;성실;워커홀릭,1원 단위 오차도 용납하지 않는 밀레니엄의 회계 담당.,🧮,,130

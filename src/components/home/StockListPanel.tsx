@@ -275,7 +275,12 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                     </div>
                   </td>
                   <td className="hidden px-2 py-3 text-[var(--muted)] lg:table-cell">
-                    {stock.sector}
+                    <span className="block">{stock.sector}</span>
+                    {stock.subsector && (
+                      <span className="block text-[10px] text-[var(--muted)]">
+                        {stock.subsector}
+                      </span>
+                    )}
                   </td>
                   <td className="hidden max-w-[140px] px-2 py-3 xl:table-cell">
                     {event ? (

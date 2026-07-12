@@ -150,6 +150,12 @@ function StockInfoTab({ stock }: { stock: StockState }) {
             <dt className="text-[11px] text-[var(--muted)]">섹터</dt>
             <dd>{stock.sector}</dd>
           </div>
+          {stock.subsector && (
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">세부 섹터</dt>
+              <dd>{stock.subsector}</dd>
+            </div>
+          )}
           <div className="flex flex-col gap-0.5">
             <dt className="text-[11px] text-[var(--muted)]">상장가</dt>
             <dd className="tabular-nums">{formatPrice(stock.initialPrice)}</dd>
