@@ -157,6 +157,27 @@ export interface ShortPosition {
 /** 금리 단계: 1=완화, 2=중립, 3=긴축 */
 export type RateLevel = 1 | 2 | 3;
 
+export type OptionKind = "call" | "put";
+export type OptionSide = "long" | "short";
+
+/** 옵션 포지션 (유럽식 현금정산, 1계약 = 기초자산 1주) */
+export interface OptionPosition {
+  id: string;
+  stockId: string;
+  kind: OptionKind;
+  /** long=매수(프리미엄 지불), short=발행/매도(프리미엄 수취·증거금) */
+  side: OptionSide;
+  /** 행사가 (센트) */
+  strike: number;
+  /** 만기 거래일 번호 */
+  expirySession: number;
+  /** 계약 수 */
+  quantity: number;
+  /** 개시 시 계약당 프리미엄 (센트) */
+  openPremium: number;
+  openedAt: number;
+}
+
 export type TradeType = "buy" | "sell" | "short" | "cover";
 
 export interface Trade {
@@ -213,6 +234,8 @@ export interface MarketSnapshot {
   holdings: Holding[];
   /** 공매도 포지션 */
   shorts: ShortPosition[];
+  /** 옵션 포지션 */
+  options: OptionPosition[];
   trades: Trade[];
   cashPayments: CashPayment[];
   stocks: StockState[];

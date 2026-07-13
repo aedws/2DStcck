@@ -3,6 +3,7 @@ import type {
   CashPayment,
   Holding,
   OpenOrder,
+  OptionPosition,
   ShortPosition,
   Trade,
 } from "@/lib/types/market";
@@ -26,6 +27,8 @@ export interface WalletSave {
   ownedLuxuries?: OwnedLuxury[];
   /** 공매도 포지션. 구버전 호환을 위해 선택형. */
   shorts?: ShortPosition[];
+  /** 옵션 포지션. 구버전 호환을 위해 선택형. */
+  options?: OptionPosition[];
   /** 마지막 이자 정산 거래일. 구버전 호환을 위해 선택형. */
   lastInterestSession?: number;
 }

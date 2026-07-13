@@ -32,12 +32,13 @@ import {
   getTopLuxuryTier,
 } from "@/lib/market/luxury";
 import {
-  computeBuyingPower,
   computeEquity,
-  needsLiquidation,
+  grossExposure,
   shortLiability,
   marginDebit,
   accrueBorrowCost,
+  MAX_LEVERAGE,
+  MAINTENANCE_MARGIN,
 } from "@/lib/market/margin";
 import {
   coverShort,
@@ -51,7 +52,20 @@ import {
   getAnnualRatePercent,
   buildRateChangeEvent,
 } from "@/lib/market/interestRate";
-import type { ShortPosition, RateLevel } from "@/lib/types/market";
+import type {
+  ShortPosition,
+  RateLevel,
+  OptionPosition,
+  OptionKind,
+} from "@/lib/types/market";
+import {
+  optionPremium,
+  positionMark,
+  intrinsic,
+  optionsEquityDelta,
+  optionsMarginReserve,
+  shortMarginPerContract,
+} from "@/lib/market/options";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   MARKET_EPOCH_MS,
@@ -103,6 +117,24 @@ interface MarketStore extends MarketSnapshot {
   getEquity: () => number;
   /** 현재 금리 단계 (1완화·2중립·3긴축) */
   getRateLevel: () => RateLevel;
+  /** 옵션 매수 (프리미엄 지불) */
+  buyOption: (
+    stockId: string,
+    kind: OptionKind,
+    strike: number,
+    expirySession: number,
+    quantity: number,
+  ) => OrderResult;
+  /** 옵션 발행/매도 (프리미엄 수취·증거금) */
+  writeOption: (
+    stockId: string,
+    kind: OptionKind,
+    strike: number,
+    expirySession: number,
+    quantity: number,
+  ) => OrderResult;
+  /** 옵션 포지션 청산 (long은 되팔기, short은 되사기) */
+  closeOption: (optionId: string, quantity: number) => OrderResult;
   placeLimitOrder: (
     stockId: string,
     price: number,
@@ -160,6 +192,7 @@ function createInitialState(): MarketSnapshot & {
     ),
     holdings: [],
     shorts: [],
+    options: [],
     lastInterestSession: Math.floor(now / SESSION_DURATION_MS),
     trades: [],
     cashPayments: [],
@@ -187,6 +220,58 @@ function appendNetWorthPoint(
   const last = history[history.length - 1];
   if (last && now - last.t < NET_WORTH_SAMPLE_MS) return history;
   return [...history, { t: now, value }].slice(-MAX_NET_WORTH_POINTS);
+}
+
+/** 현재 기준금리(연 소수) */
+function currentRateDecimal(stocks: StockState[]): number {
+  return getAnnualRatePercent(getRateLevel(getBenchmark(stocks))) / 100;
+}
+
+interface MarginContext {
+  prices: Record<string, number>;
+  equity: number;
+  exposure: number;
+}
+
+/** 옵션까지 포함한 자기자본·총노출 (마진·청산 판단의 단일 진실) */
+function marginContext(s: {
+  cash: number;
+  holdings: Holding[];
+  shorts: ShortPosition[];
+  options: OptionPosition[];
+  stocks: StockState[];
+  ownedLuxuries: OwnedLuxury[];
+}): MarginContext {
+  const prices = Object.fromEntries(s.stocks.map((x) => [x.id, x.currentPrice]));
+  const luxuryVal = getLuxuryValue(s.ownedLuxuries);
+  const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+  const rate = currentRateDecimal(s.stocks);
+  const stockEquity = computeEquity(
+    s.cash,
+    s.holdings,
+    s.shorts,
+    prices,
+    luxuryVal,
+  );
+  const optDelta = optionsEquityDelta(s.options, s.stocks, session, rate);
+  const exposure =
+    grossExposure(s.holdings, s.shorts, prices) +
+    optionsMarginReserve(s.options, s.stocks);
+  return { prices, equity: stockEquity + optDelta, exposure };
+}
+
+function fullBuyingPower(s: Parameters<typeof marginContext>[0]): number {
+  const { equity, exposure } = marginContext(s);
+  return Math.max(0, MAX_LEVERAGE * equity - exposure);
+}
+
+function fullEquityOf(s: Parameters<typeof marginContext>[0]): number {
+  return marginContext(s).equity;
+}
+
+function fullNeedsLiquidation(s: Parameters<typeof marginContext>[0]): boolean {
+  const { equity, exposure } = marginContext(s);
+  return exposure > 0 && equity < MAINTENANCE_MARGIN * exposure;
 }
 
 interface InterestOutcome {
@@ -234,15 +319,43 @@ function settleInterest(
   };
 }
 
-/** 유지증거금 미달 시 롱·공매도 전 포지션을 현재가로 강제 청산한다. */
+/** 만기 도달 옵션을 내재가치로 현금정산하고 제거한다. */
+function settleExpiredOptions(
+  cash: number,
+  options: OptionPosition[],
+  stocks: StockState[],
+  currentSession: number,
+): { cash: number; options: OptionPosition[] } {
+  let nextCash = cash;
+  const remaining: OptionPosition[] = [];
+  for (const pos of options) {
+    if (pos.expirySession > currentSession) {
+      remaining.push(pos);
+      continue;
+    }
+    const stock = stocks.find((s) => s.id === pos.stockId);
+    const iv = stock ? intrinsic(pos.kind, stock.currentPrice, pos.strike) : 0;
+    nextCash += (pos.side === "long" ? iv : -iv) * pos.quantity;
+  }
+  return { cash: nextCash, options: remaining };
+}
+
+/** 유지증거금 미달 시 롱·공매도·옵션 전 포지션을 현재가/마크로 강제 청산한다. */
 function liquidatePositions(
   cash: number,
   holdings: Holding[],
   shorts: ShortPosition[],
+  options: OptionPosition[],
   stocks: StockState[],
   trades: Trade[],
   now: number,
-): { cash: number; holdings: Holding[]; shorts: ShortPosition[]; trades: Trade[] } {
+): {
+  cash: number;
+  holdings: Holding[];
+  shorts: ShortPosition[];
+  options: OptionPosition[];
+  trades: Trade[];
+} {
   const priceOf = (id: string) =>
     stocks.find((s) => s.id === id)?.currentPrice ?? 0;
   let nextCash = cash;
@@ -275,7 +388,22 @@ function liquidatePositions(
     const ticker = stocks.find((s) => s.id === sh.stockId)?.ticker ?? sh.stockId;
     nextTrades = [mk(sh.stockId, ticker, "cover", sh.quantity, price), ...nextTrades];
   }
-  return { cash: nextCash, holdings: [], shorts: [], trades: nextTrades };
+  // 옵션은 현재 마크로 청산 (long=수취, short=지불)
+  const session = Math.floor(now / SESSION_DURATION_MS);
+  const rate = currentRateDecimal(stocks);
+  for (const pos of options) {
+    const stock = stocks.find((s) => s.id === pos.stockId);
+    if (!stock) continue;
+    const mark = positionMark(pos, stock, session, rate);
+    nextCash += (pos.side === "long" ? mark : -mark) * pos.quantity;
+  }
+  return {
+    cash: nextCash,
+    holdings: [],
+    shorts: [],
+    options: [],
+    trades: nextTrades,
+  };
 }
 
 function migrateStock(stock: StockState & { previousClose?: number }): StockState {
@@ -340,16 +468,7 @@ function applyLocalBuySell(
 
   if (mode.startsWith("buy")) {
     // 마진 매수: 현금이 아니라 매수여력(자기자본 2배 − 노출) 한도로 판단.
-    const prices = Object.fromEntries(
-      state.stocks.map((s) => [s.id, s.currentPrice]),
-    );
-    const buyingPower = computeBuyingPower(
-      state.cash,
-      state.holdings,
-      state.shorts,
-      prices,
-      getLuxuryValue(state.ownedLuxuries),
-    );
+    const buyingPower = fullBuyingPower(state);
     const total = price * quantity;
     if (total > buyingPower) {
       return { success: false, message: "매수여력이 부족합니다." };
@@ -429,6 +548,7 @@ export const useMarketStore = create<MarketStore>()(
           lastQuarterlyDividendSession: wallet.lastQuarterlyDividendSession,
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: wallet.shorts ?? [],
+          options: wallet.options ?? [],
           lastInterestSession:
             wallet.lastInterestSession ??
             Math.floor(Date.now() / SESSION_DURATION_MS),
@@ -451,6 +571,7 @@ export const useMarketStore = create<MarketStore>()(
           lastQuarterlyDividendSession: s.lastQuarterlyDividendSession,
           ownedLuxuries: s.ownedLuxuries,
           shorts: s.shorts,
+          options: s.options,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -590,10 +711,15 @@ export const useMarketStore = create<MarketStore>()(
         let cashPayments = settled.cashPayments;
         let shorts = state.shorts;
 
-        const priceById = Object.fromEntries(
-          updatedStocks.map((s) => [s.id, s.currentPrice]),
+        // 만기 도달 옵션 현금정산
+        const expired = settleExpiredOptions(
+          cash,
+          state.options,
+          updatedStocks,
+          currentSession,
         );
-        const luxuryVal = getLuxuryValue(state.ownedLuxuries);
+        cash = expired.cash;
+        let options = expired.options;
 
         // 마진 이자·공매도 대여수수료 (경과 거래일만큼)
         const interest = settleInterest(
@@ -623,13 +749,22 @@ export const useMarketStore = create<MarketStore>()(
           }
         }
 
-        // 강제청산(마진콜): 유지증거금 미달이면 전 포지션을 현재가로 청산
+        // 강제청산(마진콜): 유지증거금 미달이면 전 포지션을 현재가/마크로 청산
         let marginCallAt = state.marginCallAt;
-        if (needsLiquidation(cash, holdings, shorts, priceById, luxuryVal)) {
+        const liveState = {
+          cash,
+          holdings,
+          shorts,
+          options,
+          stocks: updatedStocks,
+          ownedLuxuries: state.ownedLuxuries,
+        };
+        if (fullNeedsLiquidation(liveState)) {
           const liq = liquidatePositions(
             cash,
             holdings,
             shorts,
+            options,
             updatedStocks,
             trades,
             now,
@@ -637,17 +772,19 @@ export const useMarketStore = create<MarketStore>()(
           cash = liq.cash;
           holdings = liq.holdings;
           shorts = liq.shorts;
+          options = liq.options;
           trades = liq.trades;
           marginCallAt = now;
         }
 
-        const netWorth = computeEquity(
+        const netWorth = fullEquityOf({
           cash,
           holdings,
           shorts,
-          priceById,
-          luxuryVal,
-        );
+          options,
+          stocks: updatedStocks,
+          ownedLuxuries: state.ownedLuxuries,
+        });
         const netWorthHistory = appendNetWorthPoint(
           state.netWorthHistory,
           netWorth,
@@ -664,6 +801,7 @@ export const useMarketStore = create<MarketStore>()(
           stocks: updatedStocks,
           holdings,
           shorts,
+          options,
           marginCallAt,
           trades,
           openOrders: remainingOrders,
@@ -754,17 +892,7 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
         const price = getMarketSellPrice(stock.currentPrice);
-        const prices = Object.fromEntries(
-          state.stocks.map((s) => [s.id, s.currentPrice]),
-        );
-        const buyingPower = computeBuyingPower(
-          state.cash,
-          state.holdings,
-          state.shorts,
-          prices,
-          getLuxuryValue(state.ownedLuxuries),
-        );
-        if (price * quantity > buyingPower) {
+        if (price * quantity > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }
         const result = openShort(
@@ -815,49 +943,178 @@ export const useMarketStore = create<MarketStore>()(
         };
       },
 
-      getBuyingPower: () => {
-        const { cash, holdings, shorts, stocks, ownedLuxuries } = get();
-        const prices = Object.fromEntries(
-          stocks.map((s) => [s.id, s.currentPrice]),
+      buyOption: (stockId, kind, strike, expirySession, quantity) => {
+        get().settleCashflows();
+        const state = get();
+        if (quantity <= 0 || !Number.isInteger(quantity)) {
+          return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
+        }
+        const stock = state.stocks.find((s) => s.id === stockId);
+        if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
+        if (stock.sector === "선물" || stock.sector === "지수") {
+          return { success: false, message: "지수·선물은 옵션이 없습니다." };
+        }
+        const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+        if (expirySession <= session) {
+          return { success: false, message: "이미 만기된 옵션입니다." };
+        }
+        const rate = currentRateDecimal(state.stocks);
+        const premium = optionPremium(
+          kind,
+          strike,
+          expirySession,
+          stock,
+          session,
+          rate,
         );
-        return computeBuyingPower(
-          cash,
-          holdings,
-          shorts,
-          prices,
-          getLuxuryValue(ownedLuxuries),
-        );
+        if (premium <= 0) {
+          return { success: false, message: "프리미엄이 거의 없는 옵션입니다." };
+        }
+        const cost = premium * quantity;
+        if (cost > fullBuyingPower(state)) {
+          return { success: false, message: "매수여력이 부족합니다." };
+        }
+        const id = `opt-${stockId}-${kind}-long-${strike}-${expirySession}`;
+        const existing = state.options.find((o) => o.id === id);
+        const options = existing
+          ? state.options.map((o) =>
+              o.id === id
+                ? {
+                    ...o,
+                    quantity: o.quantity + quantity,
+                    openPremium: Math.round(
+                      (o.openPremium * o.quantity + premium * quantity) /
+                        (o.quantity + quantity),
+                    ),
+                  }
+                : o,
+            )
+          : [
+              ...state.options,
+              {
+                id,
+                stockId,
+                kind,
+                side: "long" as const,
+                strike,
+                expirySession,
+                quantity,
+                openPremium: premium,
+                openedAt: Date.now(),
+              },
+            ];
+        set({ cash: state.cash - cost, options });
+        return {
+          success: true,
+          message: `${kind === "call" ? "콜" : "풋"} 매수 (${formatPrice(premium)})`,
+        };
       },
 
-      getEquity: () => {
-        const { cash, holdings, shorts, stocks, ownedLuxuries } = get();
-        const prices = Object.fromEntries(
-          stocks.map((s) => [s.id, s.currentPrice]),
+      writeOption: (stockId, kind, strike, expirySession, quantity) => {
+        get().settleCashflows();
+        const state = get();
+        if (quantity <= 0 || !Number.isInteger(quantity)) {
+          return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
+        }
+        const stock = state.stocks.find((s) => s.id === stockId);
+        if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
+        if (stock.sector === "선물" || stock.sector === "지수") {
+          return { success: false, message: "지수·선물은 옵션이 없습니다." };
+        }
+        const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+        if (expirySession <= session) {
+          return { success: false, message: "이미 만기된 옵션입니다." };
+        }
+        const rate = currentRateDecimal(state.stocks);
+        const premium = optionPremium(
+          kind,
+          strike,
+          expirySession,
+          stock,
+          session,
+          rate,
         );
-        return computeEquity(
-          cash,
-          holdings,
-          shorts,
-          prices,
-          getLuxuryValue(ownedLuxuries),
-        );
+        const id = `opt-${stockId}-${kind}-short-${strike}-${expirySession}`;
+        const draft: OptionPosition = {
+          id,
+          stockId,
+          kind,
+          side: "short",
+          strike,
+          expirySession,
+          quantity,
+          openPremium: premium,
+          openedAt: Date.now(),
+        };
+        const margin = shortMarginPerContract(draft, stock) * quantity;
+        if (margin > fullBuyingPower(state)) {
+          return { success: false, message: "증거금(매수여력)이 부족합니다." };
+        }
+        const existing = state.options.find((o) => o.id === id);
+        const options = existing
+          ? state.options.map((o) =>
+              o.id === id
+                ? {
+                    ...o,
+                    quantity: o.quantity + quantity,
+                    openPremium: Math.round(
+                      (o.openPremium * o.quantity + premium * quantity) /
+                        (o.quantity + quantity),
+                    ),
+                  }
+                : o,
+            )
+          : [...state.options, draft];
+        set({ cash: state.cash + premium * quantity, options });
+        return {
+          success: true,
+          message: `${kind === "call" ? "콜" : "풋"} 발행 (+${formatPrice(premium)})`,
+        };
       },
+
+      closeOption: (optionId, quantity) => {
+        get().settleCashflows();
+        const state = get();
+        const pos = state.options.find((o) => o.id === optionId);
+        if (!pos) return { success: false, message: "옵션 포지션이 없습니다." };
+        if (quantity <= 0 || quantity > pos.quantity) {
+          return { success: false, message: "청산 수량이 올바르지 않습니다." };
+        }
+        const stock = state.stocks.find((s) => s.id === pos.stockId);
+        if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
+        const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const mark = positionMark(
+          pos,
+          stock,
+          session,
+          currentRateDecimal(state.stocks),
+        );
+        const remaining = pos.quantity - quantity;
+        const options =
+          remaining === 0
+            ? state.options.filter((o) => o.id !== optionId)
+            : state.options.map((o) =>
+                o.id === optionId ? { ...o, quantity: remaining } : o,
+              );
+        // long 청산 = 되팔아 현금 유입, short 청산 = 되사서 현금 유출
+        const delta =
+          pos.side === "long" ? mark * quantity : -mark * quantity;
+        set({ cash: state.cash + delta, options });
+        return {
+          success: true,
+          message: `옵션 청산 (${formatPrice(mark)})`,
+        };
+      },
+
+      getBuyingPower: () => fullBuyingPower(get()),
+
+      getEquity: () => fullEquityOf(get()),
 
       getRateLevel: () => getRateLevel(getBenchmark(get().stocks)),
 
       reset: () => set(createInitialState()),
 
-      getTotalAssets: () => {
-        const { cash, holdings, shorts, stocks, ownedLuxuries } = get();
-        const prices = Object.fromEntries(stocks.map((s) => [s.id, s.currentPrice]));
-        return computeEquity(
-          cash,
-          holdings,
-          shorts,
-          prices,
-          getLuxuryValue(ownedLuxuries),
-        );
-      },
+      getTotalAssets: () => fullEquityOf(get()),
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
@@ -873,6 +1130,7 @@ export const useMarketStore = create<MarketStore>()(
         lastQuarterlyDividendSession: state.lastQuarterlyDividendSession,
         holdings: state.holdings,
         shorts: state.shorts,
+        options: state.options,
         lastInterestSession: state.lastInterestSession,
         trades: state.trades,
         openOrders: state.openOrders,
@@ -956,6 +1214,9 @@ export const useMarketStore = create<MarketStore>()(
             : [],
           shorts: Array.isArray((merged as Partial<MarketStore>).shorts)
             ? (merged as Partial<MarketStore>).shorts!
+            : [],
+          options: Array.isArray((merged as Partial<MarketStore>).options)
+            ? (merged as Partial<MarketStore>).options!
             : [],
           lastInterestSession: Number.isSafeInteger(
             (merged as Partial<MarketStore>).lastInterestSession,
