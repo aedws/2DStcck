@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-13",
+    tag: "개선",
+    title: "ETF 필터 세분화",
+    detail:
+      "종목 목록에서 ETF 안의 레버리지·인버스·곱버스를 각각 별도 필터로 나눠 깔끔하게 볼 수 있습니다.",
+  },
+  {
+    date: "2026-07-13",
     tag: "신규",
     title: "복권",
     detail:

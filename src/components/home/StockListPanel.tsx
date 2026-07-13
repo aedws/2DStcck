@@ -3,7 +3,12 @@
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MarketEvent, StockState } from "@/lib/types/market";
-import { formatStockValue, getDayChangePercent } from "@/lib/market/engine";
+import {
+  ETF_FAMILY_ORDER,
+  formatStockValue,
+  getDayChangePercent,
+  stockCategory,
+} from "@/lib/market/engine";
 import {
   buyRatio,
   latestEventFor,
@@ -97,10 +102,13 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     }, 0);
   };
 
-  const sectors = useMemo(
-    () => ["전체", ...Array.from(new Set(stocks.map((s) => s.sector)))],
-    [stocks],
-  );
+  // 필터 칩: ETF 안의 레버리지·인버스·곱버스를 분리하고, ETF 계열은 뒤에 묶는다
+  const sectors = useMemo(() => {
+    const cats = Array.from(new Set(stocks.map((s) => stockCategory(s))));
+    const nonFamily = cats.filter((c) => !ETF_FAMILY_ORDER.includes(c));
+    const family = ETF_FAMILY_ORDER.filter((c) => cats.includes(c));
+    return ["전체", ...nonFamily, ...family];
+  }, [stocks]);
 
   const watchSet = useMemo(() => new Set(watchlist), [watchlist]);
 
@@ -110,7 +118,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
       list = list.filter((s) => watchSet.has(s.id));
     }
     if (sector !== "전체") {
-      list = list.filter((s) => s.sector === sector);
+      list = list.filter((s) => stockCategory(s) === sector);
     }
 
     if (tab === 1) {
