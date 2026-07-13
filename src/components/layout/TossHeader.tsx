@@ -14,6 +14,8 @@ const navItems = [
   { href: "/leaderboard", label: "랭킹" },
   { href: "/portfolio", label: "내 계좌" },
   { href: "/shop", label: "상점" },
+  { href: "/achievements", label: "업적" },
+  { href: "/characters", label: "도감" },
   { href: "/history", label: "주문내역" },
   { href: "/updates", label: "업데이트" },
   { href: "/settings", label: "설정" },

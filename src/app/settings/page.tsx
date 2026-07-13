@@ -74,6 +74,30 @@ export default function SettingsPage() {
           <span className="text-[var(--muted)]">›</span>
         </button>
         <Link
+          href="/achievements"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">🏆 업적</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              달성한 업적을 확인합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
+          href="/characters"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">🎭 캐릭터 도감</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              상장 회사 경영진 도감을 봅니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
           href="/updates"
           className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
         >

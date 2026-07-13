@@ -12,6 +12,9 @@ interface SettingsState {
   /** 체결·현금 효과음 사용 여부 */
   soundEnabled: boolean;
   setSoundEnabled: (value: boolean) => void;
+  /** 관심종목 (종목 id 목록) */
+  watchlist: string[];
+  toggleWatch: (id: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -23,6 +26,13 @@ export const useSettingsStore = create<SettingsState>()(
       setOnboarded: (onboarded) => set({ onboarded }),
       soundEnabled: true,
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
+      watchlist: [],
+      toggleWatch: (id) =>
+        set((s) => ({
+          watchlist: s.watchlist.includes(id)
+            ? s.watchlist.filter((w) => w !== id)
+            : [...s.watchlist, id],
+        })),
     }),
     { name: "2dstock-settings" },
   ),
