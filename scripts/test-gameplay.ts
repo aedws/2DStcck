@@ -28,6 +28,7 @@ import {
   isOrderSuccess,
 } from "../src/lib/market/trading";
 import { processRecurringInvestments } from "../src/lib/market/recurringInvestments";
+import { buildSeasonMarketReview } from "../src/lib/market/seasonMarketReview";
 import {
   getMarketRegimeAtSession,
   marketRegimeWindowStart,
@@ -842,5 +843,28 @@ assert.equal(recurring.filledPlans.length, 1);
 assert.ok(recurring.cash >= 0 && recurring.cash < 5_000);
 assert.equal(recurring.plans[0]?.nextSession, 125);
 assert.equal(recurring.trades.length, 1);
+
+// 시즌 시장 복기는 정확히 20일의 결정론 상태만 평가하고 종목 유불리를 분리한다.
+const seasonReview = buildSeasonMarketReview(session, session + 20);
+const repeatedSeasonReview = buildSeasonMarketReview(session, session + 20);
+assert.deepEqual(seasonReview, repeatedSeasonReview);
+assert.equal(seasonReview.sessions, 20);
+assert.equal(
+  seasonReview.dominantRegimes.reduce((sum, state) => sum + state.sessions, 0),
+  20,
+);
+assert.equal(
+  seasonReview.dominantCycles.reduce((sum, state) => sum + state.sessions, 0),
+  20,
+);
+assert.equal(seasonReview.favorable.length, 3);
+assert.equal(seasonReview.unfavorable.length, 3);
+assert.ok(seasonReview.averageVolatilityMultiplier > 0);
+assert.equal(
+  seasonReview.favorable.some((winner) =>
+    seasonReview.unfavorable.some((loser) => loser.stockId === winner.stockId),
+  ),
+  false,
+);
 
 console.log("gameplay balance and progression scenarios passed");

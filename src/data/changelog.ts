@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "신규",
+    title: "시즌 종료 기계적 시장 복기",
+    detail:
+      "시즌 시상식 다음 단계에서 20거래일의 시장 국면·장기 사이클·대형 위기 효과를 다시 계산합니다. 국면 방향 효과와 평균 변동성, 위기 영향 일수, 상태별 지속 기간과 유리·불리했던 종목 3개씩을 수치와 근거로 안내합니다.",
+  },
+  {
+    date: "2026-07-14",
     tag: "수정",
     title: "자동 미수 사용 차단·선택형 200~500% 한도",
     detail:
