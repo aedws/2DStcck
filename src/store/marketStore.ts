@@ -9,18 +9,20 @@ import {
 } from "@/lib/market/engine";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
-  calculatePortfolioValue,
   executeBuy,
   executeSell,
   isOrderSuccess,
 } from "@/lib/market/trading";
 import type {
+  CashPayment,
+  Holding,
   MarketSnapshot,
   NetWorthPoint,
   OpenOrder,
   OrderResult,
   OrderType,
   StockState,
+  Trade,
 } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
 import { LUXURY_BY_ID } from "@/data/luxuries";
@@ -29,6 +31,27 @@ import {
   getLuxuryShowcase,
   getTopLuxuryTier,
 } from "@/lib/market/luxury";
+import {
+  computeBuyingPower,
+  computeEquity,
+  needsLiquidation,
+  shortLiability,
+  marginDebit,
+  accrueBorrowCost,
+} from "@/lib/market/margin";
+import {
+  coverShort,
+  isShortSuccess,
+  openShort,
+} from "@/lib/market/shorting";
+import {
+  getBenchmark,
+  getRateLevel,
+  getPrevRateLevel,
+  getAnnualRatePercent,
+  buildRateChangeEvent,
+} from "@/lib/market/interestRate";
+import type { ShortPosition, RateLevel } from "@/lib/types/market";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   MARKET_EPOCH_MS,
@@ -64,10 +87,22 @@ interface MarketStore extends MarketSnapshot {
   ownedLuxuries: OwnedLuxury[];
   /** 순자산 추이 기록 (에쿼티 커브·랭킹 스냅샷) */
   netWorthHistory: NetWorthPoint[];
+  /** 마지막 강제청산(마진콜) 시각 — 배너 표시용 (없으면 null) */
+  marginCallAt: number | null;
   /** 사치재 구매: 현금 차감 후 보유 목록에 추가 (아이템당 1개) */
   purchaseLuxury: (itemId: string) => OrderResult;
   /** 보유 사치재 총 가치(센트) */
   getLuxuryValue: () => number;
+  /** 공매도 개시 (시장가) */
+  openShortPosition: (stockId: string, quantity: number) => OrderResult;
+  /** 공매도 청산(cover, 시장가) */
+  coverShortPosition: (stockId: string, quantity: number) => OrderResult;
+  /** 추가 매수·공매도 여력 (현금 환산, 마진 포함) */
+  getBuyingPower: () => number;
+  /** 자기자본(순자산) = 현금 + 롱 + 사치재 − 공매도 부채 */
+  getEquity: () => number;
+  /** 현재 금리 단계 (1완화·2중립·3긴축) */
+  getRateLevel: () => RateLevel;
   placeLimitOrder: (
     stockId: string,
     price: number,
@@ -104,6 +139,7 @@ function createInitialState(): MarketSnapshot & {
   openOrders: OpenOrder[];
   ownedLuxuries: OwnedLuxury[];
   netWorthHistory: NetWorthPoint[];
+  marginCallAt: number | null;
 } {
   const now = Date.now();
   return {
@@ -123,6 +159,8 @@ function createInitialState(): MarketSnapshot & {
       QUARTERLY_DIVIDEND_INTERVAL_DAYS,
     ),
     holdings: [],
+    shorts: [],
+    lastInterestSession: Math.floor(now / SESSION_DURATION_MS),
     trades: [],
     cashPayments: [],
     stocks: createGenesisStocks(),
@@ -132,6 +170,7 @@ function createInitialState(): MarketSnapshot & {
     openOrders: [],
     ownedLuxuries: [],
     netWorthHistory: [],
+    marginCallAt: null,
   };
 }
 
@@ -148,6 +187,95 @@ function appendNetWorthPoint(
   const last = history[history.length - 1];
   if (last && now - last.t < NET_WORTH_SAMPLE_MS) return history;
   return [...history, { t: now, value }].slice(-MAX_NET_WORTH_POINTS);
+}
+
+interface InterestOutcome {
+  cash?: number;
+  cashPayments?: CashPayment[];
+  lastInterestSession: number;
+}
+
+/** 경과 거래일만큼 마진 이자·공매도 대여수수료를 현금에서 차감한다. */
+function settleInterest(
+  state: Pick<
+    MarketStore,
+    "cash" | "shorts" | "stocks" | "cashPayments" | "lastInterestSession"
+  >,
+  currentSession: number,
+  now: number,
+): InterestOutcome | null {
+  const elapsed = currentSession - (state.lastInterestSession ?? currentSession);
+  if (elapsed <= 0) return null;
+  const prices = Object.fromEntries(
+    state.stocks.map((s) => [s.id, s.currentPrice]),
+  );
+  const debit = marginDebit(state.cash);
+  const shortVal = shortLiability(state.shorts, prices);
+  const level = getRateLevel(getBenchmark(state.stocks));
+  const cost = accrueBorrowCost(
+    debit,
+    shortVal,
+    getAnnualRatePercent(level),
+    elapsed,
+  );
+  if (cost <= 0) return { lastInterestSession: currentSession };
+  const payment: CashPayment = {
+    id: `interest-${currentSession}`,
+    kind: "interest",
+    sourceId: "margin",
+    dueSession: currentSession,
+    amount: -cost,
+    timestamp: now,
+  };
+  return {
+    cash: state.cash - cost,
+    cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+    lastInterestSession: currentSession,
+  };
+}
+
+/** 유지증거금 미달 시 롱·공매도 전 포지션을 현재가로 강제 청산한다. */
+function liquidatePositions(
+  cash: number,
+  holdings: Holding[],
+  shorts: ShortPosition[],
+  stocks: StockState[],
+  trades: Trade[],
+  now: number,
+): { cash: number; holdings: Holding[]; shorts: ShortPosition[]; trades: Trade[] } {
+  const priceOf = (id: string) =>
+    stocks.find((s) => s.id === id)?.currentPrice ?? 0;
+  let nextCash = cash;
+  let nextTrades = trades;
+  const mk = (
+    stockId: string,
+    ticker: string,
+    type: "sell" | "cover",
+    quantity: number,
+    price: number,
+  ): Trade => ({
+    id: `liq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    stockId,
+    ticker,
+    type,
+    quantity,
+    price,
+    total: price * quantity,
+    timestamp: now,
+  });
+  for (const h of holdings) {
+    const price = getMarketSellPrice(priceOf(h.stockId));
+    nextCash += price * h.quantity;
+    const ticker = stocks.find((s) => s.id === h.stockId)?.ticker ?? h.stockId;
+    nextTrades = [mk(h.stockId, ticker, "sell", h.quantity, price), ...nextTrades];
+  }
+  for (const sh of shorts) {
+    const price = getMarketBuyPrice(priceOf(sh.stockId));
+    nextCash -= price * sh.quantity;
+    const ticker = stocks.find((s) => s.id === sh.stockId)?.ticker ?? sh.stockId;
+    nextTrades = [mk(sh.stockId, ticker, "cover", sh.quantity, price), ...nextTrades];
+  }
+  return { cash: nextCash, holdings: [], shorts: [], trades: nextTrades };
 }
 
 function migrateStock(stock: StockState & { previousClose?: number }): StockState {
@@ -210,35 +338,61 @@ function applyLocalBuySell(
 
   if (price <= 0) return { success: false, message: "체결 가능한 호가가 없습니다." };
 
-  const result =
-    mode.startsWith("buy")
-      ? executeBuy(
-          state.cash,
-          state.holdings,
-          stockId,
-          stock.ticker,
-          price,
-          quantity,
-          Date.now(),
-        )
-      : executeSell(
-          state.cash,
-          state.holdings,
-          stockId,
-          stock.ticker,
-          price,
-          quantity,
-          Date.now(),
-        );
+  if (mode.startsWith("buy")) {
+    // 마진 매수: 현금이 아니라 매수여력(자기자본 2배 − 노출) 한도로 판단.
+    const prices = Object.fromEntries(
+      state.stocks.map((s) => [s.id, s.currentPrice]),
+    );
+    const buyingPower = computeBuyingPower(
+      state.cash,
+      state.holdings,
+      state.shorts,
+      prices,
+      getLuxuryValue(state.ownedLuxuries),
+    );
+    const total = price * quantity;
+    if (total > buyingPower) {
+      return { success: false, message: "매수여력이 부족합니다." };
+    }
+    const merged = executeBuy(
+      Number.MAX_SAFE_INTEGER,
+      state.holdings,
+      stockId,
+      stock.ticker,
+      price,
+      quantity,
+      Date.now(),
+    );
+    if (!isOrderSuccess(merged)) return merged;
+    set({
+      cash: state.cash - total,
+      holdings: merged.holdings,
+      trades: [merged.trade, ...state.trades],
+    });
+    return {
+      success: true,
+      message:
+        state.cash - total < 0
+          ? `${label} · 마진 사용 (${formatPrice(price)})`
+          : `${label} (${formatPrice(price)})`,
+    };
+  }
 
+  const result = executeSell(
+    state.cash,
+    state.holdings,
+    stockId,
+    stock.ticker,
+    price,
+    quantity,
+    Date.now(),
+  );
   if (!isOrderSuccess(result)) return result;
-
   set({
     cash: result.cash,
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
   });
-
   return {
     success: true,
     message: `${label} (${formatPrice(price)})`,
@@ -274,6 +428,10 @@ export const useMarketStore = create<MarketStore>()(
             wallet.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession: wallet.lastQuarterlyDividendSession,
           ownedLuxuries: wallet.ownedLuxuries ?? [],
+          shorts: wallet.shorts ?? [],
+          lastInterestSession:
+            wallet.lastInterestSession ??
+            Math.floor(Date.now() / SESSION_DURATION_MS),
         });
         get().settleCashflows();
       },
@@ -292,6 +450,8 @@ export const useMarketStore = create<MarketStore>()(
           lastMonthlyDistributionSession: s.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession: s.lastQuarterlyDividendSession,
           ownedLuxuries: s.ownedLuxuries,
+          shorts: s.shorts,
+          lastInterestSession: s.lastInterestSession,
         });
 
         // 공유 리더보드 갱신: 순자산·수익률·과시 요약을 본인 행에 반영
@@ -426,14 +586,68 @@ export const useMarketStore = create<MarketStore>()(
           currentSession,
           now,
         );
+        cash = settled.cash;
+        let cashPayments = settled.cashPayments;
+        let shorts = state.shorts;
 
         const priceById = Object.fromEntries(
           updatedStocks.map((s) => [s.id, s.currentPrice]),
         );
-        const netWorth =
-          settled.cash +
-          calculatePortfolioValue(holdings, priceById) +
-          getLuxuryValue(state.ownedLuxuries);
+        const luxuryVal = getLuxuryValue(state.ownedLuxuries);
+
+        // 마진 이자·공매도 대여수수료 (경과 거래일만큼)
+        const interest = settleInterest(
+          { ...state, cash, shorts, stocks: updatedStocks, cashPayments },
+          currentSession,
+          now,
+        );
+        if (interest?.cash !== undefined) cash = interest.cash;
+        if (interest?.cashPayments) cashPayments = interest.cashPayments;
+        const lastInterestSession =
+          interest?.lastInterestSession ?? state.lastInterestSession;
+
+        // 금리 단계 변경 뉴스 (결정론 — 세션당 1회, 전 클라이언트 동일)
+        let nextEvents = allEvents;
+        const bench = getBenchmark(updatedStocks);
+        if (bench) {
+          const level = getRateLevel(bench);
+          const prevLevel = getPrevRateLevel(bench);
+          if (
+            level !== prevLevel &&
+            !nextEvents.some((e) => e.id === `rate-${currentSession}`)
+          ) {
+            nextEvents = [
+              ...nextEvents,
+              buildRateChangeEvent(currentSession, prevLevel, level, now),
+            ].slice(-50);
+          }
+        }
+
+        // 강제청산(마진콜): 유지증거금 미달이면 전 포지션을 현재가로 청산
+        let marginCallAt = state.marginCallAt;
+        if (needsLiquidation(cash, holdings, shorts, priceById, luxuryVal)) {
+          const liq = liquidatePositions(
+            cash,
+            holdings,
+            shorts,
+            updatedStocks,
+            trades,
+            now,
+          );
+          cash = liq.cash;
+          holdings = liq.holdings;
+          shorts = liq.shorts;
+          trades = liq.trades;
+          marginCallAt = now;
+        }
+
+        const netWorth = computeEquity(
+          cash,
+          holdings,
+          shorts,
+          priceById,
+          luxuryVal,
+        );
         const netWorthHistory = appendNetWorthPoint(
           state.netWorthHistory,
           netWorth,
@@ -442,13 +656,15 @@ export const useMarketStore = create<MarketStore>()(
 
         set({
           tick: nextTick,
-          events: allEvents,
-          cash: settled.cash,
+          events: nextEvents,
+          cash,
           netWorthHistory,
           // 주가 조정(배당락)은 리플레이가 절대 그리드로 이미 반영 —
           // settle의 주가 변형은 버리고 현금·회차 카운터만 반영한다 (시장 일원화)
           stocks: updatedStocks,
           holdings,
+          shorts,
+          marginCallAt,
           trades,
           openOrders: remainingOrders,
           lastSalarySession: settled.lastSalarySession,
@@ -456,28 +672,37 @@ export const useMarketStore = create<MarketStore>()(
             settled.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession:
             settled.lastQuarterlyDividendSession,
-          cashPayments: settled.cashPayments,
+          lastInterestSession,
+          cashPayments,
         });
       },
 
       settleCashflows: () => {
         const state = get();
         const now = Date.now();
-        const settled = settleLocalCashflows(
-          state,
-          Math.floor(now / SESSION_DURATION_MS),
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const settled = settleLocalCashflows(state, currentSession, now);
+        const baseCash = settled.changed ? settled.cash : state.cash;
+        const baseCashPayments = settled.changed
+          ? settled.cashPayments
+          : state.cashPayments;
+        const interest = settleInterest(
+          { ...state, cash: baseCash, cashPayments: baseCashPayments },
+          currentSession,
           now,
         );
-        if (!settled.changed) return;
+        if (!settled.changed && !interest) return;
         set({
-          cash: settled.cash,
+          cash: interest?.cash ?? baseCash,
           // 주가 조정은 결정론 리플레이 담당 — 현금·카운터만 반영
           lastSalarySession: settled.lastSalarySession,
           lastMonthlyDistributionSession:
             settled.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession:
             settled.lastQuarterlyDividendSession,
-          cashPayments: settled.cashPayments,
+          cashPayments: interest?.cashPayments ?? baseCashPayments,
+          lastInterestSession:
+            interest?.lastInterestSession ?? state.lastInterestSession,
         });
       },
 
@@ -517,15 +742,120 @@ export const useMarketStore = create<MarketStore>()(
 
       getLuxuryValue: () => getLuxuryValue(get().ownedLuxuries),
 
+      openShortPosition: (stockId, quantity) => {
+        get().settleCashflows();
+        const state = get();
+        const stock = state.stocks.find((s) => s.id === stockId);
+        if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
+        if (stock.sector === "선물" || stock.sector === "지수") {
+          return {
+            success: false,
+            message: "지수·선물은 공매도할 수 없습니다.",
+          };
+        }
+        const price = getMarketSellPrice(stock.currentPrice);
+        const prices = Object.fromEntries(
+          state.stocks.map((s) => [s.id, s.currentPrice]),
+        );
+        const buyingPower = computeBuyingPower(
+          state.cash,
+          state.holdings,
+          state.shorts,
+          prices,
+          getLuxuryValue(state.ownedLuxuries),
+        );
+        if (price * quantity > buyingPower) {
+          return { success: false, message: "증거금(매수여력)이 부족합니다." };
+        }
+        const result = openShort(
+          state.cash,
+          state.shorts,
+          stockId,
+          stock.ticker,
+          price,
+          quantity,
+          Date.now(),
+        );
+        if (!isShortSuccess(result)) return result;
+        set({
+          cash: result.cash,
+          shorts: result.shorts,
+          trades: [result.trade, ...state.trades],
+        });
+        return {
+          success: true,
+          message: `공매도 (${formatPrice(price)})`,
+        };
+      },
+
+      coverShortPosition: (stockId, quantity) => {
+        get().settleCashflows();
+        const state = get();
+        const stock = state.stocks.find((s) => s.id === stockId);
+        if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
+        const price = getMarketBuyPrice(stock.currentPrice);
+        const result = coverShort(
+          state.cash,
+          state.shorts,
+          stockId,
+          stock.ticker,
+          price,
+          quantity,
+          Date.now(),
+        );
+        if (!isShortSuccess(result)) return result;
+        set({
+          cash: result.cash,
+          shorts: result.shorts,
+          trades: [result.trade, ...state.trades],
+        });
+        return {
+          success: true,
+          message: `공매도 청산 (${formatPrice(price)})`,
+        };
+      },
+
+      getBuyingPower: () => {
+        const { cash, holdings, shorts, stocks, ownedLuxuries } = get();
+        const prices = Object.fromEntries(
+          stocks.map((s) => [s.id, s.currentPrice]),
+        );
+        return computeBuyingPower(
+          cash,
+          holdings,
+          shorts,
+          prices,
+          getLuxuryValue(ownedLuxuries),
+        );
+      },
+
+      getEquity: () => {
+        const { cash, holdings, shorts, stocks, ownedLuxuries } = get();
+        const prices = Object.fromEntries(
+          stocks.map((s) => [s.id, s.currentPrice]),
+        );
+        return computeEquity(
+          cash,
+          holdings,
+          shorts,
+          prices,
+          getLuxuryValue(ownedLuxuries),
+        );
+      },
+
+      getRateLevel: () => getRateLevel(getBenchmark(get().stocks)),
+
       reset: () => set(createInitialState()),
 
       getTotalAssets: () => {
-        const { cash, holdings, stocks, ownedLuxuries } = get();
+        const { cash, holdings, shorts, stocks, ownedLuxuries } = get();
         const prices = Object.fromEntries(stocks.map((s) => [s.id, s.currentPrice]));
-        return (
-          cash +
-          calculatePortfolioValue(holdings, prices) +
-          getLuxuryValue(ownedLuxuries)
+        return computeEquity(
+          cash,
+          holdings,
+          shorts,
+          prices,
+          getLuxuryValue(ownedLuxuries),
         );
       },
 
@@ -542,6 +872,8 @@ export const useMarketStore = create<MarketStore>()(
         lastMonthlyDistributionSession: state.lastMonthlyDistributionSession,
         lastQuarterlyDividendSession: state.lastQuarterlyDividendSession,
         holdings: state.holdings,
+        shorts: state.shorts,
+        lastInterestSession: state.lastInterestSession,
         trades: state.trades,
         openOrders: state.openOrders,
         cashPayments: state.cashPayments,
@@ -622,6 +954,15 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (merged as Partial<MarketStore>).netWorthHistory!
             : [],
+          shorts: Array.isArray((merged as Partial<MarketStore>).shorts)
+            ? (merged as Partial<MarketStore>).shorts!
+            : [],
+          lastInterestSession: Number.isSafeInteger(
+            (merged as Partial<MarketStore>).lastInterestSession,
+          )
+            ? (merged as Partial<MarketStore>).lastInterestSession!
+            : nowSession,
+          marginCallAt: null,
           userId: null,
           isReady: false,
         };

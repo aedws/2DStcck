@@ -3,6 +3,7 @@ import type {
   CashPayment,
   Holding,
   OpenOrder,
+  ShortPosition,
   Trade,
 } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
@@ -23,6 +24,10 @@ export interface WalletSave {
   lastQuarterlyDividendSession: number;
   /** 보유 사치재 (재화 sink). 구버전 저장분 호환을 위해 선택형. */
   ownedLuxuries?: OwnedLuxury[];
+  /** 공매도 포지션. 구버전 호환을 위해 선택형. */
+  shorts?: ShortPosition[];
+  /** 마지막 이자 정산 거래일. 구버전 호환을 위해 선택형. */
+  lastInterestSession?: number;
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */

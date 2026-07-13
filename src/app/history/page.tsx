@@ -42,7 +42,9 @@ export default function HistoryPage() {
                       ? "고정급"
                       : payment.kind === "covered_call"
                         ? "월 분배"
-                        : "분기 배당"}
+                        : payment.kind === "interest"
+                          ? "마진 이자"
+                          : "분기 배당"}
                   </td>
                   <td className="px-4 py-3">
                     {payment.ticker ?? "계정"}
@@ -52,8 +54,13 @@ export default function HistoryPage() {
                       ? `${payment.quantity.toLocaleString()}주 × ${formatPrice(payment.amountPerShare)}`
                       : `거래일 ${payment.dueSession}`}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-[var(--up)]">
-                    +{formatPrice(payment.amount)}
+                  <td
+                    className={`px-4 py-3 text-right font-mono ${
+                      payment.amount >= 0 ? "text-[var(--up)]" : "text-[var(--down)]"
+                    }`}
+                  >
+                    {payment.amount >= 0 ? "+" : "-"}
+                    {formatPrice(Math.abs(payment.amount))}
                   </td>
                 </tr>
               ))}
@@ -94,12 +101,18 @@ export default function HistoryPage() {
                   <td className="px-4 py-3">
                     <span
                       className={
-                        trade.type === "buy"
+                        trade.type === "buy" || trade.type === "cover"
                           ? "text-[var(--up)]"
                           : "text-[var(--down)]"
                       }
                     >
-                      {trade.type === "buy" ? "매수" : "매도"}
+                      {trade.type === "buy"
+                        ? "매수"
+                        : trade.type === "sell"
+                          ? "매도"
+                          : trade.type === "short"
+                            ? "공매도"
+                            : "공매도 청산"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-mono">
