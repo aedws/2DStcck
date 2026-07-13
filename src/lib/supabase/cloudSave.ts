@@ -46,6 +46,7 @@ export interface WalletSave {
   missionHistory?: InvestmentMissionHistory[];
   reputation?: number;
   characterProgress?: CharacterProgressMap;
+  readCharacterMessageIds?: string[];
   storyDecision?: StoryDecision | null;
   storyDecisionHistory?: StoryDecision[];
 }

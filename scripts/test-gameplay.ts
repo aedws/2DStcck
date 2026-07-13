@@ -57,6 +57,7 @@ import {
   getEarningsCalendar,
   isEarningsSession,
 } from "../src/lib/market/earningsCalendar";
+import { getCharacterMessages } from "../src/lib/market/characterMessages";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -382,6 +383,38 @@ holdProgress = accrueLongHoldingAffinity(
 assert.equal(
   getCharacterProgress(holdProgress, relationshipCharacter.id).affinity,
   2,
+);
+
+const messageProgress = addCharacterProgress(
+  {},
+  relationshipCharacter.id,
+  60,
+  30,
+  windowStart - 1,
+);
+const characterMessages = getCharacterMessages({
+  progress: messageProgress,
+  missionHistory: [
+    {
+      id: "message-test-mission",
+      kind: "growth",
+      windowStart,
+      status: "completed",
+      reward: 120,
+      completedAt: (windowStart + 1) * SESSION_DURATION_MS,
+      playerReturn: 0.04,
+      benchmarkReturn: 0.01,
+      issuerCharacterId: relationshipCharacter.id,
+      issuerCompanyId: positiveArc.company.id,
+    },
+  ],
+  currentSession: windowStart + 2,
+});
+assert.ok(characterMessages.some((message) => message.kind === "clue"));
+assert.ok(characterMessages.some((message) => message.kind === "mission"));
+assert.equal(
+  new Set(characterMessages.map((message) => message.id)).size,
+  characterMessages.length,
 );
 
 const growth = createInvestmentMission("growth", windowStart, 10_000_000, 100_000, 1);

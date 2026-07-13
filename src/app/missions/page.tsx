@@ -129,6 +129,12 @@ export default function MissionsPage() {
           >
             결과 기록관
           </Link>
+          <Link
+            href="/messages"
+            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-semibold hover:border-[var(--accent)]"
+          >
+            개인 메시지
+          </Link>
           <div className="rounded-xl bg-[var(--surface)] px-4 py-2 text-right">
             <p className="text-[11px] text-[var(--muted)]">투자 평판</p>
             <p className="font-bold tabular-nums text-[var(--accent)]">{reputation.toLocaleString()}</p>

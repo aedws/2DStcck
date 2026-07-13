@@ -179,6 +179,9 @@ interface MarketStore extends MarketSnapshot {
   reputation: number;
   /** 캐릭터별 업무 신뢰도·개인 호감도. */
   characterProgress: CharacterProgressMap;
+  readCharacterMessageIds: string[];
+  markCharacterMessageRead: (messageId: string) => void;
+  markAllCharacterMessagesRead: (messageIds: string[]) => void;
   acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
   /** 현재 연속 사건에 내린 판단과 최근 정산 기록. */
   storyDecision: StoryDecision | null;
@@ -251,6 +254,7 @@ function createInitialState(): MarketSnapshot & {
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
   characterProgress: CharacterProgressMap;
+  readCharacterMessageIds: string[];
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
 } {
@@ -301,6 +305,7 @@ function createInitialState(): MarketSnapshot & {
     missionHistory: [],
     reputation: 0,
     characterProgress: {},
+    readCharacterMessageIds: [],
     storyDecision: null,
     storyDecisionHistory: [],
   };
@@ -668,6 +673,18 @@ export const useMarketStore = create<MarketStore>()(
 
       setReady: (ready) => set({ isReady: ready }),
       setUserId: (userId) => set({ userId }),
+      markCharacterMessageRead: (messageId) =>
+        set((state) => ({
+          readCharacterMessageIds: state.readCharacterMessageIds.includes(messageId)
+            ? state.readCharacterMessageIds
+            : [messageId, ...state.readCharacterMessageIds].slice(0, 300),
+        })),
+      markAllCharacterMessagesRead: (messageIds) =>
+        set((state) => ({
+          readCharacterMessageIds: [
+            ...new Set([...messageIds, ...state.readCharacterMessageIds]),
+          ].slice(0, 300),
+        })),
 
       loadCloudSave: async () => {
         if (!get().userId) return;
@@ -713,6 +730,7 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress: normalizeCharacterProgressMap(
             wallet.characterProgress,
           ),
+          readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           storyDecision: wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
           lastInterestSession:
@@ -748,6 +766,7 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory: s.missionHistory,
           reputation: s.reputation,
           characterProgress: s.characterProgress,
+          readCharacterMessageIds: s.readCharacterMessageIds,
           storyDecision: s.storyDecision,
           storyDecisionHistory: s.storyDecisionHistory,
           lastInterestSession: s.lastInterestSession,
@@ -1718,6 +1737,7 @@ export const useMarketStore = create<MarketStore>()(
         missionHistory: state.missionHistory,
         reputation: state.reputation,
         characterProgress: state.characterProgress,
+        readCharacterMessageIds: state.readCharacterMessageIds,
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory,
         // 자동 레버리지 상품은 기초종목에서 즉시 재구성한다. 커버드콜은 누적
@@ -1866,6 +1886,11 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress: normalizeCharacterProgressMap(
             (merged as Partial<MarketStore>).characterProgress,
           ),
+          readCharacterMessageIds: Array.isArray(
+            (merged as Partial<MarketStore>).readCharacterMessageIds,
+          )
+            ? (merged as Partial<MarketStore>).readCharacterMessageIds!.slice(0, 300)
+            : [],
           storyDecision:
             (merged as Partial<MarketStore>).storyDecision ?? null,
           storyDecisionHistory: Array.isArray(
