@@ -7,6 +7,8 @@ import { formatPrice } from "@/lib/market/engine";
 import { upDownClass } from "@/lib/ui/marketColors";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { getAnnualRatePercent } from "@/lib/market/interestRate";
+import { toastResult } from "@/store/toastStore";
+import { playResultSound } from "@/lib/ui/sound";
 import {
   listExpiries,
   listStrikes,
@@ -40,11 +42,11 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
     [live.currentPrice],
   );
 
-  function act(
-    fn: () => { success: boolean; message: string },
-  ) {
+  function act(fn: () => { success: boolean; message: string }) {
     const r = fn();
     setMsg(r.message);
+    toastResult(r);
+    playResultSound(r, "buy");
   }
 
   const daysToExpiry = activeExpiry - session;

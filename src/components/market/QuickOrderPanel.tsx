@@ -14,6 +14,8 @@ import {
   formatSignedPercent,
   upDownClass,
 } from "@/lib/ui/marketColors";
+import { toastResult } from "@/store/toastStore";
+import { playResultSound } from "@/lib/ui/sound";
 
 const QTY_PRESETS = [1, 10, 100] as const;
 
@@ -75,6 +77,8 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     };
     const result = localMap[orderType](stock.id, quantity);
     setMessage(result.message);
+    toastResult(result);
+    playResultSound(result, orderType.startsWith("buy") ? "buy" : "sell");
     setLoading(false);
   }
 
@@ -85,6 +89,8 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
         ? openShortPosition(stock.id, quantity)
         : coverShortPosition(stock.id, quantity);
     setMessage(result.message);
+    toastResult(result);
+    playResultSound(result, kind === "open" ? "sell" : "buy");
     setLoading(false);
   }
 

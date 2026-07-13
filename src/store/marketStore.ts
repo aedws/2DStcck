@@ -52,6 +52,12 @@ import {
   getAnnualRatePercent,
   buildRateChangeEvent,
 } from "@/lib/market/interestRate";
+import {
+  getActivePumpStocks,
+  getPumpSpawnEvent,
+  delistedPumpFinalPrice,
+  isPumpStock,
+} from "@/lib/market/pumpStocks";
 import type {
   ShortPosition,
   RateLevel,
@@ -667,7 +673,11 @@ export const useMarketStore = create<MarketStore>()(
         const replayed = replayMarket(stocks, events, tick, targetTick);
         const nextTick = targetTick;
         const allEvents = replayed.events;
-        const updatedStocks = replayed.stocks;
+        // 결정론 급등주(2거래일 내 상장폐지)를 고정 시장에 얹는다
+        const activePumps = getActivePumpStocks(now);
+        const combinedStocks = activePumps.length
+          ? [...replayed.stocks, ...activePumps]
+          : replayed.stocks;
 
         // 로컬 지정가 대기 주문: 가격 도달 시 체결 (잔고 부족 시 자동 취소)
         let cash = state.cash;
@@ -677,7 +687,7 @@ export const useMarketStore = create<MarketStore>()(
         if (openOrders.length > 0) {
           remainingOrders = [];
           for (const order of openOrders) {
-            const stock = updatedStocks.find((s) => s.id === order.stockId);
+            const stock = combinedStocks.find((s) => s.id === order.stockId);
             const crossed =
               stock !== undefined &&
               (order.side === "buy"
@@ -702,8 +712,30 @@ export const useMarketStore = create<MarketStore>()(
         }
 
         const currentSession = Math.floor(now / SESSION_DURATION_MS);
+
+        // 급등주 상장폐지 정산: 폐지된 급등주 보유분을 최종가로 강제 매도
+        holdings = holdings.filter((h) => {
+          const finalPrice = delistedPumpFinalPrice(h.stockId, currentSession);
+          if (finalPrice === null) return true;
+          cash += finalPrice * h.quantity;
+          trades = [
+            {
+              id: `delist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              stockId: h.stockId,
+              ticker: h.stockId.toUpperCase(),
+              type: "sell",
+              quantity: h.quantity,
+              price: finalPrice,
+              total: finalPrice * h.quantity,
+              timestamp: now,
+            },
+            ...trades,
+          ];
+          return false;
+        });
+
         const settled = settleLocalCashflows(
-          { ...state, stocks: updatedStocks, cash, holdings },
+          { ...state, stocks: combinedStocks, cash, holdings },
           currentSession,
           now,
         );
@@ -715,7 +747,7 @@ export const useMarketStore = create<MarketStore>()(
         const expired = settleExpiredOptions(
           cash,
           state.options,
-          updatedStocks,
+          combinedStocks,
           currentSession,
         );
         cash = expired.cash;
@@ -723,7 +755,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 마진 이자·공매도 대여수수료 (경과 거래일만큼)
         const interest = settleInterest(
-          { ...state, cash, shorts, stocks: updatedStocks, cashPayments },
+          { ...state, cash, shorts, stocks: combinedStocks, cashPayments },
           currentSession,
           now,
         );
@@ -734,7 +766,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 금리 단계 변경 뉴스 (결정론 — 세션당 1회, 전 클라이언트 동일)
         let nextEvents = allEvents;
-        const bench = getBenchmark(updatedStocks);
+        const bench = getBenchmark(combinedStocks);
         if (bench) {
           const level = getRateLevel(bench);
           const prevLevel = getPrevRateLevel(bench);
@@ -749,6 +781,12 @@ export const useMarketStore = create<MarketStore>()(
           }
         }
 
+        // 급등주 상장 뉴스 (결정론 — 세션당 1회)
+        const pumpEvent = getPumpSpawnEvent(currentSession, now);
+        if (pumpEvent && !nextEvents.some((e) => e.id === pumpEvent.id)) {
+          nextEvents = [...nextEvents, pumpEvent].slice(-50);
+        }
+
         // 강제청산(마진콜): 유지증거금 미달이면 전 포지션을 현재가/마크로 청산
         let marginCallAt = state.marginCallAt;
         const liveState = {
@@ -756,7 +794,7 @@ export const useMarketStore = create<MarketStore>()(
           holdings,
           shorts,
           options,
-          stocks: updatedStocks,
+          stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
         };
         if (fullNeedsLiquidation(liveState)) {
@@ -765,7 +803,7 @@ export const useMarketStore = create<MarketStore>()(
             holdings,
             shorts,
             options,
-            updatedStocks,
+            combinedStocks,
             trades,
             now,
           );
@@ -782,7 +820,7 @@ export const useMarketStore = create<MarketStore>()(
           holdings,
           shorts,
           options,
-          stocks: updatedStocks,
+          stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
         });
         const netWorthHistory = appendNetWorthPoint(
@@ -798,7 +836,7 @@ export const useMarketStore = create<MarketStore>()(
           netWorthHistory,
           // 주가 조정(배당락)은 리플레이가 절대 그리드로 이미 반영 —
           // settle의 주가 변형은 버리고 현금·회차 카운터만 반영한다 (시장 일원화)
-          stocks: updatedStocks,
+          stocks: combinedStocks,
           holdings,
           shorts,
           options,
@@ -885,10 +923,14 @@ export const useMarketStore = create<MarketStore>()(
         const state = get();
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-        if (stock.sector === "선물" || stock.sector === "지수") {
+        if (
+          stock.sector === "선물" ||
+          stock.sector === "지수" ||
+          isPumpStock(stock)
+        ) {
           return {
             success: false,
-            message: "지수·선물은 공매도할 수 없습니다.",
+            message: "지수·선물·급등주는 공매도할 수 없습니다.",
           };
         }
         const price = getMarketSellPrice(stock.currentPrice);
@@ -951,8 +993,12 @@ export const useMarketStore = create<MarketStore>()(
         }
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-        if (stock.sector === "선물" || stock.sector === "지수") {
-          return { success: false, message: "지수·선물은 옵션이 없습니다." };
+        if (
+          stock.sector === "선물" ||
+          stock.sector === "지수" ||
+          isPumpStock(stock)
+        ) {
+          return { success: false, message: "지수·선물·급등주는 옵션이 없습니다." };
         }
         const session = Math.floor(Date.now() / SESSION_DURATION_MS);
         if (expirySession <= session) {
@@ -1018,8 +1064,12 @@ export const useMarketStore = create<MarketStore>()(
         }
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-        if (stock.sector === "선물" || stock.sector === "지수") {
-          return { success: false, message: "지수·선물은 옵션이 없습니다." };
+        if (
+          stock.sector === "선물" ||
+          stock.sector === "지수" ||
+          isPumpStock(stock)
+        ) {
+          return { success: false, message: "지수·선물·급등주는 옵션이 없습니다." };
         }
         const session = Math.floor(Date.now() / SESSION_DURATION_MS);
         if (expirySession <= session) {
@@ -1139,7 +1189,9 @@ export const useMarketStore = create<MarketStore>()(
         netWorthHistory: state.netWorthHistory,
         // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
         // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
-        stocks: state.stocks.filter((stock) => !stock.universalDerivative),
+        stocks: state.stocks.filter(
+          (stock) => !stock.universalDerivative && !isPumpStock(stock),
+        ),
         events: state.events,
       }),
       merge: (persisted, current) => {

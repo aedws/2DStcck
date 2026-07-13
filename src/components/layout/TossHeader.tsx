@@ -7,6 +7,7 @@ import { AuthButton } from "@/components/auth/AuthButton";
 import { formatPrice, getDayChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
+import { isPumpStock } from "@/lib/market/pumpStocks";
 
 const navItems = [
   { href: "/", label: "홈" },
@@ -86,10 +87,11 @@ function StockSearch() {
     return stocks
       .filter(
         (s) =>
-          s.ticker.toLowerCase().includes(q) ||
-          s.name.toLowerCase().includes(q) ||
-          s.sector.toLowerCase().includes(q) ||
-          s.subsector?.toLowerCase().includes(q),
+          !isPumpStock(s) &&
+          (s.ticker.toLowerCase().includes(q) ||
+            s.name.toLowerCase().includes(q) ||
+            s.sector.toLowerCase().includes(q) ||
+            s.subsector?.toLowerCase().includes(q)),
       )
       .slice(0, 8);
   }, [stocks, query]);
