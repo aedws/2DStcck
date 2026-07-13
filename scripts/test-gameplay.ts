@@ -77,7 +77,11 @@ import {
 } from "../src/lib/market/investmentMastery";
 import {
   INVESTMENT_SEASON_SESSIONS,
+  calculateSeasonGoalAllocation,
   createInitialInvestmentSeasonState,
+  getSeasonRivalPerformance,
+  markSeasonCeremonySeen,
+  selectSeasonGoal,
   seasonTierForAlpha,
   updateInvestmentSeason,
 } from "../src/lib/market/investmentSeasons";
@@ -153,6 +157,55 @@ const salaryNeutralSeason = updateInvestmentSeason(
 );
 assert.ok(Math.abs(salaryNeutralSeason.completed?.playerReturn ?? 1) < 1e-9);
 assert.equal(salaryNeutralSeason.completed?.tierId, "platinum");
+const goalSelected = selectSeasonGoal(
+  seasonStarted.state,
+  "growth",
+  0.5,
+  session,
+);
+assert.ok(goalSelected?.current?.goalId === "growth");
+assert.equal(selectSeasonGoal(goalSelected!, "income", 0.2, session), null);
+const goalMissedHalf = updateInvestmentSeason(goalSelected!, {
+  currentSession: session + 10,
+  equity: 1_000_000,
+  benchmarkPrice: 10_000,
+  goalAllocation: 0.49,
+});
+assert.equal(goalMissedHalf.state.current?.goalChecks, 10);
+assert.equal(goalMissedHalf.state.current?.goalMisses, 10);
+const goalSeasonCompleted = updateInvestmentSeason(goalMissedHalf.state, {
+  currentSession: session + 20,
+  equity: 1_000_000,
+  benchmarkPrice: 10_000,
+  goalAllocation: 0.5,
+});
+assert.equal(goalSeasonCompleted.completed?.goalComplianceRate, 0.5);
+assert.equal(goalSeasonCompleted.completed?.goalBonus, 5);
+assert.equal(goalSeasonCompleted.completed?.goalPenalty, 20);
+assert.equal(goalSeasonCompleted.completed?.seasonScore, 35);
+const rivalMid = getSeasonRivalPerformance(goalSelected!.current!, session + 10, 50);
+assert.deepEqual(
+  rivalMid,
+  getSeasonRivalPerformance(goalSelected!.current!, session + 10, 50),
+  "virtual rival path should be deterministic",
+);
+assert.ok(rivalMid.score >= 0 && rivalMid.score <= 100);
+const ceremonyMarked = markSeasonCeremonySeen(
+  goalSeasonCompleted.state,
+  goalSeasonCompleted.completed!.id,
+);
+assert.ok(ceremonyMarked.seenCeremonyIds.includes(goalSeasonCompleted.completed!.id));
+const growthDefinition = STOCK_DEFINITIONS.find((stock) => stock.sector === "기술")!;
+const growthState = createInitialStockState(growthDefinition, MARKET_EPOCH_MS);
+assert.equal(
+  calculateSeasonGoalAllocation(
+    "growth",
+    [{ stockId: growthState.id, quantity: 10, averagePrice: growthState.currentPrice }],
+    [growthState],
+    growthState.currentPrice * 20,
+  ),
+  0.5,
+);
 
 const earnings = getEarningsCalendar(session, session + EARNINGS_INTERVAL_SESSIONS);
 assert.ok(earnings.length > 0, "earnings calendar should expose upcoming reports");

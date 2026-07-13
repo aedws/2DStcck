@@ -141,11 +141,16 @@ import {
   type InvestmentMasteryState,
 } from "@/lib/market/investmentMastery";
 import {
+  calculateSeasonGoalAllocation,
   createInitialInvestmentSeasonState,
   getInvestmentSeasonTier,
+  getSeasonRivalPerformance,
+  markSeasonCeremonySeen as markCeremonySeen,
   normalizeInvestmentSeasonState,
+  selectSeasonGoal,
   seasonExternalCashTotal,
   updateInvestmentSeason,
+  type SeasonGoalId,
   type InvestmentSeasonState,
 } from "@/lib/market/investmentSeasons";
 
@@ -197,6 +202,8 @@ interface MarketStore extends MarketSnapshot {
   investmentMastery: InvestmentMasteryState;
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
   investmentSeason: InvestmentSeasonState;
+  selectInvestmentSeasonGoal: (goalId: SeasonGoalId, targetWeight: number) => OrderResult;
+  markSeasonCeremonySeen: (seasonId: string) => void;
   markCharacterMessageRead: (messageId: string) => void;
   markAllCharacterMessagesRead: (messageIds: string[]) => void;
   acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
@@ -706,6 +713,31 @@ export const useMarketStore = create<MarketStore>()(
             ...new Set([...messageIds, ...state.readCharacterMessageIds]),
           ].slice(0, 300),
         })),
+      selectInvestmentSeasonGoal: (goalId, targetWeight) => {
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const next = selectSeasonGoal(
+          get().investmentSeason,
+          goalId,
+          targetWeight,
+          currentSession,
+        );
+        if (!next) {
+          return {
+            success: false,
+            message: "이번 시즌 목표는 이미 확정됐거나 선택할 수 없습니다.",
+          };
+        }
+        set({ investmentSeason: next });
+        useToastStore.getState().push(
+          `🏆 시즌 목표 확정 · 목표 비중 ${(targetWeight * 100).toFixed(0)}%`,
+          "success",
+        );
+        return { success: true, message: "시즌 목표를 확정했습니다." };
+      },
+      markSeasonCeremonySeen: (seasonId) =>
+        set((state) => ({
+          investmentSeason: markCeremonySeen(state.investmentSeason, seasonId),
+        })),
 
       loadCloudSave: async () => {
         if (!get().userId) return;
@@ -1169,17 +1201,29 @@ export const useMarketStore = create<MarketStore>()(
             equity: netWorth,
             benchmarkPrice: getBenchmark(combinedStocks)?.currentPrice ?? 0,
             externalCashTotal: seasonExternalCashTotal(cashPayments),
+            goalAllocation: calculateSeasonGoalAllocation(
+              state.investmentSeason.current?.goalId,
+              holdings,
+              combinedStocks,
+              netWorth,
+            ),
             now,
           },
         );
         const investmentSeason = seasonUpdate.state;
         if (seasonUpdate.completed) {
           const tier = getInvestmentSeasonTier(seasonUpdate.completed.tierId);
-          useToastStore.getState().push(
-            `${tier.emoji} 시즌 ${seasonUpdate.completed.number} 종료 · ${tier.name} · 지수 대비 ${seasonUpdate.completed.alpha >= 0 ? "+" : ""}${(seasonUpdate.completed.alpha * 100).toFixed(2)}%p`,
-            seasonUpdate.completed.alpha >= 0 ? "success" : "info",
+          const rival = getSeasonRivalPerformance(
+            seasonUpdate.completed,
+            seasonUpdate.completed.endSession,
+            seasonUpdate.completed.seasonScore,
           );
-          playSound(seasonUpdate.completed.alpha >= 0 ? "cash" : "error");
+          const beatRival = seasonUpdate.completed.seasonScore >= rival.score;
+          useToastStore.getState().push(
+            `${tier.emoji} 시즌 ${seasonUpdate.completed.number} 종료 · ${tier.name} · ${seasonUpdate.completed.seasonScore}점 · 라이벌 ${beatRival ? "승리" : "패배"}`,
+            beatRival ? "success" : "info",
+          );
+          playSound(beatRival ? "cash" : "error");
         }
         nextEvents = nextEvents.map(ensureEventDialogue);
 
