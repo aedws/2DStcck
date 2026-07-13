@@ -51,10 +51,35 @@ import {
   getCharacterProgress,
   settleMissionRelationship,
 } from "../src/lib/market/characterProgress";
+import {
+  buildEarningsEvent,
+  EARNINGS_INTERVAL_SESSIONS,
+  getEarningsCalendar,
+  isEarningsSession,
+} from "../src/lib/market/earningsCalendar";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+const earnings = getEarningsCalendar(session, session + EARNINGS_INTERVAL_SESSIONS);
+assert.ok(earnings.length > 0, "earnings calendar should expose upcoming reports");
+const firstEarnings = earnings[0];
+assert.equal(isEarningsSession(firstEarnings.company.id, firstEarnings.session), true);
+assert.equal(
+  isEarningsSession(
+    firstEarnings.company.id,
+    firstEarnings.session + EARNINGS_INTERVAL_SESSIONS,
+  ),
+  true,
+);
+const earningsEvent = buildEarningsEvent(firstEarnings);
+assert.equal(earningsEvent.affectedStockIds[0], firstEarnings.company.id);
+assert.ok(earningsEvent.quote && earningsEvent.quoteBy);
+assert.equal(
+  Math.sign(earningsEvent.impact),
+  firstEarnings.surprisePoint >= 0 ? 1 : -1,
+);
 
 const cycleStartSession = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 assert.equal(

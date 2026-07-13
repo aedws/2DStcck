@@ -24,6 +24,7 @@ import {
 } from "@/lib/market/distributions";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import { getStoryEventForSession } from "@/lib/market/storyArcs";
+import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import type {
   Candle,
   MarketEvent,
@@ -178,6 +179,11 @@ export function replayMarket(
     if (openingStory && !events.some((event) => event.id === openingStory.id)) {
       events = [...events, openingStory].slice(-50);
     }
+    for (const earningsEvent of getEarningsEventsForSession(prevSession)) {
+      if (!events.some((event) => event.id === earningsEvent.id)) {
+        events = [...events, earningsEvent].slice(-50);
+      }
+    }
   }
 
   for (let tick = fromTick + 1; tick <= toTick; tick++) {
@@ -258,6 +264,11 @@ export function replayMarket(
         const storyEvent = getStoryEventForSession(s);
         if (storyEvent && !events.some((event) => event.id === storyEvent.id)) {
           events = [...events, storyEvent].slice(-50);
+        }
+        for (const earningsEvent of getEarningsEventsForSession(s)) {
+          if (!events.some((event) => event.id === earningsEvent.id)) {
+            events = [...events, earningsEvent].slice(-50);
+          }
         }
 
         const sinceEpoch = s - EPOCH_SESSION;

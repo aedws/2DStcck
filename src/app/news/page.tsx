@@ -15,9 +15,12 @@ export default function NewsPage() {
     <div className="mx-auto max-w-2xl">
       <div className="mb-5 flex items-baseline justify-between">
         <h1 className="text-xl font-bold">📰 시장 뉴스</h1>
-        <span className="text-xs text-[var(--muted)]">
-          최근 {history.length}건
-        </span>
+        <div className="flex items-center gap-3">
+          <Link href="/calendar" className="text-xs font-semibold text-[var(--accent)] hover:underline">
+            실적 캘린더 →
+          </Link>
+          <span className="text-xs text-[var(--muted)]">최근 {history.length}건</span>
+        </div>
       </div>
 
       {history.length === 0 ? (
