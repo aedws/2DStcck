@@ -11,6 +11,7 @@ import { useMarketStore } from "@/store/marketStore";
 const navItems = [
   { href: "/", label: "홈" },
   { href: "/portfolio", label: "내 계좌" },
+  { href: "/shop", label: "상점" },
   { href: "/history", label: "주문내역" },
   { href: "/settings", label: "설정" },
 ];

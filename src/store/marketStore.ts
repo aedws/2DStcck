@@ -16,11 +16,15 @@ import {
 } from "@/lib/market/trading";
 import type {
   MarketSnapshot,
+  NetWorthPoint,
   OpenOrder,
   OrderResult,
   OrderType,
   StockState,
 } from "@/lib/types/market";
+import type { OwnedLuxury } from "@/lib/types/luxury";
+import { LUXURY_BY_ID } from "@/data/luxuries";
+import { getLuxuryValue } from "@/lib/market/luxury";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   MARKET_EPOCH_MS,
@@ -54,6 +58,14 @@ interface MarketStore extends MarketSnapshot {
   isReady: boolean;
   /** 미체결 지정가 주문 */
   openOrders: OpenOrder[];
+  /** 보유 사치재 (재화 sink) — 가치는 순자산에 합산되어 랭킹에 반영 */
+  ownedLuxuries: OwnedLuxury[];
+  /** 순자산 추이 기록 (에쿼티 커브·랭킹 스냅샷) */
+  netWorthHistory: NetWorthPoint[];
+  /** 사치재 구매: 현금 차감 후 보유 목록에 추가 (아이템당 1개) */
+  purchaseLuxury: (itemId: string) => OrderResult;
+  /** 보유 사치재 총 가치(센트) */
+  getLuxuryValue: () => number;
   placeLimitOrder: (
     stockId: string,
     price: number,
@@ -88,6 +100,8 @@ function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
   openOrders: OpenOrder[];
+  ownedLuxuries: OwnedLuxury[];
+  netWorthHistory: NetWorthPoint[];
 } {
   const now = Date.now();
   return {
@@ -114,7 +128,24 @@ function createInitialState(): MarketSnapshot & {
     userId: null,
     isReady: false,
     openOrders: [],
+    ownedLuxuries: [],
+    netWorthHistory: [],
   };
+}
+
+/** 순자산 기록 최소 간격(ms) — 과도한 기록으로 저장소가 비대해지는 것을 막는다. */
+const NET_WORTH_SAMPLE_MS = 30 * 60 * 1000;
+const MAX_NET_WORTH_POINTS = 240;
+
+/** 마지막 기록 이후 충분히 지났으면 순자산 스냅샷을 한 점 덧붙인다. */
+function appendNetWorthPoint(
+  history: NetWorthPoint[],
+  value: number,
+  now: number,
+): NetWorthPoint[] {
+  const last = history[history.length - 1];
+  if (last && now - last.t < NET_WORTH_SAMPLE_MS) return history;
+  return [...history, { t: now, value }].slice(-MAX_NET_WORTH_POINTS);
 }
 
 function migrateStock(stock: StockState & { previousClose?: number }): StockState {
@@ -240,6 +271,7 @@ export const useMarketStore = create<MarketStore>()(
           lastMonthlyDistributionSession:
             wallet.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession: wallet.lastQuarterlyDividendSession,
+          ownedLuxuries: wallet.ownedLuxuries ?? [],
         });
         get().settleCashflows();
       },
@@ -257,6 +289,7 @@ export const useMarketStore = create<MarketStore>()(
           lastSalarySession: s.lastSalarySession,
           lastMonthlyDistributionSession: s.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession: s.lastQuarterlyDividendSession,
+          ownedLuxuries: s.ownedLuxuries,
         });
       },
 
@@ -379,10 +412,24 @@ export const useMarketStore = create<MarketStore>()(
           now,
         );
 
+        const priceById = Object.fromEntries(
+          updatedStocks.map((s) => [s.id, s.currentPrice]),
+        );
+        const netWorth =
+          settled.cash +
+          calculatePortfolioValue(holdings, priceById) +
+          getLuxuryValue(state.ownedLuxuries);
+        const netWorthHistory = appendNetWorthPoint(
+          state.netWorthHistory,
+          netWorth,
+          now,
+        );
+
         set({
           tick: nextTick,
           events: allEvents,
           cash: settled.cash,
+          netWorthHistory,
           // 주가 조정(배당락)은 리플레이가 절대 그리드로 이미 반영 —
           // settle의 주가 변형은 버리고 현금·회차 카운터만 반영한다 (시장 일원화)
           stocks: updatedStocks,
@@ -428,12 +475,43 @@ export const useMarketStore = create<MarketStore>()(
       sellCurrent: (stockId, quantity) =>
         applyLocalBuySell(set, get, "sellCurrent", stockId, quantity),
 
+      purchaseLuxury: (itemId) => {
+        const item = LUXURY_BY_ID.get(itemId);
+        if (!item) return { success: false, message: "존재하지 않는 상품입니다." };
+        const state = get();
+        if (state.ownedLuxuries.some((o) => o.id === itemId)) {
+          return { success: false, message: "이미 보유한 상품입니다." };
+        }
+        if (item.price > state.cash) {
+          return { success: false, message: "보유 현금이 부족합니다." };
+        }
+        const owned: OwnedLuxury = {
+          id: item.id,
+          purchasedAt: Date.now(),
+          paidPrice: item.price,
+        };
+        set({
+          cash: state.cash - item.price,
+          ownedLuxuries: [...state.ownedLuxuries, owned],
+        });
+        return {
+          success: true,
+          message: `${item.emoji} ${item.name} 구매 완료`,
+        };
+      },
+
+      getLuxuryValue: () => getLuxuryValue(get().ownedLuxuries),
+
       reset: () => set(createInitialState()),
 
       getTotalAssets: () => {
-        const { cash, holdings, stocks } = get();
+        const { cash, holdings, stocks, ownedLuxuries } = get();
         const prices = Object.fromEntries(stocks.map((s) => [s.id, s.currentPrice]));
-        return cash + calculatePortfolioValue(holdings, prices);
+        return (
+          cash +
+          calculatePortfolioValue(holdings, prices) +
+          getLuxuryValue(ownedLuxuries)
+        );
       },
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),
@@ -452,6 +530,8 @@ export const useMarketStore = create<MarketStore>()(
         trades: state.trades,
         openOrders: state.openOrders,
         cashPayments: state.cashPayments,
+        ownedLuxuries: state.ownedLuxuries,
+        netWorthHistory: state.netWorthHistory,
         // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
         // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
         stocks: state.stocks.filter((stock) => !stock.universalDerivative),
@@ -516,6 +596,16 @@ export const useMarketStore = create<MarketStore>()(
           ),
           cashPayments: Array.isArray(merged.cashPayments)
             ? merged.cashPayments
+            : [],
+          ownedLuxuries: Array.isArray(
+            (merged as Partial<MarketStore>).ownedLuxuries,
+          )
+            ? (merged as Partial<MarketStore>).ownedLuxuries!
+            : [],
+          netWorthHistory: Array.isArray(
+            (merged as Partial<MarketStore>).netWorthHistory,
+          )
+            ? (merged as Partial<MarketStore>).netWorthHistory!
             : [],
           userId: null,
           isReady: false,

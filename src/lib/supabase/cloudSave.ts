@@ -5,6 +5,7 @@ import type {
   OpenOrder,
   Trade,
 } from "@/lib/types/market";
+import type { OwnedLuxury } from "@/lib/types/luxury";
 
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
@@ -20,6 +21,8 @@ export interface WalletSave {
   lastSalarySession: number;
   lastMonthlyDistributionSession: number;
   lastQuarterlyDividendSession: number;
+  /** 보유 사치재 (재화 sink). 구버전 저장분 호환을 위해 선택형. */
+  ownedLuxuries?: OwnedLuxury[];
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */
