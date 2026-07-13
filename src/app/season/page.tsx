@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { formatPrice } from "@/lib/market/engine";
 import { getBenchmark } from "@/lib/market/interestRate";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
@@ -14,6 +16,36 @@ import {
 } from "@/lib/market/investmentSeasons";
 import type { InvestmentSeasonTierId } from "@/lib/market/investmentSeasons";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
+
+const SEASON_TUTORIAL_VERSION = 1;
+const SEASON_TUTORIAL_STEPS = [
+  {
+    emoji: "🏁",
+    title: "20거래일 동안 지수와 경쟁합니다",
+    body: "첫 접속부터 개인 투자 시즌이 자동 시작됩니다. 1거래일은 실제 3시간이며 게임을 닫아도 시장과 남은 기간은 계속 진행됩니다.",
+  },
+  {
+    emoji: "⚖️",
+    title: "절대 수익보다 초과수익이 중요합니다",
+    body: "내 순자산 수익률에서 같은 기간 V-NASDAQ 수익률을 뺀 값으로 평가합니다. 지수가 -10%일 때 -5%만 기록해도 초과수익은 +5%p입니다.",
+  },
+  {
+    emoji: "🏆",
+    title: "예상 티어는 매일 달라집니다",
+    body: "브론즈·실버·골드·플래티넘·다이아몬드·마스터의 6단계가 있습니다. 시즌 마지막 거래일의 초과수익률로 최종 티어를 확정합니다.",
+  },
+  {
+    emoji: "🧾",
+    title: "투자 실력만 평가합니다",
+    body: "매매 손익·배당·분배금·이자 비용은 반영하지만 고정급과 복권 손익은 제외합니다. 상점 소비로 사라진 가치와 마진콜 손실은 그대로 성과에 남습니다.",
+  },
+  {
+    emoji: "🔁",
+    title: "종료 즉시 다음 시즌이 시작됩니다",
+    body: "별도 제출 없이 자동 정산되고 확정 티어와 성과는 지난 시즌 기록에 보존됩니다. 홈 배너에서 현재 예상 티어와 남은 기간을 항상 확인할 수 있습니다.",
+  },
+];
 
 const TIER_STYLE: Record<InvestmentSeasonTierId, string> = {
   bronze: "border-orange-700/40 bg-orange-700/10 text-orange-300",
@@ -29,6 +61,13 @@ function signedPercent(value: number, point = false): string {
 }
 
 export default function InvestmentSeasonPage() {
+  const [mounted, setMounted] = useState(false);
+  const onboarded = useSettingsStore((state) => state.onboarded);
+  const tutorialSeen = useSettingsStore((state) => state.seasonTutorialSeen);
+  const setTutorialSeen = useSettingsStore((state) => state.setSeasonTutorialSeen);
+  const tutorialVersion = useSettingsStore((state) => state.seasonTutorialVersion);
+  const setTutorialVersion = useSettingsStore((state) => state.setSeasonTutorialVersion);
+  useEffect(() => setMounted(true), []);
   useMarketStore((state) => state.tick);
   const seasonState = useMarketStore((state) => state.investmentSeason);
   const stocks = useMarketStore((state) => state.stocks);
@@ -37,10 +76,20 @@ export default function InvestmentSeasonPage() {
   const benchmarkPrice = getBenchmark(stocks)?.currentPrice ?? 0;
   const current = seasonState.current;
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+  const tutorial = mounted && onboarded && (!tutorialSeen || tutorialVersion < SEASON_TUTORIAL_VERSION) ? (
+    <FeatureTutorialModal
+      steps={SEASON_TUTORIAL_STEPS}
+      onFinish={() => {
+        setTutorialSeen(true);
+        setTutorialVersion(SEASON_TUTORIAL_VERSION);
+      }}
+    />
+  ) : null;
 
   if (!current || benchmarkPrice <= 0) {
     return (
       <div className="mx-auto max-w-5xl pb-20">
+        {tutorial}
         <h1 className="text-2xl font-bold">🏆 20거래일 투자 시즌</h1>
         <div className="mt-6 rounded-2xl bg-[var(--surface)] p-8 text-center text-sm text-[var(--muted)]">
           공통 시장과 계좌를 불러온 뒤 첫 시즌이 자동으로 시작됩니다.
@@ -65,6 +114,7 @@ export default function InvestmentSeasonPage() {
 
   return (
     <div className="mx-auto max-w-5xl pb-20">
+      {tutorial}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">🏆 20거래일 투자 시즌</h1>

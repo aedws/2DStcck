@@ -15,6 +15,10 @@ interface SettingsState {
   setMissionTutorialVersion: (value: number) => void;
   optionsTutorialSeen: boolean;
   setOptionsTutorialSeen: (value: boolean) => void;
+  seasonTutorialSeen: boolean;
+  setSeasonTutorialSeen: (value: boolean) => void;
+  seasonTutorialVersion: number;
+  setSeasonTutorialVersion: (value: number) => void;
   /** 체결·현금 효과음 사용 여부 */
   soundEnabled: boolean;
   setSoundEnabled: (value: boolean) => void;
@@ -39,6 +43,12 @@ export const useSettingsStore = create<SettingsState>()(
       optionsTutorialSeen: false,
       setOptionsTutorialSeen: (optionsTutorialSeen) =>
         set({ optionsTutorialSeen }),
+      seasonTutorialSeen: false,
+      setSeasonTutorialSeen: (seasonTutorialSeen) =>
+        set({ seasonTutorialSeen }),
+      seasonTutorialVersion: 0,
+      setSeasonTutorialVersion: (seasonTutorialVersion) =>
+        set({ seasonTutorialVersion }),
       soundEnabled: true,
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
       watchlist: [],

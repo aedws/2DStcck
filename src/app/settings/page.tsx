@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AuthButton } from "@/components/auth/AuthButton";
 import { useSettingsStore } from "@/store/settingsStore";
 
 export default function SettingsPage() {
@@ -15,6 +16,9 @@ export default function SettingsPage() {
   const setOptionsTutorialSeen = useSettingsStore(
     (state) => state.setOptionsTutorialSeen,
   );
+  const setSeasonTutorialSeen = useSettingsStore(
+    (state) => state.setSeasonTutorialSeen,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -26,6 +30,23 @@ export default function SettingsPage() {
           이 설정은 현재 브라우저에 저장됩니다.
         </p>
       </div>
+
+      <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+        <div className="border-b border-[var(--border)] px-4 py-3">
+          <h2 className="text-sm font-semibold">계정 관리</h2>
+        </div>
+        <div className="flex min-h-20 items-center justify-between gap-4 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">로그인·로그아웃</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+              로그인하면 현재 지갑과 진행 기록이 Supabase 계정에 동기화됩니다.
+            </p>
+          </div>
+          <div className="shrink-0">
+            <AuthButton />
+          </div>
+        </div>
+      </section>
 
       <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
         <div className="border-b border-[var(--border)] px-4 py-3">
@@ -110,6 +131,21 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">옵션 거래 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               콜·풋·매수·발행·만기 정산을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          onClick={() => setSeasonTutorialSeen(false)}
+          className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🏆</span>
+            <span>
+            <span className="block text-sm font-medium">투자 시즌·티어 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              20거래일 진행과 지수 대비 티어 평가를 다시 안내합니다.
             </span>
             </span>
           </span>
