@@ -15,12 +15,19 @@ import {
 import { useMarketStore } from "@/store/marketStore";
 import { LUXURY_BY_ID } from "@/data/luxuries";
 import { getLuxuryValue } from "@/lib/market/luxury";
+import {
+  computeRealizedPnl,
+  computeUnrealizedPnl,
+} from "@/lib/market/portfolioStats";
+import { EquityCurve } from "@/components/ui/EquityCurve";
 
 export default function PortfolioPage() {
   const cash = useMarketStore((s) => s.cash);
   const holdings = useMarketStore((s) => s.holdings);
   const stocks = useMarketStore((s) => s.stocks);
+  const trades = useMarketStore((s) => s.trades);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
+  const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
@@ -35,6 +42,11 @@ export default function PortfolioPage() {
   const luxuryValue = getLuxuryValue(ownedLuxuries);
   const stockValue = total - cash - luxuryValue;
   const returnRate = ((total - initialCash) / initialCash) * 100;
+  const priceById = Object.fromEntries(
+    stocks.map((s) => [s.id, s.currentPrice]),
+  );
+  const realizedPnl = computeRealizedPnl(trades);
+  const unrealizedPnl = computeUnrealizedPnl(holdings, priceById);
   const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
   const salaryDays = getSalaryDaysRemaining(
     lastSalarySession,
@@ -58,6 +70,37 @@ export default function PortfolioPage() {
           value={`${salaryDays}거래일 후`}
           color="text-emerald-400"
         />
+      </div>
+
+      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">순자산 추이</h2>
+          <div className="flex gap-4 text-xs">
+            <span className="text-zinc-500">
+              실현{" "}
+              <span
+                className={
+                  realizedPnl >= 0 ? "text-emerald-400" : "text-red-400"
+                }
+              >
+                {realizedPnl >= 0 ? "+" : ""}
+                {formatPrice(realizedPnl)}
+              </span>
+            </span>
+            <span className="text-zinc-500">
+              미실현{" "}
+              <span
+                className={
+                  unrealizedPnl >= 0 ? "text-emerald-400" : "text-red-400"
+                }
+              >
+                {unrealizedPnl >= 0 ? "+" : ""}
+                {formatPrice(unrealizedPnl)}
+              </span>
+            </span>
+          </div>
+        </div>
+        <EquityCurve data={netWorthHistory} />
       </div>
 
       {ownedLuxuries.length > 0 && (
