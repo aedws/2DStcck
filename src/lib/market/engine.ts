@@ -38,6 +38,10 @@ import {
   getMarketRegimeAtSession,
   regimeReturnForStock,
 } from "@/lib/market/marketRegimes";
+import {
+  cycleReturnForStock,
+  getMarketCycleAtSession,
+} from "@/lib/market/marketCycles";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -162,6 +166,16 @@ export function calculateSecularGrowthSupport(
   );
 }
 
+/** 명시 베타가 없는 기업도 시장 공통 충격에 현실적인 수준으로 함께 반응한다. */
+export function marketBetaForStock(stock: {
+  sector: string;
+  beta?: number;
+}): number {
+  if (stock.beta !== undefined) return stock.beta;
+  if (stock.sector === "채권") return -0.15;
+  return 0.65;
+}
+
 /** 시간 기반 가격 엔진: 모든 항이 dt(초)로 스케일되어
  * 틱 간격(로컬 1초 / 서버 10초)과 무관하게 하루 등락폭이 동일하다. */
 export function calculateTickPrice(
@@ -177,17 +191,27 @@ export function calculateTickPrice(
   const regime = getMarketRegimeAtSession(
     Math.floor(now / SESSION_DURATION_MS),
   );
+  const cycle = getMarketCycleAtSession(
+    Math.floor(now / SESSION_DURATION_MS),
+  );
+  const volatilityMultiplier = Math.min(
+    2.4,
+    Math.max(
+      0.45,
+      regime.volatilityMultiplier * cycle.volatilityMultiplier,
+    ),
+  );
   const noise =
     randomNormal(rand) *
     stock.volatility *
     VOLATILITY_TIME_SCALE *
     sqrtDt *
-    regime.volatilityMultiplier;
+    volatilityMultiplier;
 
   // ── 시장 팩터 (베타 모델): 종목 수익률 = 베타 × (추세 + 공통충격) + 개별 노이즈 ──
   // 약 15분 주기의 사인파 추세. 전 종목이 같은 위상을 공유하고,
   // 선물이 90초 선행한다(선행지표) → 선물을 보면 시장 방향을 미리 안다.
-  const beta = stock.beta ?? 0;
+  const beta = marketBetaForStock(stock);
   const trendLead = stock.sector === "선물" ? FUTURES_LEAD_MS : 0;
   const trendAmplitude =
     (stock.trendStrength ?? beta * MARKET_TREND_BASE_PER_SEC) * dtSeconds;
@@ -200,8 +224,9 @@ export function calculateTickPrice(
     marketShock *
     MARKET_SHOCK_TIME_SCALE *
     sqrtDt *
-    regime.volatilityMultiplier;
+    volatilityMultiplier;
   const regimeReturn = regimeReturnForStock(regime, stock.sector, dtSeconds);
+  const cycleReturn = cycleReturnForStock(cycle, stock.sector, dtSeconds);
   const secularGrowthSupport = calculateSecularGrowthSupport(
     stock,
     now,
@@ -211,10 +236,14 @@ export function calculateTickPrice(
   const changeRate =
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
     regimeReturn +
+    cycleReturn +
     secularGrowthSupport +
     trend +
     shock +
-    eventImpact * EVENT_IMPACT_TIME_SCALE * dtSeconds +
+    eventImpact *
+      EVENT_IMPACT_TIME_SCALE *
+      cycle.eventImpactMultiplier *
+      dtSeconds +
     noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
 

@@ -17,7 +17,7 @@ import {
 } from "../src/lib/market/options";
 import { computeRealizedPnl } from "../src/lib/market/portfolioStats";
 import { buildDailyScorecard } from "../src/lib/market/dailyScorecard";
-import { SESSION_DURATION_MS } from "../src/lib/market/constants";
+import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "../src/lib/market/constants";
 import {
   getMarketRegimeAtSession,
   marketRegimeWindowStart,
@@ -26,17 +26,73 @@ import {
 import { pickEventQuote } from "../src/data/eventQuotes";
 import {
   computeCoveredCallTick,
+  calculateTickPrice,
   createInitialStockState,
+  marketBetaForStock,
+  randomNormal,
   resolveEventTemplate,
+  seededRand,
   stockCategory,
 } from "../src/lib/market/engine";
 import { getCompanyDefinitions, STOCK_DEFINITIONS } from "../src/data/stocks";
 import { getCharacterRelation } from "../src/lib/market/characterRelations";
 import { settleLocalCashflows } from "../src/lib/market/cashflows";
+import {
+  expectedCycleReturn,
+  getMarketCycleAtSession,
+  MARKET_CYCLE_PHASES,
+  MARKET_CYCLE_SESSIONS,
+} from "../src/lib/market/marketCycles";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+const cycleStartSession = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
+assert.equal(
+  MARKET_CYCLE_PHASES.reduce((sum, phase) => sum + phase.duration, 0),
+  MARKET_CYCLE_SESSIONS,
+);
+assert.ok(expectedCycleReturn() > 0.15, "200-session cycle should have positive structural drift");
+assert.equal(getMarketCycleAtSession(cycleStartSession + 35).id, "breakout");
+assert.equal(getMarketCycleAtSession(cycleStartSession + 105).id, "correction");
+assert.equal(marketBetaForStock({ sector: "기술" }), 0.65);
+assert.equal(marketBetaForStock({ sector: "채권" }), -0.15);
+assert.equal(marketBetaForStock({ sector: "기술", beta: 1.2 }), 1.2);
+
+const benchmarkDefinition = STOCK_DEFINITIONS.find((stock) => stock.id === "vnasdaq");
+assert.ok(benchmarkDefinition);
+let longCycleBenchmark = createInitialStockState(benchmarkDefinition, MARKET_EPOCH_MS);
+const longCycleStepSeconds = 60;
+const longCycleSteps =
+  MARKET_CYCLE_SESSIONS *
+  (SESSION_DURATION_MS / 1_000 / longCycleStepSeconds);
+for (let step = 1; step <= longCycleSteps; step++) {
+  const now = MARKET_EPOCH_MS + step * longCycleStepSeconds * 1_000;
+  const nextPrice = calculateTickPrice(
+    longCycleBenchmark,
+    [],
+    now,
+    randomNormal(seededRand(step, "cycle-test-shock")),
+    longCycleStepSeconds,
+    seededRand(step, "cycle-test-vnasdaq"),
+  );
+  longCycleBenchmark = { ...longCycleBenchmark, currentPrice: nextPrice };
+}
+assert.ok(
+  longCycleBenchmark.currentPrice > benchmarkDefinition.initialPrice,
+  "deterministic benchmark should finish a 200-session cycle above its start",
+);
+assert.ok(
+  longCycleBenchmark.currentPrice < benchmarkDefinition.initialPrice * 1.6,
+  "200-session growth should not become a runaway price spiral",
+);
+assert.ok(
+  MARKET_CYCLE_PHASES.find((phase) => phase.id === "breakout")!.baseReturnPerSession > 0.005,
+);
+assert.ok(
+  MARKET_CYCLE_PHASES.find((phase) => phase.id === "correction")!.baseReturnPerSession < -0.005,
+);
 
 const singleCoveredCall = STOCK_DEFINITIONS.find(
   (stock) => stock.id === "baridc-covered-call",

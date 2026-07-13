@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { getMarketRegimeAtSession } from "@/lib/market/marketRegimes";
+import { getMarketCycleAtSession } from "@/lib/market/marketCycles";
 import { useMarketStore } from "@/store/marketStore";
 
 const REGIME_STYLE = {
@@ -16,28 +17,39 @@ export function MarketRegimeCard() {
   useMarketStore((state) => state.tick);
   const session = Math.floor(Date.now() / SESSION_DURATION_MS);
   const regime = getMarketRegimeAtSession(session);
+  const cycle = getMarketCycleAtSession(session);
   const sessionsLeft = Math.max(1, regime.windowEnd - session);
   const direction = regime.marketReturnPerSession === 0
     ? "방향 중립"
     : `위험자산 ${regime.marketReturnPerSession > 0 ? "+" : ""}${(regime.marketReturnPerSession * 100).toFixed(2)}%/일`;
+  const cyclePressure = `사이클 압력 ${cycle.sessionReturn > 0 ? "+" : ""}${(cycle.sessionReturn * 100).toFixed(2)}%`;
+  const combinedVolatility = Math.min(
+    2.4,
+    Math.max(
+      0.45,
+      cycle.volatilityMultiplier * regime.volatilityMultiplier,
+    ),
+  );
 
   return (
     <section className={`shrink-0 border-b px-3 py-2.5 md:px-5 ${REGIME_STYLE[regime.id]}`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
-        <span className="text-2xl" aria-hidden>{regime.emoji}</span>
+        <span className="text-2xl" aria-hidden>{cycle.emoji}</span>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-bold">시장 국면 · {regime.name}</p>
+            <p className="font-bold">시장 사이클 · {cycle.name}</p>
             <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
-              {sessionsLeft}거래일 남음
+              {cycle.cycleNumber}주기 {cycle.cycleSession + 1}/200 · 단계 종료까지 {cycle.sessionsLeft}일
             </span>
           </div>
-          <p className="mt-0.5 text-[var(--muted)]">{regime.summary}</p>
+          <p className="mt-0.5 text-[var(--muted)]">{cycle.summary}</p>
         </div>
         <div className="ml-auto flex items-center gap-3 text-right">
           <div className="hidden sm:block">
-            <p className="font-semibold">{direction} · 변동성 ×{regime.volatilityMultiplier.toFixed(2)}</p>
-            <p className="text-[10px] text-[var(--muted)]">{regime.strategy}</p>
+            <p className="font-semibold">5일 카드 · {regime.name} · {sessionsLeft}일 남음</p>
+            <p className="text-[10px] text-[var(--muted)]">
+              {cyclePressure} · {direction} · 변동성 ×{combinedVolatility.toFixed(2)}
+            </p>
           </div>
           <Link
             href={`/stock/${regime.instrumentId}`}
