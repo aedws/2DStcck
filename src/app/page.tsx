@@ -9,6 +9,7 @@ import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
 import { StoryArcBanner } from "@/components/home/StoryArcBanner";
 import { DailyScorecardBanner } from "@/components/home/DailyScorecardBanner";
+import { MarketRegimeCard } from "@/components/home/MarketRegimeCard";
 import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { useMarketStore } from "@/store/marketStore";
@@ -35,6 +36,7 @@ export default function MarketPage() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col lg:h-[calc(100vh-3.5rem)]">
       <MarketOverview stocks={marketStocks} events={events} />
+      <MarketRegimeCard />
       <StoryArcBanner />
       <DailyScorecardBanner />
       <PumpBanner pumps={pumpStocks} />

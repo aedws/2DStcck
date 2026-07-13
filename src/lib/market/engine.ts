@@ -32,6 +32,10 @@ import { getCharacterById } from "@/data/characters";
 import { pickEventQuote } from "@/data/eventQuotes";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import { COVERED_CALL_INTERVAL_DAYS } from "@/lib/market/distributions";
+import {
+  getMarketRegimeAtSession,
+  regimeReturnForStock,
+} from "@/lib/market/marketRegimes";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -168,8 +172,15 @@ export function calculateTickPrice(
 ): number {
   const sqrtDt = Math.sqrt(dtSeconds);
   const eventImpact = getActiveEventImpact(stock, events, now);
+  const regime = getMarketRegimeAtSession(
+    Math.floor(now / SESSION_DURATION_MS),
+  );
   const noise =
-    randomNormal(rand) * stock.volatility * VOLATILITY_TIME_SCALE * sqrtDt;
+    randomNormal(rand) *
+    stock.volatility *
+    VOLATILITY_TIME_SCALE *
+    sqrtDt *
+    regime.volatilityMultiplier;
 
   // ── 시장 팩터 (베타 모델): 종목 수익률 = 베타 × (추세 + 공통충격) + 개별 노이즈 ──
   // 약 15분 주기의 사인파 추세. 전 종목이 같은 위상을 공유하고,
@@ -182,7 +193,13 @@ export function calculateTickPrice(
     trendAmplitude *
     Math.sin(((now + trendLead) / MARKET_TREND_PERIOD_MS) * 2 * Math.PI);
   // 공통 충격: 같은 틱의 모든 종목이 같은 z를 받아 지수와 동반 등락한다
-  const shock = beta * marketShock * MARKET_SHOCK_TIME_SCALE * sqrtDt;
+  const shock =
+    beta *
+    marketShock *
+    MARKET_SHOCK_TIME_SCALE *
+    sqrtDt *
+    regime.volatilityMultiplier;
+  const regimeReturn = regimeReturnForStock(regime, stock.sector, dtSeconds);
   const secularGrowthSupport = calculateSecularGrowthSupport(
     stock,
     now,
@@ -191,6 +208,7 @@ export function calculateTickPrice(
 
   const changeRate =
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
+    regimeReturn +
     secularGrowthSupport +
     trend +
     shock +
@@ -650,7 +668,7 @@ export function resolveEventTemplate(
     title = substitute(title);
     description = substitute(description);
     if (ceo) {
-      const picked = pickEventQuote(template.tag, ceo, rand);
+      const picked = pickEventQuote(template.tag, ceo, rand, template.impact);
       quote = picked.quote;
       quoteBy = picked.quoteBy;
     }

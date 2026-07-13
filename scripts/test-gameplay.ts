@@ -18,10 +18,53 @@ import {
 import { computeRealizedPnl } from "../src/lib/market/portfolioStats";
 import { buildDailyScorecard } from "../src/lib/market/dailyScorecard";
 import { SESSION_DURATION_MS } from "../src/lib/market/constants";
-import type { OptionPosition, StockState, Trade } from "../src/lib/types/market";
+import {
+  getMarketRegimeAtSession,
+  marketRegimeWindowStart,
+  regimeReturnForStock,
+} from "../src/lib/market/marketRegimes";
+import { pickEventQuote } from "../src/data/eventQuotes";
+import { resolveEventTemplate } from "../src/lib/market/engine";
+import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+const quoteCharacter: Character = {
+  id: "quote-test",
+  name: "테스트 대표",
+  title: "CEO",
+  traits: [],
+  bio: "",
+  emoji: "🧪",
+};
+const positiveEarningsQuote = pickEventQuote("실적", quoteCharacter, () => 0, 0.055);
+const negativeEarningsQuote = pickEventQuote("실적", quoteCharacter, () => 0, -0.06);
+assert.match(positiveEarningsQuote.quote, /숫자/);
+assert.match(negativeEarningsQuote.quote, /미치지 못했습니다/);
+assert.notEqual(positiveEarningsQuote.quote, negativeEarningsQuote.quote);
+const negativeEarningsTemplate: EventTemplate = {
+  category: "company",
+  tag: "실적",
+  title: "{company} 실적 쇼크",
+  description: "{company} 실적이 기대를 밑돌았습니다.",
+  impact: -0.06,
+  requiresCeo: true,
+};
+assert.match(
+  resolveEventTemplate(negativeEarningsTemplate, 1, () => 0)?.quote ?? "",
+  /미치지 못했습니다/,
+);
+
+const regimeWindow = marketRegimeWindowStart(session);
+const regime = getMarketRegimeAtSession(regimeWindow);
+assert.deepEqual(regime, getMarketRegimeAtSession(regimeWindow + 4));
+assert.notEqual(regime.id, getMarketRegimeAtSession(regimeWindow + 5).id);
+assert.equal(
+  Math.sign(regimeReturnForStock(regime, "채권", 10)),
+  -Math.sign(regimeReturnForStock(regime, "기술", 10)),
+  "bonds should react opposite to directional market regimes",
+);
 
 const arcA = getStoryArcForWindow(windowStart);
 const arcB = getStoryArcForWindow(windowStart);
