@@ -776,6 +776,22 @@ export function isIndexLike(sector: string): boolean {
   return sector === "지수" || sector === "선물";
 }
 
+/** 목록 필터용 표시 카테고리: ETF 안의 레버리지·인버스·곱버스를 분리한다. */
+export function stockCategory(stock: {
+  sector: string;
+  leverage?: number;
+}): string {
+  if (stock.leverage !== undefined) {
+    if (stock.leverage >= 2) return "레버리지";
+    if (stock.leverage === -1) return "인버스";
+    if (stock.leverage <= -2) return "곱버스";
+  }
+  return stock.sector;
+}
+
+/** ETF 계열 카테고리 정렬 순서 (필터 칩을 깔끔하게 묶기 위함) */
+export const ETF_FAMILY_ORDER = ["ETF", "레버리지", "인버스", "곱버스"];
+
 export function formatPoints(value: number): string {
   return Math.round(value).toLocaleString("en-US");
 }
