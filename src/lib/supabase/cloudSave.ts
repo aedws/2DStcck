@@ -17,6 +17,7 @@ import type { OwnedLuxury } from "@/lib/types/luxury";
 import type { InvestmentMasteryState } from "@/lib/market/investmentMastery";
 import type { InvestmentSeasonState } from "@/lib/market/investmentSeasons";
 import type { AttendanceState } from "@/lib/player/playerProfile";
+import type { DailyOperation } from "@/lib/market/dailyOperations";
 
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
@@ -63,6 +64,8 @@ export interface WalletSave {
   recurringInvestments?: RecurringInvestment[];
   attendance?: AttendanceState;
   selectedTitleId?: string;
+  dailyOperation?: DailyOperation | null;
+  dailyOperationHistory?: DailyOperation[];
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */

@@ -11,7 +11,7 @@ import {
 import { formatPercent, formatPrice } from "@/lib/market/engine";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import {
-  INVESTMENT_MISSION_OFFERS,
+  getAvailableInvestmentMissionOffers,
   getMissionOffer,
   missionProgressPercent,
 } from "@/lib/market/missions";
@@ -63,7 +63,7 @@ export default function MissionsPage() {
   const benchmarkPrice = benchmark?.currentPrice ?? 0;
   const relationship = getCharacterProgress(characterProgressMap, arc.character?.id);
   const bondChoiceAvailable = canUseBondChoice(relationship, arc.windowStart);
-  const missionOffers = INVESTMENT_MISSION_OFFERS.filter(
+  const missionOffers = getAvailableInvestmentMissionOffers(session).filter(
     (offer) =>
       offer.kind !== "character" ||
       relationship.affinity >= CHARACTER_MISSION_AFFINITY,
@@ -254,7 +254,7 @@ export default function MissionsPage() {
           <h2 className="mb-3 text-lg font-bold">최근 의뢰</h2>
           <ul className="space-y-2">
             {history.slice(0, 8).map((item) => {
-              const offer = getMissionOffer(item.kind);
+              const offer = getMissionOffer(item.kind, item.offerId);
               const issuer = getCharacterById(item.issuerCharacterId);
               return (
                 <li key={item.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface)] p-3 text-sm">
@@ -343,7 +343,7 @@ function ActiveMission({
   equity: number;
   benchmarkPrice: number;
 }) {
-  const offer = getMissionOffer(mission.kind);
+  const offer = getMissionOffer(mission.kind, mission.offerId);
   const issuer = getCharacterById(mission.issuerCharacterId);
   const progress = missionProgressPercent(mission, equity, benchmarkPrice);
   const playerReturn = mission.startEquity > 0 ? (equity / mission.startEquity - 1) * 100 : 0;

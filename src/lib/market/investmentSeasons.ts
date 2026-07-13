@@ -32,7 +32,13 @@ export const INVESTMENT_SEASON_TIERS: InvestmentSeasonTier[] = [
   { id: "master", name: "마스터", emoji: "👑", minimumAlpha: 0.05, summary: "지수 대비 +5%p 이상" },
 ];
 
-export type SeasonGoalId = "growth" | "income" | "defense";
+export type SeasonGoalId =
+  | "growth"
+  | "income"
+  | "defense"
+  | "direct"
+  | "index"
+  | "cyclical";
 
 export interface SeasonGoalDefinition {
   id: SeasonGoalId;
@@ -68,9 +74,39 @@ export const SEASON_GOALS: SeasonGoalDefinition[] = [
     includedAssets: "채권, 인버스·곱버스",
     targetWeights: [0.1, 0.2, 0.3],
   },
+  {
+    id: "direct",
+    name: "기업 직접 투자",
+    emoji: "🏢",
+    description: "캐릭터가 있는 일반 기업 주식의 비중을 유지합니다.",
+    includedAssets: "파생상품이 아닌 캐릭터 기업 주식",
+    targetWeights: [0.3, 0.5, 0.7],
+  },
+  {
+    id: "index",
+    name: "지수 코어",
+    emoji: "🌐",
+    description: "레버리지 없이 시장 전체를 담는 지수 ETF를 중심에 둡니다.",
+    includedAssets: "일반 지수 추종 ETF",
+    targetWeights: [0.2, 0.35, 0.5],
+  },
+  {
+    id: "cyclical",
+    name: "경기 순환 대응",
+    emoji: "⚙️",
+    description: "경기 변화에 민감한 전통 산업의 비중을 유지합니다.",
+    includedAssets: "방산·PMC·보안·금융·에너지·관광·요식업",
+    targetWeights: [0.2, 0.35, 0.5],
+  },
 ];
 
-export type SeasonTraitId = "alpha_hunter" | "drawdown_guard" | "discipline";
+export type SeasonTraitId =
+  | "alpha_hunter"
+  | "drawdown_guard"
+  | "discipline"
+  | "balanced"
+  | "turnaround"
+  | "mandate";
 
 export interface SeasonTraitDefinition {
   id: SeasonTraitId;
@@ -104,6 +140,30 @@ export const SEASON_TRAITS: SeasonTraitDefinition[] = [
     emoji: "📐",
     description: "선택한 시즌 목표 비중을 꾸준히 지키는 규율형 특성입니다.",
     success: "목표 준수율 80% 이상 +8점 · 50% 이상 +3점",
+    failure: "목표 미선택 또는 준수율 50% 미만 -4점",
+  },
+  {
+    id: "balanced",
+    name: "균형 운용",
+    emoji: "⚖️",
+    description: "초과수익과 낙폭 통제를 동시에 노리는 중립형 특성입니다.",
+    success: "지수 이상·낙폭 8% 이하 모두 달성 +8점 · 하나 달성 +3점",
+    failure: "두 조건 모두 실패 시 -4점",
+  },
+  {
+    id: "turnaround",
+    name: "반전 설계자",
+    emoji: "🔄",
+    description: "중간 낙폭을 견디고 시즌을 플러스 초과수익으로 되돌립니다.",
+    success: "낙폭 3% 이상 후 지수 초과 +8점 · 지수 초과만 달성 +3점",
+    failure: "지수 대비 -2%p 미만 -4점",
+  },
+  {
+    id: "mandate",
+    name: "고집중 운용",
+    emoji: "🎖️",
+    description: "높은 목표 비중을 실제 시즌 내내 유지하는 집중형 특성입니다.",
+    success: "최고 비중 목표·준수율 70% +8점 · 중간 비중 목표·준수율 60% +4점",
     failure: "목표 미선택 또는 준수율 50% 미만 -4점",
   },
 ];
@@ -244,6 +304,39 @@ const SEASON_RIVALS: SeasonRival[] = [
     closeQuote: "서로 다른 길인데 거의 같은 곳에 도착했네.",
     behindQuote: "이번엔 네 판단이 시장의 공포보다 빨랐어.",
   },
+  {
+    id: "ian",
+    name: "이안",
+    emoji: "🧭",
+    style: "거시 순환 투자자",
+    description: "시장 국면과 금리 변화에 맞춰 자산군 비중을 전환합니다.",
+    disciplineBonus: 4,
+    aheadQuote: "큰 흐름을 읽으면 종목 선택은 그다음 문제야.",
+    closeQuote: "같은 국면을 서로 다르게 해석했군.",
+    behindQuote: "이번 순환은 네가 한발 먼저 읽었어.",
+  },
+  {
+    id: "nabi",
+    name: "나비",
+    emoji: "🦋",
+    style: "분산 포트폴리오 설계자",
+    description: "여러 업종의 상관관계를 이용해 안정적인 점수를 쌓습니다.",
+    disciplineBonus: 5,
+    aheadQuote: "한 종목의 확신보다 여러 가능성의 균형을 믿어.",
+    closeQuote: "포트폴리오 무게 하나로 승부가 갈리겠네.",
+    behindQuote: "오늘은 네 분산이 내 설계보다 정교했어.",
+  },
+  {
+    id: "taeho",
+    name: "태호",
+    emoji: "🦈",
+    style: "집중 가치 투자자",
+    description: "소수 기업을 깊게 분석해 큰 비중으로 오래 보유합니다.",
+    disciplineBonus: 2,
+    aheadQuote: "좋은 기업을 찾았다면 비중으로 증명해야지.",
+    closeQuote: "확신의 크기까지 비슷한 모양이군.",
+    behindQuote: "이번에는 네 기업 분석이 더 깊었어.",
+  },
 ];
 
 function clamp(value: number, min: number, max: number): number {
@@ -257,6 +350,20 @@ function deterministicUnit(seed: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0) / 4_294_967_296;
+}
+
+/** 특성 풀은 넓게 유지하되 한 시즌에는 항상 3장만 제시한다. */
+export function getSeasonTraitCandidates(
+  season: Pick<ActiveInvestmentSeason, "id">,
+): SeasonTraitDefinition[] {
+  return [...SEASON_TRAITS]
+    .map((trait) => ({
+      trait,
+      order: deterministicUnit(`${season.id}:trait:${trait.id}`),
+    }))
+    .sort((a, b) => a.order - b.order)
+    .slice(0, 3)
+    .map((item) => item.trait);
 }
 
 export function createInitialInvestmentSeasonState(): InvestmentSeasonState {
@@ -304,6 +411,31 @@ export function calculateSeasonTraitScore(
     if (!season.goalId) return -4;
     return goalComplianceRate >= 0.8 ? 8 : goalComplianceRate >= 0.5 ? 3 : -4;
   }
+  if (season.traitId === "balanced") {
+    const alphaMet = performance.alpha >= 0;
+    const drawdownMet = performance.maxDrawdown <= 0.08;
+    return alphaMet && drawdownMet ? 8 : alphaMet || drawdownMet ? 3 : -4;
+  }
+  if (season.traitId === "turnaround") {
+    return performance.alpha >= 0 && performance.maxDrawdown >= 0.03
+      ? 8
+      : performance.alpha >= 0
+        ? 3
+        : performance.alpha < -0.02
+          ? -4
+          : 0;
+  }
+  if (season.traitId === "mandate") {
+    if (!season.goalId) return -4;
+    const goal = getSeasonGoal(season.goalId);
+    if (!goal) return -4;
+    const weight = season.goalTargetWeight ?? 0;
+    const maximumTarget = Math.max(...goal.targetWeights);
+    const middleTarget = goal.targetWeights[Math.floor(goal.targetWeights.length / 2)];
+    if (weight >= maximumTarget && goalComplianceRate >= 0.7) return 8;
+    if (weight >= middleTarget && goalComplianceRate >= 0.6) return 4;
+    return goalComplianceRate < 0.5 ? -4 : 0;
+  }
   return 0;
 }
 
@@ -320,7 +452,23 @@ function stockMatchesGoal(goalId: SeasonGoalId, stock: StockState): boolean {
       (stock.quarterlyDividend ?? 0) > 0
     );
   }
-  return stock.sector === "채권" || (stock.leverage ?? 0) < 0;
+  if (goalId === "defense") {
+    return stock.sector === "채권" || (stock.leverage ?? 0) < 0;
+  }
+  if (goalId === "direct") {
+    return Boolean(stock.ceoId) && !stock.universalDerivative;
+  }
+  if (goalId === "index") {
+    return (
+      stock.sector === "ETF" &&
+      Boolean(stock.etfHoldings?.length) &&
+      stock.leverage === undefined &&
+      stock.coveredCallAnnualYield === undefined
+    );
+  }
+  return ["방산", "PMC", "보안", "금융", "에너지", "관광", "요식업"].includes(
+    stock.sector,
+  );
 }
 
 export function calculateSeasonGoalAllocation(
@@ -577,7 +725,7 @@ export function selectSeasonTrait(
     !current ||
     current.traitId ||
     currentSession >= current.endSession ||
-    !getSeasonTrait(traitId)
+    !getSeasonTraitCandidates(current).some((trait) => trait.id === traitId)
   ) {
     return null;
   }

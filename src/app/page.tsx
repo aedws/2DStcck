@@ -7,10 +7,7 @@ import { MarketOverview } from "@/components/home/MarketOverview";
 import { StockDetailPanel } from "@/components/home/StockDetailPanel";
 import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
-import { StoryArcBanner } from "@/components/home/StoryArcBanner";
-import { DailyScorecardBanner } from "@/components/home/DailyScorecardBanner";
-import { MarketRegimeCard } from "@/components/home/MarketRegimeCard";
-import { InvestmentSeasonBanner } from "@/components/home/InvestmentSeasonBanner";
+import { OperationBriefing } from "@/components/home/OperationBriefing";
 import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { useMarketStore } from "@/store/marketStore";
@@ -37,10 +34,7 @@ export default function MarketPage() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col lg:h-[calc(100vh-3.5rem)]">
       <MarketOverview stocks={marketStocks} events={events} />
-      <MarketRegimeCard />
-      <InvestmentSeasonBanner />
-      <StoryArcBanner />
-      <DailyScorecardBanner />
+      <OperationBriefing />
       <PumpBanner pumps={pumpStocks} />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:overflow-hidden">
         <StockListPanel stocks={marketStocks} events={events} />

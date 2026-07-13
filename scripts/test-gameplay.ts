@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import { getLuxuryValue, LUXURY_ACCOUNTING_RATE } from "../src/lib/market/luxury";
 import {
+  INVESTMENT_MISSION_OFFERS,
   createInvestmentMission,
+  getAvailableInvestmentMissionOffers,
   missionWindowStart,
   updateInvestmentMission,
 } from "../src/lib/market/missions";
+import {
+  createDailyOperation,
+  getDailyOperationOffers,
+  updateDailyOperation,
+} from "../src/lib/market/dailyOperations";
 import {
   createStoryDecision,
   getStoryArcForWindow,
@@ -109,8 +116,10 @@ import {
 import {
   INVESTMENT_SEASON_SESSIONS,
   calculateSeasonGoalAllocation,
+  calculateSeasonTraitScore,
   createInitialInvestmentSeasonState,
   getSeasonRivalPerformance,
+  getSeasonTraitCandidates,
   markSeasonCeremonySeen,
   selectSeasonGoal,
   selectSeasonTrait,
@@ -193,14 +202,16 @@ const seasonStarted = updateInvestmentSeason(
   { currentSession: session, equity: 1_000_000, benchmarkPrice: 10_000 },
 );
 assert.ok(seasonStarted.state.current);
+const seasonTraitCandidates = getSeasonTraitCandidates(seasonStarted.state.current!);
+const firstSeasonTrait = seasonTraitCandidates[0];
 const traitSelected = selectSeasonTrait(
   seasonStarted.state,
-  "alpha_hunter",
+  firstSeasonTrait.id,
   session,
 );
-assert.equal(traitSelected?.current?.traitId, "alpha_hunter");
+assert.equal(traitSelected?.current?.traitId, firstSeasonTrait.id);
 assert.equal(
-  selectSeasonTrait(traitSelected!, "drawdown_guard", session),
+  selectSeasonTrait(traitSelected!, seasonTraitCandidates[1].id, session),
   null,
   "a season trait can only be selected once",
 );
@@ -209,8 +220,29 @@ const traitSeasonCompleted = updateInvestmentSeason(traitSelected!, {
   equity: 1_030_000,
   benchmarkPrice: 10_000,
 });
-assert.equal(traitSeasonCompleted.completed?.traitScore, 8);
-assert.equal(traitSeasonCompleted.completed?.seasonScore, 73);
+assert.ok(Number.isFinite(traitSeasonCompleted.completed?.traitScore));
+assert.equal(
+  calculateSeasonTraitScore(
+    { ...seasonStarted.state.current!, traitId: "alpha_hunter" },
+    { alpha: 0.03, maxDrawdown: 0.02 },
+    0,
+  ),
+  8,
+);
+assert.equal(
+  calculateSeasonTraitScore(
+    {
+      ...seasonStarted.state.current!,
+      goalId: "defense",
+      goalTargetWeight: 0.3,
+      traitId: "mandate",
+    },
+    { alpha: 0, maxDrawdown: 0.02 },
+    0.7,
+  ),
+  8,
+  "the highest defense target should qualify for the concentration trait",
+);
 
 const corporateWindow = corporateActionWindowStart(session);
 const corporateArc = getCorporateActionArcForWindow(corporateWindow);
@@ -960,6 +992,53 @@ assert.equal(recurring.filledPlans.length, 1);
 assert.ok(recurring.cash >= 0 && recurring.cash < 5_000);
 assert.equal(recurring.plans[0]?.nextSession, 125);
 assert.equal(recurring.trades.length, 1);
+
+// 1거래일 미니 목표는 회차별 3개 후보가 고정되고 수락 후 정확히 1시간을 평가한다.
+const operationOffers = getDailyOperationOffers(reportSession);
+assert.equal(operationOffers.length, 3);
+assert.equal(new Set(operationOffers.map((offer) => offer.id)).size, 3);
+assert.deepEqual(operationOffers, getDailyOperationOffers(reportSession));
+const measuredOperation = createDailyOperation(
+  "measured_trades",
+  reportSession,
+  10_000,
+  10_000,
+  reportStart,
+);
+const completedOperation = updateDailyOperation(measuredOperation, {
+  now: reportStart + SESSION_DURATION_MS,
+  equity: 10_100,
+  benchmarkPrice: 10_050,
+  cash: 10_100,
+  holdings: [],
+  stocks: [recurringStock],
+  trades: [{
+    id: "operation-trade",
+    stockId: recurringStock.id,
+    ticker: recurringStock.ticker,
+    type: "buy",
+    quantity: 1,
+    price: 100,
+    total: 100,
+    timestamp: reportStart + 1,
+  }],
+  marginCallAt: null,
+});
+assert.equal(completedOperation.endAt - completedOperation.acceptedAt, SESSION_DURATION_MS);
+assert.equal(completedOperation.status, "completed");
+
+// 장기 의뢰는 4개 판정축을 유지하면서 12개 문구 변형을 회차별로 순환한다.
+assert.equal(INVESTMENT_MISSION_OFFERS.length, 12);
+assert.equal(getAvailableInvestmentMissionOffers(session).length, 4);
+assert.equal(
+  new Set(getAvailableInvestmentMissionOffers(session).map((offer) => offer.kind)).size,
+  4,
+);
+
+// 시즌 특성은 6종 풀에서도 시즌마다 중복 없는 3장만 제시한다.
+const traitCandidates = getSeasonTraitCandidates({ id: `season-test-${session}` });
+assert.equal(traitCandidates.length, 3);
+assert.equal(new Set(traitCandidates.map((trait) => trait.id)).size, 3);
 
 // 시즌 시장 복기는 정확히 20일의 결정론 상태만 평가하고 종목 유불리를 분리한다.
 const seasonReview = buildSeasonMarketReview(session, session + 20);

@@ -15,13 +15,13 @@ import {
   INVESTMENT_SEASON_SESSIONS,
   INVESTMENT_SEASON_TIERS,
   SEASON_GOALS,
-  SEASON_TRAITS,
   calculateSeasonGoalAllocation,
   calculateSeasonPerformance,
   calculateSeasonScore,
   getInvestmentSeasonTier,
   getSeasonGoal,
   getSeasonTrait,
+  getSeasonTraitCandidates,
   getSeasonRivalPerformance,
   seasonExternalCashTotal,
   seasonTierForAlpha,
@@ -117,6 +117,10 @@ export default function InvestmentSeasonPage() {
     INVESTMENT_SEASON_TIERS.findIndex((tier) => tier.id === projectedTier.id) + 1
   ];
   const selectedGoal = getSeasonGoal(selectedGoalId)!;
+  const traitCandidates = getSeasonTraitCandidates(current);
+  const selectedTrait = traitCandidates.find(
+    (candidate) => candidate.id === selectedTraitId,
+  ) ?? traitCandidates[0];
 
   function chooseGoal(goalId: SeasonGoalId) {
     const definition = getSeasonGoal(goalId)!;
@@ -182,12 +186,12 @@ export default function InvestmentSeasonPage() {
             성공 조건과 실패 조건이 함께 있습니다. 한 번 확정하면 다음 시즌까지 바꿀 수 없습니다.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {SEASON_TRAITS.map((candidate) => (
+            {traitCandidates.map((candidate) => (
               <button
                 key={candidate.id}
                 type="button"
                 onClick={() => setSelectedTraitId(candidate.id)}
-                className={`rounded-2xl border p-4 text-left transition ${selectedTraitId === candidate.id ? "border-amber-300 bg-[var(--surface)] ring-1 ring-amber-300" : "border-[var(--border)]"}`}
+                className={`rounded-2xl border p-4 text-left transition ${selectedTrait.id === candidate.id ? "border-amber-300 bg-[var(--surface)] ring-1 ring-amber-300" : "border-[var(--border)]"}`}
               >
                 <p className="font-bold">{candidate.emoji} {candidate.name}</p>
                 <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{candidate.description}</p>
@@ -198,7 +202,7 @@ export default function InvestmentSeasonPage() {
           </div>
           <button
             type="button"
-            onClick={() => selectTrait(selectedTraitId)}
+            onClick={() => selectTrait(selectedTrait.id)}
             className="mt-4 w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-black sm:ml-auto sm:block sm:w-auto"
           >
             선택한 특성 확정

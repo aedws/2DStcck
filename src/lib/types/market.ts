@@ -295,6 +295,8 @@ export type InvestmentMissionStatus = "active" | "completed" | "failed";
 export interface InvestmentMission {
   id: string;
   kind: InvestmentMissionKind;
+  /** 같은 목표 유형 안에서 회차마다 달라지는 의뢰 문구·보상 변형. */
+  offerId?: string;
   windowStart: number;
   endSession: number;
   acceptedAt: number;
@@ -314,6 +316,7 @@ export interface InvestmentMission {
 export interface InvestmentMissionHistory {
   id: string;
   kind: InvestmentMissionKind;
+  offerId?: string;
   windowStart: number;
   status: Exclude<InvestmentMissionStatus, "active">;
   reward: number;

@@ -126,6 +126,16 @@ import {
   updateInvestmentMission,
 } from "@/lib/market/missions";
 import {
+  createDailyOperation,
+  getDailyOperationOffer,
+  getDailyOperationOffers,
+  normalizeDailyOperation,
+  normalizeDailyOperationHistory,
+  updateDailyOperation,
+  type DailyOperation,
+  type DailyOperationId,
+} from "@/lib/market/dailyOperations";
+import {
   createStoryDecision,
   getStoryArcAtSession,
   getStoryArcForWindow,
@@ -208,6 +218,10 @@ interface MarketStore extends MarketSnapshot {
   selectedTitleId: string;
   claimDailyAttendance: () => OrderResult;
   selectPlayerTitle: (titleId: string) => OrderResult;
+  /** 수락 시점부터 정확히 1거래일 동안 진행하는 단기 작전. */
+  dailyOperation: DailyOperation | null;
+  dailyOperationHistory: DailyOperation[];
+  acceptDailyOperation: (offerId: DailyOperationId) => OrderResult;
   /** 사치재 구매: 현금 차감 후 보유 목록에 추가 (아이템당 1개) */
   purchaseLuxury: (itemId: string) => OrderResult;
   /** 보유 사치재 총 가치(센트) */
@@ -316,6 +330,8 @@ function createInitialState(): MarketSnapshot & {
   recurringInvestments: RecurringInvestment[];
   attendance: AttendanceState;
   selectedTitleId: string;
+  dailyOperation: DailyOperation | null;
+  dailyOperationHistory: DailyOperation[];
   achievements: string[];
   lotteryWindowStart: number;
   lotteryTicketsBought: number;
@@ -372,6 +388,8 @@ function createInitialState(): MarketSnapshot & {
     recurringInvestments: [],
     attendance: normalizeAttendance(undefined),
     selectedTitleId: "rookie",
+    dailyOperation: null,
+    dailyOperationHistory: [],
     achievements: [],
     lotteryWindowStart: alignSessionToGrid(
       Math.floor(now / SESSION_DURATION_MS),
@@ -913,6 +931,39 @@ export const useMarketStore = create<MarketStore>()(
         );
         return { success: true, message: "대표 칭호를 변경했습니다." };
       },
+      acceptDailyOperation: (offerId) => {
+        const state = get();
+        const now = Date.now();
+        const session = Math.floor(now / SESSION_DURATION_MS);
+        if (state.dailyOperation?.status === "active") {
+          return { success: false, message: "이미 진행 중인 오늘의 작전이 있습니다." };
+        }
+        if (state.dailyOperation?.startSession === session) {
+          return { success: false, message: "이번 거래일의 작전은 이미 수행했습니다." };
+        }
+        if (!getDailyOperationOffers(session).some((offer) => offer.id === offerId)) {
+          return { success: false, message: "이번 거래일에 제시된 작전이 아닙니다." };
+        }
+        const equity = fullEquityOf(state);
+        const benchmark = getBenchmark(state.stocks);
+        if (!Number.isFinite(equity) || equity <= 0 || !benchmark) {
+          return { success: false, message: "시장과 순자산 정보를 확인하지 못했습니다." };
+        }
+        const operation = createDailyOperation(
+          offerId,
+          session,
+          equity,
+          benchmark.currentPrice,
+          now,
+        );
+        set({ dailyOperation: operation });
+        const offer = getDailyOperationOffer(offerId);
+        useToastStore.getState().push(
+          `${offer.emoji} 오늘의 작전 시작 · ${offer.title}`,
+          "success",
+        );
+        return { success: true, message: "1거래일 미니 목표를 시작했습니다." };
+      },
       markCharacterMessageRead: (messageId) =>
         set((state) => ({
           readCharacterMessageIds: state.readCharacterMessageIds.includes(messageId)
@@ -1122,6 +1173,10 @@ export const useMarketStore = create<MarketStore>()(
           ),
           attendance: normalizeAttendance(wallet.attendance),
           selectedTitleId: getPlayerTitle(wallet.selectedTitleId).id,
+          dailyOperation: normalizeDailyOperation(wallet.dailyOperation),
+          dailyOperationHistory: normalizeDailyOperationHistory(
+            wallet.dailyOperationHistory,
+          ),
           lastInterestSession:
             cloudClockChanged
               ? nowSession
@@ -1167,6 +1222,8 @@ export const useMarketStore = create<MarketStore>()(
           recurringInvestments: s.recurringInvestments,
           attendance: s.attendance,
           selectedTitleId: s.selectedTitleId,
+          dailyOperation: s.dailyOperation,
+          dailyOperationHistory: s.dailyOperationHistory,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -1506,9 +1563,40 @@ export const useMarketStore = create<MarketStore>()(
           stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
         });
+        let reputation = state.reputation;
+        let dailyOperation = state.dailyOperation;
+        let dailyOperationHistory = state.dailyOperationHistory;
+        if (dailyOperation?.status === "active") {
+          const updatedOperation = updateDailyOperation(dailyOperation, {
+            now,
+            equity: netWorth,
+            benchmarkPrice: getBenchmark(combinedStocks)?.currentPrice ?? 0,
+            cash,
+            holdings,
+            stocks: combinedStocks,
+            trades,
+            marginCallAt,
+          });
+          dailyOperation = updatedOperation;
+          if (
+            updatedOperation.status !== "active" &&
+            !dailyOperationHistory.some((item) => item.id === updatedOperation.id)
+          ) {
+            const succeeded = updatedOperation.status === "completed";
+            dailyOperationHistory = [updatedOperation, ...dailyOperationHistory].slice(0, 20);
+            if (succeeded) reputation += updatedOperation.reward;
+            const offer = getDailyOperationOffer(updatedOperation.offerId);
+            useToastStore.getState().push(
+              succeeded
+                ? `${offer.emoji} 오늘의 작전 성공 · 평판 +${updatedOperation.reward}`
+                : `${offer.emoji} 오늘의 작전 실패 · ${updatedOperation.resultDetail ?? "조건 미달"}`,
+              succeeded ? "success" : "info",
+            );
+            playSound(succeeded ? "cash" : "error");
+          }
+        }
         let investmentMission = state.investmentMission;
         let missionHistory = state.missionHistory;
-        let reputation = state.reputation;
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
           holdings,
@@ -1541,6 +1629,7 @@ export const useMarketStore = create<MarketStore>()(
             const historyItem: InvestmentMissionHistory = {
               id: updatedMission.id,
               kind: updatedMission.kind,
+              offerId: updatedMission.offerId,
               windowStart: updatedMission.windowStart,
               status: updatedMission.status,
               reward: succeeded ? updatedMission.reward : 0,
@@ -1663,6 +1752,8 @@ export const useMarketStore = create<MarketStore>()(
           shorts,
           options,
           marginCallAt,
+          dailyOperation,
+          dailyOperationHistory,
           investmentMission,
           missionHistory,
           reputation,
@@ -2281,6 +2372,8 @@ export const useMarketStore = create<MarketStore>()(
         recurringInvestments: state.recurringInvestments,
         attendance: state.attendance,
         selectedTitleId: state.selectedTitleId,
+        dailyOperation: state.dailyOperation,
+        dailyOperationHistory: state.dailyOperationHistory,
         // 시장 체크포인트는 최근 구간만 저장하고 장기 합성 일봉은 복원 시 재생성한다.
         stocks: state.stocks
           .filter(
@@ -2532,6 +2625,12 @@ export const useMarketStore = create<MarketStore>()(
           selectedTitleId: getPlayerTitle(
             (merged as Partial<MarketStore>).selectedTitleId,
           ).id,
+          dailyOperation: normalizeDailyOperation(
+            (merged as Partial<MarketStore>).dailyOperation,
+          ),
+          dailyOperationHistory: normalizeDailyOperationHistory(
+            (merged as Partial<MarketStore>).dailyOperationHistory,
+          ),
           userId: null,
           isReady: false,
         };

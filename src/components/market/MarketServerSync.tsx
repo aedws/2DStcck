@@ -75,7 +75,9 @@ function CloudSaveSync() {
         state.marginLeverage !== prev.marginLeverage ||
         state.recurringInvestments !== prev.recurringInvestments ||
         state.attendance !== prev.attendance ||
-        state.selectedTitleId !== prev.selectedTitleId;
+        state.selectedTitleId !== prev.selectedTitleId ||
+        state.dailyOperation !== prev.dailyOperation ||
+        state.dailyOperationHistory !== prev.dailyOperationHistory;
       if (!walletChanged) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => saveCloud(), 2000);
