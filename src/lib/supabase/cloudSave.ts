@@ -12,6 +12,7 @@ import type {
   Trade,
 } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
+import type { InvestmentMasteryState } from "@/lib/market/investmentMastery";
 
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
@@ -47,6 +48,7 @@ export interface WalletSave {
   reputation?: number;
   characterProgress?: CharacterProgressMap;
   readCharacterMessageIds?: string[];
+  investmentMastery?: InvestmentMasteryState;
   storyDecision?: StoryDecision | null;
   storyDecisionHistory?: StoryDecision[];
 }

@@ -58,6 +58,11 @@ import {
   isEarningsSession,
 } from "../src/lib/market/earningsCalendar";
 import { getCharacterMessages } from "../src/lib/market/characterMessages";
+import {
+  createInitialMastery,
+  masteryLevel,
+  updateInvestmentMastery,
+} from "../src/lib/market/investmentMastery";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -416,6 +421,60 @@ assert.equal(
   new Set(characterMessages.map((message) => message.id)).size,
   characterMessages.length,
 );
+
+const masteryInput = {
+  trades: [
+    {
+      id: "mastery-option",
+      stockId: relationshipStock.id,
+      ticker: relationshipStock.ticker,
+      type: "option_buy" as const,
+      quantity: 1,
+      price: 60_000,
+      total: 60_000,
+      timestamp: windowStart * SESSION_DURATION_MS,
+      optionId: "mastery-option-contract",
+      optionKind: "call" as const,
+      optionSide: "long" as const,
+      strike: relationshipStock.currentPrice,
+      expirySession: windowStart + 5,
+    },
+  ],
+  cashPayments: [
+    {
+      id: "mastery-dividend",
+      kind: "dividend" as const,
+      sourceId: relationshipStock.id,
+      dueSession: windowStart,
+      amount: 1_000,
+      timestamp: windowStart * SESSION_DURATION_MS,
+    },
+  ],
+  missionHistory: [
+    {
+      id: "mastery-growth-mission",
+      kind: "growth" as const,
+      windowStart,
+      status: "completed" as const,
+      reward: 120,
+      completedAt: windowStart * SESSION_DURATION_MS,
+      playerReturn: 0.04,
+      benchmarkReturn: 0.01,
+    },
+  ],
+  holdings: [],
+  stocks: [relationshipStock],
+  equity: 10_000_000,
+  initialCash: 10_000_000,
+  marginCallAt: null,
+  currentSession: windowStart + 1,
+};
+const mastery = updateInvestmentMastery(createInitialMastery(), masteryInput);
+assert.equal(mastery.xp.growth, 40);
+assert.equal(mastery.xp.income, 15);
+assert.equal(mastery.xp.derivatives, 12);
+assert.deepEqual(updateInvestmentMastery(mastery, masteryInput), mastery);
+assert.equal(masteryLevel(150), 2);
 
 const growth = createInvestmentMission("growth", windowStart, 10_000_000, 100_000, 1);
 assert.equal(
