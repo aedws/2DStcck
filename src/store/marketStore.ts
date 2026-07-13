@@ -97,6 +97,13 @@ import {
 import { ACHIEVEMENTS } from "@/data/achievements";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
+import {
+  drawLotteryPrize,
+  LOTTERY_INTERVAL_DAYS,
+  LOTTERY_MAX_PER_WINDOW,
+  LOTTERY_TICKET_PRICE,
+  type LotteryResult,
+} from "@/lib/market/lottery";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -130,6 +137,16 @@ interface MarketStore extends MarketSnapshot {
   achievements: string[];
   /** 현재 상태 기준으로 새 업적을 판정·해금 (토스트) */
   checkAchievements: () => void;
+  /** 현재 복권 회차 시작 거래일 */
+  lotteryWindowStart: number;
+  /** 현재 회차에 구매한 복권 장수 */
+  lotteryTicketsBought: number;
+  /** 잭팟 당첨 이력 (업적용) */
+  wonJackpot: boolean;
+  /** 즉석 복권 1장 구매 (현금 전용). 결과 즉시 반환 */
+  buyLottery: () => LotteryResult;
+  /** 이번 회차 남은 복권 장수 */
+  getLotteryTicketsLeft: () => number;
   /** 옵션 매수 (프리미엄 지불) */
   buyOption: (
     stockId: string,
@@ -186,6 +203,9 @@ function createInitialState(): MarketSnapshot & {
   netWorthHistory: NetWorthPoint[];
   marginCallAt: number | null;
   achievements: string[];
+  lotteryWindowStart: number;
+  lotteryTicketsBought: number;
+  wonJackpot: boolean;
 } {
   const now = Date.now();
   return {
@@ -219,6 +239,12 @@ function createInitialState(): MarketSnapshot & {
     netWorthHistory: [],
     marginCallAt: null,
     achievements: [],
+    lotteryWindowStart: alignSessionToGrid(
+      Math.floor(now / SESSION_DURATION_MS),
+      LOTTERY_INTERVAL_DAYS,
+    ),
+    lotteryTicketsBought: 0,
+    wonJackpot: false,
   };
 }
 
@@ -565,6 +591,14 @@ export const useMarketStore = create<MarketStore>()(
           shorts: wallet.shorts ?? [],
           options: wallet.options ?? [],
           achievements: wallet.achievements ?? [],
+          lotteryWindowStart:
+            wallet.lotteryWindowStart ??
+            alignSessionToGrid(
+              Math.floor(Date.now() / SESSION_DURATION_MS),
+              LOTTERY_INTERVAL_DAYS,
+            ),
+          lotteryTicketsBought: wallet.lotteryTicketsBought ?? 0,
+          wonJackpot: wallet.wonJackpot ?? false,
           lastInterestSession:
             wallet.lastInterestSession ??
             Math.floor(Date.now() / SESSION_DURATION_MS),
@@ -589,6 +623,9 @@ export const useMarketStore = create<MarketStore>()(
           shorts: s.shorts,
           options: s.options,
           achievements: s.achievements,
+          lotteryWindowStart: s.lotteryWindowStart,
+          lotteryTicketsBought: s.lotteryTicketsBought,
+          wonJackpot: s.wonJackpot,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -1188,6 +1225,7 @@ export const useMarketStore = create<MarketStore>()(
           usedMargin: s.cash < 0,
           marginCalled: s.marginCallAt !== null,
           luxuryCount: s.ownedLuxuries.length,
+          wonJackpot: s.wonJackpot,
         };
         const newly = ACHIEVEMENTS.filter(
           (a) => !unlocked.has(a.id) && a.check(ctx),
@@ -1200,6 +1238,65 @@ export const useMarketStore = create<MarketStore>()(
             .push(`🏆 업적 달성 · ${a.emoji} ${a.title}`, "success");
         }
         playSound("cash");
+      },
+
+      getLotteryTicketsLeft: () => {
+        const s = get();
+        const window = alignSessionToGrid(
+          Math.floor(Date.now() / SESSION_DURATION_MS),
+          LOTTERY_INTERVAL_DAYS,
+        );
+        const bought =
+          s.lotteryWindowStart === window ? s.lotteryTicketsBought : 0;
+        return Math.max(0, LOTTERY_MAX_PER_WINDOW - bought);
+      },
+
+      buyLottery: () => {
+        const state = get();
+        const now = Date.now();
+        const window = alignSessionToGrid(
+          Math.floor(now / SESSION_DURATION_MS),
+          LOTTERY_INTERVAL_DAYS,
+        );
+        const bought =
+          state.lotteryWindowStart === window ? state.lotteryTicketsBought : 0;
+        if (bought >= LOTTERY_MAX_PER_WINDOW) {
+          return {
+            success: false,
+            message: "이번 회차 복권을 모두 구매했습니다.",
+          };
+        }
+        if (state.cash < LOTTERY_TICKET_PRICE) {
+          return { success: false, message: "보유 현금이 부족합니다." };
+        }
+        const prize = drawLotteryPrize();
+        const net = prize.amount - LOTTERY_TICKET_PRICE;
+        const payment: CashPayment = {
+          id: `lottery-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          kind: "lottery",
+          sourceId: "lottery",
+          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          amount: net,
+          timestamp: now,
+        };
+        set({
+          cash: state.cash + net,
+          lotteryWindowStart: window,
+          lotteryTicketsBought: bought + 1,
+          wonJackpot: state.wonJackpot || prize.tier === "jackpot",
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore
+          .getState()
+          .push(
+            prize.tier === "lose"
+              ? "복권 꽝… 다음 기회에!"
+              : `🎉 복권 당첨 · ${prize.label}`,
+            prize.tier === "lose" ? "info" : "success",
+          );
+        playSound(prize.tier === "lose" ? "error" : "cash");
+        get().checkAchievements();
+        return { success: true, message: prize.label, prize };
       },
 
       reset: () => set(createInitialState()),
@@ -1228,6 +1325,9 @@ export const useMarketStore = create<MarketStore>()(
         ownedLuxuries: state.ownedLuxuries,
         netWorthHistory: state.netWorthHistory,
         achievements: state.achievements,
+        lotteryWindowStart: state.lotteryWindowStart,
+        lotteryTicketsBought: state.lotteryTicketsBought,
+        wonJackpot: state.wonJackpot,
         // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
         // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
         stocks: state.stocks.filter(
@@ -1322,6 +1422,17 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (merged as Partial<MarketStore>).achievements!
             : [],
+          lotteryWindowStart: Number.isSafeInteger(
+            (merged as Partial<MarketStore>).lotteryWindowStart,
+          )
+            ? (merged as Partial<MarketStore>).lotteryWindowStart!
+            : alignSessionToGrid(nowSession, LOTTERY_INTERVAL_DAYS),
+          lotteryTicketsBought: Number.isSafeInteger(
+            (merged as Partial<MarketStore>).lotteryTicketsBought,
+          )
+            ? (merged as Partial<MarketStore>).lotteryTicketsBought!
+            : 0,
+          wonJackpot: Boolean((merged as Partial<MarketStore>).wonJackpot),
           userId: null,
           isReady: false,
         };

@@ -45,7 +45,7 @@ export default function CharactersPage() {
           return (
             <Link
               key={company.id}
-              href={`/stock/${company.id}`}
+              href={`/characters/${company.id}`}
               className={`flex items-start gap-3 rounded-2xl border p-4 transition hover:border-[var(--accent)]/50 ${
                 held
                   ? "border-[var(--accent)]/40 bg-[var(--accent)]/5"

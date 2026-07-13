@@ -195,7 +195,8 @@ export type CashPaymentKind =
   | "salary"
   | "covered_call"
   | "dividend"
-  | "interest";
+  | "interest"
+  | "lottery";
 
 /** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
 export interface CashPayment {
@@ -219,6 +220,10 @@ export interface MarketEvent {
   timestamp: number;
   category?: EventCategory;
   tag?: string;
+  /** 회사 이벤트일 때 그 회사 캐릭터의 한마디 */
+  quote?: string;
+  /** 대사 화자 (이모지 + 이름) */
+  quoteBy?: string;
 }
 
 export interface MarketSnapshot {

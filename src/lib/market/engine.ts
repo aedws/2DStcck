@@ -29,6 +29,7 @@ import {
   STOCK_DEFINITIONS,
 } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
+import { pickEventQuote } from "@/data/eventQuotes";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import { COVERED_CALL_INTERVAL_DAYS } from "@/lib/market/distributions";
 
@@ -625,6 +626,8 @@ export function resolveEventTemplate(
   let title = template.title;
   let description = template.description;
   let affectedStockIds: string[];
+  let quote: string | undefined;
+  let quoteBy: string | undefined;
 
   if (template.category === "company") {
     const candidates = getCompanyDefinitions().filter(
@@ -646,6 +649,11 @@ export function resolveEventTemplate(
         .replaceAll("{title}", ceo?.title ?? "");
     title = substitute(title);
     description = substitute(description);
+    if (ceo) {
+      const picked = pickEventQuote(template.tag, ceo, rand);
+      quote = picked.quote;
+      quoteBy = picked.quoteBy;
+    }
   } else if (template.category === "sector" && template.sector) {
     affectedStockIds = STOCK_DEFINITIONS.filter(
       (d) => d.sector === template.sector,
@@ -664,6 +672,8 @@ export function resolveEventTemplate(
     timestamp: now,
     category: template.category,
     tag: template.tag,
+    quote,
+    quoteBy,
   };
 }
 
