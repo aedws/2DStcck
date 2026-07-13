@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { AuthButton } from "@/components/auth/AuthButton";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import {
+  MISSION_TUTORIAL_STEPS,
+  MISSION_TUTORIAL_VERSION,
+  OPTIONS_TUTORIAL_STEPS,
+  SEASON_TUTORIAL_STEPS,
+  SEASON_TUTORIAL_VERSION,
+} from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 
+type TutorialKind = "mission" | "options" | "season";
+
 export default function SettingsPage() {
+  const [openTutorial, setOpenTutorial] = useState<TutorialKind | null>(null);
   const groupDerivatives = useSettingsStore((state) => state.groupDerivatives);
   const setGroupDerivatives = useSettingsStore(
     (state) => state.setGroupDerivatives,
@@ -13,17 +25,61 @@ export default function SettingsPage() {
   const setMissionTutorialSeen = useSettingsStore(
     (state) => state.setMissionTutorialSeen,
   );
+  const setMissionTutorialVersion = useSettingsStore(
+    (state) => state.setMissionTutorialVersion,
+  );
   const setOptionsTutorialSeen = useSettingsStore(
     (state) => state.setOptionsTutorialSeen,
   );
   const setSeasonTutorialSeen = useSettingsStore(
     (state) => state.setSeasonTutorialSeen,
   );
+  const setSeasonTutorialVersion = useSettingsStore(
+    (state) => state.setSeasonTutorialVersion,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
+  const tutorialSteps =
+    openTutorial === "mission"
+      ? MISSION_TUTORIAL_STEPS
+      : openTutorial === "options"
+        ? OPTIONS_TUTORIAL_STEPS
+        : openTutorial === "season"
+          ? SEASON_TUTORIAL_STEPS
+          : null;
+
+  function showTutorial(kind: TutorialKind) {
+    if (kind === "mission") {
+      setMissionTutorialSeen(false);
+      setMissionTutorialVersion(0);
+    } else if (kind === "options") {
+      setOptionsTutorialSeen(false);
+    } else {
+      setSeasonTutorialSeen(false);
+      setSeasonTutorialVersion(0);
+    }
+    setOpenTutorial(kind);
+  }
+
+  function finishTutorial() {
+    if (openTutorial === "mission") {
+      setMissionTutorialSeen(true);
+      setMissionTutorialVersion(MISSION_TUTORIAL_VERSION);
+    } else if (openTutorial === "options") {
+      setOptionsTutorialSeen(true);
+    } else if (openTutorial === "season") {
+      setSeasonTutorialSeen(true);
+      setSeasonTutorialVersion(SEASON_TUTORIAL_VERSION);
+    }
+    setOpenTutorial(null);
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {tutorialSteps && (
+        <FeatureTutorialModal steps={tutorialSteps} onFinish={finishTutorial} />
+      )}
       <div>
         <h1 className="text-2xl font-bold">설정</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -35,15 +91,15 @@ export default function SettingsPage() {
         <div className="border-b border-[var(--border)] px-4 py-3">
           <h2 className="text-sm font-semibold">계정 관리</h2>
         </div>
-        <div className="flex min-h-20 items-center justify-between gap-4 px-4 py-3">
+        <div className="flex min-h-20 flex-col items-stretch justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center sm:py-3">
           <div className="min-w-0">
             <p className="text-sm font-medium">로그인·로그아웃</p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
               로그인하면 현재 지갑과 진행 기록이 Supabase 계정에 동기화됩니다.
             </p>
           </div>
-          <div className="shrink-0">
-            <AuthButton />
+          <div className="w-full shrink-0 sm:w-auto sm:min-w-44">
+            <AuthButton wide />
           </div>
         </div>
       </section>
@@ -92,8 +148,9 @@ export default function SettingsPage() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setOnboarded(false)}
-          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>🎮</span>
@@ -107,8 +164,9 @@ export default function SettingsPage() {
           <span className="text-[var(--muted)]">›</span>
         </button>
         <button
-          onClick={() => setMissionTutorialSeen(false)}
-          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+          type="button"
+          onClick={() => showTutorial("mission")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>📋</span>
@@ -122,8 +180,9 @@ export default function SettingsPage() {
           <span className="text-[var(--muted)]">›</span>
         </button>
         <button
-          onClick={() => setOptionsTutorialSeen(false)}
-          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+          type="button"
+          onClick={() => showTutorial("options")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>🎟️</span>
@@ -137,8 +196,9 @@ export default function SettingsPage() {
           <span className="text-[var(--muted)]">›</span>
         </button>
         <button
-          onClick={() => setSeasonTutorialSeen(false)}
-          className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
+          type="button"
+          onClick={() => showTutorial("season")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>🏆</span>

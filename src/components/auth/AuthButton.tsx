@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useToastStore } from "@/store/toastStore";
 
-export function AuthButton() {
+export function AuthButton({ wide = false }: { wide?: boolean }) {
   const [gameId, setGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -32,12 +32,21 @@ export function AuthButton() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <span
+        aria-label="계정 정보 확인 중"
+        className={`${wide ? "flex w-full" : "inline-flex"} min-h-11 animate-pulse items-center justify-center rounded-xl bg-[var(--border)]/50 px-4 text-xs text-[var(--muted)]`}
+      >
+        확인 중…
+      </span>
+    );
+  }
 
   if (gameId) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="hidden max-w-[120px] truncate text-xs text-[var(--muted)] sm:inline">
+      <div className={`flex items-center gap-2 ${wide ? "w-full" : ""}`}>
+        <span className={`${wide ? "block" : "hidden sm:inline"} min-w-0 max-w-[120px] flex-1 truncate text-xs text-[var(--muted)]`}>
           {gameId}
         </span>
         <button
@@ -55,7 +64,7 @@ export function AuthButton() {
             }
             window.location.reload();
           }}
-          className="whitespace-nowrap rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-semibold hover:border-[var(--accent)] disabled:cursor-wait disabled:opacity-60"
+          className={`${wide ? "min-w-28" : ""} relative z-10 min-h-11 touch-manipulation whitespace-nowrap rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-semibold hover:border-[var(--accent)] disabled:cursor-wait disabled:opacity-60`}
         >
           {signingOut ? "로그아웃 중…" : "↪ 로그아웃"}
         </button>
@@ -66,7 +75,7 @@ export function AuthButton() {
   return (
     <Link
       href="/login"
-      className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white"
+      className={`${wide ? "w-full" : ""} relative z-10 flex min-h-11 touch-manipulation items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-xs font-semibold text-white`}
     >
       로그인
     </Link>

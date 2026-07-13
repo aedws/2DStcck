@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SeasonCeremonyModal } from "@/components/season/SeasonCeremonyModal";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import {
+  SEASON_TUTORIAL_STEPS,
+  SEASON_TUTORIAL_VERSION,
+} from "@/data/featureTutorials";
 import { formatPrice } from "@/lib/market/engine";
 import { getBenchmark } from "@/lib/market/interestRate";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
@@ -26,40 +30,6 @@ import type {
 } from "@/lib/market/investmentSeasons";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
-
-const SEASON_TUTORIAL_VERSION = 2;
-const SEASON_TUTORIAL_STEPS = [
-  {
-    emoji: "🏁",
-    title: "20거래일 동안 지수와 경쟁합니다",
-    body: "첫 접속부터 개인 투자 시즌이 자동 시작됩니다. 1거래일은 실제 1시간이며 게임을 닫아도 시장과 남은 기간은 계속 진행됩니다.",
-  },
-  {
-    emoji: "⚖️",
-    title: "절대 수익보다 초과수익이 중요합니다",
-    body: "내 순자산 수익률에서 같은 기간 V-NASDAQ 수익률을 뺀 값으로 티어를 평가합니다. 지수가 -10%일 때 -5%만 기록해도 초과수익은 +5%p입니다.",
-  },
-  {
-    emoji: "🎯",
-    title: "시즌 운용 목표와 비중을 선택합니다",
-    body: "성장·인컴·방어 중 하나와 목표 비중을 고릅니다. 거래일이 바뀔 때 비중이 기준보다 낮으면 시즌 점수가 2점 감소하며, 지킨 날에는 목표 난도에 따른 보너스가 쌓입니다.",
-  },
-  {
-    emoji: "⚔️",
-    title: "가상 라이벌과 시즌 점수를 겨룹니다",
-    body: "시즌마다 결정론적으로 정해지는 가상 투자자가 같은 20거래일을 달립니다. 상대와 성과 경로는 재접속해도 바뀌지 않으며 종료 시 시즌 점수로 승패를 정합니다.",
-  },
-  {
-    emoji: "🧾",
-    title: "투자 실력만 평가합니다",
-    body: "매매 손익·배당·분배금·이자 비용은 반영하지만 고정급과 복권 손익은 제외합니다. 티어는 초과수익률, 시즌 점수는 목표 준수와 라이벌 승부에 사용됩니다.",
-  },
-  {
-    emoji: "🎉",
-    title: "시상식 후 다음 시즌이 시작됩니다",
-    body: "별도 제출 없이 자동 정산되고 티어·점수·목표 준수율·라이벌 승패를 시상식에서 확인합니다. 결과는 지난 시즌 기록에 보존됩니다.",
-  },
-];
 
 const TIER_STYLE: Record<InvestmentSeasonTierId, string> = {
   bronze: "border-orange-700/40 bg-orange-700/10 text-orange-300",

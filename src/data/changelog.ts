@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "수정",
+    title: "모바일 설정 계정·튜토리얼 터치 복구",
+    detail:
+      "설정의 로그인·로그아웃 버튼을 모바일 한 줄 전체 너비와 최소 44px 터치 영역으로 확장했습니다. 의뢰·관계, 옵션 거래, 투자 시즌 튜토리얼은 상태만 초기화하던 동작을 고쳐 누른 즉시 설정 화면에서 안내가 열리며, 튜토리얼 내부 조작부도 모바일 터치 크기에 맞췄습니다.",
+  },
+  {
+    date: "2026-07-14",
     tag: "신규",
     title: "시즌 종료 기계적 시장 복기",
     detail:

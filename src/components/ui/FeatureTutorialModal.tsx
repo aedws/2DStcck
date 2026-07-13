@@ -21,7 +21,7 @@ export function FeatureTutorialModal({
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-[90] flex touch-manipulation items-end justify-center overscroll-contain bg-black/60 p-4 backdrop-blur-sm sm:items-center">
       <div
         role="dialog"
         aria-modal="true"
@@ -31,8 +31,9 @@ export function FeatureTutorialModal({
         <div className="flex justify-between">
           <span className="text-4xl" aria-hidden>{current.emoji}</span>
           <button
+            type="button"
             onClick={onFinish}
-            className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+            className="min-h-11 rounded-lg px-3 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             건너뛰기
           </button>
@@ -58,15 +59,17 @@ export function FeatureTutorialModal({
         <div className="mt-5 flex gap-2">
           {step > 0 && (
             <button
+              type="button"
               onClick={() => setStep((value) => value - 1)}
-              className="rounded-xl border border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--muted)]"
+              className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--muted)]"
             >
               이전
             </button>
           )}
           <button
+            type="button"
             onClick={() => (isLast ? onFinish() : setStep((value) => value + 1))}
-            className="flex-1 rounded-xl bg-[var(--accent)] py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            className="min-h-11 flex-1 rounded-xl bg-[var(--accent)] py-3 text-sm font-semibold text-white transition hover:opacity-90"
           >
             {isLast ? "확인했어요" : "다음"}
           </button>
