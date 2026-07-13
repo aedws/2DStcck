@@ -24,7 +24,11 @@ import type {
 } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
 import { LUXURY_BY_ID } from "@/data/luxuries";
-import { getLuxuryValue } from "@/lib/market/luxury";
+import {
+  getLuxuryValue,
+  getLuxuryShowcase,
+  getTopLuxuryTier,
+} from "@/lib/market/luxury";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   MARKET_EPOCH_MS,
@@ -42,7 +46,11 @@ import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
 } from "@/lib/market/distributions";
-import { loadGameSave, saveGameSave } from "@/lib/supabase/cloudSave";
+import {
+  loadGameSave,
+  saveGameSave,
+  syncLeaderboard,
+} from "@/lib/supabase/cloudSave";
 
 /**
  * 클라우드 계정 동기화 사용 가능 여부 (Supabase 설정 시).
@@ -290,6 +298,19 @@ export const useMarketStore = create<MarketStore>()(
           lastMonthlyDistributionSession: s.lastMonthlyDistributionSession,
           lastQuarterlyDividendSession: s.lastQuarterlyDividendSession,
           ownedLuxuries: s.ownedLuxuries,
+        });
+
+        // 공유 리더보드 갱신: 순자산·수익률·과시 요약을 본인 행에 반영
+        const netWorth = s.getTotalAssets();
+        await syncLeaderboard({
+          netWorth,
+          returnRate:
+            s.initialCash > 0
+              ? ((netWorth - s.initialCash) / s.initialCash) * 100
+              : 0,
+          topTier: getTopLuxuryTier(s.ownedLuxuries),
+          luxuryCount: s.ownedLuxuries.length,
+          showcase: getLuxuryShowcase(s.ownedLuxuries),
         });
       },
 

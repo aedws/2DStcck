@@ -24,6 +24,8 @@ npm run dev
    - `006_fixed_salary.sql`
    - `007_periodic_distributions.sql`
    - `008_game_accounts.sql`
+   - `009_game_saves.sql`
+   - `010_leaderboard.sql`
 3. **Authentication** → Email 활성화
 
 ### 2. Edge Functions 배포
