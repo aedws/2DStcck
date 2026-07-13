@@ -12,6 +12,7 @@ import { isPumpStock } from "@/lib/market/pumpStocks";
 const navItems = [
   { href: "/", label: "홈" },
   { href: "/calendar", label: "실적" },
+  { href: "/season", label: "시즌" },
   { href: "/leaderboard", label: "랭킹" },
   { href: "/portfolio", label: "내 계좌" },
   { href: "/mastery", label: "숙련도" },

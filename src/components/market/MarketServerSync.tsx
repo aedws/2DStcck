@@ -65,6 +65,7 @@ function CloudSaveSync() {
         state.characterProgress !== prev.characterProgress ||
         state.readCharacterMessageIds !== prev.readCharacterMessageIds ||
         state.investmentMastery !== prev.investmentMastery ||
+        state.investmentSeason !== prev.investmentSeason ||
         state.storyDecision !== prev.storyDecision ||
         state.storyDecisionHistory !== prev.storyDecisionHistory;
       if (!walletChanged) return;

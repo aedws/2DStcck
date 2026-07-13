@@ -140,6 +140,14 @@ import {
   updateInvestmentMastery,
   type InvestmentMasteryState,
 } from "@/lib/market/investmentMastery";
+import {
+  createInitialInvestmentSeasonState,
+  getInvestmentSeasonTier,
+  normalizeInvestmentSeasonState,
+  seasonExternalCashTotal,
+  updateInvestmentSeason,
+  type InvestmentSeasonState,
+} from "@/lib/market/investmentSeasons";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -187,6 +195,8 @@ interface MarketStore extends MarketSnapshot {
   characterProgress: CharacterProgressMap;
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
+  /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
+  investmentSeason: InvestmentSeasonState;
   markCharacterMessageRead: (messageId: string) => void;
   markAllCharacterMessagesRead: (messageIds: string[]) => void;
   acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
@@ -263,6 +273,7 @@ function createInitialState(): MarketSnapshot & {
   characterProgress: CharacterProgressMap;
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
+  investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
 } {
@@ -315,6 +326,7 @@ function createInitialState(): MarketSnapshot & {
     characterProgress: {},
     readCharacterMessageIds: [],
     investmentMastery: createInitialMastery(),
+    investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
     storyDecisionHistory: [],
   };
@@ -743,6 +755,9 @@ export const useMarketStore = create<MarketStore>()(
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
           ),
+          investmentSeason: normalizeInvestmentSeasonState(
+            wallet.investmentSeason,
+          ),
           storyDecision: wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
           lastInterestSession:
@@ -780,6 +795,7 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress: s.characterProgress,
           readCharacterMessageIds: s.readCharacterMessageIds,
           investmentMastery: s.investmentMastery,
+          investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
           storyDecisionHistory: s.storyDecisionHistory,
           lastInterestSession: s.lastInterestSession,
@@ -1146,6 +1162,25 @@ export const useMarketStore = create<MarketStore>()(
             currentSession,
           },
         );
+        const seasonUpdate = updateInvestmentSeason(
+          state.investmentSeason,
+          {
+            currentSession,
+            equity: netWorth,
+            benchmarkPrice: getBenchmark(combinedStocks)?.currentPrice ?? 0,
+            externalCashTotal: seasonExternalCashTotal(cashPayments),
+            now,
+          },
+        );
+        const investmentSeason = seasonUpdate.state;
+        if (seasonUpdate.completed) {
+          const tier = getInvestmentSeasonTier(seasonUpdate.completed.tierId);
+          useToastStore.getState().push(
+            `${tier.emoji} 시즌 ${seasonUpdate.completed.number} 종료 · ${tier.name} · 지수 대비 ${seasonUpdate.completed.alpha >= 0 ? "+" : ""}${(seasonUpdate.completed.alpha * 100).toFixed(2)}%p`,
+            seasonUpdate.completed.alpha >= 0 ? "success" : "info",
+          );
+          playSound(seasonUpdate.completed.alpha >= 0 ? "cash" : "error");
+        }
         nextEvents = nextEvents.map(ensureEventDialogue);
 
         set({
@@ -1165,6 +1200,7 @@ export const useMarketStore = create<MarketStore>()(
           reputation,
           characterProgress,
           investmentMastery,
+          investmentSeason,
           storyDecision,
           storyDecisionHistory,
           trades,
@@ -1767,6 +1803,7 @@ export const useMarketStore = create<MarketStore>()(
         characterProgress: state.characterProgress,
         readCharacterMessageIds: state.readCharacterMessageIds,
         investmentMastery: state.investmentMastery,
+        investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory,
         // 자동 레버리지 상품은 기초종목에서 즉시 재구성한다. 커버드콜은 누적
@@ -1922,6 +1959,9 @@ export const useMarketStore = create<MarketStore>()(
             : [],
           investmentMastery: normalizeInvestmentMastery(
             (merged as Partial<MarketStore>).investmentMastery,
+          ),
+          investmentSeason: normalizeInvestmentSeasonState(
+            (merged as Partial<MarketStore>).investmentSeason,
           ),
           storyDecision:
             (merged as Partial<MarketStore>).storyDecision ?? null,

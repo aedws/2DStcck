@@ -75,10 +75,84 @@ import {
   masteryLevel,
   updateInvestmentMastery,
 } from "../src/lib/market/investmentMastery";
+import {
+  INVESTMENT_SEASON_SESSIONS,
+  createInitialInvestmentSeasonState,
+  seasonTierForAlpha,
+  updateInvestmentSeason,
+} from "../src/lib/market/investmentSeasons";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+assert.equal(seasonTierForAlpha(-0.051).id, "bronze");
+assert.equal(seasonTierForAlpha(-0.05).id, "silver");
+assert.equal(seasonTierForAlpha(-0.02).id, "gold");
+assert.equal(seasonTierForAlpha(0).id, "platinum");
+assert.equal(seasonTierForAlpha(0.02).id, "diamond");
+assert.equal(seasonTierForAlpha(0.05).id, "master");
+const seasonStarted = updateInvestmentSeason(
+  createInitialInvestmentSeasonState(),
+  { currentSession: session, equity: 1_000_000, benchmarkPrice: 10_000 },
+);
+assert.ok(seasonStarted.state.current);
+assert.equal(
+  seasonStarted.state.current.endSession,
+  session + INVESTMENT_SEASON_SESSIONS,
+);
+const seasonInProgress = updateInvestmentSeason(seasonStarted.state, {
+  currentSession: session + 19,
+  equity: 900_000,
+  benchmarkPrice: 9_500,
+});
+assert.equal(seasonInProgress.completed, null);
+assert.equal(seasonInProgress.state.current?.minimumEquity, 900_000);
+const seasonCompleted = updateInvestmentSeason(seasonInProgress.state, {
+  currentSession: session + 20,
+  equity: 1_080_000,
+  benchmarkPrice: 10_500,
+  now: 123_456,
+});
+assert.equal(seasonCompleted.completed?.tierId, "diamond");
+assert.ok(Math.abs((seasonCompleted.completed?.alpha ?? 0) - 0.03) < 1e-9);
+assert.equal(seasonCompleted.state.history.length, 1);
+assert.equal(seasonCompleted.state.current?.number, 2);
+assert.equal(seasonCompleted.state.current?.startSession, session + 20);
+const defensiveSeason = updateInvestmentSeason(
+  updateInvestmentSeason(createInitialInvestmentSeasonState(), {
+    currentSession: session,
+    equity: 1_000_000,
+    benchmarkPrice: 10_000,
+  }).state,
+  {
+    currentSession: session + 20,
+    equity: 950_000,
+    benchmarkPrice: 9_000,
+  },
+);
+assert.equal(defensiveSeason.completed?.tierId, "master");
+assert.ok(
+  (defensiveSeason.completed?.playerReturn ?? 0) < 0 &&
+    (defensiveSeason.completed?.alpha ?? 0) >= 0.05 - 1e-9,
+  "losing less than the benchmark should still earn a high defensive tier",
+);
+const salaryNeutralSeason = updateInvestmentSeason(
+  updateInvestmentSeason(createInitialInvestmentSeasonState(), {
+    currentSession: session,
+    equity: 1_000_000,
+    benchmarkPrice: 10_000,
+    externalCashTotal: 0,
+  }).state,
+  {
+    currentSession: session + 20,
+    equity: 1_100_000,
+    benchmarkPrice: 10_000,
+    externalCashTotal: 100_000,
+  },
+);
+assert.ok(Math.abs(salaryNeutralSeason.completed?.playerReturn ?? 1) < 1e-9);
+assert.equal(salaryNeutralSeason.completed?.tierId, "platinum");
 
 const earnings = getEarningsCalendar(session, session + EARNINGS_INTERVAL_SESSIONS);
 assert.ok(earnings.length > 0, "earnings calendar should expose upcoming reports");
