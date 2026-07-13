@@ -157,6 +157,30 @@ export function optionsMarginReserve(
   return reserve;
 }
 
+/**
+ * 옵션 총노출: 롱은 현재 프리미엄(최대손실 자산), 숏은 최대손실 근사 증거금.
+ * 롱 옵션을 노출에서 빼면 프리미엄 지불과 평가자산 증가가 상쇄되어 매수여력이
+ * 줄지 않는 무한 레버리지 문제가 생기므로 마진 계산에 반드시 포함한다.
+ */
+export function optionsGrossExposure(
+  options: OptionPosition[],
+  stocks: StockState[],
+  currentSession: number,
+  rateAnnualDecimal: number,
+): number {
+  let exposure = 0;
+  for (const pos of options) {
+    const stock = stocks.find((candidate) => candidate.id === pos.stockId);
+    if (!stock) continue;
+    const perContract =
+      pos.side === "long"
+        ? positionMark(pos, stock, currentSession, rateAnnualDecimal)
+        : shortMarginPerContract(pos, stock);
+    exposure += perContract * pos.quantity;
+  }
+  return exposure;
+}
+
 export function optionLabel(kind: OptionKind, side: OptionSide): string {
   const k = kind === "call" ? "콜" : "풋";
   return side === "long" ? `${k} 매수` : `${k} 발행`;

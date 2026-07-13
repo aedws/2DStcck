@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/client";
 import type {
   CashPayment,
   Holding,
+  InvestmentMission,
+  InvestmentMissionHistory,
   OpenOrder,
   OptionPosition,
   ShortPosition,
@@ -37,6 +39,9 @@ export interface WalletSave {
   lotteryWindowStart?: number;
   lotteryTicketsBought?: number;
   wonJackpot?: boolean;
+  investmentMission?: InvestmentMission | null;
+  missionHistory?: InvestmentMissionHistory[];
+  reputation?: number;
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */
@@ -89,9 +94,12 @@ export interface LeaderboardEntry {
 export async function syncLeaderboard(stats: {
   netWorth: number;
   returnRate: number;
+  initialCash: number;
+  marketSession: number;
   topTier: number;
   luxuryCount: number;
   showcase: string[];
+  reputation: number;
 }): Promise<boolean> {
   const supabase = createClient();
   const {
@@ -103,6 +111,45 @@ export async function syncLeaderboard(stats: {
     (user.user_metadata?.game_id as string | undefined) ??
     user.email?.split("@")[0] ??
     "익명";
+
+  // 브라우저 개발자 도구의 단순 값 변조를 먼저 거른다. 진짜 권한 경계는
+  // 011 마이그레이션의 submit_leaderboard RPC이며, 저장 지갑과 세션을 재검증한다.
+  const expectedReturn =
+    stats.initialCash > 0
+      ? ((stats.netWorth - stats.initialCash) / stats.initialCash) * 100
+      : Number.NaN;
+  if (
+    !Number.isSafeInteger(Math.round(stats.netWorth)) ||
+    !Number.isSafeInteger(Math.round(stats.initialCash)) ||
+    stats.initialCash <= 0 ||
+    !Number.isFinite(stats.returnRate) ||
+    Math.abs(expectedReturn - stats.returnRate) > 0.05 ||
+    !Number.isSafeInteger(stats.marketSession) ||
+    stats.luxuryCount < 0 ||
+    stats.luxuryCount > 100 ||
+    stats.reputation < 0
+  ) {
+    return false;
+  }
+
+  const { error: rpcError } = await supabase.rpc("submit_leaderboard", {
+    p_display_name: displayName,
+    p_net_worth: Math.round(stats.netWorth),
+    p_return_rate: Number(stats.returnRate.toFixed(2)),
+    p_initial_cash: Math.round(stats.initialCash),
+    p_market_session: stats.marketSession,
+    p_top_tier: stats.topTier,
+    p_luxury_count: stats.luxuryCount,
+    p_showcase: stats.showcase,
+    p_reputation: Math.round(stats.reputation),
+  });
+  if (!rpcError) return true;
+
+  // 마이그레이션 적용 전 개발 DB 호환. 함수가 존재하는데 검증에 실패한 경우에는
+  // 직접 upsert로 우회하지 않는다.
+  if (rpcError.code !== "42883" && !rpcError.message.includes("submit_leaderboard")) {
+    return false;
+  }
 
   const { error } = await supabase.from("leaderboard").upsert({
     user_id: user.id,

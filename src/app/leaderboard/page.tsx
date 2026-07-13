@@ -44,7 +44,7 @@ export default function LeaderboardPage() {
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         모두가 같은 시장에서 경쟁합니다. 순위 기준은 <b>순자산</b>(현금 + 주식 +
-        사치재)입니다.
+        감가 후 사치재 가치)입니다.
       </p>
 
       {loading ? (

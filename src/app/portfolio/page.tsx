@@ -18,6 +18,8 @@ import { getLuxuryValue } from "@/lib/market/luxury";
 import {
   computeRealizedPnl,
   computeUnrealizedPnl,
+  computeShortUnrealizedPnl,
+  computeOptionUnrealizedPnl,
 } from "@/lib/market/portfolioStats";
 import {
   longValue as computeLongValue,
@@ -34,6 +36,7 @@ export default function PortfolioPage() {
   const cash = useMarketStore((s) => s.cash);
   const holdings = useMarketStore((s) => s.holdings);
   const shorts = useMarketStore((s) => s.shorts);
+  const options = useMarketStore((s) => s.options);
   const stocks = useMarketStore((s) => s.stocks);
   const trades = useMarketStore((s) => s.trades);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
@@ -63,9 +66,17 @@ export default function PortfolioPage() {
   const returnRate = ((total - initialCash) / initialCash) * 100;
   const recentMarginCall =
     marginCallAt !== null && Date.now() - marginCallAt < 5 * 60 * 1000;
-  const realizedPnl = computeRealizedPnl(trades);
-  const unrealizedPnl = computeUnrealizedPnl(holdings, priceById);
   const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
+  const realizedPnl = computeRealizedPnl(trades);
+  const unrealizedPnl =
+    computeUnrealizedPnl(holdings, priceById) +
+    computeShortUnrealizedPnl(shorts, priceById) +
+    computeOptionUnrealizedPnl(
+      options,
+      stocks,
+      currentSession,
+      getAnnualRatePercent(rateLevel) / 100,
+    );
   const salaryDays = getSalaryDaysRemaining(
     lastSalarySession,
     currentSession,

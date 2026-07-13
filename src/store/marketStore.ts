@@ -18,6 +18,9 @@ import type {
   Holding,
   MarketSnapshot,
   NetWorthPoint,
+  InvestmentMission,
+  InvestmentMissionHistory,
+  InvestmentMissionKind,
   OpenOrder,
   OrderResult,
   OrderType,
@@ -69,12 +72,13 @@ import {
   positionMark,
   intrinsic,
   optionsEquityDelta,
-  optionsMarginReserve,
+  optionsGrossExposure,
   shortMarginPerContract,
 } from "@/lib/market/options";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   MARKET_EPOCH_MS,
+  MARKET_SIM_VERSION,
   SESSION_DURATION_MS,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
@@ -104,6 +108,10 @@ import {
   LOTTERY_TICKET_PRICE,
   type LotteryResult,
 } from "@/lib/market/lottery";
+import {
+  createInvestmentMission,
+  updateInvestmentMission,
+} from "@/lib/market/missions";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -143,6 +151,11 @@ interface MarketStore extends MarketSnapshot {
   lotteryTicketsBought: number;
   /** 잭팟 당첨 이력 (업적용) */
   wonJackpot: boolean;
+  /** 5거래일 투자 의뢰·평판 진행 상태 */
+  investmentMission: InvestmentMission | null;
+  missionHistory: InvestmentMissionHistory[];
+  reputation: number;
+  acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
   /** 즉석 복권 1장 구매 (현금 전용). 결과 즉시 반환 */
   buyLottery: () => LotteryResult;
   /** 이번 회차 남은 복권 장수 */
@@ -206,9 +219,13 @@ function createInitialState(): MarketSnapshot & {
   lotteryWindowStart: number;
   lotteryTicketsBought: number;
   wonJackpot: boolean;
+  investmentMission: InvestmentMission | null;
+  missionHistory: InvestmentMissionHistory[];
+  reputation: number;
 } {
   const now = Date.now();
   return {
+    marketVersion: MARKET_SIM_VERSION,
     tick: 0,
     // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
     marketStartedAt: MARKET_EPOCH_MS,
@@ -245,6 +262,9 @@ function createInitialState(): MarketSnapshot & {
     ),
     lotteryTicketsBought: 0,
     wonJackpot: false,
+    investmentMission: null,
+    missionHistory: [],
+    reputation: 0,
   };
 }
 
@@ -297,7 +317,7 @@ function marginContext(s: {
   const optDelta = optionsEquityDelta(s.options, s.stocks, session, rate);
   const exposure =
     grossExposure(s.holdings, s.shorts, prices) +
-    optionsMarginReserve(s.options, s.stocks);
+    optionsGrossExposure(s.options, s.stocks, session, rate);
   return { prices, equity: stockEquity + optDelta, exposure };
 }
 
@@ -366,9 +386,11 @@ function settleExpiredOptions(
   options: OptionPosition[],
   stocks: StockState[],
   currentSession: number,
-): { cash: number; options: OptionPosition[] } {
+  now: number,
+): { cash: number; options: OptionPosition[]; trades: Trade[] } {
   let nextCash = cash;
   const remaining: OptionPosition[] = [];
+  const trades: Trade[] = [];
   for (const pos of options) {
     if (pos.expirySession > currentSession) {
       remaining.push(pos);
@@ -377,8 +399,23 @@ function settleExpiredOptions(
     const stock = stocks.find((s) => s.id === pos.stockId);
     const iv = stock ? intrinsic(pos.kind, stock.currentPrice, pos.strike) : 0;
     nextCash += (pos.side === "long" ? iv : -iv) * pos.quantity;
+    trades.push({
+      id: `option-expire-${now}-${pos.id}`,
+      stockId: pos.stockId,
+      ticker: stock?.ticker ?? pos.stockId.toUpperCase(),
+      type: "option_expire",
+      quantity: pos.quantity,
+      price: iv,
+      total: iv * pos.quantity,
+      timestamp: now,
+      optionId: pos.id,
+      optionKind: pos.kind,
+      optionSide: pos.side,
+      strike: pos.strike,
+      expirySession: pos.expirySession,
+    });
   }
-  return { cash: nextCash, options: remaining };
+  return { cash: nextCash, options: remaining, trades };
 }
 
 /** 유지증거금 미달 시 롱·공매도·옵션 전 포지션을 현재가/마크로 강제 청산한다. */
@@ -437,6 +474,24 @@ function liquidatePositions(
     if (!stock) continue;
     const mark = positionMark(pos, stock, session, rate);
     nextCash += (pos.side === "long" ? mark : -mark) * pos.quantity;
+    nextTrades = [
+      {
+        id: `liq-option-${now}-${pos.id}`,
+        stockId: pos.stockId,
+        ticker: stock.ticker,
+        type: "option_close",
+        quantity: pos.quantity,
+        price: mark,
+        total: mark * pos.quantity,
+        timestamp: now,
+        optionId: pos.id,
+        optionKind: pos.kind,
+        optionSide: pos.side,
+        strike: pos.strike,
+        expirySession: pos.expirySession,
+      },
+      ...nextTrades,
+    ];
   }
   return {
     cash: nextCash,
@@ -529,6 +584,7 @@ function applyLocalBuySell(
       holdings: merged.holdings,
       trades: [merged.trade, ...state.trades],
     });
+    get().checkAchievements();
     return {
       success: true,
       message:
@@ -553,6 +609,7 @@ function applyLocalBuySell(
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
   });
+  get().checkAchievements();
   return {
     success: true,
     message: `${label} (${formatPrice(price)})`,
@@ -599,6 +656,9 @@ export const useMarketStore = create<MarketStore>()(
             ),
           lotteryTicketsBought: wallet.lotteryTicketsBought ?? 0,
           wonJackpot: wallet.wonJackpot ?? false,
+          investmentMission: wallet.investmentMission ?? null,
+          missionHistory: wallet.missionHistory ?? [],
+          reputation: wallet.reputation ?? 0,
           lastInterestSession:
             wallet.lastInterestSession ??
             Math.floor(Date.now() / SESSION_DURATION_MS),
@@ -626,6 +686,9 @@ export const useMarketStore = create<MarketStore>()(
           lotteryWindowStart: s.lotteryWindowStart,
           lotteryTicketsBought: s.lotteryTicketsBought,
           wonJackpot: s.wonJackpot,
+          investmentMission: s.investmentMission,
+          missionHistory: s.missionHistory,
+          reputation: s.reputation,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -637,9 +700,12 @@ export const useMarketStore = create<MarketStore>()(
             s.initialCash > 0
               ? ((netWorth - s.initialCash) / s.initialCash) * 100
               : 0,
+          initialCash: s.initialCash,
+          marketSession: Math.floor(Date.now() / SESSION_DURATION_MS),
           topTier: getTopLuxuryTier(s.ownedLuxuries),
           luxuryCount: s.ownedLuxuries.length,
           showcase: getLuxuryShowcase(s.ownedLuxuries),
+          reputation: s.reputation,
         });
       },
 
@@ -797,9 +863,13 @@ export const useMarketStore = create<MarketStore>()(
           state.options,
           combinedStocks,
           currentSession,
+          now,
         );
         cash = expired.cash;
         let options = expired.options;
+        if (expired.trades.length > 0) {
+          trades = [...expired.trades, ...trades];
+        }
 
         // 마진 이자·공매도 대여수수료 (경과 거래일만큼)
         const interest = settleInterest(
@@ -871,6 +941,45 @@ export const useMarketStore = create<MarketStore>()(
           stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
         });
+        let investmentMission = state.investmentMission;
+        let missionHistory = state.missionHistory;
+        let reputation = state.reputation;
+        if (investmentMission?.status === "active") {
+          const benchmarkPrice = getBenchmark(combinedStocks)?.currentPrice ?? 0;
+          const updatedMission = updateInvestmentMission(
+            investmentMission,
+            currentSession,
+            netWorth,
+            benchmarkPrice,
+            now,
+          );
+          investmentMission = updatedMission;
+          if (
+            updatedMission.status !== "active" &&
+            !missionHistory.some((item) => item.id === updatedMission.id)
+          ) {
+            const succeeded = updatedMission.status === "completed";
+            const historyItem: InvestmentMissionHistory = {
+              id: updatedMission.id,
+              kind: updatedMission.kind,
+              windowStart: updatedMission.windowStart,
+              status: updatedMission.status,
+              reward: succeeded ? updatedMission.reward : 0,
+              completedAt: updatedMission.completedAt ?? now,
+              playerReturn: updatedMission.playerReturn ?? 0,
+              benchmarkReturn: updatedMission.benchmarkReturn ?? 0,
+            };
+            missionHistory = [historyItem, ...missionHistory].slice(0, 30);
+            if (succeeded) reputation += updatedMission.reward;
+            useToastStore.getState().push(
+              succeeded
+                ? `📋 투자 의뢰 성공 · 평판 +${updatedMission.reward}`
+                : "📋 투자 의뢰 실패 · 다음 회차에 다시 도전하세요",
+              succeeded ? "success" : "info",
+            );
+            playSound(succeeded ? "cash" : "error");
+          }
+        }
         const netWorthHistory = appendNetWorthPoint(
           state.netWorthHistory,
           netWorth,
@@ -889,6 +998,9 @@ export const useMarketStore = create<MarketStore>()(
           shorts,
           options,
           marginCallAt,
+          investmentMission,
+          missionHistory,
+          reputation,
           trades,
           openOrders: remainingOrders,
           lastSalarySession: settled.lastSalarySession,
@@ -941,6 +1053,33 @@ export const useMarketStore = create<MarketStore>()(
       sellCurrent: (stockId, quantity) =>
         applyLocalBuySell(set, get, "sellCurrent", stockId, quantity),
 
+      acceptInvestmentMission: (kind) => {
+        const state = get();
+        const now = Date.now();
+        const session = Math.floor(now / SESSION_DURATION_MS);
+        if (state.investmentMission?.status === "active") {
+          return { success: false, message: "이미 진행 중인 투자 의뢰가 있습니다." };
+        }
+        const equity = fullEquityOf(state);
+        if (!Number.isFinite(equity) || equity <= 0) {
+          return { success: false, message: "순자산이 0보다 커야 의뢰를 시작할 수 있습니다." };
+        }
+        const benchmark = getBenchmark(state.stocks);
+        if (!benchmark) {
+          return { success: false, message: "벤치마크 정보를 불러오지 못했습니다." };
+        }
+        set({
+          investmentMission: createInvestmentMission(
+            kind,
+            session,
+            equity,
+            benchmark.currentPrice,
+            now,
+          ),
+        });
+        return { success: true, message: "5거래일 투자 의뢰를 시작했습니다." };
+      },
+
       purchaseLuxury: (itemId) => {
         const item = LUXURY_BY_ID.get(itemId);
         if (!item) return { success: false, message: "존재하지 않는 상품입니다." };
@@ -960,6 +1099,7 @@ export const useMarketStore = create<MarketStore>()(
           cash: state.cash - item.price,
           ownedLuxuries: [...state.ownedLuxuries, owned],
         });
+        get().checkAchievements();
         return {
           success: true,
           message: `${item.emoji} ${item.name} 구매 완료`,
@@ -1002,6 +1142,7 @@ export const useMarketStore = create<MarketStore>()(
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
         });
+        get().checkAchievements();
         return {
           success: true,
           message: `공매도 (${formatPrice(price)})`,
@@ -1038,6 +1179,7 @@ export const useMarketStore = create<MarketStore>()(
       buyOption: (stockId, kind, strike, expirySession, quantity) => {
         get().settleCashflows();
         const state = get();
+        const now = Date.now();
         if (quantity <= 0 || !Number.isInteger(quantity)) {
           return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
         }
@@ -1050,7 +1192,7 @@ export const useMarketStore = create<MarketStore>()(
         ) {
           return { success: false, message: "지수·선물·급등주는 옵션이 없습니다." };
         }
-        const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const session = Math.floor(now / SESSION_DURATION_MS);
         if (expirySession <= session) {
           return { success: false, message: "이미 만기된 옵션입니다." };
         }
@@ -1067,8 +1209,10 @@ export const useMarketStore = create<MarketStore>()(
           return { success: false, message: "프리미엄이 거의 없는 옵션입니다." };
         }
         const cost = premium * quantity;
-        if (cost > fullBuyingPower(state)) {
-          return { success: false, message: "매수여력이 부족합니다." };
+        // 옵션 프리미엄은 현금으로만 결제한다. 평가자산과 프리미엄 지출이
+        // 상쇄되는 구조에서 마진을 허용하면 롱 옵션을 무한히 살 수 있다.
+        if (cost > Math.max(0, state.cash)) {
+          return { success: false, message: "옵션 프리미엄을 낼 현금이 부족합니다." };
         }
         const id = `opt-${stockId}-${kind}-long-${strike}-${expirySession}`;
         const existing = state.options.find((o) => o.id === id);
@@ -1096,10 +1240,26 @@ export const useMarketStore = create<MarketStore>()(
                 expirySession,
                 quantity,
                 openPremium: premium,
-                openedAt: Date.now(),
+                openedAt: now,
               },
             ];
-        set({ cash: state.cash - cost, options });
+        const trade: Trade = {
+          id: `option-buy-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          stockId,
+          ticker: stock.ticker,
+          type: "option_buy",
+          quantity,
+          price: premium,
+          total: cost,
+          timestamp: now,
+          optionId: id,
+          optionKind: kind,
+          optionSide: "long",
+          strike,
+          expirySession,
+        };
+        set({ cash: state.cash - cost, options, trades: [trade, ...state.trades] });
+        get().checkAchievements();
         return {
           success: true,
           message: `${kind === "call" ? "콜" : "풋"} 매수 (${formatPrice(premium)})`,
@@ -1109,6 +1269,7 @@ export const useMarketStore = create<MarketStore>()(
       writeOption: (stockId, kind, strike, expirySession, quantity) => {
         get().settleCashflows();
         const state = get();
+        const now = Date.now();
         if (quantity <= 0 || !Number.isInteger(quantity)) {
           return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
         }
@@ -1121,7 +1282,7 @@ export const useMarketStore = create<MarketStore>()(
         ) {
           return { success: false, message: "지수·선물·급등주는 옵션이 없습니다." };
         }
-        const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const session = Math.floor(now / SESSION_DURATION_MS);
         if (expirySession <= session) {
           return { success: false, message: "이미 만기된 옵션입니다." };
         }
@@ -1144,7 +1305,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession,
           quantity,
           openPremium: premium,
-          openedAt: Date.now(),
+          openedAt: now,
         };
         const margin = shortMarginPerContract(draft, stock) * quantity;
         if (margin > fullBuyingPower(state)) {
@@ -1165,7 +1326,27 @@ export const useMarketStore = create<MarketStore>()(
                 : o,
             )
           : [...state.options, draft];
-        set({ cash: state.cash + premium * quantity, options });
+        const trade: Trade = {
+          id: `option-write-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          stockId,
+          ticker: stock.ticker,
+          type: "option_write",
+          quantity,
+          price: premium,
+          total: premium * quantity,
+          timestamp: now,
+          optionId: id,
+          optionKind: kind,
+          optionSide: "short",
+          strike,
+          expirySession,
+        };
+        set({
+          cash: state.cash + premium * quantity,
+          options,
+          trades: [trade, ...state.trades],
+        });
+        get().checkAchievements();
         return {
           success: true,
           message: `${kind === "call" ? "콜" : "풋"} 발행 (+${formatPrice(premium)})`,
@@ -1175,6 +1356,7 @@ export const useMarketStore = create<MarketStore>()(
       closeOption: (optionId, quantity) => {
         get().settleCashflows();
         const state = get();
+        const now = Date.now();
         const pos = state.options.find((o) => o.id === optionId);
         if (!pos) return { success: false, message: "옵션 포지션이 없습니다." };
         if (quantity <= 0 || quantity > pos.quantity) {
@@ -1182,7 +1364,7 @@ export const useMarketStore = create<MarketStore>()(
         }
         const stock = state.stocks.find((s) => s.id === pos.stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-        const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const session = Math.floor(now / SESSION_DURATION_MS);
         const mark = positionMark(
           pos,
           stock,
@@ -1199,7 +1381,26 @@ export const useMarketStore = create<MarketStore>()(
         // long 청산 = 되팔아 현금 유입, short 청산 = 되사서 현금 유출
         const delta =
           pos.side === "long" ? mark * quantity : -mark * quantity;
-        set({ cash: state.cash + delta, options });
+        const trade: Trade = {
+          id: `option-close-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          stockId: pos.stockId,
+          ticker: stock.ticker,
+          type: "option_close",
+          quantity,
+          price: mark,
+          total: mark * quantity,
+          timestamp: now,
+          optionId: pos.id,
+          optionKind: pos.kind,
+          optionSide: pos.side,
+          strike: pos.strike,
+          expirySession: pos.expirySession,
+        };
+        set({
+          cash: state.cash + delta,
+          options,
+          trades: [trade, ...state.trades],
+        });
         return {
           success: true,
           message: `옵션 청산 (${formatPrice(mark)})`,
@@ -1309,6 +1510,7 @@ export const useMarketStore = create<MarketStore>()(
       name: "2dstock-market-local",
       partialize: (state) => ({
         tick: state.tick,
+        marketVersion: state.marketVersion,
         marketStartedAt: state.marketStartedAt,
         cash: state.cash,
         initialCash: state.initialCash,
@@ -1328,6 +1530,9 @@ export const useMarketStore = create<MarketStore>()(
         lotteryWindowStart: state.lotteryWindowStart,
         lotteryTicketsBought: state.lotteryTicketsBought,
         wonJackpot: state.wonJackpot,
+        investmentMission: state.investmentMission,
+        missionHistory: state.missionHistory,
+        reputation: state.reputation,
         // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
         // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
         stocks: state.stocks.filter(
@@ -1350,6 +1555,7 @@ export const useMarketStore = create<MarketStore>()(
             (s) => definedIds.has(s.id) && Array.isArray(s.dailyCandles),
           );
         const marketValid =
+          merged.marketVersion === MARKET_SIM_VERSION &&
           merged.marketStartedAt === MARKET_EPOCH_MS &&
           Number.isSafeInteger(merged.tick) &&
           merged.tick >= 0 &&
@@ -1372,6 +1578,7 @@ export const useMarketStore = create<MarketStore>()(
 
         return {
           ...merged,
+          marketVersion: MARKET_SIM_VERSION,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
           stocks: restoredStocks,
@@ -1433,6 +1640,18 @@ export const useMarketStore = create<MarketStore>()(
             ? (merged as Partial<MarketStore>).lotteryTicketsBought!
             : 0,
           wonJackpot: Boolean((merged as Partial<MarketStore>).wonJackpot),
+          investmentMission:
+            (merged as Partial<MarketStore>).investmentMission ?? null,
+          missionHistory: Array.isArray(
+            (merged as Partial<MarketStore>).missionHistory,
+          )
+            ? (merged as Partial<MarketStore>).missionHistory!
+            : [],
+          reputation: Number.isFinite(
+            (merged as Partial<MarketStore>).reputation,
+          )
+            ? Math.max(0, (merged as Partial<MarketStore>).reputation ?? 0)
+            : 0,
           userId: null,
           isReady: false,
         };

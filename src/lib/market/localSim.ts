@@ -23,6 +23,7 @@ import {
   calculateCoveredCallDistribution,
 } from "@/lib/market/distributions";
 import { generateOrderBook } from "@/lib/market/orderBook";
+import { getStoryEventForSession } from "@/lib/market/storyArcs";
 import type {
   Candle,
   MarketEvent,
@@ -169,6 +170,14 @@ export function replayMarket(
 
   let prevSession = Math.floor(simTickTime(fromTick) / SESSION_DURATION_MS);
 
+  // 기원점 첫 회차의 1단계 사건은 세션 경계가 다시 오지 않으므로 한 번 시드한다.
+  if (fromTick === 0) {
+    const openingStory = getStoryEventForSession(prevSession);
+    if (openingStory && !events.some((event) => event.id === openingStory.id)) {
+      events = [...events, openingStory].slice(-50);
+    }
+  }
+
   for (let tick = fromTick + 1; tick <= toTick; tick++) {
     const now = simTickTime(tick);
     const session = Math.floor(now / SESSION_DURATION_MS);
@@ -244,6 +253,11 @@ export function replayMarket(
     // (플레이어 현금 지급은 cashflows가 별도로 처리 — 여기서는 주가 조정만)
     if (session !== prevSession) {
       for (let s = prevSession + 1; s <= session; s++) {
+        const storyEvent = getStoryEventForSession(s);
+        if (storyEvent && !events.some((event) => event.id === storyEvent.id)) {
+          events = [...events, storyEvent].slice(-50);
+        }
+
         const sinceEpoch = s - EPOCH_SESSION;
         if (sinceEpoch <= 0) continue;
         const ccDue = sinceEpoch % COVERED_CALL_INTERVAL_DAYS === 0;

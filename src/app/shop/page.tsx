@@ -42,8 +42,8 @@ export default function ShopPage() {
       <div className="mb-5">
         <h1 className="text-2xl font-bold">🛍️ 사치재 상점</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          현금으로 구매하며, 보유 사치재의 가치는 <b>순자산에 그대로 합산</b>되어
-          랭킹에 과시 뱃지로 노출됩니다. 사도 순위가 내려가지 않아요.
+          현금으로 구매하면 구매가의 <b>70%가 순자산 가치</b>로 남고 30%는
+          소비·감가됩니다. 과시 뱃지는 랭킹에 그대로 노출됩니다.
         </p>
       </div>
 

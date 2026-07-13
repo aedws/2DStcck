@@ -58,7 +58,10 @@ function CloudSaveSync() {
         state.cashPayments !== prev.cashPayments ||
         state.ownedLuxuries !== prev.ownedLuxuries ||
         state.shorts !== prev.shorts ||
-        state.options !== prev.options;
+        state.options !== prev.options ||
+        state.investmentMission !== prev.investmentMission ||
+        state.missionHistory !== prev.missionHistory ||
+        state.reputation !== prev.reputation;
       if (!walletChanged) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => saveCloud(), 2000);

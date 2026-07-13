@@ -34,6 +34,11 @@ export default function NewsPage() {
             return (
               <li key={event.id} className="rounded-2xl bg-[var(--surface)] p-4">
                 <div className="flex items-center gap-2">
+                  {event.storyStageLabel && (
+                    <span className="shrink-0 rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                      {event.storyStageLabel}
+                    </span>
+                  )}
                   <span className={`text-xs ${upDownClass(event.impact)}`}>
                     {event.impact >= 0 ? "▲" : "▼"}
                   </span>

@@ -14,6 +14,6 @@ export interface LuxuryItem {
 export interface OwnedLuxury {
   id: string;
   purchasedAt: number;
-  /** 구매 당시 가격(센트). 순자산 합산·정렬에 사용해 카탈로그 변경과 무관하게 안정적. */
+  /** 구매 당시 가격(센트). 감가 후 순자산 합산 기준으로 사용한다. */
   paidPrice: number;
 }

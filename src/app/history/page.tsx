@@ -2,6 +2,27 @@
 
 import { formatPrice, formatTradeTime } from "@/lib/market/engine";
 import { useMarketStore } from "@/store/marketStore";
+import type { Trade } from "@/lib/types/market";
+
+function tradeLabel(trade: Trade): string {
+  switch (trade.type) {
+    case "buy": return "매수";
+    case "sell": return "매도";
+    case "short": return "공매도";
+    case "cover": return "공매도 청산";
+    case "option_buy": return `${trade.optionKind === "put" ? "풋" : "콜"} 매수`;
+    case "option_write": return `${trade.optionKind === "put" ? "풋" : "콜"} 발행`;
+    case "option_close": return "옵션 청산";
+    case "option_expire": return "옵션 만기";
+  }
+}
+
+function isCashOutflow(trade: Trade): boolean {
+  if (trade.type === "buy" || trade.type === "cover" || trade.type === "option_buy") return true;
+  if (trade.type === "option_close") return trade.optionSide === "short";
+  if (trade.type === "option_expire") return trade.optionSide === "short";
+  return false;
+}
 
 export default function HistoryPage() {
   const trades = useMarketStore((s) => s.trades);
@@ -103,18 +124,12 @@ export default function HistoryPage() {
                   <td className="px-4 py-3">
                     <span
                       className={
-                        trade.type === "buy" || trade.type === "cover"
+                        isCashOutflow(trade)
                           ? "text-[var(--up)]"
                           : "text-[var(--down)]"
                       }
                     >
-                      {trade.type === "buy"
-                        ? "매수"
-                        : trade.type === "sell"
-                          ? "매도"
-                          : trade.type === "short"
-                            ? "공매도"
-                            : "공매도 청산"}
+                      {tradeLabel(trade)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-mono">

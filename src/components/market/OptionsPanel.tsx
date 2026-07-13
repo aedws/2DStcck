@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
-import type { OptionKind, StockState } from "@/lib/types/market";
+import type { StockState } from "@/lib/types/market";
 import { formatPrice } from "@/lib/market/engine";
 import { upDownClass } from "@/lib/ui/marketColors";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";

@@ -1,13 +1,15 @@
 import { LUXURY_BY_ID } from "@/data/luxuries";
 import type { OwnedLuxury } from "@/lib/types/luxury";
 
-/**
- * 보유 사치재의 순자산 합산 가치(센트).
- * 구매가(paidPrice)를 그대로 자산으로 인정하므로 "사도 순자산이 줄지 않고"
- * 현금이 사치재 자산으로 형태만 바뀐다 → 랭킹 손해 없이 과시 가능.
- */
+/** 구매 즉시 소비·감가되는 비율. 나머지만 순자산으로 인정한다. */
+export const LUXURY_ACCOUNTING_RATE = 0.7;
+
+/** 보유 사치재의 순자산 합산 가치(구매가의 70%, 센트). */
 export function getLuxuryValue(owned: OwnedLuxury[]): number {
-  return owned.reduce((sum, item) => sum + (item.paidPrice ?? 0), 0);
+  return owned.reduce(
+    (sum, item) => sum + Math.round((item.paidPrice ?? 0) * LUXURY_ACCOUNTING_RATE),
+    0,
+  );
 }
 
 /** 보유 사치재 중 가장 높은 과시 등급(없으면 0). 랭킹 뱃지에 사용. */

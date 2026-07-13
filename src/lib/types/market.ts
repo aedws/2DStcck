@@ -178,7 +178,15 @@ export interface OptionPosition {
   openedAt: number;
 }
 
-export type TradeType = "buy" | "sell" | "short" | "cover";
+export type TradeType =
+  | "buy"
+  | "sell"
+  | "short"
+  | "cover"
+  | "option_buy"
+  | "option_write"
+  | "option_close"
+  | "option_expire";
 
 export interface Trade {
   id: string;
@@ -189,6 +197,12 @@ export interface Trade {
   price: number;
   total: number;
   timestamp: number;
+  /** 옵션 거래일 때 계약 식별·손익 재생에 사용한다. */
+  optionId?: string;
+  optionKind?: OptionKind;
+  optionSide?: OptionSide;
+  strike?: number;
+  expirySession?: number;
 }
 
 export type CashPaymentKind =
@@ -224,9 +238,49 @@ export interface MarketEvent {
   quote?: string;
   /** 대사 화자 (이모지 + 이름) */
   quoteBy?: string;
+  /** 3단계 연속 시장 사건 식별자와 현재 단계. */
+  storyId?: string;
+  storyStage?: "rumor" | "clue" | "resolution";
+  storyStageLabel?: string;
+  storyWindowStart?: number;
+  storyResolveSession?: number;
+  /** 단서 단계에서 표시하는 발언 신뢰도(0~100). */
+  storyConfidence?: number;
+}
+
+export type InvestmentMissionKind = "growth" | "benchmark" | "risk";
+export type InvestmentMissionStatus = "active" | "completed" | "failed";
+
+/** 5거래일 단위 투자 의뢰 진행 상태. 현금 대신 평판을 보상한다. */
+export interface InvestmentMission {
+  id: string;
+  kind: InvestmentMissionKind;
+  windowStart: number;
+  endSession: number;
+  acceptedAt: number;
+  startEquity: number;
+  startBenchmarkPrice: number;
+  minEquity: number;
+  status: InvestmentMissionStatus;
+  reward: number;
+  completedAt?: number;
+  playerReturn?: number;
+  benchmarkReturn?: number;
+}
+
+export interface InvestmentMissionHistory {
+  id: string;
+  kind: InvestmentMissionKind;
+  windowStart: number;
+  status: Exclude<InvestmentMissionStatus, "active">;
+  reward: number;
+  completedAt: number;
+  playerReturn: number;
+  benchmarkReturn: number;
 }
 
 export interface MarketSnapshot {
+  marketVersion: number;
   tick: number;
   marketStartedAt: number;
   cash: number;
