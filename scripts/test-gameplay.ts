@@ -16,9 +16,11 @@ import {
   positionMark,
 } from "../src/lib/market/options";
 import { computeRealizedPnl } from "../src/lib/market/portfolioStats";
+import { buildDailyScorecard } from "../src/lib/market/dailyScorecard";
+import { SESSION_DURATION_MS } from "../src/lib/market/constants";
 import type { OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
-const session = Math.floor(Date.now() / (3 * 60 * 60 * 1000));
+const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
 
 const arcA = getStoryArcForWindow(windowStart);
@@ -113,5 +115,31 @@ const chronologicalTrades: Trade[] = [
 ];
 const trades: Trade[] = [...chronologicalTrades].reverse(); // 실제 저장 순서(최신순)
 assert.equal(computeRealizedPnl(trades), 120);
+
+const reportSession = 123;
+const reportStart = reportSession * SESSION_DURATION_MS;
+const scorecardTrades: Trade[] = [
+  { id: "score-4", stockId: "b", ticker: "B", type: "cover", quantity: 1, price: 150, total: 150, timestamp: reportStart + 4 },
+  { id: "score-3", stockId: "b", ticker: "B", type: "short", quantity: 1, price: 200, total: 200, timestamp: reportStart + 3 },
+  { id: "score-2", stockId: "a", ticker: "A", type: "sell", quantity: 1, price: 130, total: 130, timestamp: reportStart + 2 },
+  { id: "score-1", stockId: "a", ticker: "A", type: "buy", quantity: 1, price: 100, total: 100, timestamp: reportStart + 1 },
+];
+const scorecard = buildDailyScorecard(scorecardTrades, reportSession, 10_000, null);
+assert.equal(scorecard.realizedPnl, 80);
+assert.equal(scorecard.tradeCount, 4);
+assert.equal(scorecard.closeCount, 2);
+assert.equal(scorecard.winRate, 1);
+assert.equal(scorecard.bestTrade?.ticker, "B");
+assert.equal(scorecard.bestTrade?.pnl, 50);
+assert.equal(scorecard.grade, "A");
+
+const marginCallScorecard = buildDailyScorecard(
+  scorecardTrades,
+  reportSession,
+  10_000,
+  reportStart + 5,
+);
+assert.equal(marginCallScorecard.marginCalled, true);
+assert.ok(marginCallScorecard.score < scorecard.score);
 
 console.log("gameplay balance and progression scenarios passed");
