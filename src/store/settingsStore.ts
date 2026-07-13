@@ -11,6 +11,8 @@ interface SettingsState {
   setOnboarded: (value: boolean) => void;
   missionTutorialSeen: boolean;
   setMissionTutorialSeen: (value: boolean) => void;
+  missionTutorialVersion: number;
+  setMissionTutorialVersion: (value: number) => void;
   optionsTutorialSeen: boolean;
   setOptionsTutorialSeen: (value: boolean) => void;
   /** 체결·현금 효과음 사용 여부 */
@@ -31,6 +33,9 @@ export const useSettingsStore = create<SettingsState>()(
       missionTutorialSeen: false,
       setMissionTutorialSeen: (missionTutorialSeen) =>
         set({ missionTutorialSeen }),
+      missionTutorialVersion: 0,
+      setMissionTutorialVersion: (missionTutorialVersion) =>
+        set({ missionTutorialVersion }),
       optionsTutorialSeen: false,
       setOptionsTutorialSeen: (optionsTutorialSeen) =>
         set({ optionsTutorialSeen }),

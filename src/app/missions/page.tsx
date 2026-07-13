@@ -28,11 +28,27 @@ import {
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
+const MISSION_TUTORIAL_VERSION = 2;
 const MISSION_TUTORIAL_STEPS = [
   {
     emoji: "📋",
     title: "캐릭터의 5거래일 투자 의뢰",
-    body: "현재 사건의 캐릭터가 의뢰인이 됩니다. 세 가지 목표 중 하나를 골라 5거래일 동안 순자산 성과를 만들어 보세요.",
+    body: "현재 사건의 캐릭터가 의뢰인이 됩니다. 제시된 목표 중 하나를 골라 5거래일 동안 순자산 성과를 만들어 보세요.",
+  },
+  {
+    emoji: "✅",
+    title: "1. 목표 하나를 선택해 수락",
+    body: "아래 의뢰 카드에서 목표와 보상을 확인한 뒤 ‘이 의뢰 선택’을 누르세요. 그 순간의 순자산과 V-NASDAQ 가격이 시작 기준으로 기록되며, 의뢰는 하나만 진행할 수 있습니다.",
+  },
+  {
+    emoji: "📈",
+    title: "2. 5거래일 동안 자유롭게 매매",
+    body: "현물·공매도·옵션 등 원하는 수단으로 목표를 달성하세요. 1거래일은 실제 3시간이며, 게임을 닫아도 시장과 남은 거래일은 계속 진행됩니다.",
+  },
+  {
+    emoji: "🏁",
+    title: "3. 진행률 확인 후 자동 정산",
+    body: "의뢰 카드에서 현재 순자산·내 수익률·시장 수익률과 진행률을 확인할 수 있습니다. 종료 거래일이 되면 자동으로 성공 또는 실패를 판정하므로 별도 제출 버튼은 없습니다.",
   },
   {
     emoji: "🤝",
@@ -70,6 +86,8 @@ export default function MissionsPage() {
   const onboarded = useSettingsStore((state) => state.onboarded);
   const tutorialSeen = useSettingsStore((state) => state.missionTutorialSeen);
   const setTutorialSeen = useSettingsStore((state) => state.setMissionTutorialSeen);
+  const tutorialVersion = useSettingsStore((state) => state.missionTutorialVersion);
+  const setTutorialVersion = useSettingsStore((state) => state.setMissionTutorialVersion);
   useEffect(() => setMounted(true), []);
   const now = Date.now();
   const session = Math.floor(now / SESSION_DURATION_MS);
@@ -88,10 +106,13 @@ export default function MissionsPage() {
 
   return (
     <div className="mx-auto max-w-4xl pb-20">
-      {mounted && onboarded && !tutorialSeen && (
+      {mounted && onboarded && (!tutorialSeen || tutorialVersion < MISSION_TUTORIAL_VERSION) && (
         <FeatureTutorialModal
           steps={MISSION_TUTORIAL_STEPS}
-          onFinish={() => setTutorialSeen(true)}
+          onFinish={() => {
+            setTutorialSeen(true);
+            setTutorialVersion(MISSION_TUTORIAL_VERSION);
+          }}
         />
       )}
       <div className="mb-6 flex items-end justify-between gap-4">
