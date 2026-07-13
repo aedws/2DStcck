@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { formatPrice, getDayChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
-import { useMarketStore } from "@/store/marketStore";
+import { IS_CLOUD_ENABLED, useMarketStore } from "@/store/marketStore";
 
 const navItems = [
   { href: "/", label: "홈" },
@@ -50,14 +50,19 @@ export function TossHeader() {
           <StockSearch />
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--up)] opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--up)]" />
+        <div className="ml-auto flex items-center gap-2.5">
+          <span className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--up)] opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--up)]" />
+            </span>
+            <span className="hidden text-xs text-[var(--muted)] sm:inline">
+              실시간
+            </span>
           </span>
-          <span className="hidden text-xs text-[var(--muted)] sm:inline">
-            실시간
-          </span>
+          {IS_CLOUD_ENABLED && (
+            <span className="h-4 w-px bg-[var(--border)]" aria-hidden />
+          )}
           <AuthButton />
         </div>
       </div>
