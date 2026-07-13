@@ -65,16 +65,22 @@ export default function SettingsPage() {
 
       <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
         <div className="border-b border-[var(--border)] px-4 py-3">
-          <h2 className="text-sm font-semibold">도움말</h2>
+          <h2 className="text-sm font-semibold">튜토리얼 다시 보기</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            필요한 기능의 안내만 따로 초기화할 수 있습니다.
+          </p>
         </div>
         <button
           onClick={() => setOnboarded(false)}
           className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
-          <span>
-            <span className="block text-sm font-medium">튜토리얼 다시 보기</span>
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🎮</span>
+            <span>
+            <span className="block text-sm font-medium">기본 게임 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
-              게임 방법 안내를 처음부터 다시 봅니다.
+              매매·뉴스·고정급·순자산 목표를 다시 안내합니다.
+            </span>
             </span>
           </span>
           <span className="text-[var(--muted)]">›</span>
@@ -83,10 +89,13 @@ export default function SettingsPage() {
           onClick={() => setMissionTutorialSeen(false)}
           className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
-          <span>
-            <span className="block text-sm font-medium">의뢰·관계 튜토리얼 다시 보기</span>
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>📋</span>
+            <span>
+            <span className="block text-sm font-medium">의뢰·관계 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
-              다음 의뢰 화면 진입 때 신뢰도와 호감도 안내를 표시합니다.
+              의뢰 진행 방법과 신뢰도·호감도를 다시 안내합니다.
+            </span>
             </span>
           </span>
           <span className="text-[var(--muted)]">›</span>
@@ -95,14 +104,23 @@ export default function SettingsPage() {
           onClick={() => setOptionsTutorialSeen(false)}
           className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
-          <span>
-            <span className="block text-sm font-medium">옵션 튜토리얼 다시 보기</span>
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🎟️</span>
+            <span>
+            <span className="block text-sm font-medium">옵션 거래 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
-              다음 옵션 탭 진입 때 옵션 거래 안내를 표시합니다.
+              콜·풋·매수·발행·만기 정산을 다시 안내합니다.
+            </span>
             </span>
           </span>
           <span className="text-[var(--muted)]">›</span>
         </button>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+        <div className="border-b border-[var(--border)] px-4 py-3">
+          <h2 className="text-sm font-semibold">도움말</h2>
+        </div>
         <Link
           href="/achievements"
           className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
