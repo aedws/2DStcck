@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-13",
+    tag: "수정",
+    title: "갑작스러운 로그아웃 수정",
+    detail:
+      "Supabase 클라이언트를 단일 인스턴스로 통일해, 토큰 자동갱신 충돌로 세션이 무효화되던 문제를 해결했습니다. (계정·지갑 데이터는 안전합니다)",
+  },
+  {
+    date: "2026-07-13",
     tag: "개선",
     title: "ETF 필터 세분화",
     detail:
