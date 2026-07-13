@@ -94,6 +94,9 @@ import {
   saveGameSave,
   syncLeaderboard,
 } from "@/lib/supabase/cloudSave";
+import { ACHIEVEMENTS } from "@/data/achievements";
+import { useToastStore } from "@/store/toastStore";
+import { playSound } from "@/lib/ui/sound";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -123,6 +126,10 @@ interface MarketStore extends MarketSnapshot {
   getEquity: () => number;
   /** 현재 금리 단계 (1완화·2중립·3긴축) */
   getRateLevel: () => RateLevel;
+  /** 달성한 업적 id 목록 */
+  achievements: string[];
+  /** 현재 상태 기준으로 새 업적을 판정·해금 (토스트) */
+  checkAchievements: () => void;
   /** 옵션 매수 (프리미엄 지불) */
   buyOption: (
     stockId: string,
@@ -178,6 +185,7 @@ function createInitialState(): MarketSnapshot & {
   ownedLuxuries: OwnedLuxury[];
   netWorthHistory: NetWorthPoint[];
   marginCallAt: number | null;
+  achievements: string[];
 } {
   const now = Date.now();
   return {
@@ -210,6 +218,7 @@ function createInitialState(): MarketSnapshot & {
     ownedLuxuries: [],
     netWorthHistory: [],
     marginCallAt: null,
+    achievements: [],
   };
 }
 
@@ -555,6 +564,7 @@ export const useMarketStore = create<MarketStore>()(
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: wallet.shorts ?? [],
           options: wallet.options ?? [],
+          achievements: wallet.achievements ?? [],
           lastInterestSession:
             wallet.lastInterestSession ??
             Math.floor(Date.now() / SESSION_DURATION_MS),
@@ -578,6 +588,7 @@ export const useMarketStore = create<MarketStore>()(
           ownedLuxuries: s.ownedLuxuries,
           shorts: s.shorts,
           options: s.options,
+          achievements: s.achievements,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -851,6 +862,8 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession,
           cashPayments,
         });
+
+        get().checkAchievements();
       },
 
       settleCashflows: () => {
@@ -1162,6 +1175,33 @@ export const useMarketStore = create<MarketStore>()(
 
       getRateLevel: () => getRateLevel(getBenchmark(get().stocks)),
 
+      checkAchievements: () => {
+        const s = get();
+        const unlocked = new Set(s.achievements);
+        const ctx = {
+          netWorth: fullEquityOf(s),
+          initialCash: s.initialCash,
+          tradeCount: s.trades.length,
+          hasShorted: s.trades.some((t) => t.type === "short"),
+          hasOption: s.options.length > 0,
+          hasPumpTraded: s.trades.some((t) => t.stockId.startsWith("pump-")),
+          usedMargin: s.cash < 0,
+          marginCalled: s.marginCallAt !== null,
+          luxuryCount: s.ownedLuxuries.length,
+        };
+        const newly = ACHIEVEMENTS.filter(
+          (a) => !unlocked.has(a.id) && a.check(ctx),
+        );
+        if (newly.length === 0) return;
+        set({ achievements: [...s.achievements, ...newly.map((a) => a.id)] });
+        for (const a of newly) {
+          useToastStore
+            .getState()
+            .push(`🏆 업적 달성 · ${a.emoji} ${a.title}`, "success");
+        }
+        playSound("cash");
+      },
+
       reset: () => set(createInitialState()),
 
       getTotalAssets: () => fullEquityOf(get()),
@@ -1187,6 +1227,7 @@ export const useMarketStore = create<MarketStore>()(
         cashPayments: state.cashPayments,
         ownedLuxuries: state.ownedLuxuries,
         netWorthHistory: state.netWorthHistory,
+        achievements: state.achievements,
         // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
         // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
         stocks: state.stocks.filter(
@@ -1276,6 +1317,11 @@ export const useMarketStore = create<MarketStore>()(
             ? (merged as Partial<MarketStore>).lastInterestSession!
             : nowSession,
           marginCallAt: null,
+          achievements: Array.isArray(
+            (merged as Partial<MarketStore>).achievements,
+          )
+            ? (merged as Partial<MarketStore>).achievements!
+            : [],
           userId: null,
           isReady: false,
         };

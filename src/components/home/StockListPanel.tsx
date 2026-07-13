@@ -18,7 +18,7 @@ import { Sparkline } from "@/components/ui/Sparkline";
 import { StockLogo } from "@/components/ui/StockLogo";
 import { useSettingsStore } from "@/store/settingsStore";
 
-const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별"];
+const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별", "관심"];
 const SORTS = ["급상승", "급하락", "거래대금"] as const;
 type SortMode = (typeof SORTS)[number];
 
@@ -36,6 +36,8 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     () => new Set(),
   );
   const groupDerivatives = useSettingsStore((state) => state.groupDerivatives);
+  const watchlist = useSettingsStore((state) => state.watchlist);
+  const toggleWatch = useSettingsStore((state) => state.toggleWatch);
   const filterStripRef = useRef<HTMLDivElement>(null);
   const filterDragRef = useRef({
     active: false,
@@ -100,8 +102,13 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     [stocks],
   );
 
+  const watchSet = useMemo(() => new Set(watchlist), [watchlist]);
+
   const sorted = useMemo(() => {
     let list = [...stocks];
+    if (tab === 3) {
+      list = list.filter((s) => watchSet.has(s.id));
+    }
     if (sector !== "전체") {
       list = list.filter((s) => s.sector === sector);
     }
@@ -118,10 +125,10 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
       list.sort((a, b) => getDayChangePercent(b) - getDayChangePercent(a));
     }
     return list;
-  }, [stocks, sector, tab, sort]);
+  }, [stocks, sector, tab, sort, watchSet]);
 
   const displayRows = useMemo(() => {
-    if (!groupDerivatives || sector !== "전체") {
+    if (!groupDerivatives || sector !== "전체" || tab === 3) {
       return sorted.map((stock, index) => ({
         stock,
         depth: 0,
@@ -165,7 +172,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
         })),
       ];
     });
-  }, [expandedUnderlyings, groupDerivatives, sector, sorted]);
+  }, [expandedUnderlyings, groupDerivatives, sector, sorted, tab]);
 
   const toggleUnderlying = (stockId: string) => {
     setExpandedUnderlyings((current) => {
@@ -304,6 +311,23 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                           {expandedUnderlyings.has(stock.id) ? "−" : `+${childCount}`}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        aria-label={`${stock.name} 관심종목 ${
+                          watchSet.has(stock.id) ? "해제" : "추가"
+                        }`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleWatch(stock.id);
+                        }}
+                        className={`shrink-0 text-sm leading-none transition ${
+                          watchSet.has(stock.id)
+                            ? "text-amber-400"
+                            : "text-[var(--border)] hover:text-[var(--muted)]"
+                        }`}
+                      >
+                        {watchSet.has(stock.id) ? "★" : "☆"}
+                      </button>
                       <StockLogo stock={stock} size={28} />
                       <div className="min-w-0">
                         <p className="truncate font-medium">{stock.name}</p>
@@ -374,6 +398,16 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                 </tr>
               );
             })}
+            {tab === 3 && displayRows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="px-4 py-12 text-center text-[var(--muted)]"
+                >
+                  관심종목이 없습니다. 종목 옆 ☆를 눌러 추가하세요.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
