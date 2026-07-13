@@ -32,6 +32,7 @@ npm run dev
    - `008_game_accounts.sql`
    - `009_game_saves.sql`
    - `010_leaderboard.sql`
+   - `011_basic_leaderboard_integrity.sql`
 3. **Authentication** → Email 활성화
 
 > `001`~`003`, `005`~`007` 마이그레이션은 예전 "서버 시장 엔진"(가격을 서버에서
@@ -77,7 +78,19 @@ PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시
 |---|---|---|
 | 로그인 계정 | Supabase Auth + `game_accounts` | 아이디+PIN, Edge Function `game-account` |
 | 유저 지갑 (현금·보유·거래·회차·사치재) | `game_saves` (JSON 1행) | supabase-js 직접 upsert, 본인 행 RLS |
-| 순자산 랭킹 | `leaderboard` | 공개 읽기 + 본인 행 upsert, RLS |
+| 순자산 랭킹 | `leaderboard` | 공개 읽기 + 검증 RPC 쓰기, RLS |
+
+랭킹 쓰기는 `011_basic_leaderboard_integrity.sql` 적용 후 `submit_leaderboard`
+RPC만 허용합니다. 서버가 저장 지갑·수익률·시장 회차·급격한 자산 점프를 기본
+검증합니다. 완전한 e스포츠급 검증이 아니라 캐주얼 경쟁의 단순 조작 억제용입니다.
+
+## 연속 시장 사건과 투자 의뢰
+
+- 5거래일마다 캐릭터 회사 하나를 중심으로 `발표 예고 → 단서 → 결말` 사건이 진행됩니다.
+- 캐릭터 성격 태그에 따라 단서 신뢰도가 달라지며, 결말 전 현물·공매도·옵션으로 대응할 수 있습니다.
+- 성장·시장 초과·리스크 관리 의뢰 중 하나를 선택하면 수락 시점부터 5거래일간 진행됩니다.
+- 의뢰 보상은 현금이 아니라 투자 평판이므로 시장 재화 인플레이션을 만들지 않습니다.
+- 사치재는 구매가의 70%만 순자산으로 인정되며 나머지 30%는 소비·감가됩니다.
 
 - **시장 엔진**: `src/lib/market/*` — 접속 시각까지 결정론으로 리플레이해 모두가 동일 상태에 도달
 - **매매·급여·배당**: 클라이언트 로컬 정산 (`trading.ts`, `cashflows.ts`)
