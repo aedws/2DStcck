@@ -1,6 +1,6 @@
 /**
  * data/companies.csv → src/data/generated.ts 변환.
- * CSV가 캐릭터 회사의 원본이다. 실행 후 sync:functions까지 자동 수행됨(package.json).
+ * CSV가 캐릭터 회사의 원본이다.
  *
  * 사용: npm run import:companies  (또는 node scripts/import-companies.mjs [csv경로])
  *

@@ -1,66 +1,66 @@
 # 2DStock — 가상 모의투자
 
-토스증권 스타일 UI의 웹 모의투자 게임. Supabase 연동 시 **모든 유저가 같은 시장**을 봅니다.
-프론트엔드는 **정적 사이트(GitHub Pages)**, 서버 로직은 **Supabase Edge Functions**로 동작합니다. Vercel 불필요.
+토스증권 스타일 UI의 웹 모의투자 게임.
 
-## 로컬 개발 (Supabase 없음)
+**시장은 항상 클라이언트에서 고정 기원점 기반 결정론으로 계산**되므로, 모든
+플레이어가 서버 없이도 **같은 시장**을 봅니다. **Supabase는 별도 "서버 시장
+모드"가 아니라 계정 레이어**(로그인·지갑 저장·랭킹) 전용입니다. 프론트엔드는
+**정적 사이트(GitHub Pages)**로 배포하며 Vercel이 필요 없습니다.
+
+## 로컬 개발
 
 ```bash
+# 루트에 .env.local 생성 (아래 두 값 필수 — 로그인·랭킹에 사용)
+#   NEXT_PUBLIC_SUPABASE_URL=...
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 npm install
 npm run dev
 ```
 
-브라우저: http://localhost:3000 — 각 PC마다 독립 시장 (LocalStorage)
+브라우저: http://localhost:3000 — 지갑은 LocalStorage에 저장되고, 로그인하면
+클라우드(Supabase)에 동기화됩니다.
 
 ## 배포 (GitHub Pages + Supabase)
 
 ### 1. Supabase 프로젝트
 
+시장은 클라이언트가 계산하므로 Supabase에는 **계정 레이어**(로그인·지갑 저장·랭킹)만 있으면 됩니다.
+
 1. [supabase.com](https://supabase.com) 에서 프로젝트 생성
-2. **SQL Editor** → 아래 스키마 마이그레이션을 순서대로 실행
-   - `001_initial.sql`
+2. **SQL Editor** → 계정 레이어 마이그레이션을 순서대로 실행
    - `004_minimal_auth.sql`
-   - `005_limit_orders.sql`
-   - `006_fixed_salary.sql`
-   - `007_periodic_distributions.sql`
    - `008_game_accounts.sql`
    - `009_game_saves.sql`
    - `010_leaderboard.sql`
 3. **Authentication** → Email 활성화
 
-### 2. Edge Functions 배포
+> `001`~`003`, `005`~`007` 마이그레이션은 예전 "서버 시장 엔진"(가격을 서버에서
+> 틱하던 구조)의 잔재로, 현재 클라이언트 로컬 시장에서는 **사용하지 않습니다.**
+> 이력 보존용으로만 남겨 두었으니 신규 설치에서는 실행하지 않아도 됩니다.
+
+### 2. Edge Function 배포 (game-account 하나)
 
 ```bash
 npm i -g supabase
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 
-# 시장 tick 로직이 바뀌었으면 먼저 동기화
-npm run sync:functions
-
-supabase functions deploy tick-market
-supabase functions deploy trade
 supabase functions deploy game-account
 ```
 
 `game-account`는 첫 아이디 입력 시 이메일 확인 없는 내부 계정을 생성합니다.
 PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시만 사용합니다.
+시장을 서버에서 틱하지 않으므로 `tick-market`·`trade` 함수나 pg_cron 스케줄은
+필요 없습니다.
 
-`tick-market`은 anon key JWT + 시간 게이트(8초 내 재호출 무시)로 보호되어
-별도 시크릿이 필요 없습니다.
-
-### 3. 10초 tick 스케줄 (pg_cron)
-
-`supabase/migrations/003_cron_10s.sql` 을 열어 `YOUR_PROJECT_REF`, `YOUR_ANON_KEY` 를
-교체한 뒤 **SQL Editor** 에서 실행. (Dashboard → Integrations → Cron 에서도 확인 가능)
-`002_cron_tick.sql`은 과거 1분 스케줄용이므로 신규 설치에서는 실행하지 않습니다.
-
-### 4. GitHub Pages
+### 3. GitHub Pages
 
 1. GitHub 저장소 생성 후 push (`main` 브랜치)
-2. **Settings → Secrets and variables → Actions** 에 등록:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+2. Supabase 값 주입 — 둘 중 하나:
+   - `.github/workflows/deploy.yml` 의 `env:` 에 직접 기입 (anon 키는 공개용이라 안전)
+   - 또는 **Settings → Secrets and variables → Actions** 에 등록 후 워크플로에서 참조
+     - `NEXT_PUBLIC_SUPABASE_URL`
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 3. **Settings → Pages → Source: GitHub Actions** 선택
 4. push 하면 `.github/workflows/deploy.yml` 이 자동 빌드·배포
    - 프로젝트 페이지: `https://<user>.github.io/<repo>/`
@@ -69,28 +69,28 @@ PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시
 
 ## 아키텍처
 
-| 구분 | 저장 위치 | 동기화 |
-|---|---|---|
-| 주가·호가·이벤트 | `market_global` (Supabase) | Realtime |
-| 유저 현금·보유 | `profiles`, `holdings` | supabase-js 직접 조회 + Realtime |
-| 거래 | `trades` | Edge Function `trade` |
-| 고정급 지급 원장 | `salary_payments` | Edge Function `tick-market` + 원자 RPC |
-| 월 분배·분기 배당 원장 | `distribution_events`, `distribution_payments` | Edge Function `tick-market` + 원자 RPC |
+**시장(주가·호가·이벤트·급여·배당)은 전부 클라이언트에서 고정 기원점 기반
+결정론으로 계산**되므로 서버가 필요 없습니다. Supabase는 아래 계정 데이터만
+담당합니다.
 
-- **서버 시장 엔진**: pg_cron(10초) → Edge Function `tick-market` → 1틱 진행
-- **주문**: 로그인 후 Edge Function `trade` (서버가 현재 시세로 체결, JWT 검증)
-- **클라이언트**: 정적 페이지 + supabase-js (RLS로 보호) + Realtime 구독
-- **공유 로직**: `src/lib/market/*` 이 원본, `supabase/functions/_shared/` 는
-  `npm run sync:functions` 로 생성되는 복사본 (직접 수정 금지)
+| 구분 | 저장 위치 | 비고 |
+|---|---|---|
+| 로그인 계정 | Supabase Auth + `game_accounts` | 아이디+PIN, Edge Function `game-account` |
+| 유저 지갑 (현금·보유·거래·회차·사치재) | `game_saves` (JSON 1행) | supabase-js 직접 upsert, 본인 행 RLS |
+| 순자산 랭킹 | `leaderboard` | 공개 읽기 + 본인 행 upsert, RLS |
+
+- **시장 엔진**: `src/lib/market/*` — 접속 시각까지 결정론으로 리플레이해 모두가 동일 상태에 도달
+- **매매·급여·배당**: 클라이언트 로컬 정산 (`trading.ts`, `cashflows.ts`)
+- **클라이언트**: 정적 페이지 + supabase-js (로그인·지갑·랭킹만)
 
 ## 20거래일 고정급
 
 - 계정 생성(로컬은 게임 초기화) 시점부터 20거래일마다 `$10,000`을 현금으로 지급합니다.
 - 앱을 오래 닫아 여러 주기가 지난 경우 누락된 급여를 다음 실행에서 한 번에 정산합니다.
-- Supabase 모드는 `salary_payments` 원장으로 같은 급여의 중복 지급을 막습니다.
+- 지급 내역은 로컬 `cashPayments` 원장으로 중복 없이 정산하고, 로그인 시 지갑과
+  함께 클라우드에 저장됩니다.
 - 금액과 주기는 `src/lib/market/salary.ts`의 `SALARY_AMOUNT`,
-  `SALARY_INTERVAL_DAYS`에서 조정합니다. 변경 후 `npm run sync:functions`와
-  `tick-market` 재배포가 필요합니다.
+  `SALARY_INTERVAL_DAYS`에서 조정합니다.
 
 ## 투자 현금흐름
 
@@ -100,8 +100,8 @@ PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시
 - 일반 주식·ETF의 `quarterlyDividend`는 주당 센트 금액이며 60거래일마다
   분기 배당으로 지급합니다. 빈칸은 무배당입니다.
 - 지급일 직전 보유 수량을 기준으로 입금하고, 지급액만큼 배당락 가격을 반영합니다.
-- 앱이나 서버가 오래 멈춘 경우 밀린 회차를 이어서 처리합니다. 서버 모드는 지급
-  이벤트·보유 수량·현금 입금을 한 트랜잭션에 기록해 재시도 중복을 막습니다.
+- 앱을 오래 닫아 여러 회차가 밀린 경우 다음 실행에서 이어서 정산하며, 로컬
+  `cashPayments` 원장으로 같은 회차의 중복 지급을 막습니다.
 
 ## 차트와 종목명
 
@@ -147,5 +147,4 @@ PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시
 | `npm run dev` | 개발 서버 |
 | `npm run dev:clean` | `.next` 삭제 후 dev |
 | `npm run build` | 정적 export 빌드 (`out/`) |
-| `npm run sync:functions` | 시장 로직을 Edge Functions로 복사 |
-| `npm run import:companies` | `data/companies.csv` → 종목·캐릭터 생성 (+sync) |
+| `npm run import:companies` | `data/companies.csv` → 종목·캐릭터 생성 |

@@ -7,7 +7,6 @@ import {
   getCurrentUserId,
   type LeaderboardEntry,
 } from "@/lib/supabase/cloudSave";
-import { IS_CLOUD_ENABLED, useMarketStore } from "@/store/marketStore";
 import { upDownClass } from "@/lib/ui/marketColors";
 
 const RANK_MEDAL = ["🥇", "🥈", "🥉"];
@@ -16,14 +15,8 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [myId, setMyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
-  const initialCash = useMarketStore((s) => s.initialCash);
 
   const load = useCallback(async () => {
-    if (!IS_CLOUD_ENABLED) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     const [rows, id] = await Promise.all([
       fetchLeaderboard(100),
@@ -38,45 +31,23 @@ export default function LeaderboardPage() {
     void load();
   }, [load]);
 
-  const myTotal = getTotalAssets();
-  const myReturn =
-    initialCash > 0 ? ((myTotal - initialCash) / initialCash) * 100 : 0;
-
   return (
     <div className="mx-auto max-w-2xl pb-20">
       <div className="mb-5 flex items-baseline justify-between">
         <h1 className="text-2xl font-bold">🏆 랭킹</h1>
-        {IS_CLOUD_ENABLED && (
-          <button
-            onClick={load}
-            className="rounded-lg bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-          >
-            새로고침
-          </button>
-        )}
+        <button
+          onClick={load}
+          className="rounded-lg bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+        >
+          새로고침
+        </button>
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         모두가 같은 시장에서 경쟁합니다. 순위 기준은 <b>순자산</b>(현금 + 주식 +
         사치재)입니다.
       </p>
 
-      {!IS_CLOUD_ENABLED ? (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-            <p className="text-sm font-semibold">내 순자산 (로컬)</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">
-              {formatPrice(myTotal)}
-            </p>
-            <p className={`text-sm ${upDownClass(myReturn)}`}>
-              {formatPercent(myReturn)}
-            </p>
-          </div>
-          <p className="rounded-xl bg-[var(--surface)] px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
-            공유 랭킹은 클라우드(Supabase) 계정 모드에서 활성화됩니다. 로그인하면
-            같은 시장의 다른 플레이어와 순자산 순위를 겨룰 수 있어요.
-          </p>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <p className="py-16 text-center text-sm text-[var(--muted)]">
           불러오는 중…
         </p>
