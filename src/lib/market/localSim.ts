@@ -25,6 +25,7 @@ import {
 import { generateOrderBook } from "@/lib/market/orderBook";
 import { getStoryEventForSession } from "@/lib/market/storyArcs";
 import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
+import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
 import type {
   Candle,
   MarketEvent,
@@ -184,6 +185,11 @@ export function replayMarket(
         events = [...events, earningsEvent].slice(-50);
       }
     }
+    for (const crisisEvent of getCrisisEventsForSession(prevSession)) {
+      if (!events.some((event) => event.id === crisisEvent.id)) {
+        events = [...events, crisisEvent].slice(-50);
+      }
+    }
   }
 
   for (let tick = fromTick + 1; tick <= toTick; tick++) {
@@ -268,6 +274,11 @@ export function replayMarket(
         for (const earningsEvent of getEarningsEventsForSession(s)) {
           if (!events.some((event) => event.id === earningsEvent.id)) {
             events = [...events, earningsEvent].slice(-50);
+          }
+        }
+        for (const crisisEvent of getCrisisEventsForSession(s)) {
+          if (!events.some((event) => event.id === crisisEvent.id)) {
+            events = [...events, crisisEvent].slice(-50);
           }
         }
 

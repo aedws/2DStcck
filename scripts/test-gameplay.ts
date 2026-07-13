@@ -44,6 +44,18 @@ import {
   MARKET_CYCLE_SESSIONS,
 } from "../src/lib/market/marketCycles";
 import {
+  CRISIS_MAX_INTERVAL_SESSIONS,
+  CRISIS_MIN_INTERVAL_SESSIONS,
+  crisisIntervalSessions,
+  crisisReturnForStock,
+  getActiveMarketCrisis,
+  getCrisisEventsForSession,
+  getMarketCrisisWindow,
+  getNextMarketCrisis,
+  MARKET_CRISIS_DURATION_SESSIONS,
+  MARKET_CRISIS_PHASES,
+} from "../src/lib/market/marketCrises";
+import {
   accrueLongHoldingAffinity,
   addCharacterProgress,
   addStorySupportAffinity,
@@ -131,6 +143,61 @@ assert.ok(
 );
 assert.ok(
   MARKET_CYCLE_PHASES.find((phase) => phase.id === "correction")!.baseReturnPerSession < -0.005,
+);
+
+for (let crisisNumber = 1; crisisNumber <= 20; crisisNumber++) {
+  const interval = crisisIntervalSessions(crisisNumber);
+  assert.ok(interval >= CRISIS_MIN_INTERVAL_SESSIONS);
+  assert.ok(interval <= CRISIS_MAX_INTERVAL_SESSIONS);
+}
+assert.equal(
+  MARKET_CRISIS_PHASES.reduce((sum, phase) => sum + phase.duration, 0),
+  MARKET_CRISIS_DURATION_SESSIONS,
+);
+assert.equal(MARKET_CRISIS_DURATION_SESSIONS, 20);
+const firstCrisis = getMarketCrisisWindow(1);
+assert.equal(getNextMarketCrisis(firstCrisis.startSession - 1).crisisNumber, 1);
+assert.equal(getActiveMarketCrisis(firstCrisis.startSession)?.phase.id, "warning");
+assert.equal(getActiveMarketCrisis(firstCrisis.startSession + 3)?.phase.id, "crash");
+assert.equal(getActiveMarketCrisis(firstCrisis.startSession + 7)?.phase.id, "panic");
+assert.equal(getActiveMarketCrisis(firstCrisis.startSession + 11)?.phase.id, "intervention");
+assert.equal(getActiveMarketCrisis(firstCrisis.startSession + 15)?.phase.id, "recovery");
+assert.equal(getActiveMarketCrisis(firstCrisis.endSession), null);
+assert.equal(getNextMarketCrisis(firstCrisis.endSession).crisisNumber, 2);
+const crashPhase = getActiveMarketCrisis(firstCrisis.startSession + 3)!;
+const stockCrisisReturn = crisisReturnForStock(
+  crashPhase,
+  { sector: "기술", beta: 1 },
+  SESSION_DURATION_MS / 1_000,
+);
+const bondCrisisReturn = crisisReturnForStock(
+  crashPhase,
+  { sector: "채권" },
+  SESSION_DURATION_MS / 1_000,
+);
+assert.ok(stockCrisisReturn < 0, "risk assets should fall during the crash phase");
+assert.ok(bondCrisisReturn > 0, "bonds should provide defensive crisis exposure");
+const secondCrisis = getMarketCrisisWindow(2);
+const techCrash = getActiveMarketCrisis(secondCrisis.startSession + 3)!;
+assert.equal(techCrash.theme.id, "tech-bubble");
+assert.ok(
+  Math.abs(crisisReturnForStock(techCrash, { sector: "기술", beta: 1 }, SESSION_DURATION_MS / 1_000)) >
+    Math.abs(crisisReturnForStock(techCrash, { sector: "금융", beta: 1 }, SESSION_DURATION_MS / 1_000)),
+  "tech bubble crisis should hit technology harder than an unrelated sector",
+);
+const warningNews = getCrisisEventsForSession(firstCrisis.startSession);
+assert.equal(warningNews.length, 1);
+assert.equal(warningNews[0].tag, "위기");
+assert.ok(warningNews[0].quote && warningNews[0].quoteBy);
+assert.deepEqual(getCrisisEventsForSession(firstCrisis.startSession + 1), []);
+assert.equal(getCrisisEventsForSession(firstCrisis.startSession + 3)[0].impact < 0, true);
+assert.equal(getCrisisEventsForSession(firstCrisis.startSession + 11)[0].impact > 0, true);
+assert.ok(
+  MARKET_CRISIS_PHASES.reduce(
+    (sum, phase) => sum + phase.marketReturnPerSession * phase.duration,
+    0,
+  ) < -0.08,
+  "a full crisis should create a material drawdown before the ordinary cycle resumes",
 );
 
 const singleCoveredCall = STOCK_DEFINITIONS.find(

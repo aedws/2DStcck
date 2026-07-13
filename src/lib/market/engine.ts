@@ -42,6 +42,10 @@ import {
   cycleReturnForStock,
   getMarketCycleAtSession,
 } from "@/lib/market/marketCycles";
+import {
+  crisisReturnForStock,
+  getActiveMarketCrisis,
+} from "@/lib/market/marketCrises";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -188,17 +192,17 @@ export function calculateTickPrice(
 ): number {
   const sqrtDt = Math.sqrt(dtSeconds);
   const eventImpact = getActiveEventImpact(stock, events, now);
-  const regime = getMarketRegimeAtSession(
-    Math.floor(now / SESSION_DURATION_MS),
-  );
-  const cycle = getMarketCycleAtSession(
-    Math.floor(now / SESSION_DURATION_MS),
-  );
+  const session = Math.floor(now / SESSION_DURATION_MS);
+  const regime = getMarketRegimeAtSession(session);
+  const cycle = getMarketCycleAtSession(session);
+  const crisis = getActiveMarketCrisis(session);
   const volatilityMultiplier = Math.min(
-    2.4,
+    4.5,
     Math.max(
       0.45,
-      regime.volatilityMultiplier * cycle.volatilityMultiplier,
+      regime.volatilityMultiplier *
+        cycle.volatilityMultiplier *
+        (crisis?.phase.volatilityMultiplier ?? 1),
     ),
   );
   const noise =
@@ -227,6 +231,9 @@ export function calculateTickPrice(
     volatilityMultiplier;
   const regimeReturn = regimeReturnForStock(regime, stock.sector, dtSeconds);
   const cycleReturn = cycleReturnForStock(cycle, stock.sector, dtSeconds);
+  const crisisReturn = crisis
+    ? crisisReturnForStock(crisis, stock, dtSeconds)
+    : 0;
   const secularGrowthSupport = calculateSecularGrowthSupport(
     stock,
     now,
@@ -237,12 +244,14 @@ export function calculateTickPrice(
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
     regimeReturn +
     cycleReturn +
+    crisisReturn +
     secularGrowthSupport +
     trend +
     shock +
     eventImpact *
       EVENT_IMPACT_TIME_SCALE *
       cycle.eventImpactMultiplier *
+      (crisis?.phase.eventImpactMultiplier ?? 1) *
       dtSeconds +
     noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
