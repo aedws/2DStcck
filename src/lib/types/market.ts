@@ -145,7 +145,40 @@ export interface Holding {
   averagePrice: number;
 }
 
-export type TradeType = "buy" | "sell";
+/** 공매도 포지션 — 빌려서 판 주식. 되사서(cover) 갚으며, 하락 시 이익. */
+export interface ShortPosition {
+  stockId: string;
+  /** 공매도 수량 (양수) */
+  quantity: number;
+  /** 평균 진입(매도) 단가 */
+  averagePrice: number;
+}
+
+/** 금리 단계: 1=완화, 2=중립, 3=긴축 */
+export type RateLevel = 1 | 2 | 3;
+
+export type OptionKind = "call" | "put";
+export type OptionSide = "long" | "short";
+
+/** 옵션 포지션 (유럽식 현금정산, 1계약 = 기초자산 1주) */
+export interface OptionPosition {
+  id: string;
+  stockId: string;
+  kind: OptionKind;
+  /** long=매수(프리미엄 지불), short=발행/매도(프리미엄 수취·증거금) */
+  side: OptionSide;
+  /** 행사가 (센트) */
+  strike: number;
+  /** 만기 거래일 번호 */
+  expirySession: number;
+  /** 계약 수 */
+  quantity: number;
+  /** 개시 시 계약당 프리미엄 (센트) */
+  openPremium: number;
+  openedAt: number;
+}
+
+export type TradeType = "buy" | "sell" | "short" | "cover";
 
 export interface Trade {
   id: string;
@@ -158,7 +191,11 @@ export interface Trade {
   timestamp: number;
 }
 
-export type CashPaymentKind = "salary" | "covered_call" | "dividend";
+export type CashPaymentKind =
+  | "salary"
+  | "covered_call"
+  | "dividend"
+  | "interest";
 
 /** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
 export interface CashPayment {
@@ -195,11 +232,17 @@ export interface MarketSnapshot {
   /** 마지막으로 처리한 일반 종목 분기 배당 기준 거래일 */
   lastQuarterlyDividendSession: number;
   holdings: Holding[];
+  /** 공매도 포지션 */
+  shorts: ShortPosition[];
+  /** 옵션 포지션 */
+  options: OptionPosition[];
   trades: Trade[];
   cashPayments: CashPayment[];
   stocks: StockState[];
   events: MarketEvent[];
   initialCash: number;
+  /** 마지막으로 마진 이자·대여수수료를 정산한 거래일 */
+  lastInterestSession: number;
 }
 
 export interface OrderResult {

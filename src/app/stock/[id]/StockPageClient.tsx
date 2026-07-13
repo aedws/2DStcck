@@ -8,6 +8,7 @@ import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { EtfComposition } from "@/components/market/EtfComposition";
 import { OrderBook } from "@/components/market/OrderBook";
+import { OptionsPanel } from "@/components/market/OptionsPanel";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
 import { getCharacterById } from "@/data/characters";
 import {
@@ -31,7 +32,7 @@ import {
 import { StockLogo } from "@/components/ui/StockLogo";
 import { useMarketStore } from "@/store/marketStore";
 
-const SUB_TABS = ["차트 · 호가", "종목정보", "뉴스"] as const;
+const SUB_TABS = ["차트 · 호가", "옵션", "종목정보", "뉴스"] as const;
 
 function HeaderStat({ label, value }: { label: string; value: string }) {
   return (
@@ -363,8 +364,9 @@ export function StockPageClient({ id }: { id: string }) {
               <OrderBook stock={stock} />
             </div>
           )}
-          {tab === 1 && <StockInfoTab stock={stock} />}
-          {tab === 2 && <StockNewsTab stock={stock} events={events} />}
+          {tab === 1 && <OptionsPanel stock={stock} />}
+          {tab === 2 && <StockInfoTab stock={stock} />}
+          {tab === 3 && <StockNewsTab stock={stock} events={events} />}
         </main>
 
         <div

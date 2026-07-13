@@ -34,16 +34,28 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const openOrders = useMarketStore((s) => s.openOrders);
   const placeLimitOrder = useMarketStore((s) => s.placeLimitOrder);
   const cancelOrder = useMarketStore((s) => s.cancelOrder);
+  const openShortPosition = useMarketStore((s) => s.openShortPosition);
+  const coverShortPosition = useMarketStore((s) => s.coverShortPosition);
+  const getBuyingPower = useMarketStore((s) => s.getBuyingPower);
   const liveStock = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
   const holding = useMarketStore((s) =>
     s.holdings.find((h) => h.stockId === stock.id),
+  );
+  const shortPos = useMarketStore((s) =>
+    s.shorts.find((sh) => sh.stockId === stock.id),
   );
 
   // 시장가 = 현재가 ± 0.005% (표시가 = 체결가)
   const bestAsk = getMarketBuyPrice(liveStock.currentPrice);
   const bestBid = getMarketSellPrice(liveStock.currentPrice);
-  const maxBuy = bestAsk > 0 ? Math.floor(cash / bestAsk) : 0;
+  const buyingPower = getBuyingPower();
+  const isIndexLike =
+    liveStock.sector === "선물" || liveStock.sector === "지수";
+  const maxBuy = bestAsk > 0 ? Math.floor(buyingPower / bestAsk) : 0;
   const maxSell = holding?.quantity ?? 0;
+  const shortProfit = shortPos
+    ? (shortPos.averagePrice - liveStock.currentPrice) * shortPos.quantity
+    : 0;
 
   const profit =
     holding && holding.quantity > 0
@@ -62,6 +74,16 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
       sell_current: sellCurrent,
     };
     const result = localMap[orderType](stock.id, quantity);
+    setMessage(result.message);
+    setLoading(false);
+  }
+
+  function shortOrder(kind: "open" | "cover") {
+    setLoading(true);
+    const result =
+      kind === "open"
+        ? openShortPosition(stock.id, quantity)
+        : coverShortPosition(stock.id, quantity);
     setMessage(result.message);
     setLoading(false);
   }
@@ -286,6 +308,67 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             onClick={() => order("buy_market")}
           />
         </div>
+
+        {!isIndexLike && (
+          <div className="mt-3 border-t border-[var(--border)] pt-3">
+            <div className="mb-2 flex items-center justify-between text-xs">
+              <span className="font-medium text-[var(--muted)]">
+                공매도 · 마진
+              </span>
+              <span className="tabular-nums text-[var(--muted)]">
+                매수여력 {formatPrice(buyingPower)}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => shortOrder("open")}
+                disabled={loading || quantity <= 0 || bestBid <= 0}
+                className="flex flex-col items-center justify-center rounded-2xl bg-[var(--down)]/10 px-2 py-4 text-[var(--down)] transition hover:bg-[var(--down)]/20 disabled:opacity-40"
+              >
+                <span className="text-sm font-semibold">공매도</span>
+                <span className="mt-1 text-xs opacity-80">
+                  {formatPrice(bestBid)}
+                </span>
+              </button>
+              <button
+                onClick={() => shortOrder("cover")}
+                disabled={
+                  loading || !shortPos || quantity > (shortPos?.quantity ?? 0)
+                }
+                className="flex flex-col items-center justify-center rounded-2xl bg-[var(--up)]/10 px-2 py-4 text-[var(--up)] transition hover:bg-[var(--up)]/20 disabled:opacity-40"
+              >
+                <span className="text-sm font-semibold">공매도 청산</span>
+                <span className="mt-1 text-xs opacity-80">
+                  {formatPrice(bestAsk)}
+                </span>
+              </button>
+            </div>
+            {shortPos && (
+              <div className="mt-3 space-y-1.5 rounded-xl bg-[var(--surface)] p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--muted)]">공매도 수량</span>
+                  <span className="tabular-nums">
+                    {shortPos.quantity.toLocaleString()}주
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--muted)]">평균 진입가</span>
+                  <span className="tabular-nums">
+                    {formatPrice(shortPos.averagePrice)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--muted)]">공매도 손익</span>
+                  <span
+                    className={`font-semibold tabular-nums ${upDownClass(shortProfit)}`}
+                  >
+                    {formatSignedMoney(shortProfit)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         </>
         )}
 
@@ -319,7 +402,10 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
         )}
 
         <p className="mt-4 text-center text-xs text-[var(--muted)]">
-          가용 현금 {formatPrice(cash)}
+          {cash < 0
+            ? `마진 ${formatPrice(cash)}`
+            : `가용 현금 ${formatPrice(cash)}`}{" "}
+          · 매수여력 {formatPrice(buyingPower)}
         </p>
       </div>
     </div>

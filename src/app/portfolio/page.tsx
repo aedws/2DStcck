@@ -19,16 +19,28 @@ import {
   computeRealizedPnl,
   computeUnrealizedPnl,
 } from "@/lib/market/portfolioStats";
+import {
+  longValue as computeLongValue,
+  shortLiability,
+  marginDebit,
+} from "@/lib/market/margin";
+import {
+  getAnnualRatePercent,
+  RATE_LABEL,
+} from "@/lib/market/interestRate";
 import { EquityCurve } from "@/components/ui/EquityCurve";
 
 export default function PortfolioPage() {
   const cash = useMarketStore((s) => s.cash);
   const holdings = useMarketStore((s) => s.holdings);
+  const shorts = useMarketStore((s) => s.shorts);
   const stocks = useMarketStore((s) => s.stocks);
   const trades = useMarketStore((s) => s.trades);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
   const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
+  const getRateLevel = useMarketStore((s) => s.getRateLevel);
+  const marginCallAt = useMarketStore((s) => s.marginCallAt);
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
   const lastMonthlyDistributionSession = useMarketStore(
@@ -40,11 +52,17 @@ export default function PortfolioPage() {
 
   const total = getTotalAssets();
   const luxuryValue = getLuxuryValue(ownedLuxuries);
-  const stockValue = total - cash - luxuryValue;
-  const returnRate = ((total - initialCash) / initialCash) * 100;
   const priceById = Object.fromEntries(
     stocks.map((s) => [s.id, s.currentPrice]),
   );
+  const longVal = computeLongValue(holdings, priceById);
+  const shortLiab = shortLiability(shorts, priceById);
+  const debit = marginDebit(cash);
+  const stockValue = longVal;
+  const rateLevel = getRateLevel();
+  const returnRate = ((total - initialCash) / initialCash) * 100;
+  const recentMarginCall =
+    marginCallAt !== null && Date.now() - marginCallAt < 5 * 60 * 1000;
   const realizedPnl = computeRealizedPnl(trades);
   const unrealizedPnl = computeUnrealizedPnl(holdings, priceById);
   const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
@@ -56,6 +74,13 @@ export default function PortfolioPage() {
   return (
     <>
       <h1 className="mb-6 text-2xl font-bold">포트폴리오</h1>
+
+      {recentMarginCall && (
+        <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
+          ⚠️ <b>마진콜 발생</b> — 유지증거금 미달로 보유·공매도 포지션이 강제
+          청산되었습니다. 레버리지를 낮춰 다시 도전해 보세요.
+        </div>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard label="총 자산" value={formatPrice(total)} />
@@ -71,6 +96,90 @@ export default function PortfolioPage() {
           color="text-emerald-400"
         />
       </div>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          label={`기준금리 (${rateLevel}단계·${RATE_LABEL[rateLevel]})`}
+          value={`연 ${getAnnualRatePercent(rateLevel)}%`}
+          color={
+            rateLevel === 3
+              ? "text-red-400"
+              : rateLevel === 1
+                ? "text-emerald-400"
+                : "text-zinc-100"
+          }
+        />
+        <SummaryCard
+          label="마진 대출"
+          value={debit > 0 ? formatPrice(debit) : "-"}
+          color={debit > 0 ? "text-amber-400" : "text-zinc-100"}
+        />
+        <SummaryCard
+          label="공매도 부채"
+          value={shortLiab > 0 ? formatPrice(shortLiab) : "-"}
+          color={shortLiab > 0 ? "text-amber-400" : "text-zinc-100"}
+        />
+        <SummaryCard label="현금" value={formatPrice(cash)} />
+      </div>
+
+      {shorts.length > 0 && (
+        <div className="mb-6 overflow-x-auto rounded-xl border border-zinc-800">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/50 text-left text-zinc-500">
+                <th className="px-4 py-3 font-medium">공매도 종목</th>
+                <th className="px-4 py-3 font-medium text-right">수량</th>
+                <th className="px-4 py-3 font-medium text-right">진입가</th>
+                <th className="px-4 py-3 font-medium text-right">현재가</th>
+                <th className="px-4 py-3 font-medium text-right">손익</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shorts.map((sh) => {
+                const stock = stocks.find((s) => s.id === sh.stockId);
+                if (!stock) return null;
+                const pnl =
+                  (sh.averagePrice - stock.currentPrice) * sh.quantity;
+                return (
+                  <tr
+                    key={sh.stockId}
+                    className="border-b border-zinc-800/50 hover:bg-zinc-900/50"
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/stock/${sh.stockId}`}
+                        className="font-medium hover:text-emerald-400"
+                      >
+                        {stock.name}
+                        <span className="ml-2 text-xs text-zinc-500">
+                          {stock.ticker}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {sh.quantity.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {formatPrice(sh.averagePrice)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {formatPrice(stock.currentPrice)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-mono ${
+                        pnl >= 0 ? "text-emerald-400" : "text-red-400"
+                      }`}
+                    >
+                      {pnl >= 0 ? "+" : ""}
+                      {formatPrice(pnl)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
         <div className="mb-2 flex items-baseline justify-between">
