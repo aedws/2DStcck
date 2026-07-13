@@ -94,6 +94,7 @@ import {
 import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
 } from "@/lib/market/distributions";
 import {
   loadGameSave,
@@ -251,6 +252,10 @@ function createInitialState(): MarketSnapshot & {
     lastMonthlyDistributionSession: alignSessionToGrid(
       Math.floor(now / SESSION_DURATION_MS),
       COVERED_CALL_INTERVAL_DAYS,
+    ),
+    lastSingleCoveredCallDistributionSession: alignSessionToGrid(
+      Math.floor(now / SESSION_DURATION_MS),
+      SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
     ),
     lastQuarterlyDividendSession: alignSessionToGrid(
       Math.floor(now / SESSION_DURATION_MS),
@@ -660,6 +665,12 @@ export const useMarketStore = create<MarketStore>()(
           lastSalarySession: wallet.lastSalarySession,
           lastMonthlyDistributionSession:
             wallet.lastMonthlyDistributionSession,
+          lastSingleCoveredCallDistributionSession:
+            wallet.lastSingleCoveredCallDistributionSession ??
+            alignSessionToGrid(
+              Math.floor(Date.now() / SESSION_DURATION_MS),
+              SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+            ),
           lastQuarterlyDividendSession: wallet.lastQuarterlyDividendSession,
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: wallet.shorts ?? [],
@@ -697,6 +708,8 @@ export const useMarketStore = create<MarketStore>()(
           cashPayments: s.cashPayments.slice(0, 50),
           lastSalarySession: s.lastSalarySession,
           lastMonthlyDistributionSession: s.lastMonthlyDistributionSession,
+          lastSingleCoveredCallDistributionSession:
+            s.lastSingleCoveredCallDistributionSession,
           lastQuarterlyDividendSession: s.lastQuarterlyDividendSession,
           ownedLuxuries: s.ownedLuxuries,
           shorts: s.shorts,
@@ -1058,6 +1071,8 @@ export const useMarketStore = create<MarketStore>()(
           lastSalarySession: settled.lastSalarySession,
           lastMonthlyDistributionSession:
             settled.lastMonthlyDistributionSession,
+          lastSingleCoveredCallDistributionSession:
+            settled.lastSingleCoveredCallDistributionSession,
           lastQuarterlyDividendSession:
             settled.lastQuarterlyDividendSession,
           lastInterestSession,
@@ -1088,6 +1103,8 @@ export const useMarketStore = create<MarketStore>()(
           lastSalarySession: settled.lastSalarySession,
           lastMonthlyDistributionSession:
             settled.lastMonthlyDistributionSession,
+          lastSingleCoveredCallDistributionSession:
+            settled.lastSingleCoveredCallDistributionSession,
           lastQuarterlyDividendSession:
             settled.lastQuarterlyDividendSession,
           cashPayments: interest?.cashPayments ?? baseCashPayments,
@@ -1594,6 +1611,8 @@ export const useMarketStore = create<MarketStore>()(
         initialCash: state.initialCash,
         lastSalarySession: state.lastSalarySession,
         lastMonthlyDistributionSession: state.lastMonthlyDistributionSession,
+        lastSingleCoveredCallDistributionSession:
+          state.lastSingleCoveredCallDistributionSession,
         lastQuarterlyDividendSession: state.lastQuarterlyDividendSession,
         holdings: state.holdings,
         shorts: state.shorts,
@@ -1613,11 +1632,25 @@ export const useMarketStore = create<MarketStore>()(
         reputation: state.reputation,
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory,
-        // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
-        // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
-        stocks: state.stocks.filter(
-          (stock) => !stock.universalDerivative && !isPumpStock(stock),
-        ),
+        // 자동 레버리지 상품은 기초종목에서 즉시 재구성한다. 커버드콜은 누적
+        // 프리미엄이 있으므로 경량 차트와 함께 체크포인트를 보존한다.
+        stocks: state.stocks
+          .filter(
+            (stock) =>
+              (!stock.universalDerivative ||
+                Boolean(stock.coveredCallUnderlyingId)) &&
+              !isPumpStock(stock),
+          )
+          .map((stock) =>
+            stock.universalDerivative && stock.coveredCallUnderlyingId
+              ? {
+                  ...stock,
+                  priceHistory: stock.priceHistory.slice(-60),
+                  candles: stock.candles.slice(-60),
+                  dailyCandles: stock.dailyCandles.slice(-60),
+                }
+              : stock,
+          ),
         events: state.events,
       }),
       merge: (persisted, current) => {
@@ -1672,6 +1705,14 @@ export const useMarketStore = create<MarketStore>()(
               ? merged.lastMonthlyDistributionSession
               : nowSession,
             COVERED_CALL_INTERVAL_DAYS,
+          ),
+          lastSingleCoveredCallDistributionSession: alignSessionToGrid(
+            Number.isSafeInteger(
+              merged.lastSingleCoveredCallDistributionSession,
+            )
+              ? merged.lastSingleCoveredCallDistributionSession
+              : nowSession,
+            SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
           ),
           lastQuarterlyDividendSession: alignSessionToGrid(
             Number.isSafeInteger(merged.lastQuarterlyDividendSession)

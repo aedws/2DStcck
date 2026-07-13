@@ -4,6 +4,7 @@ import {
   calculateCoveredCallDistribution,
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
   settleDistributionSchedule,
 } from "@/lib/market/distributions";
 import {
@@ -18,6 +19,7 @@ export interface LocalCashflowInput {
   cash: number;
   lastSalarySession: number;
   lastMonthlyDistributionSession: number;
+  lastSingleCoveredCallDistributionSession: number;
   lastQuarterlyDividendSession: number;
   holdings: Holding[];
   stocks: StockState[];
@@ -29,6 +31,7 @@ export interface LocalCashflowSettlement {
   cash: number;
   lastSalarySession: number;
   lastMonthlyDistributionSession: number;
+  lastSingleCoveredCallDistributionSession: number;
   lastQuarterlyDividendSession: number;
   stocks: StockState[];
   cashPayments: CashPayment[];
@@ -50,6 +53,11 @@ export function settleLocalCashflows(
     currentSession,
     COVERED_CALL_INTERVAL_DAYS,
   );
+  const singleCoveredCall = settleDistributionSchedule(
+    input.lastSingleCoveredCallDistributionSession,
+    currentSession,
+    SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+  );
   const quarterly = settleDistributionSchedule(
     input.lastQuarterlyDividendSession,
     currentSession,
@@ -58,6 +66,7 @@ export function settleLocalCashflows(
   const changed =
     salary.periods > 0 ||
     monthly.dueSessions.length > 0 ||
+    singleCoveredCall.dueSessions.length > 0 ||
     quarterly.dueSessions.length > 0;
 
   if (!changed) {
@@ -66,6 +75,8 @@ export function settleLocalCashflows(
       cash: input.cash,
       lastSalarySession: input.lastSalarySession,
       lastMonthlyDistributionSession: input.lastMonthlyDistributionSession,
+      lastSingleCoveredCallDistributionSession:
+        input.lastSingleCoveredCallDistributionSession,
       lastQuarterlyDividendSession: input.lastQuarterlyDividendSession,
       stocks: input.stocks,
       cashPayments: input.cashPayments,
@@ -96,7 +107,10 @@ export function settleLocalCashflows(
 
   for (const dueSession of monthly.dueSessions) {
     const coveredCallStocks = stocks.filter(
-      (candidate) => (candidate.coveredCallAnnualYield ?? 0) > 0,
+      (candidate) =>
+        (candidate.coveredCallAnnualYield ?? 0) > 0 &&
+        (candidate.coveredCallDistributionIntervalDays ??
+          COVERED_CALL_INTERVAL_DAYS) === COVERED_CALL_INTERVAL_DAYS,
     );
     for (const stock of coveredCallStocks) {
       const basePrice = Math.max(
@@ -110,6 +124,54 @@ export function settleLocalCashflows(
         stock.coveredCallAnnualYield ?? 0,
         stock.id,
         dueSession,
+        COVERED_CALL_INTERVAL_DAYS,
+      );
+      if (amountPerShare <= 0) continue;
+
+      const quantity = quantityByStockId.get(stock.id) ?? 0;
+      const amount = quantity * amountPerShare;
+      if (amount > 0) {
+        creditedAmount += amount;
+        issued.push({
+          id: `local-covered-call-${stock.id}-${dueSession}`,
+          kind: "covered_call",
+          sourceId: stock.id,
+          ticker: stock.ticker,
+          dueSession,
+          quantity,
+          amountPerShare,
+          amount,
+          timestamp: now,
+        });
+      }
+      stocks = stocks.map((candidate) =>
+        candidate.id === stock.id
+          ? applyCashDistributionToStock(candidate, amountPerShare, now)
+          : candidate,
+      );
+    }
+  }
+
+  for (const dueSession of singleCoveredCall.dueSessions) {
+    const coveredCallStocks = stocks.filter(
+      (candidate) =>
+        (candidate.coveredCallAnnualYield ?? 0) > 0 &&
+        candidate.coveredCallDistributionIntervalDays ===
+          SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+    );
+    for (const stock of coveredCallStocks) {
+      const basePrice = Math.max(
+        stock.daySessionId === currentSession
+          ? stock.prevDayClose
+          : stock.currentPrice,
+        100,
+      );
+      const amountPerShare = calculateCoveredCallDistribution(
+        basePrice,
+        stock.coveredCallAnnualYield ?? 0,
+        stock.id,
+        dueSession,
+        SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
       );
       if (amountPerShare <= 0) continue;
 
@@ -174,6 +236,8 @@ export function settleLocalCashflows(
     cash: input.cash + creditedAmount,
     lastSalarySession: salary.lastSalarySession,
     lastMonthlyDistributionSession: monthly.lastSession,
+    lastSingleCoveredCallDistributionSession:
+      singleCoveredCall.lastSession,
     lastQuarterlyDividendSession: quarterly.lastSession,
     stocks,
     cashPayments: [...issued.reverse(), ...input.cashPayments].slice(

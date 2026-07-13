@@ -24,11 +24,100 @@ import {
   regimeReturnForStock,
 } from "../src/lib/market/marketRegimes";
 import { pickEventQuote } from "../src/data/eventQuotes";
-import { resolveEventTemplate } from "../src/lib/market/engine";
+import {
+  computeCoveredCallTick,
+  createInitialStockState,
+  resolveEventTemplate,
+  stockCategory,
+} from "../src/lib/market/engine";
+import { getCompanyDefinitions, STOCK_DEFINITIONS } from "../src/data/stocks";
+import { getCharacterRelation } from "../src/lib/market/characterRelations";
+import { settleLocalCashflows } from "../src/lib/market/cashflows";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+const singleCoveredCall = STOCK_DEFINITIONS.find(
+  (stock) => stock.id === "baridc-covered-call",
+);
+assert.ok(singleCoveredCall, "single-stock covered call should be generated");
+assert.equal(singleCoveredCall.coveredCallUnderlyingId, "baridc");
+assert.equal(singleCoveredCall.coveredCallUpsideCapture, 0.7);
+assert.equal(singleCoveredCall.coveredCallDistributionIntervalDays, 5);
+assert.ok(
+  (singleCoveredCall.coveredCallAnnualYield ?? 0) >= 30 &&
+    (singleCoveredCall.coveredCallAnnualYield ?? 0) <= 45,
+);
+assert.equal(stockCategory(singleCoveredCall), "커버드콜");
+const allSingleCoveredCalls = STOCK_DEFINITIONS.filter(
+  (stock) => stock.coveredCallDistributionIntervalDays === 5,
+);
+assert.equal(allSingleCoveredCalls.length, getCompanyDefinitions().length);
+assert.ok(
+  allSingleCoveredCalls.every(
+    (stock) =>
+      (stock.coveredCallAnnualYield ?? 0) >= 30 &&
+      (stock.coveredCallAnnualYield ?? 0) <= 45,
+  ),
+);
+
+const coveredCallState: StockState = {
+  ...singleCoveredCall,
+  currentPrice: 10_000,
+  prevDayClose: 10_000,
+  dayOpen: 10_000,
+  priceHistory: [],
+  candles: [],
+  dailyCandles: [],
+  orderBook: { bids: [], asks: [] },
+  coveredCallAnnualYield: 0,
+};
+assert.equal(computeCoveredCallTick(coveredCallState, 0.1, 1).price, 10_700);
+assert.equal(computeCoveredCallTick(coveredCallState, -0.1, 1).price, 9_300);
+
+const directHolding = [{ stockId: "baridc", quantity: 1, averagePrice: 100 }];
+const coveredHolding = [{ stockId: "baridc-covered-call", quantity: 1, averagePrice: 100 }];
+const hostileHolding = [{ stockId: "baridc-inverse", quantity: 1, averagePrice: 100 }];
+const leveragedHolding = [{ stockId: "baridc-leverage-2x", quantity: 1, averagePrice: 100 }];
+assert.equal(getCharacterRelation("baridc", directHolding).status, "direct");
+assert.equal(getCharacterRelation("baridc", coveredHolding).status, "covered-call");
+assert.equal(getCharacterRelation("baridc", hostileHolding).unlocked, false);
+assert.equal(getCharacterRelation("baridc", hostileHolding).status, "hostile");
+assert.equal(
+  getCharacterRelation("baridc", [...hostileHolding, ...leveragedHolding]).status,
+  "leverage",
+  "leverage relationship should override hostile holdings",
+);
+
+const indexCoveredCall = STOCK_DEFINITIONS.find((stock) => stock.id === "vncc");
+assert.ok(indexCoveredCall);
+const cashflowSettlement = settleLocalCashflows(
+  {
+    cash: 0,
+    lastSalarySession: 120,
+    lastMonthlyDistributionSession: 100,
+    lastSingleCoveredCallDistributionSession: 115,
+    lastQuarterlyDividendSession: 120,
+    holdings: [
+      { stockId: indexCoveredCall.id, quantity: 1, averagePrice: 10_000 },
+      { stockId: singleCoveredCall.id, quantity: 1, averagePrice: 10_000 },
+    ],
+    stocks: [
+      createInitialStockState(indexCoveredCall, 120 * SESSION_DURATION_MS),
+      createInitialStockState(singleCoveredCall, 120 * SESSION_DURATION_MS),
+    ],
+    cashPayments: [],
+  },
+  120,
+  120 * SESSION_DURATION_MS,
+);
+assert.equal(cashflowSettlement.lastMonthlyDistributionSession, 120);
+assert.equal(cashflowSettlement.lastSingleCoveredCallDistributionSession, 120);
+assert.deepEqual(
+  new Set(cashflowSettlement.cashPayments.map((payment) => payment.sourceId)),
+  new Set(["vncc", "baridc-covered-call"]),
+);
 
 const quoteCharacter: Character = {
   id: "quote-test",

@@ -1,6 +1,8 @@
-/** 커버드콜은 20거래일을 한 달, 일반 배당은 60거래일을 한 분기로 본다. */
+/** 지수 커버드콜은 20일, 단일 종목형은 5일, 일반 배당은 60일 주기다. */
 export const COVERED_CALL_INTERVAL_DAYS = 20;
+export const SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS = 5;
 export const QUARTERLY_DIVIDEND_INTERVAL_DAYS = 60;
+export const TRADING_SESSIONS_PER_YEAR = 240;
 
 export interface DistributionScheduleSettlement {
   dueSessions: number[];
@@ -65,9 +67,12 @@ export function calculateCoveredCallDistribution(
   annualYieldPercent: number,
   stockId: string,
   dueSession: number,
+  intervalDays = COVERED_CALL_INTERVAL_DAYS,
 ): number {
   if (basePrice <= 0 || annualYieldPercent <= 0) return 0;
   const variation = 0.85 + deterministicUnit(`${stockId}:${dueSession}`) * 0.3;
-  const monthlyRate = annualYieldPercent / 100 / 12;
-  return Math.max(1, Math.round(basePrice * monthlyRate * variation));
+  const periodRate =
+    (annualYieldPercent / 100) *
+    (Math.max(1, intervalDays) / TRADING_SESSIONS_PER_YEAR);
+  return Math.max(1, Math.round(basePrice * periodRate * variation));
 }

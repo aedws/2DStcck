@@ -31,7 +31,7 @@ export default function SettingsPage() {
               파생상품을 기초종목 아래에 묶기
             </span>
             <span className="mt-1 block text-xs leading-relaxed text-[var(--muted)]">
-              인버스·곱버스·레버리지를 기본으로 접어 목록을 간결하게 표시합니다.
+              커버드콜·인버스·곱버스·레버리지를 기초자산 아래 접어 목록을 간결하게 표시합니다.
             </span>
           </span>
           <input

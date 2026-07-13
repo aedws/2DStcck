@@ -186,16 +186,16 @@ function StockInfoTab({ stock }: { stock: StockState }) {
           {stock.leverage !== undefined && (
             <div className="flex flex-col gap-0.5">
               <dt className="text-[11px] text-[var(--muted)]">
-                레버리지 (V-NASDAQ 추종)
+                레버리지 배율
               </dt>
               <dd className="tabular-nums">×{stock.leverage}</dd>
             </div>
           )}
           {stock.coveredCallAnnualYield !== undefined && (
             <div className="flex flex-col gap-0.5">
-              <dt className="text-[11px] text-[var(--muted)]">월 분배</dt>
+              <dt className="text-[11px] text-[var(--muted)]">커버드콜 분배</dt>
               <dd className="tabular-nums">
-                20거래일마다 · 연 목표 {stock.coveredCallAnnualYield}%
+                {stock.coveredCallDistributionIntervalDays ?? 20}거래일마다 · 연 목표 {stock.coveredCallAnnualYield}%
               </dd>
               <dd className="text-[10px] text-[var(--muted)]">
                 옵션 프리미엄에 따라 금액 변동
@@ -204,9 +204,9 @@ function StockInfoTab({ stock }: { stock: StockState }) {
           )}
           {stock.coveredCallUpsideCapture !== undefined && (
             <div className="flex flex-col gap-0.5">
-              <dt className="text-[11px] text-[var(--muted)]">상승 참여율</dt>
+              <dt className="text-[11px] text-[var(--muted)]">기초자산 참여율</dt>
               <dd className="tabular-nums">
-                {(stock.coveredCallUpsideCapture * 100).toFixed(0)}% (하락 100%)
+                상승·하락 ±{stock.coveredCallUpsideCapture.toFixed(1)}배
               </dd>
             </div>
           )}

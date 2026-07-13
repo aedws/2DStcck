@@ -31,7 +31,9 @@ import {
 import { getCharacterById } from "@/data/characters";
 import { pickEventQuote } from "@/data/eventQuotes";
 import { generateOrderBook } from "@/lib/market/orderBook";
-import { COVERED_CALL_INTERVAL_DAYS } from "@/lib/market/distributions";
+import {
+  TRADING_SESSIONS_PER_YEAR,
+} from "@/lib/market/distributions";
 import {
   getMarketRegimeAtSession,
   regimeReturnForStock,
@@ -451,8 +453,8 @@ export function computeLeveragedPrice(
 }
 
 /**
- * 커버드콜은 하락을 그대로 부담하고 상승 일부만 참여한다.
- * 옵션 프리미엄은 매 틱 NAV에 누적되고 20거래일 월 분배 시 현금으로 빠져나간다.
+ * 커버드콜은 기초자산의 상승·하락에 지정 참여율만큼 반응한다.
+ * 옵션 프리미엄은 매 틱 NAV에 누적되고 상품별 분배일에 현금으로 빠져나간다.
  */
 export function computeCoveredCallTick(
   etf: StockState,
@@ -466,11 +468,11 @@ export function computeCoveredCallTick(
   // 틱 단위 비대칭 캡처(상승만 축소)는 변동성 잠식으로 가격이 붕괴하므로
   // 대칭 축소 노출로 단순화한다. 대신 옵션 프리미엄이 NAV에 꾸준히 쌓인다.
   const strategyReturn = underlyingTickReturn * upsideCapture;
-  const monthlyPremiumRate = (etf.coveredCallAnnualYield ?? 0) / 100 / 12;
-  const intervalSeconds =
-    COVERED_CALL_INTERVAL_DAYS * (SESSION_DURATION_MS / 1_000);
+  const annualPremiumRate = (etf.coveredCallAnnualYield ?? 0) / 100;
+  const yearSeconds =
+    TRADING_SESSIONS_PER_YEAR * (SESSION_DURATION_MS / 1_000);
   const premiumAccrual =
-    etf.currentPrice * monthlyPremiumRate * (dtSeconds / intervalSeconds);
+    etf.currentPrice * annualPremiumRate * (dtSeconds / yearSeconds);
   const premiumWithReserve =
     (etf.coveredCallPremiumReserve ?? 0) + premiumAccrual;
   const wholePremium = Math.floor(premiumWithReserve);
@@ -596,7 +598,7 @@ export function tickAllStocks(
     return stock;
   });
 
-  // 4차: 커버드콜은 갱신된 기초자산 흐름에 상승 참여율을 적용한다.
+  // 4차: 커버드콜은 갱신된 기초자산 흐름에 참여율을 적용한다.
   afterById = new Map(calculated.map((s) => [s.id, s]));
   return calculated.map((stock) => {
     if (stock.coveredCallUnderlyingId) {
@@ -798,7 +800,9 @@ export function isIndexLike(sector: string): boolean {
 export function stockCategory(stock: {
   sector: string;
   leverage?: number;
+  coveredCallUnderlyingId?: string;
 }): string {
+  if (stock.coveredCallUnderlyingId) return "커버드콜";
   if (stock.leverage !== undefined) {
     if (stock.leverage >= 2) return "레버리지";
     if (stock.leverage === -1) return "인버스";
@@ -808,7 +812,7 @@ export function stockCategory(stock: {
 }
 
 /** ETF 계열 카테고리 정렬 순서 (필터 칩을 깔끔하게 묶기 위함) */
-export const ETF_FAMILY_ORDER = ["ETF", "레버리지", "인버스", "곱버스"];
+export const ETF_FAMILY_ORDER = ["ETF", "커버드콜", "레버리지", "인버스", "곱버스"];
 
 export function formatPoints(value: number): string {
   return Math.round(value).toLocaleString("en-US");

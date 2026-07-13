@@ -49,6 +49,9 @@ export default function PortfolioPage() {
   const lastMonthlyDistributionSession = useMarketStore(
     (s) => s.lastMonthlyDistributionSession,
   );
+  const lastSingleCoveredCallDistributionSession = useMarketStore(
+    (s) => s.lastSingleCoveredCallDistributionSession,
+  );
   const lastQuarterlyDividendSession = useMarketStore(
     (s) => s.lastQuarterlyDividendSession,
   );
@@ -285,22 +288,29 @@ export default function PortfolioPage() {
                 const evalAmount = h.quantity * stock.currentPrice;
                 const cost = h.quantity * h.averagePrice;
                 const profit = ((evalAmount - cost) / cost) * 100;
+                const coveredCallInterval =
+                  stock.coveredCallDistributionIntervalDays ??
+                  COVERED_CALL_INTERVAL_DAYS;
+                const coveredCallCheckpoint =
+                  coveredCallInterval === 5
+                    ? lastSingleCoveredCallDistributionSession
+                    : lastMonthlyDistributionSession;
                 const coveredCallPerShare = stock.coveredCallAnnualYield
                   ? calculateCoveredCallDistribution(
                       stock.prevDayClose || stock.currentPrice,
                       stock.coveredCallAnnualYield,
                       stock.id,
-                      lastMonthlyDistributionSession +
-                        COVERED_CALL_INTERVAL_DAYS,
+                      coveredCallCheckpoint + coveredCallInterval,
+                      coveredCallInterval,
                     )
                   : 0;
                 const payoutPerShare =
                   coveredCallPerShare || stock.quarterlyDividend || 0;
                 const payoutDays = coveredCallPerShare
                   ? getDistributionDaysRemaining(
-                      lastMonthlyDistributionSession,
+                      coveredCallCheckpoint,
                       currentSession,
-                      COVERED_CALL_INTERVAL_DAYS,
+                      coveredCallInterval,
                     )
                   : stock.quarterlyDividend
                     ? getDistributionDaysRemaining(

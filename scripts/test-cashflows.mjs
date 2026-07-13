@@ -3,6 +3,7 @@ import {
   calculateCoveredCallDistribution,
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
   settleDistributionSchedule,
 } from "../src/lib/market/distributions.ts";
 import {
@@ -56,6 +57,22 @@ const retriedDistribution = calculateCoveredCallDistribution(
 );
 assert.equal(firstDistribution, retriedDistribution);
 assert.ok(firstDistribution >= 85 && firstDistribution <= 115);
+
+const weekly = settleDistributionSchedule(
+  100,
+  116,
+  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+);
+assert.deepEqual(weekly.dueSessions, [105, 110, 115]);
+assert.equal(weekly.lastSession, 115);
+const singleStockDistribution = calculateCoveredCallDistribution(
+  10_000,
+  40,
+  "baridc-covered-call",
+  105,
+  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+);
+assert.ok(singleStockDistribution >= 70 && singleStockDistribution <= 97);
 
 const salary = settleSalary(100, 145);
 assert.equal(salary.periods, 2);

@@ -25,6 +25,7 @@ export interface WalletSave {
   cashPayments: CashPayment[];
   lastSalarySession: number;
   lastMonthlyDistributionSession: number;
+  lastSingleCoveredCallDistributionSession?: number;
   lastQuarterlyDividendSession: number;
   /** 보유 사치재 (재화 sink). 구버전 저장분 호환을 위해 선택형. */
   ownedLuxuries?: OwnedLuxury[];

@@ -60,8 +60,10 @@ export interface StockDefinition {
   coveredCallUnderlyingId?: string;
   /** 커버드콜 ETF의 연 환산 목표 분배율(%). 실제 월 분배금은 옵션 프리미엄처럼 변동한다. */
   coveredCallAnnualYield?: number;
-  /** 커버드콜 ETF의 기초자산 상승 참여율(0~1). 하락은 100% 반영한다. */
+  /** 커버드콜 ETF의 기초자산 상승·하락 참여율(0~1). */
   coveredCallUpsideCapture?: number;
+  /** 커버드콜 현금 분배 주기. 기존 지수형은 20일, 단일 종목형은 5일. */
+  coveredCallDistributionIntervalDays?: number;
   /** 일반 주식·ETF의 분기 주당 배당금(센트). 60거래일마다 지급한다. */
   quarterlyDividend?: number;
 }
@@ -307,6 +309,8 @@ export interface MarketSnapshot {
   lastSalarySession: number;
   /** 마지막으로 처리한 커버드콜 월 분배 기준 거래일 */
   lastMonthlyDistributionSession: number;
+  /** 마지막으로 처리한 단일 종목 커버드콜 5일 분배 기준 거래일 */
+  lastSingleCoveredCallDistributionSession: number;
   /** 마지막으로 처리한 일반 종목 분기 배당 기준 거래일 */
   lastQuarterlyDividendSession: number;
   holdings: Holding[];

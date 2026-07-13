@@ -102,7 +102,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     }, 0);
   };
 
-  // 필터 칩: ETF 안의 레버리지·인버스·곱버스를 분리하고, ETF 계열은 뒤에 묶는다
+  // 필터 칩: ETF 안의 커버드콜·레버리지·인버스·곱버스를 분리한다.
   const sectors = useMemo(() => {
     const cats = Array.from(new Set(stocks.map((s) => stockCategory(s))));
     const nonFamily = cats.filter((c) => !ETF_FAMILY_ORDER.includes(c));

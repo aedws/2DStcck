@@ -6,7 +6,7 @@ export const SERVER_TICK_SECONDS = 10;
  * 시장을 계산하므로, 서버 없이도 모든 접속자가 동일한 시장을 본다. */
 export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
 /** 결정론 가격 규칙 변경 시 증가. 구버전 체크포인트만 폐기하고 지갑은 유지한다. */
-export const MARKET_SIM_VERSION = 3;
+export const MARKET_SIM_VERSION = 4;
 /** 결정론 시뮬레이션 tick 간격 (ms) — 로컬 모드 1초 */
 export const SIM_TICK_MS = 1000;
 

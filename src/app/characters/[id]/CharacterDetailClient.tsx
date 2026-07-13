@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import { formatPrice } from "@/lib/market/engine";
+import { getCharacterRelation } from "@/lib/market/characterRelations";
 import { useMarketStore } from "@/store/marketStore";
 
 export function CharacterDetailClient({ id }: { id: string }) {
@@ -14,9 +15,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
   );
   const ceo = getCharacterById(company?.ceoId);
   const live = useMarketStore((s) => s.getStockById(id));
-  const held = useMarketStore((s) =>
-    s.holdings.find((h) => h.stockId === id),
-  );
+  const holdings = useMarketStore((state) => state.holdings);
   const events = useMarketStore((s) => s.events);
   const relatedNews = useMemo(
     () =>
@@ -31,6 +30,24 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <Link href="/characters" className="mt-2 inline-block text-[var(--accent)]">
           도감으로 돌아가기
         </Link>
+      </div>
+    );
+  }
+
+  const relation = getCharacterRelation(id, holdings);
+  if (!relation.unlocked) {
+    return (
+      <div className="mx-auto max-w-2xl pb-20">
+        <Link href="/characters" className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]">
+          ← 도감
+        </Link>
+        <div className={`mt-4 rounded-2xl border p-8 text-center ${relation.status === "hostile" ? "border-red-500/60 bg-red-500/10" : "border-[var(--border)] bg-[var(--surface)]"}`}>
+          <p className="text-4xl">{relation.status === "hostile" ? "⚔️" : "🔒"}</p>
+          <h1 className="mt-3 text-xl font-bold">{relation.label}</h1>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            일반 주식·레버리지·커버드콜을 보유하면 캐릭터 상세 정보가 활성화됩니다.
+          </p>
+        </div>
       </div>
     );
   }
@@ -51,11 +68,9 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{ceo.name}</h1>
-            {held && (
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
-                보유 중
-              </span>
-            )}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${relation.status === "leverage" ? "bg-pink-500/20 text-pink-300" : relation.status === "hostile" ? "bg-red-500/20 text-red-400" : relation.status === "covered-call" ? "bg-amber-500/20 text-amber-300" : "bg-sky-500/20 text-sky-300"}`}>
+              {relation.label}
+            </span>
           </div>
           <p className="text-sm text-[var(--muted)]">
             {ceo.title} · {company.name}

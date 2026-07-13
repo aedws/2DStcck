@@ -151,7 +151,9 @@ export function replayMarket(
   const coveredCallEtfs = deriveds.filter(
     (stock) => stock.coveredCallUnderlyingId,
   );
-  const replayedStocks = stocks.filter((stock) => !stock.universalDerivative);
+  const replayedStocks = stocks.filter(
+    (stock) => !stock.universalDerivative || Boolean(stock.coveredCallUnderlyingId),
+  );
 
   // 차트 데이터: 캔들은 최근 MAX_CANDLES분, 히스토리는 최근 MAX_PRICE_HISTORY틱만
   const candleWindowStart = toTick - (MAX_CANDLES * 60_000) / SIM_TICK_MS;
@@ -249,7 +251,7 @@ export function replayMarket(
       s.coveredCallPremiumReserve = result.premiumReserve;
     }
 
-    // 배당락·분배락: 기원점 기준 절대 그리드(20/60거래일 배수)에서 전 클라이언트 동일 적용.
+    // 배당락·분배락: 상품별 5/20일과 일반 배당 60일 절대 그리드에 맞춰 적용.
     // (플레이어 현금 지급은 cashflows가 별도로 처리 — 여기서는 주가 조정만)
     if (session !== prevSession) {
       for (let s = prevSession + 1; s <= session; s++) {
@@ -260,18 +262,23 @@ export function replayMarket(
 
         const sinceEpoch = s - EPOCH_SESSION;
         if (sinceEpoch <= 0) continue;
-        const ccDue = sinceEpoch % COVERED_CALL_INTERVAL_DAYS === 0;
         const divDue = sinceEpoch % QUARTERLY_DIVIDEND_INTERVAL_DAYS === 0;
-        if (!ccDue && !divDue) continue;
 
         for (const stock of stocks) {
           let amount = 0;
+          const ccInterval =
+            stock.coveredCallDistributionIntervalDays ??
+            COVERED_CALL_INTERVAL_DAYS;
+          const ccDue =
+            (stock.coveredCallAnnualYield ?? 0) > 0 &&
+            sinceEpoch % ccInterval === 0;
           if (ccDue && (stock.coveredCallAnnualYield ?? 0) > 0) {
             amount += calculateCoveredCallDistribution(
               Math.max(stock.prevDayClose, 100),
               stock.coveredCallAnnualYield ?? 0,
               stock.id,
               s,
+              ccInterval,
             );
           }
           if (divDue && (stock.quarterlyDividend ?? 0) > 0) {
