@@ -33,6 +33,10 @@ export interface WalletSave {
   lastInterestSession?: number;
   /** 달성 업적 id. 구버전 호환을 위해 선택형. */
   achievements?: string[];
+  /** 복권 회차·구매수·잭팟 이력. 구버전 호환을 위해 선택형. */
+  lotteryWindowStart?: number;
+  lotteryTicketsBought?: number;
+  wonJackpot?: boolean;
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */

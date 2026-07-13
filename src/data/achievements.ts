@@ -9,6 +9,7 @@ export interface AchievementContext {
   usedMargin: boolean;
   marginCalled: boolean;
   luxuryCount: number;
+  wonJackpot: boolean;
 }
 
 export interface Achievement {
@@ -82,6 +83,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: "초고위험 급등주를 거래했습니다.",
     emoji: "🎰",
     check: (c) => c.hasPumpTraded,
+  },
+  {
+    id: "jackpot",
+    title: "복권 잭팟",
+    detail: "복권 잭팟($500,000)에 당첨됐습니다.",
+    emoji: "🎟️",
+    check: (c) => c.wonJackpot,
   },
   {
     id: "profit_50",

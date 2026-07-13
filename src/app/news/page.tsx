@@ -57,6 +57,16 @@ export default function NewsPage() {
                 <p className="mt-1.5 text-xs leading-relaxed text-[var(--muted)]">
                   {event.description}
                 </p>
+                {event.quote && (
+                  <p className="mt-2 border-l-2 border-[var(--accent)]/50 pl-3 text-xs italic leading-relaxed text-[var(--foreground)]">
+                    “{event.quote}”
+                    {event.quoteBy && (
+                      <span className="ml-1 not-italic text-[var(--muted)]">
+                        — {event.quoteBy}
+                      </span>
+                    )}
+                  </p>
+                )}
                 {affected.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {affected.slice(0, 8).map((s) => (
