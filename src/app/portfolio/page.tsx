@@ -13,11 +13,21 @@ import {
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
 } from "@/lib/market/distributions";
 import { useMarketStore } from "@/store/marketStore";
+import { LUXURY_BY_ID } from "@/data/luxuries";
+import { getLuxuryValue } from "@/lib/market/luxury";
+import {
+  computeRealizedPnl,
+  computeUnrealizedPnl,
+} from "@/lib/market/portfolioStats";
+import { EquityCurve } from "@/components/ui/EquityCurve";
 
 export default function PortfolioPage() {
   const cash = useMarketStore((s) => s.cash);
   const holdings = useMarketStore((s) => s.holdings);
   const stocks = useMarketStore((s) => s.stocks);
+  const trades = useMarketStore((s) => s.trades);
+  const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
+  const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
@@ -29,8 +39,14 @@ export default function PortfolioPage() {
   );
 
   const total = getTotalAssets();
-  const stockValue = total - cash;
+  const luxuryValue = getLuxuryValue(ownedLuxuries);
+  const stockValue = total - cash - luxuryValue;
   const returnRate = ((total - initialCash) / initialCash) * 100;
+  const priceById = Object.fromEntries(
+    stocks.map((s) => [s.id, s.currentPrice]),
+  );
+  const realizedPnl = computeRealizedPnl(trades);
+  const unrealizedPnl = computeUnrealizedPnl(holdings, priceById);
   const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
   const salaryDays = getSalaryDaysRemaining(
     lastSalarySession,
@@ -55,6 +71,69 @@ export default function PortfolioPage() {
           color="text-emerald-400"
         />
       </div>
+
+      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">순자산 추이</h2>
+          <div className="flex gap-4 text-xs">
+            <span className="text-zinc-500">
+              실현{" "}
+              <span
+                className={
+                  realizedPnl >= 0 ? "text-emerald-400" : "text-red-400"
+                }
+              >
+                {realizedPnl >= 0 ? "+" : ""}
+                {formatPrice(realizedPnl)}
+              </span>
+            </span>
+            <span className="text-zinc-500">
+              미실현{" "}
+              <span
+                className={
+                  unrealizedPnl >= 0 ? "text-emerald-400" : "text-red-400"
+                }
+              >
+                {unrealizedPnl >= 0 ? "+" : ""}
+                {formatPrice(unrealizedPnl)}
+              </span>
+            </span>
+          </div>
+        </div>
+        <EquityCurve data={netWorthHistory} />
+      </div>
+
+      {ownedLuxuries.length > 0 && (
+        <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold">
+              🛍️ 보유 사치재{" "}
+              <span className="text-zinc-500">
+                {ownedLuxuries.length}점 · {formatPrice(luxuryValue)}
+              </span>
+            </h2>
+            <Link href="/shop" className="text-xs text-emerald-400 hover:underline">
+              상점
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ownedLuxuries
+              .map((o) => LUXURY_BY_ID.get(o.id))
+              .filter((d): d is NonNullable<typeof d> => d !== undefined)
+              .sort((a, b) => b.tier - a.tier || b.price - a.price)
+              .map((d) => (
+                <span
+                  key={d.id}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs"
+                  title={`${d.name} · ${formatPrice(d.price)}`}
+                >
+                  <span className="text-base leading-none">{d.emoji}</span>
+                  {d.name}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
 
       {holdings.length === 0 ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500">

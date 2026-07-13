@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { StoreHydration } from "@/components/layout/StoreHydration";
 import { TossHeader } from "@/components/layout/TossHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { OnboardingModal } from "@/components/layout/OnboardingModal";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: ReactNode }) {
         </main>
         <MobileBottomNav />
       </div>
+      <OnboardingModal />
     </StoreHydration>
   );
 }

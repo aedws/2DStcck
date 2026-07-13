@@ -7,6 +7,7 @@ export default function SettingsPage() {
   const setGroupDerivatives = useSettingsStore(
     (state) => state.setGroupDerivatives,
   );
+  const setOnboarded = useSettingsStore((state) => state.setOnboarded);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -37,6 +38,24 @@ export default function SettingsPage() {
             className="h-5 w-5 accent-[var(--accent)]"
           />
         </label>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+        <div className="border-b border-[var(--border)] px-4 py-3">
+          <h2 className="text-sm font-semibold">도움말</h2>
+        </div>
+        <button
+          onClick={() => setOnboarded(false)}
+          className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">튜토리얼 다시 보기</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              게임 방법 안내를 처음부터 다시 봅니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] px-4 py-4">

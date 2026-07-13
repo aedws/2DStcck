@@ -123,6 +123,14 @@ export interface PricePoint {
   price: number;
 }
 
+/** 순자산 추이 한 점 — 에쿼티 커브·랭킹 스냅샷의 원본 */
+export interface NetWorthPoint {
+  /** 기록 시각(ms) */
+  t: number;
+  /** 총 순자산(현금 + 주식 평가 + 사치재 가치, 센트) */
+  value: number;
+}
+
 export interface Candle {
   timestamp: number;
   open: number;
