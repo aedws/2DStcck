@@ -6,6 +6,7 @@ import { StoreHydration } from "@/components/layout/StoreHydration";
 import { TossHeader } from "@/components/layout/TossHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { OnboardingModal } from "@/components/layout/OnboardingModal";
+import { Toaster } from "@/components/layout/Toaster";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -21,6 +22,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <MobileBottomNav />
       </div>
       <OnboardingModal />
+      <Toaster />
     </StoreHydration>
   );
 }

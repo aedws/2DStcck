@@ -9,6 +9,8 @@ export default function SettingsPage() {
     (state) => state.setGroupDerivatives,
   );
   const setOnboarded = useSettingsStore((state) => state.setOnboarded);
+  const soundEnabled = useSettingsStore((state) => state.soundEnabled);
+  const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -36,6 +38,20 @@ export default function SettingsPage() {
             type="checkbox"
             checked={groupDerivatives}
             onChange={(event) => setGroupDerivatives(event.target.checked)}
+            className="h-5 w-5 accent-[var(--accent)]"
+          />
+        </label>
+        <label className="flex min-h-20 cursor-pointer items-center gap-4 border-t border-[var(--border)] px-4 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">체결 효과음</span>
+            <span className="mt-1 block text-xs leading-relaxed text-[var(--muted)]">
+              매매·구매 시 짧은 효과음을 재생합니다.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={soundEnabled}
+            onChange={(event) => setSoundEnabled(event.target.checked)}
             className="h-5 w-5 accent-[var(--accent)]"
           />
         </label>

@@ -63,3 +63,21 @@ input[type="number"] {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* 손맛: 토스트 등장 + 가격 플래시 */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-in { animation: toastIn 0.18s ease-out; }
+
+@keyframes flashUp {
+  0% { background-color: color-mix(in srgb, var(--up) 40%, transparent); }
+  100% { background-color: transparent; }
+}
+@keyframes flashDown {
+  0% { background-color: color-mix(in srgb, var(--down) 40%, transparent); }
+  100% { background-color: transparent; }
+}
+.flash-up { animation: flashUp 0.5s ease-out; }
+.flash-down { animation: flashDown 0.5s ease-out; }

@@ -8,6 +8,7 @@ import {
 import { formatPrice } from "@/lib/market/engine";
 import { getLuxuryValue } from "@/lib/market/luxury";
 import { useMarketStore } from "@/store/marketStore";
+import { playSound } from "@/lib/ui/sound";
 import type { LuxuryItem } from "@/lib/types/luxury";
 
 export default function ShopPage() {
@@ -30,6 +31,7 @@ export default function ShopPage() {
   function handleBuy(item: LuxuryItem) {
     const result = purchaseLuxury(item.id);
     setToast({ ok: result.success, text: result.message });
+    playSound(result.success ? "cash" : "error");
     if (result.success) void saveCloud();
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 2200);

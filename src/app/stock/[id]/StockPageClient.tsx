@@ -10,6 +10,7 @@ import { EtfComposition } from "@/components/market/EtfComposition";
 import { OrderBook } from "@/components/market/OrderBook";
 import { OptionsPanel } from "@/components/market/OptionsPanel";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
+import { FlashValue } from "@/components/ui/FlashValue";
 import { getCharacterById } from "@/data/characters";
 import {
   formatPrice,
@@ -69,9 +70,12 @@ function StockHeader({ stock }: { stock: StockState }) {
             </span>
           </p>
           <p className="flex items-baseline gap-2">
-            <span className="text-xl font-bold tabular-nums">
+            <FlashValue
+              value={stock.currentPrice}
+              className="text-xl font-bold tabular-nums"
+            >
               {formatPrice(stock.currentPrice)}
-            </span>
+            </FlashValue>
             <span className={`text-xs tabular-nums ${upDownClass(change)}`}>
               전일보다 {formatSignedMoney(diff)} ({formatSignedPercent(change)})
             </span>
