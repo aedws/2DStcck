@@ -86,6 +86,29 @@ export function seededRand(simTick: number, key: string): () => number {
   return mulberry32(fnv1a(`${simTick}:${key}`));
 }
 
+/**
+ * 독립 난수를 몇 초 간격 앵커 사이에서 보간해 1초 틱의 톱니 움직임을 줄인다.
+ * 현재 틱만으로 계산할 수 있어 체크포인트 재접속 후에도 같은 가격 경로를 만든다.
+ */
+export function smoothedNormalAtTick(
+  simTick: number,
+  key: string,
+  spanTicks = 6,
+): number {
+  const span = Math.max(2, Math.floor(spanTicks));
+  const anchor = Math.floor(simTick / span);
+  const fraction = (simTick - anchor * span) / span;
+  const eased = fraction * fraction * (3 - 2 * fraction);
+  const leftWeight = 1 - eased;
+  const rightWeight = eased;
+  const left = randomNormal(seededRand(anchor, `${key}:smooth`));
+  const right = randomNormal(seededRand(anchor + 1, `${key}:smooth`));
+  const normalization = Math.sqrt(
+    leftWeight * leftWeight + rightWeight * rightWeight,
+  );
+  return (left * leftWeight + right * rightWeight) / Math.max(normalization, 1e-9);
+}
+
 export function createInitialStockState(
   def: StockDefinition,
   at?: number,
@@ -191,6 +214,7 @@ export function calculateTickPrice(
   marketShock = 0,
   dtSeconds = SERVER_TICK_SECONDS,
   rand: () => number = Math.random,
+  smoothedNoise?: number,
 ): number {
   const sqrtDt = Math.sqrt(dtSeconds);
   const eventImpact = getActiveEventImpact(stock, events, now);
@@ -208,7 +232,7 @@ export function calculateTickPrice(
     ),
   );
   const noise =
-    randomNormal(rand) *
+    (smoothedNoise ?? randomNormal(rand)) *
     stock.volatility *
     VOLATILITY_TIME_SCALE *
     sqrtDt *

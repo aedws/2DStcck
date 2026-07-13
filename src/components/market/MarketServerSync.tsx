@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useMarketStore } from "@/store/marketStore";
 import { MarketRealtime } from "@/components/market/MarketRealtime";
+import { PriceAlertMonitor } from "@/components/market/PriceAlertMonitor";
 
 /**
  * 클라우드 계정 동기화 (선택적):
@@ -25,6 +26,7 @@ function CloudSaveSync() {
       if (cancelled || !data.user) return;
       setUserId(data.user.id);
       await loadCloudSave();
+      await saveCloud();
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
@@ -32,6 +34,7 @@ function CloudSaveSync() {
         if (session?.user) {
           setUserId(session.user.id);
           await loadCloudSave();
+          await saveCloud();
         } else {
           setUserId(null);
         }
@@ -42,7 +45,7 @@ function CloudSaveSync() {
       cancelled = true;
       listener.subscription.unsubscribe();
     };
-  }, [setUserId, loadCloudSave]);
+  }, [setUserId, loadCloudSave, saveCloud]);
 
   // 지갑 변경 시 디바운스 저장 (로그인 상태에서만)
   useEffect(() => {
@@ -70,7 +73,9 @@ function CloudSaveSync() {
         state.storyDecisionHistory !== prev.storyDecisionHistory ||
         state.marginEnabled !== prev.marginEnabled ||
         state.marginLeverage !== prev.marginLeverage ||
-        state.recurringInvestments !== prev.recurringInvestments;
+        state.recurringInvestments !== prev.recurringInvestments ||
+        state.attendance !== prev.attendance ||
+        state.selectedTitleId !== prev.selectedTitleId;
       if (!walletChanged) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => saveCloud(), 2000);
@@ -82,6 +87,14 @@ function CloudSaveSync() {
     };
   }, [saveCloud]);
 
+  // 거래가 없어도 공개 랭킹 스냅샷과 주간 수익률을 10분마다 갱신한다.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (useMarketStore.getState().userId) void saveCloud();
+    }, 10 * 60 * 1_000);
+    return () => window.clearInterval(id);
+  }, [saveCloud]);
+
   return null;
 }
 
@@ -89,6 +102,7 @@ export function MarketSyncRouter() {
   return (
     <>
       <MarketRealtime />
+      <PriceAlertMonitor />
       <CloudSaveSync />
     </>
   );

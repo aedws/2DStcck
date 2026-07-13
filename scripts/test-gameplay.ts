@@ -43,8 +43,18 @@ import {
   randomNormal,
   resolveEventTemplate,
   seededRand,
+  smoothedNormalAtTick,
   stockCategory,
 } from "../src/lib/market/engine";
+import {
+  relativeStrengthIndex,
+  simpleMovingAverage,
+} from "../src/lib/market/chartIndicators";
+import {
+  attendanceReward,
+  buildTradingStats,
+  claimAttendanceState,
+} from "../src/lib/player/playerProfile";
 import { getCompanyDefinitions, STOCK_DEFINITIONS } from "../src/data/stocks";
 import { getCharacterRelation } from "../src/lib/market/characterRelations";
 import { settleLocalCashflows } from "../src/lib/market/cashflows";
@@ -111,6 +121,48 @@ import type { Character, EventTemplate, OptionPosition, StockState, Trade } from
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+const attendanceDayOne = Date.UTC(2026, 6, 13, 15, 30);
+const firstAttendance = claimAttendanceState(
+  { streak: 0, totalDays: 0 },
+  attendanceDayOne,
+)!;
+assert.equal(firstAttendance.state.streak, 1);
+assert.equal(firstAttendance.reward, attendanceReward(1));
+assert.equal(
+  claimAttendanceState(firstAttendance.state, attendanceDayOne + 60_000),
+  null,
+  "attendance can only be claimed once per Korea calendar day",
+);
+const secondAttendance = claimAttendanceState(
+  firstAttendance.state,
+  attendanceDayOne + 24 * 60 * 60 * 1_000,
+)!;
+assert.equal(secondAttendance.state.streak, 2);
+
+const indicatorCandles = Array.from({ length: 20 }, (_, index) => ({
+  timestamp: index * 30_000,
+  open: 100 + index,
+  high: 101 + index,
+  low: 99 + index,
+  close: 100 + index,
+}));
+assert.equal(simpleMovingAverage(indicatorCandles, 5).at(-1)?.value, 117);
+assert.equal(relativeStrengthIndex(indicatorCandles, 14).at(-1)?.value, 100);
+assert.equal(
+  smoothedNormalAtTick(1234, "test"),
+  smoothedNormalAtTick(1234, "test"),
+  "smoothed market noise must remain deterministic",
+);
+assert.ok(Number.isFinite(smoothedNormalAtTick(1235, "test")));
+
+const tradingStats = buildTradingStats([
+  { id: "close", stockId: "test", ticker: "TEST", type: "sell", quantity: 1, price: 120, total: 120, timestamp: 2 },
+  { id: "open", stockId: "test", ticker: "TEST", type: "buy", quantity: 1, price: 100, total: 100, timestamp: 1 },
+]);
+assert.equal(tradingStats.tradeCount, 2);
+assert.equal(tradingStats.winRate, 100);
+assert.equal(tradingStats.realizedPnl, 20);
 
 let pumpSession = -1;
 for (let candidate = 1; candidate < 2_000; candidate++) {

@@ -17,6 +17,7 @@ import {
   maybeGenerateEvent,
   randomNormal,
   seededRand,
+  smoothedNormalAtTick,
 } from "@/lib/market/engine";
 import {
   COVERED_CALL_INTERVAL_DAYS,
@@ -44,6 +45,13 @@ import type {
  */
 
 const DT_SECONDS = SIM_TICK_MS / 1000;
+/** 기존 체크포인트를 버리지 않고 이 시각 이후부터 미세 움직임 보간을 적용한다. */
+const SMOOTHING_START_TICK = Math.max(
+  0,
+  Math.floor(
+    (Date.UTC(2026, 6, 13, 18, 0, 0) - MARKET_EPOCH_MS) / SIM_TICK_MS,
+  ),
+);
 
 /** 기원점의 거래일 번호 — 배당락·분배락 절대 그리드의 기준점 */
 export const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
@@ -205,7 +213,10 @@ export function replayMarket(
   for (let tick = fromTick + 1; tick <= toTick; tick++) {
     const now = simTickTime(tick);
     const session = Math.floor(now / SESSION_DURATION_MS);
-    const marketShock = randomNormal(seededRand(tick, "shock"));
+    const smoothingEnabled = tick >= SMOOTHING_START_TICK;
+    const marketShock = smoothingEnabled
+      ? smoothedNormalAtTick(tick, "market-shock")
+      : randomNormal(seededRand(tick, "shock"));
 
     const ccBefore = new Map(
       coveredCallEtfs
@@ -227,6 +238,9 @@ export function replayMarket(
         marketShock,
         DT_SECONDS,
         seededRand(tick, s.id),
+        smoothingEnabled
+          ? smoothedNormalAtTick(tick, `stock:${s.id}`)
+          : undefined,
       );
       if (isNewSession) s.dayOpen = next;
       s.daySessionId = session;

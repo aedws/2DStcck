@@ -167,6 +167,14 @@ import {
   normalizeRecurringInvestments,
   processRecurringInvestments,
 } from "@/lib/market/recurringInvestments";
+import {
+  buildTradingStats,
+  claimAttendanceState,
+  getPlayerTitle,
+  normalizeAttendance,
+  unlockedPlayerTitles,
+  type AttendanceState,
+} from "@/lib/player/playerProfile";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -196,6 +204,10 @@ interface MarketStore extends MarketSnapshot {
   ) => OrderResult;
   toggleRecurringInvestment: (planId: string) => void;
   cancelRecurringInvestment: (planId: string) => void;
+  attendance: AttendanceState;
+  selectedTitleId: string;
+  claimDailyAttendance: () => OrderResult;
+  selectPlayerTitle: (titleId: string) => OrderResult;
   /** 사치재 구매: 현금 차감 후 보유 목록에 추가 (아이템당 1개) */
   purchaseLuxury: (itemId: string) => OrderResult;
   /** 보유 사치재 총 가치(센트) */
@@ -302,6 +314,8 @@ function createInitialState(): MarketSnapshot & {
   marginEnabled: boolean;
   marginLeverage: MarginLeverage;
   recurringInvestments: RecurringInvestment[];
+  attendance: AttendanceState;
+  selectedTitleId: string;
   achievements: string[];
   lotteryWindowStart: number;
   lotteryTicketsBought: number;
@@ -319,6 +333,7 @@ function createInitialState(): MarketSnapshot & {
   const now = Date.now();
   return {
     marketVersion: MARKET_SIM_VERSION,
+    sessionDurationMs: SESSION_DURATION_MS,
     tick: 0,
     // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
     marketStartedAt: MARKET_EPOCH_MS,
@@ -355,6 +370,8 @@ function createInitialState(): MarketSnapshot & {
     marginEnabled: false,
     marginLeverage: DEFAULT_MARGIN_LEVERAGE,
     recurringInvestments: [],
+    attendance: normalizeAttendance(undefined),
+    selectedTitleId: "rookie",
     achievements: [],
     lotteryWindowStart: alignSessionToGrid(
       Math.floor(now / SESSION_DURATION_MS),
@@ -847,6 +864,55 @@ export const useMarketStore = create<MarketStore>()(
             (plan) => plan.id !== planId,
           ),
         })),
+      claimDailyAttendance: () => {
+        const state = get();
+        const claimed = claimAttendanceState(state.attendance);
+        if (!claimed) {
+          return { success: false, message: "오늘 출석 보상은 이미 받았습니다." };
+        }
+        const now = Date.now();
+        const payment: CashPayment = {
+          id: `attendance-${claimed.state.lastClaimDate}`,
+          kind: "attendance",
+          sourceId: "daily-attendance",
+          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          amount: claimed.reward,
+          timestamp: now,
+        };
+        set({
+          cash: state.cash + claimed.reward,
+          attendance: claimed.state,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore.getState().push(
+          `📅 ${claimed.state.streak}일 연속 출석 · ${formatPrice(claimed.reward)} 지급`,
+          "success",
+        );
+        playSound("cash");
+        return { success: true, message: "출석 보상을 받았습니다." };
+      },
+      selectPlayerTitle: (titleId) => {
+        const state = get();
+        const unlocked = unlockedPlayerTitles({
+          tradeCount: buildTradingStats(state.trades).tradeCount,
+          attendanceStreak: state.attendance.streak,
+          attendanceTotalDays: state.attendance.totalDays,
+          netWorth: fullEquityOf(state),
+          initialCash: state.initialCash,
+          seasonState: state.investmentSeason,
+          mastery: state.investmentMastery,
+        });
+        if (!unlocked.some((title) => title.id === titleId)) {
+          return { success: false, message: "아직 해금되지 않은 칭호입니다." };
+        }
+        set({ selectedTitleId: titleId });
+        const title = getPlayerTitle(titleId);
+        useToastStore.getState().push(
+          `${title.emoji} 대표 칭호 · ${title.name}`,
+          "success",
+        );
+        return { success: true, message: "대표 칭호를 변경했습니다." };
+      },
       markCharacterMessageRead: (messageId) =>
         set((state) => ({
           readCharacterMessageIds: state.readCharacterMessageIds.includes(messageId)
@@ -1054,6 +1120,8 @@ export const useMarketStore = create<MarketStore>()(
           recurringInvestments: normalizeRecurringInvestments(
             wallet.recurringInvestments,
           ),
+          attendance: normalizeAttendance(wallet.attendance),
+          selectedTitleId: getPlayerTitle(wallet.selectedTitleId).id,
           lastInterestSession:
             cloudClockChanged
               ? nowSession
@@ -1097,11 +1165,15 @@ export const useMarketStore = create<MarketStore>()(
           marginEnabled: s.marginEnabled,
           marginLeverage: s.marginLeverage,
           recurringInvestments: s.recurringInvestments,
+          attendance: s.attendance,
+          selectedTitleId: s.selectedTitleId,
           lastInterestSession: s.lastInterestSession,
         });
 
         // 공유 리더보드 갱신: 순자산·수익률·과시 요약을 본인 행에 반영
         const netWorth = s.getTotalAssets();
+        const tradingStats = buildTradingStats(s.trades.slice(0, 200));
+        const playerTitle = getPlayerTitle(s.selectedTitleId);
         await syncLeaderboard({
           netWorth,
           returnRate:
@@ -1114,6 +1186,9 @@ export const useMarketStore = create<MarketStore>()(
           luxuryCount: s.ownedLuxuries.length,
           showcase: getLuxuryShowcase(s.ownedLuxuries),
           reputation: s.reputation,
+          title: `${playerTitle.emoji} ${playerTitle.name}`,
+          tradeCount: tradingStats.tradeCount,
+          winRate: tradingStats.winRate,
         });
       },
 
@@ -2170,6 +2245,7 @@ export const useMarketStore = create<MarketStore>()(
       partialize: (state) => ({
         tick: state.tick,
         marketVersion: state.marketVersion,
+        sessionDurationMs: state.sessionDurationMs,
         marketStartedAt: state.marketStartedAt,
         cash: state.cash,
         initialCash: state.initialCash,
@@ -2203,6 +2279,8 @@ export const useMarketStore = create<MarketStore>()(
         marginEnabled: state.marginEnabled,
         marginLeverage: state.marginLeverage,
         recurringInvestments: state.recurringInvestments,
+        attendance: state.attendance,
+        selectedTitleId: state.selectedTitleId,
         // 시장 체크포인트는 최근 구간만 저장하고 장기 합성 일봉은 복원 시 재생성한다.
         stocks: state.stocks
           .filter(
@@ -2222,7 +2300,13 @@ export const useMarketStore = create<MarketStore>()(
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
-        const sessionClockChanged = merged.marketVersion !== MARKET_SIM_VERSION;
+        const persistedSessionDuration = Number.isFinite(
+          (merged as Partial<MarketSnapshot>).sessionDurationMs,
+        )
+          ? (merged as Partial<MarketSnapshot>).sessionDurationMs!
+          : SESSION_DURATION_MS;
+        const sessionClockChanged =
+          persistedSessionDuration !== SESSION_DURATION_MS;
         const previousNowSession = Math.floor(Date.now() / (3 * 60 * 60 * 1000));
         const sessionBaseline = sessionClockChanged ? nowSession : undefined;
 
@@ -2329,6 +2413,7 @@ export const useMarketStore = create<MarketStore>()(
         return {
           ...merged,
           marketVersion: MARKET_SIM_VERSION,
+          sessionDurationMs: SESSION_DURATION_MS,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
           stocks: restoredStocks,
@@ -2441,6 +2526,12 @@ export const useMarketStore = create<MarketStore>()(
           recurringInvestments: normalizeRecurringInvestments(
             (merged as Partial<MarketStore>).recurringInvestments,
           ),
+          attendance: normalizeAttendance(
+            (merged as Partial<MarketStore>).attendance,
+          ),
+          selectedTitleId: getPlayerTitle(
+            (merged as Partial<MarketStore>).selectedTitleId,
+          ).id,
           userId: null,
           isReady: false,
         };

@@ -1,5 +1,9 @@
 import type { MarketEvent, StockState } from "@/lib/types/market";
-import { SESSION_DURATION_MS, SIM_TICK_MS } from "@/lib/market/constants";
+import {
+  BASE_CANDLE_INTERVAL_MS,
+  SESSION_DURATION_MS,
+  SIM_TICK_MS,
+} from "@/lib/market/constants";
 import { seededRand } from "@/lib/market/engine";
 import { generateOrderBook } from "@/lib/market/orderBook";
 
@@ -124,7 +128,8 @@ function buildPumpState(spec: PumpSpec, now: number): StockState {
   for (let t = Math.max(start, now - 90 * step); t <= now; t += step) {
     const p = pumpPriceAt(spec, t);
     history.push({ timestamp: t, price: p });
-    const m = Math.floor(t / 60_000) * 60_000;
+    const m =
+      Math.floor(t / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS;
     const c = candlesMap.get(m);
     if (c) {
       c.h = Math.max(c.h, p);

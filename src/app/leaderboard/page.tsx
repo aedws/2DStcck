@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice, formatPercent } from "@/lib/market/engine";
 import {
+  LEADERBOARD_REFRESH_MS,
   fetchLeaderboard,
   fetchRegisteredAccountCount,
   getCurrentUserId,
@@ -13,15 +14,18 @@ import { upDownClass } from "@/lib/ui/marketColors";
 const RANK_MEDAL = ["🥇", "🥈", "🥉"];
 
 export default function LeaderboardPage() {
+  const [mode, setMode] = useState<"netWorth" | "weekly">("netWorth");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [myId, setMyId] = useState<string | null>(null);
   const [accountCount, setAccountCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
 
   const load = useCallback(async () => {
     setLoading(true);
     const [rows, id, registeredCount] = await Promise.all([
-      fetchLeaderboard(100),
+      fetchLeaderboard(100, mode),
       getCurrentUserId(),
       fetchRegisteredAccountCount(),
     ]);
@@ -29,27 +33,64 @@ export default function LeaderboardPage() {
     setMyId(id);
     setAccountCount(registeredCount);
     setLoading(false);
-  }, []);
+    setLastLoadedAt(Date.now());
+  }, [mode]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const refresh = window.setInterval(() => void load(), LEADERBOARD_REFRESH_MS);
+    const clock = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => {
+      window.clearInterval(refresh);
+      window.clearInterval(clock);
+    };
+  }, [load]);
+
+  const secondsUntilRefresh = lastLoadedAt
+    ? Math.max(0, Math.ceil((lastLoadedAt + LEADERBOARD_REFRESH_MS - now) / 1_000))
+    : 0;
+
   return (
     <div className="mx-auto max-w-2xl pb-20">
-      <div className="mb-5 flex items-baseline justify-between">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">🏆 랭킹</h1>
-        <button
-          onClick={load}
-          className="rounded-lg bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          새로고침
-        </button>
+        <div className="text-right">
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-lg bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            지금 새로고침
+          </button>
+          <p className="mt-1 text-[10px] text-[var(--muted)]">
+            10분 자동 갱신 · {Math.floor(secondsUntilRefresh / 60)}:{String(secondsUntilRefresh % 60).padStart(2, "0")}
+          </p>
+        </div>
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         모두가 같은 시장에서 경쟁합니다. 순위 기준은 <b>순자산</b>(현금 + 주식 +
         감가 후 사치재 가치)입니다.
       </p>
+
+      <div className="mb-5 grid grid-cols-2 rounded-xl bg-[var(--surface)] p-1">
+        <button
+          type="button"
+          onClick={() => setMode("netWorth")}
+          className={`min-h-10 rounded-lg text-sm font-semibold ${mode === "netWorth" ? "bg-[var(--background)] text-[var(--foreground)]" : "text-[var(--muted)]"}`}
+        >
+          총 순자산
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("weekly")}
+          className={`min-h-10 rounded-lg text-sm font-semibold ${mode === "weekly" ? "bg-[var(--background)] text-[var(--foreground)]" : "text-[var(--muted)]"}`}
+        >
+          주간 수익률
+        </button>
+      </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -102,6 +143,11 @@ export default function LeaderboardPage() {
                       </span>
                     )}
                   </div>
+                  {entry.title && (
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--accent)]">
+                      {entry.title}
+                    </p>
+                  )}
                   {entry.showcase.length > 0 && (
                     <div className="mt-0.5 text-sm leading-none">
                       {entry.showcase.join(" ")}
@@ -115,10 +161,14 @@ export default function LeaderboardPage() {
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm font-semibold tabular-nums">
-                    {formatPrice(entry.netWorth)}
+                    {mode === "weekly"
+                      ? `${entry.weeklyReturn >= 0 ? "+" : ""}${entry.weeklyReturn.toFixed(2)}%`
+                      : formatPrice(entry.netWorth)}
                   </p>
-                  <p className={`text-xs tabular-nums ${upDownClass(entry.returnRate)}`}>
-                    {formatPercent(entry.returnRate)}
+                  <p className={`text-xs tabular-nums ${upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
+                    {mode === "weekly"
+                      ? `${formatPrice(entry.netWorth)} · 승률 ${entry.winRate.toFixed(0)}%`
+                      : `${formatPercent(entry.returnRate)} · ${entry.tradeCount}체결`}
                   </p>
                 </div>
               </li>

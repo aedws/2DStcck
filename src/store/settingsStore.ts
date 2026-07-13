@@ -3,6 +3,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export interface PriceAlert {
+  id: string;
+  stockId: string;
+  direction: "above" | "below";
+  targetPrice: number;
+  createdAt: number;
+  triggeredAt?: number;
+}
+
 interface SettingsState {
   groupDerivatives: boolean;
   setGroupDerivatives: (value: boolean) => void;
@@ -25,6 +34,15 @@ interface SettingsState {
   /** 관심종목 (종목 id 목록) */
   watchlist: string[];
   toggleWatch: (id: string) => void;
+  priceAlerts: PriceAlert[];
+  addPriceAlert: (
+    stockId: string,
+    direction: PriceAlert["direction"],
+    targetPrice: number,
+  ) => void;
+  removePriceAlert: (id: string) => void;
+  rearmPriceAlert: (id: string) => void;
+  triggerPriceAlert: (id: string, triggeredAt: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -57,6 +75,38 @@ export const useSettingsStore = create<SettingsState>()(
           watchlist: s.watchlist.includes(id)
             ? s.watchlist.filter((w) => w !== id)
             : [...s.watchlist, id],
+        })),
+      priceAlerts: [],
+      addPriceAlert: (stockId, direction, targetPrice) =>
+        set((state) => ({
+          priceAlerts: [
+            {
+              id: `price-alert-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              stockId,
+              direction,
+              targetPrice: Math.max(1, Math.round(targetPrice)),
+              createdAt: Date.now(),
+            },
+            ...state.priceAlerts,
+          ].slice(0, 30),
+        })),
+      removePriceAlert: (id) =>
+        set((state) => ({
+          priceAlerts: state.priceAlerts.filter((alert) => alert.id !== id),
+        })),
+      rearmPriceAlert: (id) =>
+        set((state) => ({
+          priceAlerts: state.priceAlerts.map((alert) =>
+            alert.id === id ? { ...alert, triggeredAt: undefined } : alert,
+          ),
+        })),
+      triggerPriceAlert: (id, triggeredAt) =>
+        set((state) => ({
+          priceAlerts: state.priceAlerts.map((alert) =>
+            alert.id === id && alert.triggeredAt === undefined
+              ? { ...alert, triggeredAt }
+              : alert,
+          ),
         })),
     }),
     { name: "2dstock-settings" },

@@ -16,6 +16,7 @@ import type {
 import type { OwnedLuxury } from "@/lib/types/luxury";
 import type { InvestmentMasteryState } from "@/lib/market/investmentMastery";
 import type { InvestmentSeasonState } from "@/lib/market/investmentSeasons";
+import type { AttendanceState } from "@/lib/player/playerProfile";
 
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
@@ -60,6 +61,8 @@ export interface WalletSave {
   marginEnabled?: boolean;
   marginLeverage?: MarginLeverage;
   recurringInvestments?: RecurringInvestment[];
+  attendance?: AttendanceState;
+  selectedTitleId?: string;
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */
@@ -106,7 +109,13 @@ export interface LeaderboardEntry {
   luxuryCount: number;
   showcase: string[];
   updatedAt: number;
+  weeklyReturn: number;
+  title: string;
+  tradeCount: number;
+  winRate: number;
 }
+
+export const LEADERBOARD_REFRESH_MS = 10 * 60 * 1_000;
 
 /** 계산된 지표를 본인 리더보드 행에 upsert 한다. 로그인 상태가 아니면 무시. */
 export async function syncLeaderboard(stats: {
@@ -118,12 +127,19 @@ export async function syncLeaderboard(stats: {
   luxuryCount: number;
   showcase: string[];
   reputation: number;
+  title: string;
+  tradeCount: number;
+  winRate: number;
 }): Promise<boolean> {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return false;
+
+  const throttleKey = `2dstock-leaderboard-sync:${user.id}`;
+  const lastSynced = Number(window.localStorage.getItem(throttleKey)) || 0;
+  if (Date.now() - lastSynced < LEADERBOARD_REFRESH_MS) return true;
 
   const displayName =
     (user.user_metadata?.game_id as string | undefined) ??
@@ -161,8 +177,14 @@ export async function syncLeaderboard(stats: {
     p_luxury_count: stats.luxuryCount,
     p_showcase: stats.showcase,
     p_reputation: Math.round(stats.reputation),
+    p_title: stats.title.slice(0, 30),
+    p_trade_count: Math.max(0, Math.floor(stats.tradeCount)),
+    p_win_rate: Number(Math.max(0, Math.min(100, stats.winRate)).toFixed(2)),
   });
-  if (!rpcError) return true;
+  if (!rpcError) {
+    window.localStorage.setItem(throttleKey, String(Date.now()));
+    return true;
+  }
 
   // 마이그레이션 적용 전 개발 DB 호환. 함수가 존재하는데 검증에 실패한 경우에는
   // 직접 upsert로 우회하지 않는다.
@@ -178,22 +200,29 @@ export async function syncLeaderboard(stats: {
     top_tier: stats.topTier,
     luxury_count: stats.luxuryCount,
     showcase: stats.showcase,
+    title: stats.title.slice(0, 30),
+    trade_count: Math.max(0, Math.floor(stats.tradeCount)),
+    win_rate: Number(Math.max(0, Math.min(100, stats.winRate)).toFixed(2)),
     updated_at: new Date().toISOString(),
   });
+  if (!error) window.localStorage.setItem(throttleKey, String(Date.now()));
   return !error;
 }
 
 /** 순자산 상위 랭킹을 읽는다 (공개). 실패 시 빈 배열. */
 export async function fetchLeaderboard(
   limit = 100,
+  sort: "netWorth" | "weekly" = "netWorth",
 ): Promise<LeaderboardEntry[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("leaderboard")
     .select(
-      "user_id, display_name, net_worth, return_rate, top_tier, luxury_count, showcase, updated_at",
+      "user_id, display_name, net_worth, return_rate, weekly_return, title, trade_count, win_rate, top_tier, luxury_count, showcase, updated_at",
     )
-    .order("net_worth", { ascending: false })
+    .order(sort === "weekly" ? "weekly_return" : "net_worth", {
+      ascending: false,
+    })
     .limit(limit);
 
   if (error || !data) return [];
@@ -206,6 +235,10 @@ export async function fetchLeaderboard(
     luxuryCount: Number(row.luxury_count),
     showcase: (row.showcase as string[]) ?? [],
     updatedAt: new Date(row.updated_at).getTime(),
+    weeklyReturn: Number(row.weekly_return ?? 0),
+    title: String(row.title ?? ""),
+    tradeCount: Number(row.trade_count ?? 0),
+    winRate: Number(row.win_rate ?? 0),
   }));
 }
 

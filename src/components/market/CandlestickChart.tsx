@@ -16,6 +16,10 @@ import {
   aggregateCandlesBySessions,
   buildCandles,
 } from "@/lib/market/engine";
+import {
+  relativeStrengthIndex,
+  simpleMovingAverage,
+} from "@/lib/market/chartIndicators";
 
 const UP_COLOR = "#f04452";
 const DOWN_COLOR = "#3182f6";
@@ -106,13 +110,22 @@ export function CandlestickChart({
   prevDayClose,
   priceKind = "dollar",
 }: CandlestickChartProps) {
-  const [timeframe, setTimeframe] = useState<ChartTimeframe>("1m");
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("30s");
+  const [showMa5, setShowMa5] = useState(true);
+  const [showMa20, setShowMa20] = useState(false);
+  const [showRsi, setShowRsi] = useState(false);
+  const [trendMode, setTrendMode] = useState(false);
+  const [trendPoints, setTrendPoints] = useState<Array<{ time: UTCTimestamp; price: number }>>([]);
   const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const avgLineRef = useRef<IPriceLine | null>(null);
   const prevCloseLineRef = useRef<IPriceLine | null>(null);
+  const ma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ma20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const trendRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const trendModeRef = useRef(false);
   const initialFitDoneRef = useRef(false);
   const chartHeight = isMobile && mobileHeight ? mobileHeight : height;
 
@@ -124,7 +137,11 @@ export function CandlestickChart({
     return () => media.removeEventListener("change", update);
   }, []);
 
-  const data = useMemo(() => {
+  useEffect(() => {
+    trendModeRef.current = trendMode;
+  }, [trendMode]);
+
+  const visibleCandles = useMemo(() => {
     const historyCandles = history ? buildCandles(history) : [];
     const intradaySource =
       candles && candles.length >= historyCandles.length
@@ -143,8 +160,13 @@ export function CandlestickChart({
             daySource,
             timeframe === "1w" ? 5 : timeframe === "1mo" ? 20 : 240,
           );
-    return toSeriesData(source);
+    return source;
   }, [candles, dailyCandles, history, timeframe]);
+  const data = useMemo(() => toSeriesData(visibleCandles), [visibleCandles]);
+  const rsiData = useMemo(
+    () => relativeStrengthIndex(visibleCandles, 14),
+    [visibleCandles],
+  );
   const hasData = data.length > 0;
 
   // 차트 생성/해제
@@ -206,9 +228,41 @@ export function CandlestickChart({
       borderVisible: true,
       wickVisible: true,
     });
+    const ma5 = chart.addLineSeries({
+      color: "#f2b94b",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const ma20 = chart.addLineSeries({
+      color: "#a78bfa",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const trend = chart.addLineSeries({
+      color: "#22d3ee",
+      lineWidth: 2,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    chart.subscribeClick((parameter) => {
+      if (!trendModeRef.current || !parameter.point || parameter.time === undefined) return;
+      const price = series.coordinateToPrice(parameter.point.y);
+      if (price === null || typeof parameter.time !== "number") return;
+      const point = { time: parameter.time as UTCTimestamp, price };
+      setTrendPoints((current) =>
+        current.length >= 2 ? [point] : [...current, point],
+      );
+    });
 
     chartRef.current = chart;
     seriesRef.current = series;
+    ma5Ref.current = ma5;
+    ma20Ref.current = ma20;
+    trendRef.current = trend;
     initialFitDoneRef.current = false;
 
     return () => {
@@ -217,6 +271,9 @@ export function CandlestickChart({
       seriesRef.current = null;
       avgLineRef.current = null;
       prevCloseLineRef.current = null;
+      ma5Ref.current = null;
+      ma20Ref.current = null;
+      trendRef.current = null;
     };
   }, [chartHeight, hasData, priceKind, timeframe]);
 
@@ -233,6 +290,44 @@ export function CandlestickChart({
       initialFitDoneRef.current = true;
     }
   }, [data]);
+
+  useEffect(() => {
+    const ma5 = ma5Ref.current;
+    const ma20 = ma20Ref.current;
+    if (!ma5 || !ma20) return;
+    ma5.setData(
+      showMa5
+        ? simpleMovingAverage(visibleCandles, 5).map((point) => ({
+            time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+            value: point.value,
+          }))
+        : [],
+    );
+    ma20.setData(
+      showMa20
+        ? simpleMovingAverage(visibleCandles, 20).map((point) => ({
+            time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+            value: point.value,
+          }))
+        : [],
+    );
+  }, [showMa5, showMa20, visibleCandles, timeframe]);
+
+  useEffect(() => {
+    const trend = trendRef.current;
+    if (!trend) return;
+    trend.setData(
+      trendPoints.length === 2
+        ? [...trendPoints]
+            .sort((left, right) => Number(left.time) - Number(right.time))
+            .map((point) => ({ time: point.time, value: point.price }))
+        : [],
+    );
+  }, [trendPoints, timeframe]);
+
+  useEffect(() => {
+    setTrendPoints([]);
+  }, [timeframe]);
 
   // 평단가 / 전일 종가 기준선
   useEffect(() => {
@@ -279,6 +374,17 @@ export function CandlestickChart({
         className="rounded-2xl bg-[var(--surface)] p-2"
       >
         <TimeframeTabs value={timeframe} onChange={setTimeframe} />
+        <IndicatorToolbar
+          showMa5={showMa5}
+          showMa20={showMa20}
+          showRsi={showRsi}
+          trendMode={trendMode}
+          onMa5={() => setShowMa5((value) => !value)}
+          onMa20={() => setShowMa20((value) => !value)}
+          onRsi={() => setShowRsi((value) => !value)}
+          onTrend={() => setTrendMode((value) => !value)}
+          onClearTrend={() => setTrendPoints([])}
+        />
         <div
           className="flex items-center justify-center text-sm text-[var(--muted)]"
           style={{ height: chartHeight }}
@@ -297,7 +403,86 @@ export function CandlestickChart({
       className="rounded-2xl bg-[var(--surface)] p-2"
     >
       <TimeframeTabs value={timeframe} onChange={setTimeframe} />
+      <IndicatorToolbar
+        showMa5={showMa5}
+        showMa20={showMa20}
+        showRsi={showRsi}
+        trendMode={trendMode}
+        onMa5={() => setShowMa5((value) => !value)}
+        onMa20={() => setShowMa20((value) => !value)}
+        onRsi={() => setShowRsi((value) => !value)}
+        onTrend={() => setTrendMode((value) => !value)}
+        onClearTrend={() => setTrendPoints([])}
+      />
       <div ref={containerRef} style={{ height: chartHeight }} />
+      {trendMode && (
+        <p className="px-2 pb-1 text-[10px] text-cyan-300">
+          차트에서 시작점과 끝점을 차례로 누르세요. 세 번째 점은 새 추세선을 시작합니다.
+        </p>
+      )}
+      {showRsi && <RsiPanel points={rsiData} />}
+    </div>
+  );
+}
+
+function IndicatorToolbar({
+  showMa5,
+  showMa20,
+  showRsi,
+  trendMode,
+  onMa5,
+  onMa20,
+  onRsi,
+  onTrend,
+  onClearTrend,
+}: {
+  showMa5: boolean;
+  showMa20: boolean;
+  showRsi: boolean;
+  trendMode: boolean;
+  onMa5: () => void;
+  onMa20: () => void;
+  onRsi: () => void;
+  onTrend: () => void;
+  onClearTrend: () => void;
+}) {
+  const button = (active: boolean) =>
+    `min-h-9 rounded-lg border px-2.5 text-[11px] font-semibold ${active ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]" : "border-[var(--border)] text-[var(--muted)]"}`;
+  return (
+    <div className="mb-1 flex flex-wrap gap-1 px-1">
+      <button type="button" onClick={onMa5} className={button(showMa5)}>이평 5</button>
+      <button type="button" onClick={onMa20} className={button(showMa20)}>이평 20</button>
+      <button type="button" onClick={onRsi} className={button(showRsi)}>RSI 14</button>
+      <button type="button" onClick={onTrend} className={button(trendMode)}>2점 추세선</button>
+      <button type="button" onClick={onClearTrend} className={button(false)}>추세선 삭제</button>
+    </div>
+  );
+}
+
+function RsiPanel({ points }: { points: Array<{ timestamp: number; value: number }> }) {
+  const width = 600;
+  const height = 92;
+  const path = points.length > 1
+    ? points.map((point, index) => {
+        const x = (index / (points.length - 1)) * width;
+        const y = height - (point.value / 100) * height;
+        return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ")
+    : "";
+  const latest = points[points.length - 1]?.value;
+  return (
+    <div className="mt-1 rounded-xl bg-[var(--background)] px-2 py-2">
+      <div className="mb-1 flex justify-between text-[10px] text-[var(--muted)]">
+        <span>RSI 14 · 과매수 70 / 과매도 30</span>
+        <span className={latest !== undefined && latest >= 70 ? "text-[var(--up)]" : latest !== undefined && latest <= 30 ? "text-[var(--down)]" : ""}>
+          {latest === undefined ? "수집 중" : latest.toFixed(1)}
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full" preserveAspectRatio="none" aria-label="RSI 14 차트">
+        <line x1="0" y1={height * 0.3} x2={width} y2={height * 0.3} stroke="#f04452" strokeDasharray="4 4" opacity="0.45" />
+        <line x1="0" y1={height * 0.7} x2={width} y2={height * 0.7} stroke="#3182f6" strokeDasharray="4 4" opacity="0.45" />
+        {path && <path d={path} fill="none" stroke="#22d3ee" strokeWidth="2" vectorEffect="non-scaling-stroke" />}
+      </svg>
     </div>
   );
 }

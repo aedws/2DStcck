@@ -389,7 +389,9 @@ export function calculateSeasonScore(
 export function seasonExternalCashTotal(cashPayments: CashPayment[]): number {
   return cashPayments.reduce(
     (sum, payment) =>
-      payment.kind === "salary" || payment.kind === "lottery"
+      payment.kind === "salary" ||
+      payment.kind === "lottery" ||
+      payment.kind === "attendance"
         ? sum + payment.amount
         : sum,
     0,

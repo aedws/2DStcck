@@ -228,7 +228,8 @@ export type CashPaymentKind =
   | "covered_call"
   | "dividend"
   | "interest"
-  | "lottery";
+  | "lottery"
+  | "attendance";
 
 /** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
 export interface CashPayment {
@@ -339,6 +340,8 @@ export type CharacterProgressMap = Record<string, CharacterProgress>;
 
 export interface MarketSnapshot {
   marketVersion: number;
+  /** 저장 당시 거래일 길이. 시장 버전과 별도로 시간축 마이그레이션을 판정한다. */
+  sessionDurationMs: number;
   tick: number;
   marketStartedAt: number;
   cash: number;

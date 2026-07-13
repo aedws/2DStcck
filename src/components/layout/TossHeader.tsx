@@ -15,6 +15,7 @@ const navItems = [
   { href: "/season", label: "시즌" },
   { href: "/leaderboard", label: "랭킹" },
   { href: "/portfolio", label: "내 계좌" },
+  { href: "/profile", label: "프로필" },
   { href: "/mastery", label: "숙련도" },
   { href: "/missions", label: "의뢰" },
   { href: "/messages", label: "메시지" },

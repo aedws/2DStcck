@@ -218,6 +218,18 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold">도움말</h2>
         </div>
         <Link
+          href="/profile"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">👤 투자자 프로필</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              출석, 거래 통계와 대표 칭호를 관리합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
           href="/achievements"
           className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
