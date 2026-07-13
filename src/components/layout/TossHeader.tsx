@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { formatPrice, getDayChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
-import { IS_CLOUD_ENABLED, useMarketStore } from "@/store/marketStore";
+import { useMarketStore } from "@/store/marketStore";
 
 const navItems = [
   { href: "/", label: "홈" },
@@ -60,9 +60,7 @@ export function TossHeader() {
               실시간
             </span>
           </span>
-          {IS_CLOUD_ENABLED && (
-            <span className="h-4 w-px bg-[var(--border)]" aria-hidden />
-          )}
+          <span className="h-4 w-px bg-[var(--border)]" aria-hidden />
           <AuthButton />
         </div>
       </div>

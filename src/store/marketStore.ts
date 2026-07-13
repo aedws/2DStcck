@@ -7,7 +7,7 @@ import {
   getMarketBuyPrice,
   getMarketSellPrice,
 } from "@/lib/market/engine";
-import { applyDefinitionOverlay } from "@/lib/market/serverState";
+import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
   calculatePortfolioValue,
   executeBuy,
@@ -52,14 +52,8 @@ import {
   syncLeaderboard,
 } from "@/lib/supabase/cloudSave";
 
-/**
- * 클라우드 계정 동기화 사용 가능 여부 (Supabase 설정 시).
- * 시장은 항상 로컬 결정론으로 계산되고, 이 플래그는 로그인·지갑 저장에만 관여한다.
- */
-export const IS_CLOUD_ENABLED = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+// 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
+// (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
 
 interface MarketStore extends MarketSnapshot {
   userId: string | null;
@@ -260,7 +254,7 @@ export const useMarketStore = create<MarketStore>()(
       setUserId: (userId) => set({ userId }),
 
       loadCloudSave: async () => {
-        if (!IS_CLOUD_ENABLED || !get().userId) return;
+        if (!get().userId) return;
         const wallet = await loadGameSave();
         if (!wallet) {
           // 첫 로그인: 현재 로컬 지갑을 그대로 클라우드에 올려 시작점으로 삼는다
@@ -285,7 +279,7 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       saveCloud: async () => {
-        if (!IS_CLOUD_ENABLED || !get().userId) return;
+        if (!get().userId) return;
         const s = get();
         await saveGameSave({
           cash: s.cash,

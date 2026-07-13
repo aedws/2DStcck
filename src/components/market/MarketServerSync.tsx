@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { IS_CLOUD_ENABLED, useMarketStore } from "@/store/marketStore";
+import { createClient } from "@/lib/supabase/client";
+import { useMarketStore } from "@/store/marketStore";
 import { MarketRealtime } from "@/components/market/MarketRealtime";
 
 /**
@@ -18,7 +18,6 @@ function CloudSaveSync() {
 
   // 로그인 상태 추적 + 로그인 시 저장분 로드
   useEffect(() => {
-    if (!IS_CLOUD_ENABLED || !isSupabaseConfigured()) return;
     const supabase = createClient();
     let cancelled = false;
 
@@ -47,7 +46,6 @@ function CloudSaveSync() {
 
   // 지갑 변경 시 디바운스 저장 (로그인 상태에서만)
   useEffect(() => {
-    if (!IS_CLOUD_ENABLED) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const unsub = useMarketStore.subscribe((state, prev) => {
@@ -77,7 +75,7 @@ export function MarketSyncRouter() {
   return (
     <>
       <MarketRealtime />
-      {IS_CLOUD_ENABLED && <CloudSaveSync />}
+      <CloudSaveSync />
     </>
   );
 }
