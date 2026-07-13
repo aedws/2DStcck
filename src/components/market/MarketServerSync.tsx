@@ -77,7 +77,11 @@ function CloudSaveSync() {
         state.attendance !== prev.attendance ||
         state.selectedTitleId !== prev.selectedTitleId ||
         state.dailyOperation !== prev.dailyOperation ||
-        state.dailyOperationHistory !== prev.dailyOperationHistory;
+        state.dailyOperationHistory !== prev.dailyOperationHistory ||
+        state.selectedPortfolioStrategyId !== prev.selectedPortfolioStrategyId ||
+        state.portfolioStrategySelectedAt !== prev.portfolioStrategySelectedAt ||
+        state.unlockedSeasonRewardIds !== prev.unlockedSeasonRewardIds ||
+        state.selectedSeasonFrameId !== prev.selectedSeasonFrameId;
       if (!walletChanged) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => saveCloud(), 2000);

@@ -62,7 +62,7 @@ export const OPTIONS_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const SEASON_TUTORIAL_VERSION = 4;
+export const SEASON_TUTORIAL_VERSION = 5;
 export const SEASON_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🏁",
@@ -98,5 +98,10 @@ export const SEASON_TUTORIAL_STEPS: FeatureTutorialStep[] = [
     emoji: "🎉",
     title: "시상식 후 다음 시즌이 시작됩니다",
     body: "별도 제출 없이 자동 정산되고 티어·점수·목표 준수율·라이벌 승패를 시상식에서 확인합니다. 결과는 지난 시즌 기록에 보존됩니다.",
+  },
+  {
+    emoji: "💎",
+    title: "달성 티어 프레임은 영구 보상입니다",
+    body: "시즌을 마치면 달성 티어까지의 인장과 프로필 프레임이 영구 해금됩니다. 프로필에서 원하는 프레임을 장착하면 다음 랭킹 갱신에도 인장이 표시됩니다.",
   },
 ];

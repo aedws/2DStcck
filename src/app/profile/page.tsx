@@ -10,12 +10,19 @@ import {
   unlockedPlayerTitles,
 } from "@/lib/player/playerProfile";
 import { useMarketStore } from "@/store/marketStore";
+import {
+  SEASON_REWARDS,
+  getSeasonReward,
+} from "@/lib/player/seasonRewards";
 
 export default function ProfilePage() {
   const attendance = useMarketStore((state) => state.attendance);
   const selectedTitleId = useMarketStore((state) => state.selectedTitleId);
   const claimAttendance = useMarketStore((state) => state.claimDailyAttendance);
   const selectTitle = useMarketStore((state) => state.selectPlayerTitle);
+  const unlockedSeasonRewardIds = useMarketStore((state) => state.unlockedSeasonRewardIds);
+  const selectedSeasonFrameId = useMarketStore((state) => state.selectedSeasonFrameId);
+  const selectSeasonFrame = useMarketStore((state) => state.selectSeasonFrame);
   const trades = useMarketStore((state) => state.trades);
   const initialCash = useMarketStore((state) => state.initialCash);
   const investmentSeason = useMarketStore((state) => state.investmentSeason);
@@ -35,11 +42,12 @@ export default function ProfilePage() {
     unlockedPlayerTitles(titleContext).map((title) => title.id),
   );
   const selectedTitle = getPlayerTitle(selectedTitleId);
+  const selectedFrame = getSeasonReward(selectedSeasonFrameId);
   const claimedToday = attendance.lastClaimDate === koreaDateKey();
 
   return (
     <div className="mx-auto max-w-4xl pb-20">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className={`mb-6 flex flex-wrap items-start justify-between gap-4 rounded-3xl border p-5 ring-1 ${selectedFrame?.frameClass ?? "border-[var(--border)] bg-[var(--surface)] ring-transparent"}`}>
         <div>
           <p className="text-sm font-semibold text-[var(--accent)]">
             {selectedTitle.emoji} {selectedTitle.name}
@@ -99,6 +107,54 @@ export default function ProfilePage() {
           <p className={`mt-1 text-xl font-black ${stats.realizedPnl >= 0 ? "text-[var(--up)]" : "text-[var(--down)]"}`}>
             {stats.realizedPnl >= 0 ? "+" : ""}{formatPrice(stats.realizedPnl)}
           </p>
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">시즌 영구 보상</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              시즌 티어를 처음 달성하면 해당 티어까지의 인장·프로필 프레임이 영구 해금됩니다.
+            </p>
+          </div>
+          <p className="text-xs font-semibold text-violet-300">
+            {unlockedSeasonRewardIds.length}/{SEASON_REWARDS.length} 해금
+          </p>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => selectSeasonFrame(null)}
+            className={`rounded-2xl border p-4 text-left ${selectedSeasonFrameId === null ? "border-[var(--accent)] bg-[var(--accent)]/5 ring-1 ring-[var(--accent)]" : "border-[var(--border)] bg-[var(--surface)]"}`}
+          >
+            <p className="font-bold">○ 기본 프로필 프레임</p>
+            <p className="mt-2 text-xs text-[var(--muted)]">시즌 장식을 사용하지 않습니다.</p>
+          </button>
+          {SEASON_REWARDS.map((reward) => {
+            const isUnlocked = unlockedSeasonRewardIds.includes(reward.id);
+            const selected = selectedSeasonFrameId === reward.id;
+            const count = investmentSeason.history.filter(
+              (season) => season.tierId === reward.tierId,
+            ).length;
+            return (
+              <button
+                key={reward.id}
+                type="button"
+                disabled={!isUnlocked}
+                onClick={() => selectSeasonFrame(reward.id)}
+                className={`rounded-2xl border p-4 text-left ring-1 transition ${selected ? reward.frameClass : "border-[var(--border)] bg-[var(--surface)] ring-transparent"} disabled:opacity-40`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-bold">{reward.emoji} {reward.name}</p>
+                  {isUnlocked && <span className="text-[10px] text-[var(--muted)]">최근 기록 {count}회</span>}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                  {isUnlocked ? reward.description : `🔒 ${reward.tierId.toUpperCase()} 시즌 달성`}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </section>
 

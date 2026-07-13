@@ -13,6 +13,7 @@ const navItems = [
   { href: "/", label: "홈" },
   { href: "/calendar", label: "실적" },
   { href: "/season", label: "시즌" },
+  { href: "/strategy", label: "전략" },
   { href: "/leaderboard", label: "랭킹" },
   { href: "/portfolio", label: "내 계좌" },
   { href: "/profile", label: "프로필" },

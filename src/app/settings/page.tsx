@@ -254,6 +254,30 @@ export default function SettingsPage() {
           <span className="text-[var(--muted)]">›</span>
         </Link>
         <Link
+          href="/strategy"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">🧭 포트폴리오 전략</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              운용 기준과 전략별 성공률·파산율을 확인합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
+          href="/stress-test"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">🚨 독립 위기 테스트</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              메인 계좌와 분리된 대형 위기 세션을 체험합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
           href="/updates"
           className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
         >

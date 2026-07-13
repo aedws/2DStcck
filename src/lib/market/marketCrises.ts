@@ -118,7 +118,7 @@ export const MARKET_CRISIS_DURATION_SESSIONS = MARKET_CRISIS_PHASES.reduce(
   0,
 );
 
-const CRISIS_THEMES: MarketCrisisTheme[] = [
+export const MARKET_CRISIS_THEMES: MarketCrisisTheme[] = [
   {
     id: "credit-crunch",
     name: "글로벌 신용 경색",
@@ -196,7 +196,7 @@ export function getMarketCrisisWindow(crisisNumber: number): MarketCrisisWindow 
       crisisNumber: number,
       startSession,
       endSession: startSession + MARKET_CRISIS_DURATION_SESSIONS,
-      theme: CRISIS_THEMES[(number - 1) % CRISIS_THEMES.length],
+      theme: MARKET_CRISIS_THEMES[(number - 1) % MARKET_CRISIS_THEMES.length],
     };
     WINDOW_CACHE.set(number, window);
     cursor = window.endSession;

@@ -12,6 +12,7 @@ import {
   buildSeasonMarketReview,
   type SeasonAssetAssessment,
 } from "@/lib/market/seasonMarketReview";
+import { getSeasonReward } from "@/lib/player/seasonRewards";
 
 function signedPercent(value: number, point = false): string {
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%${point ? "p" : ""}`;
@@ -34,6 +35,7 @@ export function SeasonCeremonyModal({
     result.seasonScore,
   );
   const beatRival = result.seasonScore >= rival.score;
+  const seasonReward = getSeasonReward(`season-frame-${result.tierId}`);
   const marketReview = buildSeasonMarketReview(
     result.startSession,
     result.endSession,
@@ -65,6 +67,19 @@ export function SeasonCeremonyModal({
           <ResultStat label="V-NASDAQ" value={signedPercent(result.benchmarkReturn)} />
           <ResultStat label="최대 낙폭" value={`${(result.maxDrawdown * 100).toFixed(2)}%`} />
         </div>
+
+        {seasonReward && (
+          <div className={`mx-5 rounded-2xl border p-4 ring-1 ${seasonReward.frameClass}`}>
+            <p className="text-[10px] font-semibold tracking-[0.15em] text-[var(--muted)]">PERMANENT SEASON REWARD</p>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-3xl">{seasonReward.emoji}</span>
+              <div>
+                <p className="font-black">영구 해금 · {seasonReward.name}</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">프로필에서 장착할 수 있으며 하위 티어 프레임도 함께 해금됩니다.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {goal && (
           <div className="mx-5 rounded-2xl bg-[var(--surface)] p-4">

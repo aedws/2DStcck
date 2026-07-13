@@ -65,6 +65,7 @@ export function OperationBriefing() {
   const storyDecision = useMarketStore((state) => state.storyDecision);
   const seasonState = useMarketStore((state) => state.investmentSeason);
   const dailyOperation = useMarketStore((state) => state.dailyOperation);
+  const portfolioStrategySelectedAt = useMarketStore((state) => state.portfolioStrategySelectedAt);
   const acceptDailyOperation = useMarketStore((state) => state.acceptDailyOperation);
   const markSeasonCeremonySeen = useMarketStore((state) => state.markSeasonCeremonySeen);
   const equity = useMarketStore((state) => state.getTotalAssets());
@@ -119,6 +120,8 @@ export function OperationBriefing() {
 
   const nextAction = !dailyOperation || canChooseOperation
     ? { href: "#daily-operation", label: "오늘의 작전 선택", emoji: "🎯" }
+    : portfolioStrategySelectedAt <= 0
+      ? { href: "/strategy", label: "포트폴리오 전략 선언", emoji: "🧭" }
     : currentSeason && !currentSeason.traitId
       ? { href: "/season", label: "시즌 특성 3택 1", emoji: "🃏" }
       : currentSeason && !currentSeason.goalId

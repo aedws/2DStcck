@@ -64,6 +64,7 @@ import {
 } from "../src/lib/player/playerProfile";
 import { getCompanyDefinitions, STOCK_DEFINITIONS } from "../src/data/stocks";
 import { getCharacterRelation } from "../src/lib/market/characterRelations";
+import { createGenesisStocks } from "../src/lib/market/localSim";
 import { settleLocalCashflows } from "../src/lib/market/cashflows";
 import {
   expectedCycleReturn,
@@ -127,6 +128,15 @@ import {
   updateInvestmentSeason,
 } from "../src/lib/market/investmentSeasons";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
+import {
+  PORTFOLIO_STRATEGIES,
+  backtestPortfolioStrategy,
+} from "../src/lib/market/portfolioStrategies";
+import { runCrisisStressTest } from "../src/lib/market/stressTest";
+import {
+  mergeSeasonRewards,
+  normalizeSelectedSeasonFrame,
+} from "../src/lib/player/seasonRewards";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
@@ -1039,6 +1049,39 @@ assert.equal(
 const traitCandidates = getSeasonTraitCandidates({ id: `season-test-${session}` });
 assert.equal(traitCandidates.length, 3);
 assert.equal(new Set(traitCandidates.map((trait) => trait.id)).size, 3);
+
+// 포트폴리오 전략은 목표 비중이 100%이며 공통 일봉에서 성공률·파산율을 재현한다.
+for (const strategy of PORTFOLIO_STRATEGIES) {
+  assert.ok(
+    Math.abs(strategy.buckets.reduce((sum, bucket) => sum + bucket.targetWeight, 0) - 1) < 1e-9,
+  );
+}
+const strategyBacktest = backtestPortfolioStrategy(
+  PORTFOLIO_STRATEGIES[0],
+  createGenesisStocks(),
+);
+assert.ok(strategyBacktest.samples > 0);
+assert.ok(strategyBacktest.successRate >= 0 && strategyBacktest.successRate <= 1);
+assert.ok(strategyBacktest.bankruptcyRate >= 0 && strategyBacktest.bankruptcyRate <= 1);
+
+// 독립 위기 세션은 같은 선택에 동일한 20일 결과를 내고 메인 상태를 입력받지 않는다.
+const stressResult = runCrisisStressTest("leveraged_attack", "tech-bubble");
+assert.deepEqual(
+  stressResult,
+  runCrisisStressTest("leveraged_attack", "tech-bubble"),
+);
+assert.equal(stressResult.points[0]?.equity, stressResult.startingEquity);
+assert.ok(stressResult.points.length <= 21);
+assert.ok(stressResult.maximumDrawdown >= 0 && stressResult.maximumDrawdown <= 1);
+
+// 시즌 티어 보상은 하위 프레임까지 영구 누적되고 잠긴 프레임은 장착되지 않는다.
+const masterRewards = mergeSeasonRewards([], "master");
+assert.equal(masterRewards.length, 6);
+assert.equal(
+  normalizeSelectedSeasonFrame("season-frame-master", masterRewards),
+  "season-frame-master",
+);
+assert.equal(normalizeSelectedSeasonFrame("season-frame-master", []), null);
 
 // 시즌 시장 복기는 정확히 20일의 결정론 상태만 평가하고 종목 유불리를 분리한다.
 const seasonReview = buildSeasonMarketReview(session, session + 20);

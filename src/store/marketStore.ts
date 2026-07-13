@@ -185,6 +185,19 @@ import {
   unlockedPlayerTitles,
   type AttendanceState,
 } from "@/lib/player/playerProfile";
+import {
+  getPortfolioStrategy,
+  normalizePortfolioStrategyId,
+  type PortfolioStrategyId,
+} from "@/lib/market/portfolioStrategies";
+import {
+  getSeasonReward,
+  mergeSeasonRewards,
+  normalizeSeasonRewardIds,
+  normalizeSelectedSeasonFrame,
+  rewardsFromSeasonHistory,
+  type SeasonRewardId,
+} from "@/lib/player/seasonRewards";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -222,6 +235,14 @@ interface MarketStore extends MarketSnapshot {
   dailyOperation: DailyOperation | null;
   dailyOperationHistory: DailyOperation[];
   acceptDailyOperation: (offerId: DailyOperationId) => OrderResult;
+  /** 별도 전략 화면에서 선언하는 현재 포트폴리오 운용 기준. */
+  selectedPortfolioStrategyId: PortfolioStrategyId;
+  portfolioStrategySelectedAt: number;
+  selectPortfolioStrategy: (strategyId: PortfolioStrategyId) => OrderResult;
+  /** 시즌 티어로 영구 해금한 프로필 프레임과 현재 장착 프레임. */
+  unlockedSeasonRewardIds: SeasonRewardId[];
+  selectedSeasonFrameId: SeasonRewardId | null;
+  selectSeasonFrame: (frameId: SeasonRewardId | null) => OrderResult;
   /** 사치재 구매: 현금 차감 후 보유 목록에 추가 (아이템당 1개) */
   purchaseLuxury: (itemId: string) => OrderResult;
   /** 보유 사치재 총 가치(센트) */
@@ -332,6 +353,10 @@ function createInitialState(): MarketSnapshot & {
   selectedTitleId: string;
   dailyOperation: DailyOperation | null;
   dailyOperationHistory: DailyOperation[];
+  selectedPortfolioStrategyId: PortfolioStrategyId;
+  portfolioStrategySelectedAt: number;
+  unlockedSeasonRewardIds: SeasonRewardId[];
+  selectedSeasonFrameId: SeasonRewardId | null;
   achievements: string[];
   lotteryWindowStart: number;
   lotteryTicketsBought: number;
@@ -390,6 +415,10 @@ function createInitialState(): MarketSnapshot & {
     selectedTitleId: "rookie",
     dailyOperation: null,
     dailyOperationHistory: [],
+    selectedPortfolioStrategyId: "index_core",
+    portfolioStrategySelectedAt: 0,
+    unlockedSeasonRewardIds: [],
+    selectedSeasonFrameId: null,
     achievements: [],
     lotteryWindowStart: alignSessionToGrid(
       Math.floor(now / SESSION_DURATION_MS),
@@ -964,6 +993,34 @@ export const useMarketStore = create<MarketStore>()(
         );
         return { success: true, message: "1거래일 미니 목표를 시작했습니다." };
       },
+      selectPortfolioStrategy: (strategyId) => {
+        const strategy = getPortfolioStrategy(strategyId);
+        if (strategy.id !== strategyId) {
+          return { success: false, message: "선택할 수 없는 포트폴리오 전략입니다." };
+        }
+        set({
+          selectedPortfolioStrategyId: strategy.id,
+          portfolioStrategySelectedAt: Date.now(),
+        });
+        useToastStore.getState().push(
+          `${strategy.emoji} 포트폴리오 전략 · ${strategy.name}`,
+          "success",
+        );
+        return { success: true, message: "포트폴리오 운용 전략을 변경했습니다." };
+      },
+      selectSeasonFrame: (frameId) => {
+        const state = get();
+        if (frameId !== null && !state.unlockedSeasonRewardIds.includes(frameId)) {
+          return { success: false, message: "아직 해금되지 않은 시즌 프레임입니다." };
+        }
+        set({ selectedSeasonFrameId: frameId });
+        const reward = getSeasonReward(frameId);
+        useToastStore.getState().push(
+          reward ? `${reward.emoji} 프로필 프레임 · ${reward.name}` : "기본 프로필 프레임으로 변경했습니다.",
+          "success",
+        );
+        return { success: true, message: "시즌 프레임을 변경했습니다." };
+      },
       markCharacterMessageRead: (messageId) =>
         set((state) => ({
           readCharacterMessageIds: state.readCharacterMessageIds.includes(messageId)
@@ -1092,6 +1149,10 @@ export const useMarketStore = create<MarketStore>()(
                 };
               })()
             : normalizedCloudSeason;
+        const cloudSeasonRewardIds = rewardsFromSeasonHistory(
+          cloudSeason.history,
+          normalizeSeasonRewardIds(wallet.unlockedSeasonRewardIds),
+        );
         const normalizedCloudProgress = normalizeCharacterProgressMap(
           wallet.characterProgress,
         );
@@ -1177,6 +1238,19 @@ export const useMarketStore = create<MarketStore>()(
           dailyOperationHistory: normalizeDailyOperationHistory(
             wallet.dailyOperationHistory,
           ),
+          selectedPortfolioStrategyId: normalizePortfolioStrategyId(
+            wallet.selectedPortfolioStrategyId,
+          ),
+          portfolioStrategySelectedAt: Number.isFinite(
+            wallet.portfolioStrategySelectedAt,
+          )
+            ? wallet.portfolioStrategySelectedAt!
+            : 0,
+          unlockedSeasonRewardIds: cloudSeasonRewardIds,
+          selectedSeasonFrameId: normalizeSelectedSeasonFrame(
+            wallet.selectedSeasonFrameId,
+            cloudSeasonRewardIds,
+          ),
           lastInterestSession:
             cloudClockChanged
               ? nowSession
@@ -1224,6 +1298,10 @@ export const useMarketStore = create<MarketStore>()(
           selectedTitleId: s.selectedTitleId,
           dailyOperation: s.dailyOperation,
           dailyOperationHistory: s.dailyOperationHistory,
+          selectedPortfolioStrategyId: s.selectedPortfolioStrategyId,
+          portfolioStrategySelectedAt: s.portfolioStrategySelectedAt,
+          unlockedSeasonRewardIds: s.unlockedSeasonRewardIds,
+          selectedSeasonFrameId: s.selectedSeasonFrameId,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -1231,6 +1309,7 @@ export const useMarketStore = create<MarketStore>()(
         const netWorth = s.getTotalAssets();
         const tradingStats = buildTradingStats(s.trades.slice(0, 200));
         const playerTitle = getPlayerTitle(s.selectedTitleId);
+        const seasonFrame = getSeasonReward(s.selectedSeasonFrameId);
         await syncLeaderboard({
           netWorth,
           returnRate:
@@ -1243,7 +1322,7 @@ export const useMarketStore = create<MarketStore>()(
           luxuryCount: s.ownedLuxuries.length,
           showcase: getLuxuryShowcase(s.ownedLuxuries),
           reputation: s.reputation,
-          title: `${playerTitle.emoji} ${playerTitle.name}`,
+          title: `${seasonFrame ? `${seasonFrame.emoji} ` : ""}${playerTitle.emoji} ${playerTitle.name}`,
           tradeCount: tradingStats.tradeCount,
           winRate: tradingStats.winRate,
         });
@@ -1724,6 +1803,8 @@ export const useMarketStore = create<MarketStore>()(
           },
         );
         const investmentSeason = seasonUpdate.state;
+        let unlockedSeasonRewardIds = state.unlockedSeasonRewardIds;
+        let selectedSeasonFrameId = state.selectedSeasonFrameId;
         if (seasonUpdate.completed) {
           const tier = getInvestmentSeasonTier(seasonUpdate.completed.tierId);
           const rival = getSeasonRivalPerformance(
@@ -1736,6 +1817,21 @@ export const useMarketStore = create<MarketStore>()(
             `${tier.emoji} 시즌 ${seasonUpdate.completed.number} 종료 · ${tier.name} · ${seasonUpdate.completed.seasonScore}점 · 라이벌 ${beatRival ? "승리" : "패배"}`,
             beatRival ? "success" : "info",
           );
+          const earnedReward = getSeasonReward(`season-frame-${tier.id}`);
+          const newlyEarned = earnedReward && !unlockedSeasonRewardIds.includes(earnedReward.id);
+          unlockedSeasonRewardIds = mergeSeasonRewards(
+            unlockedSeasonRewardIds,
+            seasonUpdate.completed.tierId,
+          );
+          if (!selectedSeasonFrameId && earnedReward) {
+            selectedSeasonFrameId = earnedReward.id;
+          }
+          if (newlyEarned && earnedReward) {
+            useToastStore.getState().push(
+              `${earnedReward.emoji} 영구 시즌 보상 · ${earnedReward.name}`,
+              "success",
+            );
+          }
           playSound(beatRival ? "cash" : "error");
         }
         nextEvents = nextEvents.map(ensureEventDialogue);
@@ -1760,6 +1856,8 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress,
           investmentMastery,
           investmentSeason,
+          unlockedSeasonRewardIds,
+          selectedSeasonFrameId,
           recurringInvestments,
           storyDecision,
           storyDecisionHistory,
@@ -2374,6 +2472,10 @@ export const useMarketStore = create<MarketStore>()(
         selectedTitleId: state.selectedTitleId,
         dailyOperation: state.dailyOperation,
         dailyOperationHistory: state.dailyOperationHistory,
+        selectedPortfolioStrategyId: state.selectedPortfolioStrategyId,
+        portfolioStrategySelectedAt: state.portfolioStrategySelectedAt,
+        unlockedSeasonRewardIds: state.unlockedSeasonRewardIds,
+        selectedSeasonFrameId: state.selectedSeasonFrameId,
         // 시장 체크포인트는 최근 구간만 저장하고 장기 합성 일봉은 복원 시 재생성한다.
         stocks: state.stocks
           .filter(
@@ -2484,6 +2586,12 @@ export const useMarketStore = create<MarketStore>()(
                 };
               })()
             : normalizedSeason;
+        const persistedSeasonRewardIds = rewardsFromSeasonHistory(
+          investmentSeason.history,
+          normalizeSeasonRewardIds(
+            (merged as Partial<MarketStore>).unlockedSeasonRewardIds,
+          ),
+        );
         const normalizedProgress = normalizeCharacterProgressMap(
           (merged as Partial<MarketStore>).characterProgress,
         );
@@ -2630,6 +2738,19 @@ export const useMarketStore = create<MarketStore>()(
           ),
           dailyOperationHistory: normalizeDailyOperationHistory(
             (merged as Partial<MarketStore>).dailyOperationHistory,
+          ),
+          selectedPortfolioStrategyId: normalizePortfolioStrategyId(
+            (merged as Partial<MarketStore>).selectedPortfolioStrategyId,
+          ),
+          portfolioStrategySelectedAt: Number.isFinite(
+            (merged as Partial<MarketStore>).portfolioStrategySelectedAt,
+          )
+            ? (merged as Partial<MarketStore>).portfolioStrategySelectedAt!
+            : 0,
+          unlockedSeasonRewardIds: persistedSeasonRewardIds,
+          selectedSeasonFrameId: normalizeSelectedSeasonFrame(
+            (merged as Partial<MarketStore>).selectedSeasonFrameId,
+            persistedSeasonRewardIds,
           ),
           userId: null,
           isReady: false,
