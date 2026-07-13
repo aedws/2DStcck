@@ -37,7 +37,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
 
   const change = getDayChangePercent(stock);
   const priceDiff = getDayChangeAmount(stock);
-  const relatedEvent = events.find((e) =>
+  const relatedEvent = [...events].reverse().find((e) =>
     e.affectedStockIds.includes(stock.id),
   );
   const ceo = getCharacterById(stock.ceoId);
@@ -90,6 +90,16 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
           <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
             {relatedEvent.description}
           </p>
+          {relatedEvent.quote && (
+            <p className="mt-2 border-l-2 border-[var(--accent)]/50 pl-2.5 text-xs italic leading-relaxed">
+              “{relatedEvent.quote}”
+              {relatedEvent.quoteBy && (
+                <span className="ml-1 not-italic text-[var(--muted)]">
+                  — {relatedEvent.quoteBy}
+                </span>
+              )}
+            </p>
+          )}
         </div>
       )}
 

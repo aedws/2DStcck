@@ -1,4 +1,6 @@
-import type { Character } from "@/lib/types/market";
+import { getCharacterById } from "@/data/characters";
+import { STOCK_DEFINITIONS } from "@/data/stocks";
+import type { Character, MarketEvent } from "@/lib/types/market";
 
 /**
  * 회사 이벤트가 터질 때 해당 회사 캐릭터가 남기는 한마디.
@@ -72,4 +74,37 @@ export function pickEventQuote(
     : POSITIVE_QUOTES[tag] ?? POSITIVE_GENERIC;
   const quote = pool[Math.floor(rand() * pool.length)] ?? pool[0];
   return { quote, quoteBy: `${ceo.emoji} ${ceo.name}` };
+}
+
+/**
+ * 회사 뉴스뿐 아니라 섹터·거시 뉴스에도 실제 등장인물의 반응을 붙인다.
+ * 관련 종목의 경영진을 우선하고, 관련 화자가 없는 거시 뉴스는 전체 기업 중
+ * 한 명을 고른다. 이미 전용 대사가 있는 연속 사건은 그대로 보존한다.
+ */
+export function withCharacterQuote(
+  event: MarketEvent,
+  rand: () => number,
+): MarketEvent {
+  if (event.quote) return event;
+
+  const affectedIds = new Set(event.affectedStockIds);
+  const related = STOCK_DEFINITIONS.filter(
+    (stock) => affectedIds.has(stock.id) && stock.ceoId,
+  );
+  const candidates = related.length > 0
+    ? related
+    : STOCK_DEFINITIONS.filter((stock) => stock.ceoId);
+  if (candidates.length === 0) return event;
+
+  const index = Math.min(
+    Math.floor(rand() * candidates.length),
+    candidates.length - 1,
+  );
+  const speaker = getCharacterById(candidates[index]?.ceoId);
+  if (!speaker) return event;
+
+  return {
+    ...event,
+    ...pickEventQuote(event.tag ?? "시장", speaker, rand, event.impact),
+  };
 }

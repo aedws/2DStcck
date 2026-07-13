@@ -23,7 +23,7 @@ import {
   marketRegimeWindowStart,
   regimeReturnForStock,
 } from "../src/lib/market/marketRegimes";
-import { pickEventQuote } from "../src/data/eventQuotes";
+import { pickEventQuote, withCharacterQuote } from "../src/data/eventQuotes";
 import {
   computeCoveredCallTick,
   calculateTickPrice,
@@ -200,6 +200,35 @@ assert.match(
   resolveEventTemplate(negativeEarningsTemplate, 1, () => 0)?.quote ?? "",
   /미치지 못했습니다/,
 );
+const sectorDialogue = resolveEventTemplate(
+  {
+    category: "sector",
+    tag: "AI",
+    title: "기술주 강세",
+    description: "기술 업종에 매수세가 유입됩니다.",
+    sector: "기술",
+    impact: 0.05,
+  },
+  2,
+  () => 0,
+);
+assert.ok(sectorDialogue?.quote, "sector news should include character dialogue");
+assert.ok(sectorDialogue?.quoteBy, "sector news should identify its speaker");
+const restoredMacroDialogue = withCharacterQuote(
+  {
+    id: "legacy-macro",
+    title: "금리 인하 기대",
+    description: "시장 전반에 완화 기대가 번집니다.",
+    affectedStockIds: [],
+    impact: 0.04,
+    timestamp: 3,
+    category: "macro",
+    tag: "금리",
+  },
+  () => 0,
+);
+assert.ok(restoredMacroDialogue.quote, "legacy news should regain character dialogue");
+assert.ok(restoredMacroDialogue.quoteBy, "legacy news should regain its speaker");
 
 const regimeWindow = marketRegimeWindowStart(session);
 const regime = getMarketRegimeAtSession(regimeWindow);

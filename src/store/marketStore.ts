@@ -6,7 +6,9 @@ import {
   formatPrice,
   getMarketBuyPrice,
   getMarketSellPrice,
+  seededRand,
 } from "@/lib/market/engine";
+import { withCharacterQuote } from "@/data/eventQuotes";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
   executeBuy,
@@ -21,6 +23,7 @@ import type {
   InvestmentMission,
   InvestmentMissionHistory,
   InvestmentMissionKind,
+  MarketEvent,
   OpenOrder,
   OrderResult,
   OrderType,
@@ -288,6 +291,13 @@ function createInitialState(): MarketSnapshot & {
     storyDecision: null,
     storyDecisionHistory: [],
   };
+}
+
+function ensureEventDialogue(event: MarketEvent): MarketEvent {
+  return withCharacterQuote(
+    event,
+    seededRand(event.timestamp, `event-dialogue:${event.id}`),
+  );
 }
 
 /** 순자산 기록 최소 간격(ms) — 과도한 기록으로 저장소가 비대해지는 것을 막는다. */
@@ -1048,6 +1058,7 @@ export const useMarketStore = create<MarketStore>()(
           netWorth,
           now,
         );
+        nextEvents = nextEvents.map(ensureEventDialogue);
 
         set({
           tick: nextTick,
@@ -1696,7 +1707,9 @@ export const useMarketStore = create<MarketStore>()(
           tick: marketValid ? merged.tick : 0,
           stocks: restoredStocks,
           events:
-            marketValid && Array.isArray(merged.events) ? merged.events : [],
+            marketValid && Array.isArray(merged.events)
+              ? merged.events.map(ensureEventDialogue)
+              : [],
           lastSalarySession: Number.isSafeInteger(merged.lastSalarySession)
             ? merged.lastSalarySession
             : nowSession,

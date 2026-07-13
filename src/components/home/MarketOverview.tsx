@@ -229,16 +229,23 @@ export function MarketOverview({
           ) : (
             <ul className="space-y-1">
               {news.map((event) => (
-                <li key={event.id} className="flex min-w-0 items-center gap-1.5">
-                  <span
-                    className={`shrink-0 text-[10px] ${upDownClass(event.impact)}`}
-                  >
-                    {event.impact >= 0 ? "▲" : "▼"}
-                  </span>
-                  <span className="truncate text-xs">{event.title}</span>
-                  <span className="ml-auto shrink-0 text-[10px] tabular-nums text-[var(--muted)]">
-                    {formatTradeTime(event.timestamp)}
-                  </span>
+                <li key={event.id} className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className={`shrink-0 text-[10px] ${upDownClass(event.impact)}`}
+                    >
+                      {event.impact >= 0 ? "▲" : "▼"}
+                    </span>
+                    <span className="truncate text-xs">{event.title}</span>
+                    <span className="ml-auto shrink-0 text-[10px] tabular-nums text-[var(--muted)]">
+                      {formatTradeTime(event.timestamp)}
+                    </span>
+                  </div>
+                  {event.quote && (
+                    <p className="ml-4 truncate text-[10px] italic text-[var(--muted)]">
+                      “{event.quote}”{event.quoteBy ? ` — ${event.quoteBy}` : ""}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

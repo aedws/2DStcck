@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-13",
+    tag: "수정",
+    title: "뉴스 캐릭터 대사 복구",
+    detail:
+      "회사 뉴스에만 드물게 보이던 캐릭터 반응을 섹터·거시 뉴스까지 확대했습니다. 기존 저장 뉴스도 자동으로 대사를 복원하며 홈 주요 뉴스와 종목 미리보기에서도 화자와 대사를 확인할 수 있습니다.",
+  },
+  {
+    date: "2026-07-13",
     tag: "신규",
     title: "200거래일 시장 사이클",
     detail:

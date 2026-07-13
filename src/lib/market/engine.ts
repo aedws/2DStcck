@@ -29,7 +29,7 @@ import {
   STOCK_DEFINITIONS,
 } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
-import { pickEventQuote } from "@/data/eventQuotes";
+import { pickEventQuote, withCharacterQuote } from "@/data/eventQuotes";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   TRADING_SESSIONS_PER_YEAR,
@@ -712,7 +712,7 @@ export function resolveEventTemplate(
       template.affectedStockIds ?? STOCK_DEFINITIONS.map((d) => d.id);
   }
 
-  return {
+  const event: MarketEvent = {
     id: `event-${now}-${Math.floor(rand() * 1e9).toString(36)}`,
     title,
     description,
@@ -724,6 +724,10 @@ export function resolveEventTemplate(
     quote,
     quoteBy,
   };
+
+  // 회사 뉴스는 위에서 해당 CEO의 전용 대사를 사용한다. 섹터·거시 뉴스는
+  // 이벤트 id를 확정한 뒤 관련 기업 캐릭터의 반응을 붙여 기존 결정론 id를 보존한다.
+  return withCharacterQuote(event, rand);
 }
 
 /** 뉴스 템포: 직전 이벤트 후 EVENT_MIN_GAP_MS 경과 전에는 발생하지 않고,
