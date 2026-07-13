@@ -2,7 +2,13 @@ import { getCharacterById } from "@/data/characters";
 import { getCompanyDefinitions } from "@/data/stocks";
 import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "@/lib/market/constants";
 import { seededRand } from "@/lib/market/engine";
-import type { Character, MarketEvent, StockDefinition } from "@/lib/types/market";
+import type {
+  Character,
+  MarketEvent,
+  StockDefinition,
+  StoryDecision,
+  StoryDecisionKind,
+} from "@/lib/types/market";
 
 /** 한 연속 사건이 차지하는 거래일 수. 투자 의뢰 회차와 같은 그리드를 쓴다. */
 export const STORY_WINDOW_SESSIONS = 5;
@@ -22,6 +28,34 @@ export interface MarketStoryArc {
   cluePositive: boolean;
   confidence: number;
 }
+
+export interface StoryDecisionOffer {
+  kind: StoryDecisionKind;
+  emoji: string;
+  title: string;
+  description: string;
+}
+
+export const STORY_DECISION_OFFERS: StoryDecisionOffer[] = [
+  {
+    kind: "bullish",
+    emoji: "📈",
+    title: "상승에 건다",
+    description: "긍정 결말이면 평판 +80, 틀리면 -25",
+  },
+  {
+    kind: "bearish",
+    emoji: "📉",
+    title: "하락에 대비한다",
+    description: "부정 결말이면 평판 +80, 틀리면 -25",
+  },
+  {
+    kind: "observe",
+    emoji: "🧊",
+    title: "관망한다",
+    description: "단서가 거짓이면 절제 보상 평판 +30",
+  },
+];
 
 const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 
@@ -71,6 +105,58 @@ export function getStoryArcForWindow(windowStart: number): MarketStoryArc {
 
 export function getStoryArcAtSession(session: number): MarketStoryArc {
   return getStoryArcForWindow(storyWindowStart(session));
+}
+
+export function createStoryDecision(
+  arc: MarketStoryArc,
+  kind: StoryDecisionKind,
+  selectedAt = Date.now(),
+): StoryDecision {
+  return {
+    id: `${arc.id}-${kind}`,
+    storyId: arc.id,
+    companyId: arc.company.id,
+    windowStart: arc.windowStart,
+    resolveSession: arc.resolveSession,
+    kind,
+    selectedAt,
+    status: "active",
+  };
+}
+
+/** 결말 방향과 선택을 비교해 현금이 아닌 평판만 정산한다. */
+export function resolveStoryDecision(
+  decision: StoryDecision,
+  arc: MarketStoryArc,
+  resolvedAt = Date.now(),
+): StoryDecision {
+  if (decision.status === "resolved") return decision;
+  const directionalCorrect =
+    (decision.kind === "bullish" && arc.positive) ||
+    (decision.kind === "bearish" && !arc.positive);
+  const clueWasWrong = arc.cluePositive !== arc.positive;
+  const reputationDelta =
+    decision.kind === "observe"
+      ? clueWasWrong
+        ? 30
+        : 0
+      : directionalCorrect
+        ? 80
+        : -25;
+  return {
+    ...decision,
+    status: "resolved",
+    resolvedAt,
+    outcomePositive: arc.positive,
+    reputationDelta,
+  };
+}
+
+export function getStoryDecisionOffer(kind: StoryDecisionKind): StoryDecisionOffer {
+  return (
+    STORY_DECISION_OFFERS.find((offer) => offer.kind === kind) ??
+    STORY_DECISION_OFFERS[0]
+  );
 }
 
 function themeNoun(theme: StoryTheme): string {

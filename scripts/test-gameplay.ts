@@ -6,8 +6,10 @@ import {
   updateInvestmentMission,
 } from "../src/lib/market/missions";
 import {
+  createStoryDecision,
   getStoryArcForWindow,
   getStoryEventForSession,
+  resolveStoryDecision,
 } from "../src/lib/market/storyArcs";
 import {
   optionsGrossExposure,
@@ -27,6 +29,25 @@ assert.equal(getStoryEventForSession(windowStart + 2)?.storyStage, "clue");
 assert.equal(getStoryEventForSession(windowStart + 4)?.storyStage, "resolution");
 assert.equal(getStoryEventForSession(windowStart + 1), null);
 assert.ok(arcA.confidence >= 48 && arcA.confidence <= 86);
+
+const positiveArc = { ...arcA, positive: true, cluePositive: true };
+const bullishDecision = createStoryDecision(positiveArc, "bullish", 1);
+assert.equal(
+  resolveStoryDecision(bullishDecision, positiveArc, 2).reputationDelta,
+  80,
+);
+const bearishDecision = createStoryDecision(positiveArc, "bearish", 1);
+assert.equal(
+  resolveStoryDecision(bearishDecision, positiveArc, 2).reputationDelta,
+  -25,
+);
+const misleadingArc = { ...arcA, positive: true, cluePositive: false };
+const observeDecision = createStoryDecision(misleadingArc, "observe", 1);
+assert.equal(
+  resolveStoryDecision(observeDecision, misleadingArc, 2).reputationDelta,
+  30,
+  "observing a misleading clue should earn the discipline reward",
+);
 
 const growth = createInvestmentMission("growth", windowStart, 10_000_000, 100_000, 1);
 assert.equal(

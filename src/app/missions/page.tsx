@@ -10,7 +10,9 @@ import {
   missionProgressPercent,
 } from "@/lib/market/missions";
 import {
+  STORY_DECISION_OFFERS,
   getStoryArcAtSession,
+  getStoryDecisionOffer,
   storyStageAtSession,
 } from "@/lib/market/storyArcs";
 import { useMarketStore } from "@/store/marketStore";
@@ -21,6 +23,9 @@ export default function MissionsPage() {
   const history = useMarketStore((state) => state.missionHistory);
   const reputation = useMarketStore((state) => state.reputation);
   const accept = useMarketStore((state) => state.acceptInvestmentMission);
+  const storyDecision = useMarketStore((state) => state.storyDecision);
+  const storyDecisionHistory = useMarketStore((state) => state.storyDecisionHistory);
+  const chooseStoryDecision = useMarketStore((state) => state.chooseStoryDecision);
   const getEquity = useMarketStore((state) => state.getEquity);
   const benchmark = useMarketStore((state) =>
     state.stocks.find((stock) => stock.id === "vnasdaq"),
@@ -30,6 +35,7 @@ export default function MissionsPage() {
   const session = Math.floor(now / SESSION_DURATION_MS);
   const arc = getStoryArcAtSession(session);
   const stage = storyStageAtSession(arc, session);
+  const currentStoryDecision = storyDecision?.storyId === arc.id ? storyDecision : null;
   const equity = getEquity();
   const benchmarkPrice = benchmark?.currentPrice ?? 0;
 
@@ -73,6 +79,39 @@ export default function MissionsPage() {
             </p>
           </div>
         </div>
+        {stage === "rumor" && (
+          <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--muted)]">
+            단서가 공개되는 거래일부터 상승·하락·관망 중 하나를 선택할 수 있습니다.
+          </div>
+        )}
+        {stage === "clue" && !currentStoryDecision && (
+          <div className="mt-4 grid gap-2 md:grid-cols-3">
+            {STORY_DECISION_OFFERS.map((offer) => (
+              <button
+                key={offer.kind}
+                onClick={() => {
+                  const result = chooseStoryDecision(offer.kind);
+                  setMessage(result.message);
+                }}
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition hover:border-[var(--accent)] hover:bg-[var(--accent)]/5"
+              >
+                <span className="text-lg">{offer.emoji}</span>
+                <span className="ml-2 text-sm font-bold">{offer.title}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-[var(--muted)]">
+                  {offer.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        {currentStoryDecision && (
+          <StoryDecisionResult decision={currentStoryDecision} />
+        )}
+        {stage === "resolution" && !currentStoryDecision && (
+          <div className="mt-4 rounded-xl bg-[var(--surface)] p-3 text-sm text-[var(--muted)]">
+            이번 사건에는 판단을 제출하지 않았습니다. 다음 사건의 단서를 노려보세요.
+          </div>
+        )}
         <Link href="/news" className="mt-4 inline-block text-sm font-semibold text-[var(--accent)] hover:underline">
           단계별 뉴스 확인 →
         </Link>
@@ -137,6 +176,56 @@ export default function MissionsPage() {
             })}
           </ul>
         </section>
+      )}
+
+      {storyDecisionHistory.length > 0 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-bold">최근 사건 판단</h2>
+          <ul className="space-y-2">
+            {storyDecisionHistory.slice(0, 8).map((item) => {
+              const offer = getStoryDecisionOffer(item.kind);
+              const delta = item.reputationDelta ?? 0;
+              return (
+                <li key={item.id} className="flex items-center gap-3 rounded-xl bg-[var(--surface)] p-3 text-sm">
+                  <span>{offer.emoji}</span>
+                  <span className="flex-1 font-medium">{offer.title}</span>
+                  <span className={delta > 0 ? "text-[var(--up)]" : delta < 0 ? "text-[var(--down)]" : "text-[var(--muted)]"}>
+                    {delta > 0 ? `평판 +${delta}` : delta < 0 ? `평판 ${delta}` : "변동 없음"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function StoryDecisionResult({
+  decision,
+}: {
+  decision: NonNullable<ReturnType<typeof useMarketStore.getState>["storyDecision"]>;
+}) {
+  const offer = getStoryDecisionOffer(decision.kind);
+  const delta = decision.reputationDelta ?? 0;
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-lg">{offer.emoji}</span>
+        <span className="font-bold">내 판단 · {offer.title}</span>
+        {decision.status === "active" ? (
+          <span className="ml-auto text-xs text-[var(--accent)]">결말까지 선택 잠금</span>
+        ) : (
+          <span className={`ml-auto text-xs font-semibold ${delta > 0 ? "text-[var(--up)]" : delta < 0 ? "text-[var(--down)]" : "text-[var(--muted)]"}`}>
+            {delta > 0 ? `평판 +${delta}` : delta < 0 ? `평판 ${delta}` : "평판 변동 없음"}
+          </span>
+        )}
+      </div>
+      {decision.status === "resolved" && (
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          실제 결말은 {decision.outcomePositive ? "호재" : "악재"}였습니다.
+        </p>
       )}
     </div>
   );

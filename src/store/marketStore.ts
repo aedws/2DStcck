@@ -24,6 +24,8 @@ import type {
   OpenOrder,
   OrderResult,
   OrderType,
+  StoryDecision,
+  StoryDecisionKind,
   StockState,
   Trade,
 } from "@/lib/types/market";
@@ -112,6 +114,13 @@ import {
   createInvestmentMission,
   updateInvestmentMission,
 } from "@/lib/market/missions";
+import {
+  createStoryDecision,
+  getStoryArcAtSession,
+  getStoryArcForWindow,
+  getStoryDecisionOffer,
+  resolveStoryDecision,
+} from "@/lib/market/storyArcs";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -156,6 +165,10 @@ interface MarketStore extends MarketSnapshot {
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
   acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
+  /** 현재 연속 사건에 내린 판단과 최근 정산 기록. */
+  storyDecision: StoryDecision | null;
+  storyDecisionHistory: StoryDecision[];
+  chooseStoryDecision: (kind: StoryDecisionKind) => OrderResult;
   /** 즉석 복권 1장 구매 (현금 전용). 결과 즉시 반환 */
   buyLottery: () => LotteryResult;
   /** 이번 회차 남은 복권 장수 */
@@ -222,6 +235,8 @@ function createInitialState(): MarketSnapshot & {
   investmentMission: InvestmentMission | null;
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
+  storyDecision: StoryDecision | null;
+  storyDecisionHistory: StoryDecision[];
 } {
   const now = Date.now();
   return {
@@ -265,6 +280,8 @@ function createInitialState(): MarketSnapshot & {
     investmentMission: null,
     missionHistory: [],
     reputation: 0,
+    storyDecision: null,
+    storyDecisionHistory: [],
   };
 }
 
@@ -659,6 +676,8 @@ export const useMarketStore = create<MarketStore>()(
           investmentMission: wallet.investmentMission ?? null,
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
+          storyDecision: wallet.storyDecision ?? null,
+          storyDecisionHistory: wallet.storyDecisionHistory ?? [],
           lastInterestSession:
             wallet.lastInterestSession ??
             Math.floor(Date.now() / SESSION_DURATION_MS),
@@ -689,6 +708,8 @@ export const useMarketStore = create<MarketStore>()(
           investmentMission: s.investmentMission,
           missionHistory: s.missionHistory,
           reputation: s.reputation,
+          storyDecision: s.storyDecision,
+          storyDecisionHistory: s.storyDecisionHistory,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -980,6 +1001,35 @@ export const useMarketStore = create<MarketStore>()(
             playSound(succeeded ? "cash" : "error");
           }
         }
+        let storyDecision = state.storyDecision;
+        let storyDecisionHistory = state.storyDecisionHistory;
+        if (
+          storyDecision?.status === "active" &&
+          currentSession >= storyDecision.resolveSession
+        ) {
+          const storyArc = getStoryArcForWindow(storyDecision.windowStart);
+          const resolvedDecision = resolveStoryDecision(
+            storyDecision,
+            storyArc,
+            now,
+          );
+          storyDecision = resolvedDecision;
+          if (!storyDecisionHistory.some((item) => item.id === resolvedDecision.id)) {
+            storyDecisionHistory = [resolvedDecision, ...storyDecisionHistory].slice(0, 30);
+            const delta = resolvedDecision.reputationDelta ?? 0;
+            reputation = Math.max(0, reputation + delta);
+            const offer = getStoryDecisionOffer(resolvedDecision.kind);
+            useToastStore.getState().push(
+              delta > 0
+                ? `${offer.emoji} 사건 판단 보상 · 평판 +${delta}`
+                : delta < 0
+                  ? `${offer.emoji} 사건 판단 실패 · 평판 ${delta}`
+                  : `${offer.emoji} 관망 종료 · 평판 변동 없음`,
+              delta > 0 ? "success" : delta < 0 ? "error" : "info",
+            );
+            if (delta !== 0) playSound(delta > 0 ? "cash" : "error");
+          }
+        }
         const netWorthHistory = appendNetWorthPoint(
           state.netWorthHistory,
           netWorth,
@@ -1001,6 +1051,8 @@ export const useMarketStore = create<MarketStore>()(
           investmentMission,
           missionHistory,
           reputation,
+          storyDecision,
+          storyDecisionHistory,
           trades,
           openOrders: remainingOrders,
           lastSalarySession: settled.lastSalarySession,
@@ -1078,6 +1130,32 @@ export const useMarketStore = create<MarketStore>()(
           ),
         });
         return { success: true, message: "5거래일 투자 의뢰를 시작했습니다." };
+      },
+
+      chooseStoryDecision: (kind) => {
+        const state = get();
+        const now = Date.now();
+        const session = Math.floor(now / SESSION_DURATION_MS);
+        const arc = getStoryArcAtSession(session);
+        if (session < arc.clueSession) {
+          return { success: false, message: "단서가 공개된 뒤 판단할 수 있습니다." };
+        }
+        if (session >= arc.resolveSession) {
+          return { success: false, message: "이미 결말이 공개된 사건입니다." };
+        }
+        if (state.storyDecision?.storyId === arc.id) {
+          return { success: false, message: "이번 사건의 판단은 이미 확정했습니다." };
+        }
+        if (state.storyDecision?.status === "active") {
+          return { success: false, message: "이전 사건 판단이 아직 정산되지 않았습니다." };
+        }
+        const decision = createStoryDecision(arc, kind, now);
+        set({ storyDecision: decision });
+        const offer = getStoryDecisionOffer(kind);
+        useToastStore
+          .getState()
+          .push(`${offer.emoji} 사건 판단 확정 · ${offer.title}`, "info");
+        return { success: true, message: `${offer.title} 선택을 확정했습니다.` };
       },
 
       purchaseLuxury: (itemId) => {
@@ -1533,6 +1611,8 @@ export const useMarketStore = create<MarketStore>()(
         investmentMission: state.investmentMission,
         missionHistory: state.missionHistory,
         reputation: state.reputation,
+        storyDecision: state.storyDecision,
+        storyDecisionHistory: state.storyDecisionHistory,
         // 자동 파생상품은 기초종목 당일 수익률에서 즉시 재구성되므로
         // 로컬 저장소에는 보관하지 않아 브라우저 용량 초과를 방지한다.
         stocks: state.stocks.filter(
@@ -1652,6 +1732,13 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? Math.max(0, (merged as Partial<MarketStore>).reputation ?? 0)
             : 0,
+          storyDecision:
+            (merged as Partial<MarketStore>).storyDecision ?? null,
+          storyDecisionHistory: Array.isArray(
+            (merged as Partial<MarketStore>).storyDecisionHistory,
+          )
+            ? (merged as Partial<MarketStore>).storyDecisionHistory!
+            : [],
           userId: null,
           isReady: false,
         };

@@ -7,6 +7,7 @@ import type {
   OpenOrder,
   OptionPosition,
   ShortPosition,
+  StoryDecision,
   Trade,
 } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
@@ -42,6 +43,8 @@ export interface WalletSave {
   investmentMission?: InvestmentMission | null;
   missionHistory?: InvestmentMissionHistory[];
   reputation?: number;
+  storyDecision?: StoryDecision | null;
+  storyDecisionHistory?: StoryDecision[];
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */
@@ -113,7 +116,8 @@ export async function syncLeaderboard(stats: {
     "익명";
 
   // 브라우저 개발자 도구의 단순 값 변조를 먼저 거른다. 진짜 권한 경계는
-  // 011 마이그레이션의 submit_leaderboard RPC이며, 저장 지갑과 세션을 재검증한다.
+  // basic_leaderboard_integrity 마이그레이션의 submit_leaderboard RPC이며,
+  // 저장 지갑과 세션을 재검증한다.
   const expectedReturn =
     stats.initialCash > 0
       ? ((stats.netWorth - stats.initialCash) / stats.initialCash) * 100

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import {
   getStoryArcAtSession,
+  getStoryDecisionOffer,
   storyStageAtSession,
 } from "@/lib/market/storyArcs";
 import { useMarketStore } from "@/store/marketStore";
@@ -16,9 +17,11 @@ const STAGE_COPY = {
 
 export function StoryArcBanner() {
   useMarketStore((state) => state.tick);
+  const storyDecision = useMarketStore((state) => state.storyDecision);
   const session = Math.floor(Date.now() / SESSION_DURATION_MS);
   const arc = getStoryArcAtSession(session);
   const stage = storyStageAtSession(arc, session);
+  const currentDecision = storyDecision?.storyId === arc.id ? storyDecision : null;
   const [stageLabel, detail] = STAGE_COPY[stage];
   const daysLeft = Math.max(0, arc.resolveSession - session);
 
@@ -35,8 +38,13 @@ export function StoryArcBanner() {
         {stage !== "resolution" && (
           <span className="text-[var(--muted)]">결말까지 {daysLeft}거래일</span>
         )}
+        {currentDecision && (
+          <span className="font-semibold text-[var(--accent)]">
+            내 판단 · {getStoryDecisionOffer(currentDecision.kind).emoji} {getStoryDecisionOffer(currentDecision.kind).title}
+          </span>
+        )}
         <Link href="/missions" className="ml-auto font-semibold text-[var(--accent)] hover:underline">
-          사건·투자 의뢰 보기 →
+          {stage === "clue" && !currentDecision ? "판단 선택하기 →" : "사건·투자 의뢰 보기 →"}
         </Link>
       </div>
     </div>

@@ -248,6 +248,25 @@ export interface MarketEvent {
   storyConfidence?: number;
 }
 
+export type StoryDecisionKind = "bullish" | "bearish" | "observe";
+export type StoryDecisionStatus = "active" | "resolved";
+
+/** 연속 시장 사건의 단서를 본 뒤 결말 전에 고르는 플레이어 판단. */
+export interface StoryDecision {
+  id: string;
+  storyId: string;
+  companyId: string;
+  windowStart: number;
+  resolveSession: number;
+  kind: StoryDecisionKind;
+  selectedAt: number;
+  status: StoryDecisionStatus;
+  resolvedAt?: number;
+  outcomePositive?: boolean;
+  /** 결말 정산으로 증감한 평판. 실패 시 음수가 될 수 있다. */
+  reputationDelta?: number;
+}
+
 export type InvestmentMissionKind = "growth" | "benchmark" | "risk";
 export type InvestmentMissionStatus = "active" | "completed" | "failed";
 
