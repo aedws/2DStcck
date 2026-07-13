@@ -27,6 +27,7 @@ import { generateOrderBook } from "@/lib/market/orderBook";
 import { getStoryEventForSession } from "@/lib/market/storyArcs";
 import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
+import { getCorporateActionEventForSession } from "@/lib/market/corporateActions";
 import type {
   Candle,
   MarketEvent,
@@ -182,6 +183,13 @@ export function replayMarket(
     if (openingStory && !events.some((event) => event.id === openingStory.id)) {
       events = [...events, openingStory].slice(-50);
     }
+    const openingCorporateAction = getCorporateActionEventForSession(prevSession);
+    if (
+      openingCorporateAction &&
+      !events.some((event) => event.id === openingCorporateAction.id)
+    ) {
+      events = [...events, openingCorporateAction].slice(-50);
+    }
     for (const earningsEvent of getEarningsEventsForSession(prevSession)) {
       if (!events.some((event) => event.id === earningsEvent.id)) {
         events = [...events, earningsEvent].slice(-50);
@@ -272,6 +280,13 @@ export function replayMarket(
         const storyEvent = getStoryEventForSession(s);
         if (storyEvent && !events.some((event) => event.id === storyEvent.id)) {
           events = [...events, storyEvent].slice(-50);
+        }
+        const corporateActionEvent = getCorporateActionEventForSession(s);
+        if (
+          corporateActionEvent &&
+          !events.some((event) => event.id === corporateActionEvent.id)
+        ) {
+          events = [...events, corporateActionEvent].slice(-50);
         }
         for (const earningsEvent of getEarningsEventsForSession(s)) {
           if (!events.some((event) => event.id === earningsEvent.id)) {

@@ -62,7 +62,7 @@ export const OPTIONS_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const SEASON_TUTORIAL_VERSION = 2;
+export const SEASON_TUTORIAL_VERSION = 3;
 export const SEASON_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🏁",
@@ -78,6 +78,11 @@ export const SEASON_TUTORIAL_STEPS: FeatureTutorialStep[] = [
     emoji: "🎯",
     title: "시즌 운용 목표와 비중을 선택합니다",
     body: "성장·인컴·방어 중 하나와 목표 비중을 고릅니다. 거래일이 바뀔 때 비중이 기준보다 낮으면 시즌 점수가 2점 감소하며, 지킨 날에는 목표 난도에 따른 보너스가 쌓입니다.",
+  },
+  {
+    emoji: "🃏",
+    title: "시즌 특성 카드 하나를 확정합니다",
+    body: "초과수익, 최대 낙폭, 목표 준수 중 자신 있는 조건을 고르세요. 성공하면 시즌 점수를 더 얻지만 실패 조건에 걸리면 감점됩니다.",
   },
   {
     emoji: "⚔️",

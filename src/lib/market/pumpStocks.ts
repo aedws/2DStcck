@@ -43,7 +43,7 @@ export function isPumpStock(stock: { sector: string }): boolean {
 }
 
 /** 해당 거래일에 급등주가 상장되는지 (결정론). 상장되면 스펙 반환. */
-export function pumpSpawnAt(session: number): PumpSpec | null {
+function rawPumpSpawnAt(session: number): PumpSpec | null {
   if (seededRand(session, "pump-spawn")() > PUMP_SPAWN_CHANCE) return null;
   const rand = seededRand(session, "pump-spec");
   const [ticker, name, emoji] = NAMES[Math.floor(rand() * NAMES.length)];
@@ -60,6 +60,25 @@ export function pumpSpawnAt(session: number): PumpSpec | null {
     peakMult,
     crashMult,
   };
+}
+
+/**
+ * 한 급등주가 살아 있는 동안에는 다음 급등주를 상장하지 않는다.
+ * 연속으로 생성 후보가 나온 경우 후보 묶음의 첫째, 수명+1번째만 채택해
+ * 어느 시각에도 활성 급등주가 하나를 넘지 않게 한다.
+ */
+export function pumpSpawnAt(session: number): PumpSpec | null {
+  const candidate = rawPumpSpawnAt(session);
+  if (!candidate) return null;
+
+  let consecutiveCandidates = 1;
+  for (let previous = session - 1; previous >= 0; previous--) {
+    if (!rawPumpSpawnAt(previous)) break;
+    consecutiveCandidates += 1;
+  }
+  return (consecutiveCandidates - 1) % PUMP_LIFETIME_SESSIONS === 0
+    ? candidate
+    : null;
 }
 
 /** 상장 후 경과 비율 f(0~1)에 따른 배수: 초반 급등(정점 f≈0.4) 후 폭락. */
@@ -170,6 +189,16 @@ export function getActivePumpStocks(now: number): StockState[] {
     active.push(buildPumpState(spec, now));
   }
   return active;
+}
+
+/** 저장·리플레이 상태에 남은 급등주를 제거하고 현재 활성 종목만 한 번 얹는다. */
+export function replaceActivePumpStocks(
+  stocks: StockState[],
+  now: number,
+): StockState[] {
+  const regularStocks = stocks.filter((stock) => !isPumpStock(stock));
+  const active = getActivePumpStocks(now);
+  return active.length > 0 ? [...regularStocks, active[0]] : regularStocks;
 }
 
 /** 상장 거래일에 뜨는 급등주 상장 뉴스 (결정론 id) */

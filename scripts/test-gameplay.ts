@@ -82,6 +82,16 @@ import {
 } from "../src/lib/market/earningsCalendar";
 import { getCharacterMessages } from "../src/lib/market/characterMessages";
 import {
+  corporateActionWindowStart,
+  getCorporateActionArcForWindow,
+  getCorporateActionEventForSession,
+} from "../src/lib/market/corporateActions";
+import {
+  getActivePumpStocks,
+  pumpSpawnAt,
+  replaceActivePumpStocks,
+} from "../src/lib/market/pumpStocks";
+import {
   createInitialMastery,
   masteryLevel,
   updateInvestmentMastery,
@@ -93,6 +103,7 @@ import {
   getSeasonRivalPerformance,
   markSeasonCeremonySeen,
   selectSeasonGoal,
+  selectSeasonTrait,
   seasonTierForAlpha,
   updateInvestmentSeason,
 } from "../src/lib/market/investmentSeasons";
@@ -100,6 +111,24 @@ import type { Character, EventTemplate, OptionPosition, StockState, Trade } from
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
 const windowStart = missionWindowStart(session);
+
+let pumpSession = -1;
+for (let candidate = 1; candidate < 2_000; candidate++) {
+  assert.ok(
+    getActivePumpStocks(candidate * SESSION_DURATION_MS + SESSION_DURATION_MS / 2).length <= 1,
+    "only one pump stock may be active at any time",
+  );
+  if (pumpSession < 0 && pumpSpawnAt(candidate)) pumpSession = candidate;
+}
+assert.ok(pumpSession > 0, "deterministic pump schedule should contain a spawn");
+const pumpNow = pumpSession * SESSION_DURATION_MS + SESSION_DURATION_MS / 2;
+const activePump = getActivePumpStocks(pumpNow);
+assert.equal(activePump.length, 1);
+assert.equal(
+  replaceActivePumpStocks([...activePump, ...activePump], pumpNow).length,
+  1,
+  "replacing active pump stocks must remove duplicate persisted copies",
+);
 
 assert.equal(seasonTierForAlpha(-0.051).id, "bronze");
 assert.equal(seasonTierForAlpha(-0.05).id, "silver");
@@ -112,6 +141,42 @@ const seasonStarted = updateInvestmentSeason(
   { currentSession: session, equity: 1_000_000, benchmarkPrice: 10_000 },
 );
 assert.ok(seasonStarted.state.current);
+const traitSelected = selectSeasonTrait(
+  seasonStarted.state,
+  "alpha_hunter",
+  session,
+);
+assert.equal(traitSelected?.current?.traitId, "alpha_hunter");
+assert.equal(
+  selectSeasonTrait(traitSelected!, "drawdown_guard", session),
+  null,
+  "a season trait can only be selected once",
+);
+const traitSeasonCompleted = updateInvestmentSeason(traitSelected!, {
+  currentSession: session + INVESTMENT_SEASON_SESSIONS,
+  equity: 1_030_000,
+  benchmarkPrice: 10_000,
+});
+assert.equal(traitSeasonCompleted.completed?.traitScore, 8);
+assert.equal(traitSeasonCompleted.completed?.seasonScore, 73);
+
+const corporateWindow = corporateActionWindowStart(session);
+const corporateArc = getCorporateActionArcForWindow(corporateWindow);
+assert.deepEqual(
+  corporateArc,
+  getCorporateActionArcForWindow(corporateWindow),
+  "corporate action arcs should be deterministic",
+);
+const corporateProposal = getCorporateActionEventForSession(corporateWindow);
+const corporateReview = getCorporateActionEventForSession(corporateWindow + 3);
+const corporateResolution = getCorporateActionEventForSession(corporateWindow + 6);
+assert.ok(corporateProposal?.storyStageLabel?.includes("1단계"));
+assert.ok(corporateReview?.storyStageLabel?.includes("2단계"));
+assert.ok(corporateResolution?.storyStageLabel?.includes("3단계"));
+assert.equal(getCorporateActionEventForSession(corporateWindow + 1), null);
+assert.equal(corporateResolution?.affectedStockIds[0], corporateArc.company.id);
+assert.equal(Math.sign(corporateResolution?.impact ?? 0), corporateArc.positive ? 1 : -1);
+assert.ok(corporateResolution?.quote && corporateResolution.quoteBy);
 assert.equal(
   seasonStarted.state.current.endSession,
   session + INVESTMENT_SEASON_SESSIONS,

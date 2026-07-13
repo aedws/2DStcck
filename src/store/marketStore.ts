@@ -68,10 +68,10 @@ import {
   buildRateChangeEvent,
 } from "@/lib/market/interestRate";
 import {
-  getActivePumpStocks,
   getPumpSpawnEvent,
   delistedPumpFinalPrice,
   isPumpStock,
+  replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
 import type {
   ShortPosition,
@@ -151,12 +151,15 @@ import {
   createInitialInvestmentSeasonState,
   getInvestmentSeasonTier,
   getSeasonRivalPerformance,
+  getSeasonTrait,
   markSeasonCeremonySeen as markCeremonySeen,
   normalizeInvestmentSeasonState,
   selectSeasonGoal,
+  selectSeasonTrait,
   seasonExternalCashTotal,
   updateInvestmentSeason,
   type SeasonGoalId,
+  type SeasonTraitId,
   type InvestmentSeasonState,
 } from "@/lib/market/investmentSeasons";
 import {
@@ -228,6 +231,7 @@ interface MarketStore extends MarketSnapshot {
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
   investmentSeason: InvestmentSeasonState;
   selectInvestmentSeasonGoal: (goalId: SeasonGoalId, targetWeight: number) => OrderResult;
+  selectInvestmentSeasonTrait: (traitId: SeasonTraitId) => OrderResult;
   markSeasonCeremonySeen: (seasonId: string) => void;
   markCharacterMessageRead: (messageId: string) => void;
   markAllCharacterMessagesRead: (messageIds: string[]) => void;
@@ -876,6 +880,27 @@ export const useMarketStore = create<MarketStore>()(
         );
         return { success: true, message: "시즌 목표를 확정했습니다." };
       },
+      selectInvestmentSeasonTrait: (traitId) => {
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const next = selectSeasonTrait(
+          get().investmentSeason,
+          traitId,
+          currentSession,
+        );
+        if (!next) {
+          return {
+            success: false,
+            message: "이번 시즌 특성은 이미 확정됐거나 선택할 수 없습니다.",
+          };
+        }
+        const trait = getSeasonTrait(next.current?.traitId);
+        set({ investmentSeason: next });
+        useToastStore.getState().push(
+          `🃏 시즌 특성 확정 · ${trait?.name ?? traitId}`,
+          "success",
+        );
+        return { success: true, message: "시즌 특성을 확정했습니다." };
+      },
       markSeasonCeremonySeen: (seasonId) =>
         set((state) => ({
           investmentSeason: markCeremonySeen(state.investmentSeason, seasonId),
@@ -1188,14 +1213,15 @@ export const useMarketStore = create<MarketStore>()(
         // 오래 접속하지 않았어도 같은 시각이면 모든 클라이언트가 같은 상태에 도달한다.
         const targetTick = currentSimTick(now);
         if (targetTick <= tick) return;
-        const replayed = replayMarket(stocks, events, tick, targetTick);
+        // 급등주는 벽시계의 순함수로 다시 만들기 때문에 일반 시장 리플레이에
+        // 넣지 않는다. 이전 구현은 저장된 급등주를 리플레이한 뒤 다시 덧붙여
+        // 같은 종목을 매 틱 복제했다.
+        const regularStocks = stocks.filter((stock) => !isPumpStock(stock));
+        const replayed = replayMarket(regularStocks, events, tick, targetTick);
         const nextTick = targetTick;
         const allEvents = replayed.events;
         // 결정론 급등주(2거래일 내 상장폐지)를 고정 시장에 얹는다
-        const activePumps = getActivePumpStocks(now);
-        const combinedStocks = activePumps.length
-          ? [...replayed.stocks, ...activePumps]
-          : replayed.stocks;
+        const combinedStocks = replaceActivePumpStocks(replayed.stocks, now);
 
         // 로컬 지정가 대기 주문: 가격 도달 시 체결 (잔고 부족 시 자동 취소)
         let cash = state.cash;
@@ -2276,6 +2302,7 @@ export const useMarketStore = create<MarketStore>()(
                     endSession: window.end,
                     goalSelectedAtSession: rebaseOptional(previous.goalSelectedAtSession),
                     goalLastCheckedSession: rebaseOptional(previous.goalLastCheckedSession),
+                    traitSelectedAtSession: rebaseOptional(previous.traitSelectedAtSession),
                   },
                 };
               })()

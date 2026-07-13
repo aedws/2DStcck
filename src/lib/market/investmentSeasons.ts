@@ -70,6 +70,44 @@ export const SEASON_GOALS: SeasonGoalDefinition[] = [
   },
 ];
 
+export type SeasonTraitId = "alpha_hunter" | "drawdown_guard" | "discipline";
+
+export interface SeasonTraitDefinition {
+  id: SeasonTraitId;
+  name: string;
+  emoji: string;
+  description: string;
+  success: string;
+  failure: string;
+}
+
+export const SEASON_TRAITS: SeasonTraitDefinition[] = [
+  {
+    id: "alpha_hunter",
+    name: "초과수익 사냥꾼",
+    emoji: "🦅",
+    description: "지수보다 강하게 앞서는 공격형 특성입니다.",
+    success: "초과수익 +2%p 이상 +8점 · 0%p 이상 +4점",
+    failure: "지수 하회 시 -4점",
+  },
+  {
+    id: "drawdown_guard",
+    name: "낙폭 관리자",
+    emoji: "🛡️",
+    description: "큰 손실 없이 시즌을 완주하는 방어형 특성입니다.",
+    success: "최대 낙폭 6% 이하 +8점 · 12% 이하 +4점",
+    failure: "최대 낙폭 12% 초과 시 -4점",
+  },
+  {
+    id: "discipline",
+    name: "운용 규율",
+    emoji: "📐",
+    description: "선택한 시즌 목표 비중을 꾸준히 지키는 규율형 특성입니다.",
+    success: "목표 준수율 80% 이상 +8점 · 50% 이상 +3점",
+    failure: "목표 미선택 또는 준수율 50% 미만 -4점",
+  },
+];
+
 export interface ActiveInvestmentSeason {
   id: string;
   number: number;
@@ -89,6 +127,8 @@ export interface ActiveInvestmentSeason {
   goalMetChecks?: number;
   goalMisses?: number;
   lastGoalAllocation?: number;
+  traitId?: SeasonTraitId;
+  traitSelectedAtSession?: number;
 }
 
 export interface InvestmentSeasonResult extends ActiveInvestmentSeason {
@@ -103,6 +143,7 @@ export interface InvestmentSeasonResult extends ActiveInvestmentSeason {
   goalBonus: number;
   goalPenalty: number;
   goalComplianceRate: number;
+  traitScore: number;
 }
 
 export interface InvestmentSeasonState {
@@ -124,6 +165,7 @@ export interface SeasonScoreBreakdown {
   goalBonus: number;
   goalPenalty: number;
   goalComplianceRate: number;
+  traitScore: number;
 }
 
 export interface SeasonRival {
@@ -237,6 +279,34 @@ export function getSeasonGoal(goalId: SeasonGoalId | undefined): SeasonGoalDefin
   return SEASON_GOALS.find((goal) => goal.id === goalId);
 }
 
+export function getSeasonTrait(
+  traitId: SeasonTraitId | undefined,
+): SeasonTraitDefinition | undefined {
+  return SEASON_TRAITS.find((trait) => trait.id === traitId);
+}
+
+export function calculateSeasonTraitScore(
+  season: ActiveInvestmentSeason,
+  performance: Pick<SeasonPerformance, "alpha" | "maxDrawdown">,
+  goalComplianceRate: number,
+): number {
+  if (season.traitId === "alpha_hunter") {
+    return performance.alpha >= 0.02 ? 8 : performance.alpha >= 0 ? 4 : -4;
+  }
+  if (season.traitId === "drawdown_guard") {
+    return performance.maxDrawdown <= 0.06
+      ? 8
+      : performance.maxDrawdown <= 0.12
+        ? 4
+        : -4;
+  }
+  if (season.traitId === "discipline") {
+    if (!season.goalId) return -4;
+    return goalComplianceRate >= 0.8 ? 8 : goalComplianceRate >= 0.5 ? 3 : -4;
+  }
+  return 0;
+}
+
 function stockMatchesGoal(goalId: SeasonGoalId, stock: StockState): boolean {
   if (goalId === "growth") {
     return (
@@ -290,7 +360,7 @@ export function calculateSeasonPerformance(
 
 export function calculateSeasonScore(
   season: ActiveInvestmentSeason,
-  performance: Pick<SeasonPerformance, "alpha">,
+  performance: Pick<SeasonPerformance, "alpha" | "maxDrawdown">,
 ): SeasonScoreBreakdown {
   const baseScore = clamp(Math.round(50 + performance.alpha * 500), 0, 100);
   const checks = Math.max(0, season.goalChecks ?? 0);
@@ -301,12 +371,18 @@ export function calculateSeasonScore(
     ? Math.round((season.goalTargetWeight ?? 0) * metChecks)
     : 0;
   const goalPenalty = season.goalId ? misses * 2 : 0;
+  const traitScore = calculateSeasonTraitScore(
+    season,
+    performance,
+    goalComplianceRate,
+  );
   return {
-    totalScore: clamp(baseScore + goalBonus - goalPenalty, 0, 100),
+    totalScore: clamp(baseScore + goalBonus - goalPenalty + traitScore, 0, 100),
     baseScore,
     goalBonus,
     goalPenalty,
     goalComplianceRate,
+    traitScore,
   };
 }
 
@@ -388,6 +464,7 @@ function normalizeActiveSeason(current: ActiveInvestmentSeason): ActiveInvestmen
   const targetValid = goal?.targetWeights.some(
     (target) => Math.abs(target - (current.goalTargetWeight ?? -1)) < 1e-9,
   );
+  const traitValid = Boolean(getSeasonTrait(current.traitId));
   return {
     ...current,
     minimumEquity: Number.isFinite(current.minimumEquity) ? Math.max(1, current.minimumEquity) : current.startEquity,
@@ -402,6 +479,8 @@ function normalizeActiveSeason(current: ActiveInvestmentSeason): ActiveInvestmen
     goalMetChecks: targetValid ? Math.max(0, current.goalMetChecks ?? 0) : 0,
     goalMisses: targetValid ? Math.max(0, current.goalMisses ?? 0) : 0,
     lastGoalAllocation: targetValid ? Math.max(0, current.lastGoalAllocation ?? 0) : 0,
+    traitId: traitValid ? current.traitId : undefined,
+    traitSelectedAtSession: traitValid ? current.traitSelectedAtSession : undefined,
   };
 }
 
@@ -430,6 +509,7 @@ export function normalizeInvestmentSeasonState(
             goalBonus: Number.isFinite(item.goalBonus) ? item.goalBonus : score.goalBonus,
             goalPenalty: Number.isFinite(item.goalPenalty) ? item.goalPenalty : score.goalPenalty,
             goalComplianceRate: Number.isFinite(item.goalComplianceRate) ? clamp(item.goalComplianceRate, 0, 1) : score.goalComplianceRate,
+            traitScore: Number.isFinite(item.traitScore) ? item.traitScore : score.traitScore,
           };
         })
         .slice(0, MAX_SEASON_HISTORY)
@@ -480,6 +560,31 @@ export function selectSeasonGoal(
       goalMetChecks: 0,
       goalMisses: 0,
       lastGoalAllocation: 0,
+    },
+  };
+}
+
+export function selectSeasonTrait(
+  input: InvestmentSeasonState,
+  traitId: SeasonTraitId,
+  currentSession: number,
+): InvestmentSeasonState | null {
+  const state = normalizeInvestmentSeasonState(input);
+  const current = state.current;
+  if (
+    !current ||
+    current.traitId ||
+    currentSession >= current.endSession ||
+    !getSeasonTrait(traitId)
+  ) {
+    return null;
+  }
+  return {
+    ...state,
+    current: {
+      ...current,
+      traitId,
+      traitSelectedAtSession: currentSession,
     },
   };
 }
@@ -579,6 +684,7 @@ export function updateInvestmentSeason(
     goalBonus: score.goalBonus,
     goalPenalty: score.goalPenalty,
     goalComplianceRate: score.goalComplianceRate,
+    traitScore: score.traitScore,
   };
   const history = [completed, ...state.history].slice(0, MAX_SEASON_HISTORY);
   return {

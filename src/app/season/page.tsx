@@ -15,11 +15,13 @@ import {
   INVESTMENT_SEASON_SESSIONS,
   INVESTMENT_SEASON_TIERS,
   SEASON_GOALS,
+  SEASON_TRAITS,
   calculateSeasonGoalAllocation,
   calculateSeasonPerformance,
   calculateSeasonScore,
   getInvestmentSeasonTier,
   getSeasonGoal,
+  getSeasonTrait,
   getSeasonRivalPerformance,
   seasonExternalCashTotal,
   seasonTierForAlpha,
@@ -27,6 +29,7 @@ import {
 import type {
   InvestmentSeasonTierId,
   SeasonGoalId,
+  SeasonTraitId,
 } from "@/lib/market/investmentSeasons";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -48,6 +51,7 @@ export default function InvestmentSeasonPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedGoalId, setSelectedGoalId] = useState<SeasonGoalId>("growth");
   const [selectedTarget, setSelectedTarget] = useState(0.2);
+  const [selectedTraitId, setSelectedTraitId] = useState<SeasonTraitId>("alpha_hunter");
   const onboarded = useSettingsStore((state) => state.onboarded);
   const tutorialSeen = useSettingsStore((state) => state.seasonTutorialSeen);
   const setTutorialSeen = useSettingsStore((state) => state.setSeasonTutorialSeen);
@@ -62,6 +66,7 @@ export default function InvestmentSeasonPage() {
   const equity = useMarketStore((state) => state.getTotalAssets());
   const cashPayments = useMarketStore((state) => state.cashPayments);
   const selectGoal = useMarketStore((state) => state.selectInvestmentSeasonGoal);
+  const selectTrait = useMarketStore((state) => state.selectInvestmentSeasonTrait);
   const markCeremonySeen = useMarketStore((state) => state.markSeasonCeremonySeen);
   const benchmarkPrice = getBenchmark(stocks)?.currentPrice ?? 0;
   const current = seasonState.current;
@@ -105,6 +110,7 @@ export default function InvestmentSeasonPage() {
   const score = calculateSeasonScore(current, performance);
   const rival = getSeasonRivalPerformance(current, currentSession, score.totalScore);
   const goal = getSeasonGoal(current.goalId);
+  const trait = getSeasonTrait(current.traitId);
   const goalAllocation = calculateSeasonGoalAllocation(current.goalId, holdings, stocks, equity);
   const progress = (elapsed / INVESTMENT_SEASON_SESSIONS) * 100;
   const nextTier = INVESTMENT_SEASON_TIERS[
@@ -169,6 +175,51 @@ export default function InvestmentSeasonPage() {
         <Stat label="시즌 최대 낙폭" value={`${(performance.maxDrawdown * 100).toFixed(2)}%`} tone={-performance.maxDrawdown} />
       </section>
 
+      {!trait ? (
+        <section className="mt-8 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
+          <h2 className="text-lg font-bold">🃏 이번 시즌 특성 카드 3택 1</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            성공 조건과 실패 조건이 함께 있습니다. 한 번 확정하면 다음 시즌까지 바꿀 수 없습니다.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {SEASON_TRAITS.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() => setSelectedTraitId(candidate.id)}
+                className={`rounded-2xl border p-4 text-left transition ${selectedTraitId === candidate.id ? "border-amber-300 bg-[var(--surface)] ring-1 ring-amber-300" : "border-[var(--border)]"}`}
+              >
+                <p className="font-bold">{candidate.emoji} {candidate.name}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{candidate.description}</p>
+                <p className="mt-3 text-[11px] font-semibold text-[var(--up)]">{candidate.success}</p>
+                <p className="mt-1 text-[11px] font-semibold text-[var(--down)]">{candidate.failure}</p>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => selectTrait(selectedTraitId)}
+            className="mt-4 w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-black sm:ml-auto sm:block sm:w-auto"
+          >
+            선택한 특성 확정
+          </button>
+        </section>
+      ) : (
+        <section className="mt-8 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs text-[var(--muted)]">확정된 시즌 특성</p>
+              <h2 className="mt-1 text-lg font-bold">{trait.emoji} {trait.name}</h2>
+              <p className="mt-1 text-xs text-[var(--muted)]">{trait.description}</p>
+            </div>
+            <p className={`text-xl font-black ${score.traitScore >= 0 ? "text-[var(--up)]" : "text-[var(--down)]"}`}>
+              현재 {score.traitScore >= 0 ? "+" : ""}{score.traitScore}점
+            </p>
+          </div>
+          <p className="mt-3 text-xs text-[var(--muted)]">{trait.success} · {trait.failure}</p>
+        </section>
+      )}
+
       {!goal ? (
         <section className="mt-8 rounded-3xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-5">
           <h2 className="text-lg font-bold">🎯 이번 시즌 운용 목표 선택</h2>
@@ -229,7 +280,7 @@ export default function InvestmentSeasonPage() {
             <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.min(100, goalAllocation / current.goalTargetWeight! * 100)}%` }} />
           </div>
           <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-[var(--muted)]">
-            <span>기본 {score.baseScore}점 · 목표 보너스 +{score.goalBonus} · 미달 감점 -{score.goalPenalty}</span>
+            <span>기본 {score.baseScore}점 · 목표 +{score.goalBonus} · 미달 -{score.goalPenalty} · 특성 {score.traitScore >= 0 ? "+" : ""}{score.traitScore}</span>
             <span>비중 미달 거래일마다 -2점</span>
           </div>
         </section>

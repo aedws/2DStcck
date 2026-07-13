@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   getInvestmentSeasonTier,
   getSeasonGoal,
+  getSeasonTrait,
   getSeasonRivalPerformance,
 } from "@/lib/market/investmentSeasons";
 import type { InvestmentSeasonResult } from "@/lib/market/investmentSeasons";
@@ -26,6 +27,7 @@ export function SeasonCeremonyModal({
   const [step, setStep] = useState<"ceremony" | "market-review">("ceremony");
   const tier = getInvestmentSeasonTier(result.tierId);
   const goal = getSeasonGoal(result.goalId);
+  const trait = getSeasonTrait(result.traitId);
   const rival = getSeasonRivalPerformance(
     result,
     result.endSession,
@@ -73,6 +75,18 @@ export function SeasonCeremonyModal({
             <p className="mt-2 text-xs text-[var(--muted)]">
               기본 {result.baseScore}점 · 목표 보너스 +{result.goalBonus} · 미달 감점 -{result.goalPenalty}
             </p>
+          </div>
+        )}
+
+        {trait && (
+          <div className="mx-5 mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-bold">{trait.emoji} {trait.name}</p>
+              <p className={`text-sm font-black ${result.traitScore >= 0 ? "text-[var(--up)]" : "text-[var(--down)]"}`}>
+                특성 {result.traitScore >= 0 ? "+" : ""}{result.traitScore}점
+              </p>
+            </div>
+            <p className="mt-2 text-xs text-[var(--muted)]">{trait.description}</p>
           </div>
         )}
 
