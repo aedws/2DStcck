@@ -20,7 +20,7 @@ import {
 } from "@/lib/ui/marketColors";
 import { Sparkline } from "@/components/ui/Sparkline";
 
-/** 장 상태 바: 3시간 거래일 기준 마감까지 남은 시간 */
+/** 1시간 거래일 기준 마감까지 남은 시간 */
 function MarketStatusBar() {
   const [now, setNow] = useState(() => Date.now());
 
@@ -42,7 +42,7 @@ function MarketStatusBar() {
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--up)]" />
         가상장 운영 중
       </span>
-      <span>1거래일 = 3시간</span>
+      <span>1거래일 = 1시간</span>
       <span className="tabular-nums">장 마감까지 {clock}</span>
     </div>
   );

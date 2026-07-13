@@ -1,5 +1,23 @@
 import type { Holding, OrderResult, Trade } from "@/lib/types/market";
 
+export const MIN_SHARE_QUANTITY = 0.001;
+export const SHARE_QUANTITY_DECIMALS = 6;
+
+export function normalizeShareQuantity(quantity: number): number {
+  const factor = 10 ** SHARE_QUANTITY_DECIMALS;
+  return Math.round(quantity * factor) / factor;
+}
+
+export function isValidShareQuantity(quantity: number): boolean {
+  if (!Number.isFinite(quantity)) return false;
+  const normalized = normalizeShareQuantity(quantity);
+  return normalized >= MIN_SHARE_QUANTITY && Math.abs(normalized - quantity) < 1e-9;
+}
+
+export function shareOrderTotal(price: number, quantity: number): number {
+  return Math.round(price * normalizeShareQuantity(quantity));
+}
+
 export function calculatePortfolioValue(
   holdings: Holding[],
   prices: Record<string, number>,
@@ -19,11 +37,15 @@ export function executeBuy(
   quantity: number,
   timestamp: number,
 ): { cash: number; holdings: Holding[]; trade: Trade } | OrderResult {
-  if (quantity <= 0 || !Number.isInteger(quantity)) {
-    return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
+  if (!isValidShareQuantity(quantity)) {
+    return { success: false, message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요." };
   }
 
-  const total = price * quantity;
+  const normalizedQuantity = normalizeShareQuantity(quantity);
+  const total = shareOrderTotal(price, normalizedQuantity);
+  if (total < 1) {
+    return { success: false, message: "주문 금액은 최소 $0.01이어야 합니다." };
+  }
   if (total > cash) {
     return { success: false, message: "보유 현금이 부족합니다." };
   }
@@ -32,9 +54,9 @@ export function executeBuy(
   let newHoldings: Holding[];
 
   if (existing) {
-    const newQty = existing.quantity + quantity;
+    const newQty = normalizeShareQuantity(existing.quantity + normalizedQuantity);
     const newAvg =
-      (existing.averagePrice * existing.quantity + price * quantity) / newQty;
+      (existing.averagePrice * existing.quantity + price * normalizedQuantity) / newQty;
     newHoldings = holdings.map((h) =>
       h.stockId === stockId
         ? { ...h, quantity: newQty, averagePrice: newAvg }
@@ -43,7 +65,7 @@ export function executeBuy(
   } else {
     newHoldings = [
       ...holdings,
-      { stockId, quantity, averagePrice: price },
+      { stockId, quantity: normalizedQuantity, averagePrice: price },
     ];
   }
 
@@ -52,7 +74,7 @@ export function executeBuy(
     stockId,
     ticker,
     type: "buy",
-    quantity,
+    quantity: normalizedQuantity,
     price,
     total,
     timestamp,
@@ -74,20 +96,25 @@ export function executeSell(
   quantity: number,
   timestamp: number,
 ): { cash: number; holdings: Holding[]; trade: Trade } | OrderResult {
-  if (quantity <= 0 || !Number.isInteger(quantity)) {
-    return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
+  if (!isValidShareQuantity(quantity)) {
+    return { success: false, message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요." };
   }
 
+  const normalizedQuantity = normalizeShareQuantity(quantity);
+
   const existing = holdings.find((h) => h.stockId === stockId);
-  if (!existing || existing.quantity < quantity) {
+  if (!existing || existing.quantity + 1e-9 < normalizedQuantity) {
     return { success: false, message: "보유 수량이 부족합니다." };
   }
 
-  const total = price * quantity;
-  const newQty = existing.quantity - quantity;
+  const total = shareOrderTotal(price, normalizedQuantity);
+  if (total < 1) {
+    return { success: false, message: "주문 금액은 최소 $0.01이어야 합니다." };
+  }
+  const newQty = normalizeShareQuantity(existing.quantity - normalizedQuantity);
 
   let newHoldings: Holding[];
-  if (newQty === 0) {
+  if (newQty < MIN_SHARE_QUANTITY) {
     newHoldings = holdings.filter((h) => h.stockId !== stockId);
   } else {
     newHoldings = holdings.map((h) =>
@@ -100,7 +127,7 @@ export function executeSell(
     stockId,
     ticker,
     type: "sell",
-    quantity,
+    quantity: normalizedQuantity,
     price,
     total,
     timestamp,

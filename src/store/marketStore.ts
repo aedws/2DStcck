@@ -13,7 +13,10 @@ import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
   executeBuy,
   executeSell,
+  isValidShareQuantity,
   isOrderSuccess,
+  normalizeShareQuantity,
+  shareOrderTotal,
 } from "@/lib/market/trading";
 import type {
   CashPayment,
@@ -25,9 +28,11 @@ import type {
   InvestmentMissionHistory,
   InvestmentMissionKind,
   MarketEvent,
+  MarginLeverage,
   OpenOrder,
   OrderResult,
   OrderType,
+  RecurringInvestment,
   StoryDecision,
   StoryDecisionKind,
   StockState,
@@ -46,8 +51,9 @@ import {
   shortLiability,
   marginDebit,
   accrueBorrowCost,
-  MAX_LEVERAGE,
-  MAINTENANCE_MARGIN,
+  DEFAULT_MARGIN_LEVERAGE,
+  maintenanceMarginForLeverage,
+  normalizeMarginLeverage,
 } from "@/lib/market/margin";
 import {
   coverShort,
@@ -153,6 +159,11 @@ import {
   type SeasonGoalId,
   type InvestmentSeasonState,
 } from "@/lib/market/investmentSeasons";
+import {
+  MIN_RECURRING_AMOUNT,
+  normalizeRecurringInvestments,
+  processRecurringInvestments,
+} from "@/lib/market/recurringInvestments";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -168,6 +179,20 @@ interface MarketStore extends MarketSnapshot {
   netWorthHistory: NetWorthPoint[];
   /** 마지막 강제청산(마진콜) 시각 — 배너 표시용 (없으면 null) */
   marginCallAt: number | null;
+  /** 기본은 해제이며, 켠 경우에만 선택 배율까지 총노출을 허용한다. */
+  marginEnabled: boolean;
+  marginLeverage: MarginLeverage;
+  setMarginEnabled: (enabled: boolean) => OrderResult;
+  setMarginLeverage: (leverage: MarginLeverage) => OrderResult;
+  /** 현금 전용 거래일 단위 자동 소수점 매수 계획. */
+  recurringInvestments: RecurringInvestment[];
+  createRecurringInvestment: (
+    stockId: string,
+    amount: number,
+    intervalSessions: 1 | 5 | 20,
+  ) => OrderResult;
+  toggleRecurringInvestment: (planId: string) => void;
+  cancelRecurringInvestment: (planId: string) => void;
   /** 사치재 구매: 현금 차감 후 보유 목록에 추가 (아이템당 1개) */
   purchaseLuxury: (itemId: string) => OrderResult;
   /** 보유 사치재 총 가치(센트) */
@@ -270,6 +295,9 @@ function createInitialState(): MarketSnapshot & {
   ownedLuxuries: OwnedLuxury[];
   netWorthHistory: NetWorthPoint[];
   marginCallAt: number | null;
+  marginEnabled: boolean;
+  marginLeverage: MarginLeverage;
+  recurringInvestments: RecurringInvestment[];
   achievements: string[];
   lotteryWindowStart: number;
   lotteryTicketsBought: number;
@@ -320,6 +348,9 @@ function createInitialState(): MarketSnapshot & {
     ownedLuxuries: [],
     netWorthHistory: [],
     marginCallAt: null,
+    marginEnabled: false,
+    marginLeverage: DEFAULT_MARGIN_LEVERAGE,
+    recurringInvestments: [],
     achievements: [],
     lotteryWindowStart: alignSessionToGrid(
       Math.floor(now / SESSION_DURATION_MS),
@@ -399,18 +430,35 @@ function marginContext(s: {
   return { prices, equity: stockEquity + optDelta, exposure };
 }
 
-function fullBuyingPower(s: Parameters<typeof marginContext>[0]): number {
+type MarginAwareState = Parameters<typeof marginContext>[0] & {
+  marginEnabled?: boolean;
+  marginLeverage?: MarginLeverage;
+};
+
+function effectiveLeverage(s: MarginAwareState): number {
+  return s.marginEnabled ? normalizeMarginLeverage(s.marginLeverage) : 1;
+}
+
+function fullBuyingPower(s: MarginAwareState): number {
   const { equity, exposure } = marginContext(s);
-  return Math.max(0, MAX_LEVERAGE * equity - exposure);
+  return Math.max(0, effectiveLeverage(s) * equity - exposure);
+}
+
+/** 현물 매수는 미수 해제 시 현금과 1배 노출 한도를 모두 넘지 못한다. */
+function longBuyingPower(s: MarginAwareState): number {
+  const capacity = fullBuyingPower(s);
+  return s.marginEnabled ? capacity : Math.max(0, Math.min(s.cash, capacity));
 }
 
 function fullEquityOf(s: Parameters<typeof marginContext>[0]): number {
   return marginContext(s).equity;
 }
 
-function fullNeedsLiquidation(s: Parameters<typeof marginContext>[0]): boolean {
+function fullNeedsLiquidation(s: MarginAwareState): boolean {
   const { equity, exposure } = marginContext(s);
-  return exposure > 0 && equity < MAINTENANCE_MARGIN * exposure;
+  if (exposure <= 0) return false;
+  const maintenance = maintenanceMarginForLeverage(effectiveLeverage(s));
+  return equity < maintenance * exposure;
 }
 
 interface InterestOutcome {
@@ -639,11 +687,16 @@ function applyLocalBuySell(
   }
 
   if (price <= 0) return { success: false, message: "체결 가능한 호가가 없습니다." };
+  if (!isValidShareQuantity(quantity)) {
+    return {
+      success: false,
+      message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요.",
+    };
+  }
 
   if (mode.startsWith("buy")) {
-    // 마진 매수: 현금이 아니라 매수여력(자기자본 2배 − 노출) 한도로 판단.
-    const buyingPower = fullBuyingPower(state);
-    const total = price * quantity;
+    const buyingPower = longBuyingPower(state);
+    const total = shareOrderTotal(price, quantity);
     if (total > buyingPower) {
       return { success: false, message: "매수여력이 부족합니다." };
     }
@@ -667,7 +720,7 @@ function applyLocalBuySell(
       success: true,
       message:
         state.cash - total < 0
-          ? `${label} · 마진 사용 (${formatPrice(price)})`
+          ? `${label} · 미수 사용 (${formatPrice(price)})`
           : `${label} (${formatPrice(price)})`,
     };
   }
@@ -701,6 +754,95 @@ export const useMarketStore = create<MarketStore>()(
 
       setReady: (ready) => set({ isReady: ready }),
       setUserId: (userId) => set({ userId }),
+      setMarginEnabled: (enabled) => {
+        const state = get();
+        if (state.marginEnabled === enabled) {
+          return {
+            success: true,
+            message: enabled ? "미수가 이미 켜져 있습니다." : "미수가 이미 꺼져 있습니다.",
+          };
+        }
+        if (!enabled) {
+          const { equity, exposure } = marginContext(state);
+          if (state.cash < 0 || exposure > equity + 1) {
+            return {
+              success: false,
+              message: "사용 중인 미수·레버리지를 먼저 상환해야 끌 수 있습니다.",
+            };
+          }
+        }
+        set({ marginEnabled: enabled });
+        return {
+          success: true,
+          message: enabled
+            ? `미수 ${state.marginLeverage * 100}%를 켰습니다.`
+            : "미수를 껐습니다. 이제 보유 현금 안에서만 매수합니다.",
+        };
+      },
+      setMarginLeverage: (leverage) => {
+        const normalized = normalizeMarginLeverage(leverage);
+        if (normalized !== leverage) {
+          return { success: false, message: "미수 한도는 200~500% 중에서 선택해 주세요." };
+        }
+        const state = get();
+        if (state.marginEnabled) {
+          const { equity, exposure } = marginContext(state);
+          if (exposure > normalized * equity + 1) {
+            return {
+              success: false,
+              message: "현재 노출을 줄인 뒤 미수 한도를 낮춰 주세요.",
+            };
+          }
+        }
+        set({ marginLeverage: normalized });
+        return {
+          success: true,
+          message: `미수 한도를 ${normalized * 100}%로 설정했습니다.`,
+        };
+      },
+      createRecurringInvestment: (stockId, amount, intervalSessions) => {
+        const state = get();
+        const stock = state.stocks.find((item) => item.id === stockId);
+        if (!stock || stock.sector === "지수" || stock.sector === "선물") {
+          return { success: false, message: "이 종목은 모으기를 설정할 수 없습니다." };
+        }
+        if (!Number.isFinite(amount) || Math.round(amount) < MIN_RECURRING_AMOUNT) {
+          return { success: false, message: "모으기 금액은 회차당 $1 이상이어야 합니다." };
+        }
+        if (![1, 5, 20].includes(intervalSessions)) {
+          return { success: false, message: "모으기 주기를 확인해 주세요." };
+        }
+        if (state.recurringInvestments.some((plan) => plan.stockId === stockId)) {
+          return { success: false, message: "이 종목에는 이미 모으기 계획이 있습니다." };
+        }
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const plan: RecurringInvestment = {
+          id: `recurring-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          stockId,
+          amount: Math.round(amount),
+          intervalSessions,
+          nextSession: currentSession + intervalSessions,
+          enabled: true,
+          createdAt: Date.now(),
+        };
+        set({ recurringInvestments: [...state.recurringInvestments, plan] });
+        return {
+          success: true,
+          message: `${intervalSessions}거래일마다 ${formatPrice(plan.amount)} 모으기를 시작했습니다.`,
+        };
+      },
+      toggleRecurringInvestment: (planId) =>
+        set((state) => ({
+          recurringInvestments: state.recurringInvestments.map((plan) =>
+            plan.id === planId ? { ...plan, enabled: !plan.enabled } : plan,
+          ),
+        })),
+      cancelRecurringInvestment: (planId) =>
+        set((state) => ({
+          recurringInvestments: state.recurringInvestments.filter(
+            (plan) => plan.id !== planId,
+          ),
+        })),
       markCharacterMessageRead: (messageId) =>
         set((state) => ({
           readCharacterMessageIds: state.readCharacterMessageIds.includes(messageId)
@@ -748,6 +890,87 @@ export const useMarketStore = create<MarketStore>()(
           return;
         }
         // 클라우드 지갑을 로컬 계산 시장 위에 얹고, 그동안 밀린 급여·배당을 정산
+        const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const cloudClockChanged =
+          (wallet.sessionDurationMs ?? 3 * 60 * 60 * 1000) !==
+          SESSION_DURATION_MS;
+        const previousNowSession = Math.floor(Date.now() / (3 * 60 * 60 * 1000));
+        const rebaseWindow = (start: number, end: number) => {
+          const duration = Math.max(1, end - start);
+          const elapsed = Math.max(0, Math.min(duration, previousNowSession - start));
+          const rebasedStart = nowSession - elapsed;
+          return { start: rebasedStart, end: rebasedStart + duration };
+        };
+        const cloudMission =
+          cloudClockChanged && wallet.investmentMission?.status === "active"
+            ? (() => {
+                const window = rebaseWindow(
+                  wallet.investmentMission!.windowStart,
+                  wallet.investmentMission!.endSession,
+                );
+                return {
+                  ...wallet.investmentMission!,
+                  windowStart: window.start,
+                  endSession: window.end,
+                };
+              })()
+            : wallet.investmentMission ?? null;
+        const normalizedCloudSeason = normalizeInvestmentSeasonState(
+          wallet.investmentSeason,
+        );
+        const cloudSeason =
+          cloudClockChanged && normalizedCloudSeason.current
+            ? (() => {
+                const previous = normalizedCloudSeason.current!;
+                const window = rebaseWindow(previous.startSession, previous.endSession);
+                const rebaseOptional = (session: number | undefined) =>
+                  session === undefined
+                    ? undefined
+                    : window.start +
+                      Math.max(
+                        0,
+                        Math.min(
+                          window.end - window.start,
+                          session - previous.startSession,
+                        ),
+                      );
+                return {
+                  ...normalizedCloudSeason,
+                  current: {
+                    ...previous,
+                    startSession: window.start,
+                    endSession: window.end,
+                    goalSelectedAtSession: rebaseOptional(
+                      previous.goalSelectedAtSession,
+                    ),
+                    goalLastCheckedSession: rebaseOptional(
+                      previous.goalLastCheckedSession,
+                    ),
+                  },
+                };
+              })()
+            : normalizedCloudSeason;
+        const normalizedCloudProgress = normalizeCharacterProgressMap(
+          wallet.characterProgress,
+        );
+        const cloudCharacterProgress = cloudClockChanged
+          ? Object.fromEntries(
+              Object.entries(normalizedCloudProgress).map(([id, progress]) => [
+                id,
+                {
+                  ...progress,
+                  lastHoldingSession:
+                    progress.lastHoldingSession === undefined
+                      ? undefined
+                      : nowSession -
+                        Math.max(
+                          0,
+                          previousNowSession - progress.lastHoldingSession,
+                        ),
+                },
+              ]),
+            )
+          : normalizedCloudProgress;
         set({
           cash: wallet.cash,
           initialCash: wallet.initialCash,
@@ -755,46 +978,61 @@ export const useMarketStore = create<MarketStore>()(
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
           cashPayments: wallet.cashPayments ?? [],
-          lastSalarySession: wallet.lastSalarySession,
+          lastSalarySession: cloudClockChanged ? nowSession : wallet.lastSalarySession,
           lastMonthlyDistributionSession:
-            wallet.lastMonthlyDistributionSession,
+            cloudClockChanged
+              ? alignSessionToGrid(nowSession, COVERED_CALL_INTERVAL_DAYS)
+              : wallet.lastMonthlyDistributionSession,
           lastSingleCoveredCallDistributionSession:
-            wallet.lastSingleCoveredCallDistributionSession ??
+            cloudClockChanged
+              ? alignSessionToGrid(
+                  nowSession,
+                  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+                )
+              : wallet.lastSingleCoveredCallDistributionSession ??
             alignSessionToGrid(
-              Math.floor(Date.now() / SESSION_DURATION_MS),
+              nowSession,
               SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
             ),
-          lastQuarterlyDividendSession: wallet.lastQuarterlyDividendSession,
+          lastQuarterlyDividendSession: cloudClockChanged
+            ? alignSessionToGrid(nowSession, QUARTERLY_DIVIDEND_INTERVAL_DAYS)
+            : wallet.lastQuarterlyDividendSession,
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: wallet.shorts ?? [],
           options: wallet.options ?? [],
           achievements: wallet.achievements ?? [],
           lotteryWindowStart:
-            wallet.lotteryWindowStart ??
+            cloudClockChanged
+              ? alignSessionToGrid(nowSession, LOTTERY_INTERVAL_DAYS)
+              : wallet.lotteryWindowStart ??
             alignSessionToGrid(
-              Math.floor(Date.now() / SESSION_DURATION_MS),
+              nowSession,
               LOTTERY_INTERVAL_DAYS,
             ),
-          lotteryTicketsBought: wallet.lotteryTicketsBought ?? 0,
+          lotteryTicketsBought: cloudClockChanged
+            ? 0
+            : wallet.lotteryTicketsBought ?? 0,
           wonJackpot: wallet.wonJackpot ?? false,
-          investmentMission: wallet.investmentMission ?? null,
+          investmentMission: cloudMission,
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
-          characterProgress: normalizeCharacterProgressMap(
-            wallet.characterProgress,
-          ),
+          characterProgress: cloudCharacterProgress,
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
           ),
-          investmentSeason: normalizeInvestmentSeasonState(
-            wallet.investmentSeason,
-          ),
-          storyDecision: wallet.storyDecision ?? null,
+          investmentSeason: cloudSeason,
+          storyDecision: cloudClockChanged ? null : wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
+          marginEnabled: wallet.marginEnabled === true,
+          marginLeverage: normalizeMarginLeverage(wallet.marginLeverage),
+          recurringInvestments: normalizeRecurringInvestments(
+            wallet.recurringInvestments,
+          ),
           lastInterestSession:
-            wallet.lastInterestSession ??
-            Math.floor(Date.now() / SESSION_DURATION_MS),
+            cloudClockChanged
+              ? nowSession
+              : wallet.lastInterestSession ?? nowSession,
         });
         get().settleCashflows();
       },
@@ -803,6 +1041,7 @@ export const useMarketStore = create<MarketStore>()(
         if (!get().userId) return;
         const s = get();
         await saveGameSave({
+          sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
           initialCash: s.initialCash,
           holdings: s.holdings,
@@ -830,6 +1069,9 @@ export const useMarketStore = create<MarketStore>()(
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
           storyDecisionHistory: s.storyDecisionHistory,
+          marginEnabled: s.marginEnabled,
+          marginLeverage: s.marginLeverage,
+          recurringInvestments: s.recurringInvestments,
           lastInterestSession: s.lastInterestSession,
         });
 
@@ -885,11 +1127,32 @@ export const useMarketStore = create<MarketStore>()(
         if (!stock) {
           return { success: false, message: "종목을 찾을 수 없습니다." };
         }
-        if (quantity <= 0 || !Number.isInteger(quantity)) {
-          return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
+        if (!isValidShareQuantity(quantity)) {
+          return {
+            success: false,
+            message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요.",
+          };
         }
-        if (side === "buy" && price * quantity > state.cash) {
-          return { success: false, message: "보유 현금이 부족합니다." };
+        const normalizedQuantity = normalizeShareQuantity(quantity);
+        if (side === "buy") {
+          const reserved = state.openOrders
+            .filter((order) => order.side === "buy")
+            .reduce(
+              (sum, order) =>
+                sum + shareOrderTotal(order.price, order.quantity),
+              0,
+            );
+          if (
+            shareOrderTotal(price, normalizedQuantity) >
+            Math.max(0, longBuyingPower(state) - reserved)
+          ) {
+            return {
+              success: false,
+              message: state.marginEnabled
+                ? "매수여력이 부족합니다."
+                : "보유 현금이 부족합니다.",
+            };
+          }
         }
         if (side === "sell") {
           const held = state.holdings.find((h) => h.stockId === stockId);
@@ -903,13 +1166,13 @@ export const useMarketStore = create<MarketStore>()(
           ticker: stock.ticker,
           side,
           price,
-          quantity,
+          quantity: normalizedQuantity,
           createdAt: Date.now(),
         };
         set({ openOrders: [order, ...state.openOrders] });
         return {
           success: true,
-          message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 (${formatPrice(price)} × ${quantity}주)`,
+          message: `지정가 ${side === "buy" ? "매수" : "매도"} 대기 (${formatPrice(price)} × ${normalizedQuantity.toLocaleString()}주)`,
         };
       },
 
@@ -953,10 +1216,41 @@ export const useMarketStore = create<MarketStore>()(
               remainingOrders.push(order);
               continue;
             }
-            const result =
-              order.side === "buy"
-                ? executeBuy(cash, holdings, order.stockId, order.ticker, stock.currentPrice, order.quantity, now)
-                : executeSell(cash, holdings, order.stockId, order.ticker, stock.currentPrice, order.quantity, now);
+            let result;
+            if (order.side === "buy") {
+              const total = shareOrderTotal(stock.currentPrice, order.quantity);
+              const buyingPower = longBuyingPower({
+                ...state,
+                cash,
+                holdings,
+                stocks: combinedStocks,
+              });
+              result =
+                total <= buyingPower
+                  ? executeBuy(
+                      Number.MAX_SAFE_INTEGER,
+                      holdings,
+                      order.stockId,
+                      order.ticker,
+                      stock.currentPrice,
+                      order.quantity,
+                      now,
+                    )
+                  : { success: false, message: "매수여력이 부족합니다." };
+              if (isOrderSuccess(result)) {
+                result = { ...result, cash: cash - total };
+              }
+            } else {
+              result = executeSell(
+                cash,
+                holdings,
+                order.stockId,
+                order.ticker,
+                stock.currentPrice,
+                order.quantity,
+                now,
+              );
+            }
             if (isOrderSuccess(result)) {
               cash = result.cash;
               holdings = result.holdings;
@@ -1023,6 +1317,33 @@ export const useMarketStore = create<MarketStore>()(
         const lastInterestSession =
           interest?.lastInterestSession ?? state.lastInterestSession;
 
+        // 모으기는 현금으로만 한 번 체결한다. 미접속 기간의 밀린 회차는 몰아서 사지 않는다.
+        const recurring = processRecurringInvestments(
+          state.recurringInvestments,
+          cash,
+          holdings,
+          trades,
+          combinedStocks,
+          currentSession,
+          now,
+        );
+        cash = recurring.cash;
+        holdings = recurring.holdings;
+        trades = recurring.trades;
+        const recurringInvestments = recurring.plans;
+        if (recurring.filledPlans.length > 0) {
+          useToastStore.getState().push(
+            `🪙 주식 모으기 ${recurring.filledPlans.length}건 자동 매수`,
+            "success",
+          );
+        }
+        if (recurring.failedPlans.some((plan) => plan.lastStatus === "insufficient_cash")) {
+          useToastStore.getState().push(
+            "주식 모으기 일부를 현금 부족으로 건너뛰었습니다.",
+            "info",
+          );
+        }
+
         // 금리 단계 변경 뉴스 (결정론 — 세션당 1회, 전 클라이언트 동일)
         let nextEvents = allEvents;
         const bench = getBenchmark(combinedStocks);
@@ -1055,6 +1376,8 @@ export const useMarketStore = create<MarketStore>()(
           options,
           stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
+          marginEnabled: state.marginEnabled,
+          marginLeverage: state.marginLeverage,
         };
         if (fullNeedsLiquidation(liveState)) {
           const liq = liquidatePositions(
@@ -1245,6 +1568,7 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress,
           investmentMastery,
           investmentSeason,
+          recurringInvestments,
           storyDecision,
           storyDecisionHistory,
           trades,
@@ -1716,7 +2040,7 @@ export const useMarketStore = create<MarketStore>()(
         };
       },
 
-      getBuyingPower: () => fullBuyingPower(get()),
+      getBuyingPower: () => longBuyingPower(get()),
 
       getEquity: () => fullEquityOf(get()),
 
@@ -1850,8 +2174,10 @@ export const useMarketStore = create<MarketStore>()(
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory,
-        // 자동 레버리지 상품은 기초종목에서 즉시 재구성한다. 커버드콜은 누적
-        // 프리미엄이 있으므로 경량 차트와 함께 체크포인트를 보존한다.
+        marginEnabled: state.marginEnabled,
+        marginLeverage: state.marginLeverage,
+        recurringInvestments: state.recurringInvestments,
+        // 시장 체크포인트는 최근 구간만 저장하고 장기 합성 일봉은 복원 시 재생성한다.
         stocks: state.stocks
           .filter(
             (stock) =>
@@ -1859,21 +2185,27 @@ export const useMarketStore = create<MarketStore>()(
                 Boolean(stock.coveredCallUnderlyingId)) &&
               !isPumpStock(stock),
           )
-          .map((stock) =>
-            stock.universalDerivative && stock.coveredCallUnderlyingId
-              ? {
-                  ...stock,
-                  priceHistory: stock.priceHistory.slice(-60),
-                  candles: stock.candles.slice(-60),
-                  dailyCandles: stock.dailyCandles.slice(-60),
-                }
-              : stock,
-          ),
+          .map((stock) => ({
+            ...stock,
+            priceHistory: stock.priceHistory.slice(-60),
+            candles: stock.candles.slice(-240),
+            dailyCandles: stock.dailyCandles.slice(-120),
+          })),
         events: state.events,
       }),
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const sessionClockChanged = merged.marketVersion !== MARKET_SIM_VERSION;
+        const previousNowSession = Math.floor(Date.now() / (3 * 60 * 60 * 1000));
+        const sessionBaseline = sessionClockChanged ? nowSession : undefined;
+
+        const rebaseWindow = (start: number, end: number) => {
+          const duration = Math.max(1, end - start);
+          const elapsed = Math.max(0, Math.min(duration, previousNowSession - start));
+          const rebasedStart = nowSession - elapsed;
+          return { start: rebasedStart, end: rebasedStart + duration };
+        };
 
         // 저장분은 결정론 시장의 체크포인트로만 유효하다.
         // 기원점·종목 구성이 다르거나 틱이 미래면 제네시스에서 다시 리플레이한다
@@ -1895,17 +2227,77 @@ export const useMarketStore = create<MarketStore>()(
         const persistedById = new Map(
           persistedStocks.map((stock) => [stock.id, stock]),
         );
+        const genesisStocks = createGenesisStocks();
+        const genesisById = new Map(genesisStocks.map((stock) => [stock.id, stock]));
         const restoredStocks = marketValid
           ? STOCK_DEFINITIONS.map((definition) => {
               const persistedStock = persistedById.get(definition.id);
-              return persistedStock
-                ? migrateStock(persistedStock)
-                : createInitialStockState(
-                    definition,
-                    simTickTime(merged.tick),
-                  );
+              if (!persistedStock) {
+                return createInitialStockState(definition, simTickTime(merged.tick));
+              }
+              const migrated = migrateStock(persistedStock);
+              const firstSaved = migrated.dailyCandles[0]?.timestamp ?? Number.POSITIVE_INFINITY;
+              const synthetic = genesisById
+                .get(definition.id)
+                ?.dailyCandles.filter((candle) => candle.timestamp < firstSaved) ?? [];
+              return {
+                ...migrated,
+                dailyCandles: [...synthetic, ...migrated.dailyCandles].slice(-1_250),
+              };
             })
-          : createGenesisStocks();
+          : genesisStocks;
+
+        const rawMission = (merged as Partial<MarketStore>).investmentMission ?? null;
+        const investmentMission =
+          sessionClockChanged && rawMission?.status === "active"
+            ? (() => {
+                const window = rebaseWindow(rawMission.windowStart, rawMission.endSession);
+                return { ...rawMission, windowStart: window.start, endSession: window.end };
+              })()
+            : rawMission;
+        const normalizedSeason = normalizeInvestmentSeasonState(
+          (merged as Partial<MarketStore>).investmentSeason,
+        );
+        const investmentSeason =
+          sessionClockChanged && normalizedSeason.current
+            ? (() => {
+                const previous = normalizedSeason.current!;
+                const window = rebaseWindow(previous.startSession, previous.endSession);
+                const rebaseOptional = (session: number | undefined) =>
+                  session === undefined
+                    ? undefined
+                    : window.start +
+                      Math.max(0, Math.min(window.end - window.start, session - previous.startSession));
+                return {
+                  ...normalizedSeason,
+                  current: {
+                    ...previous,
+                    startSession: window.start,
+                    endSession: window.end,
+                    goalSelectedAtSession: rebaseOptional(previous.goalSelectedAtSession),
+                    goalLastCheckedSession: rebaseOptional(previous.goalLastCheckedSession),
+                  },
+                };
+              })()
+            : normalizedSeason;
+        const normalizedProgress = normalizeCharacterProgressMap(
+          (merged as Partial<MarketStore>).characterProgress,
+        );
+        const characterProgress = sessionClockChanged
+          ? Object.fromEntries(
+              Object.entries(normalizedProgress).map(([id, progress]) => [
+                id,
+                {
+                  ...progress,
+                  lastHoldingSession:
+                    progress.lastHoldingSession === undefined
+                      ? undefined
+                      : nowSession -
+                        Math.max(0, previousNowSession - progress.lastHoldingSession),
+                },
+              ]),
+            )
+          : normalizedProgress;
 
         return {
           ...merged,
@@ -1917,27 +2309,27 @@ export const useMarketStore = create<MarketStore>()(
             marketValid && Array.isArray(merged.events)
               ? merged.events.map(ensureEventDialogue)
               : [],
-          lastSalarySession: Number.isSafeInteger(merged.lastSalarySession)
+          lastSalarySession: sessionBaseline ?? (Number.isSafeInteger(merged.lastSalarySession)
             ? merged.lastSalarySession
-            : nowSession,
+            : nowSession),
           lastMonthlyDistributionSession: alignSessionToGrid(
-            Number.isSafeInteger(merged.lastMonthlyDistributionSession)
+            sessionBaseline ?? (Number.isSafeInteger(merged.lastMonthlyDistributionSession)
               ? merged.lastMonthlyDistributionSession
-              : nowSession,
+              : nowSession),
             COVERED_CALL_INTERVAL_DAYS,
           ),
           lastSingleCoveredCallDistributionSession: alignSessionToGrid(
-            Number.isSafeInteger(
+            sessionBaseline ?? (Number.isSafeInteger(
               merged.lastSingleCoveredCallDistributionSession,
             )
               ? merged.lastSingleCoveredCallDistributionSession
-              : nowSession,
+              : nowSession),
             SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
           ),
           lastQuarterlyDividendSession: alignSessionToGrid(
-            Number.isSafeInteger(merged.lastQuarterlyDividendSession)
+            sessionBaseline ?? (Number.isSafeInteger(merged.lastQuarterlyDividendSession)
               ? merged.lastQuarterlyDividendSession
-              : nowSession,
+              : nowSession),
             QUARTERLY_DIVIDEND_INTERVAL_DAYS,
           ),
           cashPayments: Array.isArray(merged.cashPayments)
@@ -1959,30 +2351,33 @@ export const useMarketStore = create<MarketStore>()(
           options: Array.isArray((merged as Partial<MarketStore>).options)
             ? (merged as Partial<MarketStore>).options!
             : [],
-          lastInterestSession: Number.isSafeInteger(
+          lastInterestSession: sessionBaseline ?? (Number.isSafeInteger(
             (merged as Partial<MarketStore>).lastInterestSession,
           )
             ? (merged as Partial<MarketStore>).lastInterestSession!
-            : nowSession,
+            : nowSession),
           marginCallAt: null,
           achievements: Array.isArray(
             (merged as Partial<MarketStore>).achievements,
           )
             ? (merged as Partial<MarketStore>).achievements!
             : [],
-          lotteryWindowStart: Number.isSafeInteger(
+          lotteryWindowStart: sessionClockChanged
+            ? alignSessionToGrid(nowSession, LOTTERY_INTERVAL_DAYS)
+            : Number.isSafeInteger(
             (merged as Partial<MarketStore>).lotteryWindowStart,
           )
             ? (merged as Partial<MarketStore>).lotteryWindowStart!
             : alignSessionToGrid(nowSession, LOTTERY_INTERVAL_DAYS),
-          lotteryTicketsBought: Number.isSafeInteger(
+          lotteryTicketsBought: sessionClockChanged
+            ? 0
+            : Number.isSafeInteger(
             (merged as Partial<MarketStore>).lotteryTicketsBought,
           )
             ? (merged as Partial<MarketStore>).lotteryTicketsBought!
             : 0,
           wonJackpot: Boolean((merged as Partial<MarketStore>).wonJackpot),
-          investmentMission:
-            (merged as Partial<MarketStore>).investmentMission ?? null,
+          investmentMission,
           missionHistory: Array.isArray(
             (merged as Partial<MarketStore>).missionHistory,
           )
@@ -1993,9 +2388,7 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? Math.max(0, (merged as Partial<MarketStore>).reputation ?? 0)
             : 0,
-          characterProgress: normalizeCharacterProgressMap(
-            (merged as Partial<MarketStore>).characterProgress,
-          ),
+          characterProgress,
           readCharacterMessageIds: Array.isArray(
             (merged as Partial<MarketStore>).readCharacterMessageIds,
           )
@@ -2004,16 +2397,23 @@ export const useMarketStore = create<MarketStore>()(
           investmentMastery: normalizeInvestmentMastery(
             (merged as Partial<MarketStore>).investmentMastery,
           ),
-          investmentSeason: normalizeInvestmentSeasonState(
-            (merged as Partial<MarketStore>).investmentSeason,
-          ),
+          investmentSeason,
           storyDecision:
-            (merged as Partial<MarketStore>).storyDecision ?? null,
+            sessionClockChanged
+              ? null
+              : (merged as Partial<MarketStore>).storyDecision ?? null,
           storyDecisionHistory: Array.isArray(
             (merged as Partial<MarketStore>).storyDecisionHistory,
           )
             ? (merged as Partial<MarketStore>).storyDecisionHistory!
             : [],
+          marginEnabled: (merged as Partial<MarketStore>).marginEnabled === true,
+          marginLeverage: normalizeMarginLeverage(
+            (merged as Partial<MarketStore>).marginLeverage,
+          ),
+          recurringInvestments: normalizeRecurringInvestments(
+            (merged as Partial<MarketStore>).recurringInvestments,
+          ),
           userId: null,
           isReady: false,
         };

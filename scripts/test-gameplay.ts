@@ -19,6 +19,16 @@ import { computeRealizedPnl } from "../src/lib/market/portfolioStats";
 import { buildDailyScorecard } from "../src/lib/market/dailyScorecard";
 import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "../src/lib/market/constants";
 import {
+  computeBuyingPower,
+  maintenanceMarginForLeverage,
+} from "../src/lib/market/margin";
+import {
+  executeBuy,
+  executeSell,
+  isOrderSuccess,
+} from "../src/lib/market/trading";
+import { processRecurringInvestments } from "../src/lib/market/recurringInvestments";
+import {
   getMarketRegimeAtSession,
   marketRegimeWindowStart,
   regimeReturnForStock,
@@ -779,5 +789,58 @@ const marginCallScorecard = buildDailyScorecard(
 );
 assert.equal(marginCallScorecard.marginCalled, true);
 assert.ok(marginCallScorecard.score < scorecard.score);
+
+// 미수는 호출자가 명시한 배율만 반영하고, 500%에서도 진입 완충 구간이 있다.
+assert.equal(SESSION_DURATION_MS, 60 * 60 * 1000);
+assert.equal(computeBuyingPower(10_000, [], [], {}, 0, 1), 10_000);
+assert.equal(computeBuyingPower(10_000, [], [], {}, 0, 5), 50_000);
+assert.equal(maintenanceMarginForLeverage(2), 0.3);
+assert.ok(maintenanceMarginForLeverage(5) < 0.2);
+
+// 현물 소수점 매수·매도는 0.001주부터 가능하고 잔량을 정확히 보존한다.
+const fractionalBuy = executeBuy(10_000, [], "fractional", "FRAC", 2_000, 0.5, 1);
+assert.ok(isOrderSuccess(fractionalBuy));
+if (!isOrderSuccess(fractionalBuy)) throw new Error("fractional buy failed");
+assert.equal(fractionalBuy.cash, 9_000);
+assert.equal(fractionalBuy.holdings[0]?.quantity, 0.5);
+const fractionalSell = executeSell(
+  fractionalBuy.cash,
+  fractionalBuy.holdings,
+  "fractional",
+  "FRAC",
+  2_200,
+  0.125,
+  2,
+);
+assert.ok(isOrderSuccess(fractionalSell));
+if (!isOrderSuccess(fractionalSell)) throw new Error("fractional sell failed");
+assert.equal(fractionalSell.holdings[0]?.quantity, 0.375);
+
+// 모으기는 미수 없이 현금만 사용하고 밀린 회차를 한 번만 체결한다.
+const recurringStock = createInitialStockState(
+  STOCK_DEFINITIONS.find((definition) => definition.sector !== "지수" && definition.sector !== "선물")!,
+  reportStart,
+);
+const recurring = processRecurringInvestments(
+  [{
+    id: "plan",
+    stockId: recurringStock.id,
+    amount: 1_000,
+    intervalSessions: 5,
+    nextSession: 100,
+    enabled: true,
+    createdAt: 0,
+  }],
+  5_000,
+  [],
+  [],
+  [recurringStock],
+  120,
+  reportStart,
+);
+assert.equal(recurring.filledPlans.length, 1);
+assert.ok(recurring.cash >= 0 && recurring.cash < 5_000);
+assert.equal(recurring.plans[0]?.nextSession, 125);
+assert.equal(recurring.trades.length, 1);
 
 console.log("gameplay balance and progression scenarios passed");

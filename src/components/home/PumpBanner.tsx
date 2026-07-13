@@ -57,7 +57,9 @@ export function PumpBanner({ pumps }: { pumps: StockState[] }) {
                 </span>
                 {held && (
                   <span className="text-xs text-[var(--muted)]">
-                    · 보유 {held.quantity}주
+                    · 보유 {held.quantity.toLocaleString("ko-KR", {
+                      maximumFractionDigits: 6,
+                    })}주
                   </span>
                 )}
               </p>

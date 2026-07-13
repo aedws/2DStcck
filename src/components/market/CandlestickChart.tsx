@@ -21,9 +21,9 @@ const UP_COLOR = "#f04452";
 const DOWN_COLOR = "#3182f6";
 
 interface CandlestickChartProps {
-  /** 서버 관리 1분봉 (없으면 history에서 임시 생성) */
+  /** 30초봉 (없으면 history에서 임시 생성) */
   candles?: Candle[];
-  /** 게임 거래일(3시간) 기준 일봉 */
+  /** 게임 거래일(1시간) 기준 일봉 */
   dailyCandles?: Candle[];
   history?: PricePoint[];
   height?: number;
@@ -36,14 +36,55 @@ interface CandlestickChartProps {
 
 /** lightweight-charts는 UTC로만 그리므로, 로컬 시간대만큼 이동시켜 표시 */
 const TZ_OFFSET_MS = -new Date().getTimezoneOffset() * 60_000;
-type ChartTimeframe = "minute" | "day" | "week" | "month";
+type ChartTimeframe =
+  | "30s"
+  | "1m"
+  | "3m"
+  | "5m"
+  | "10m"
+  | "30m"
+  | "1d"
+  | "1w"
+  | "1mo"
+  | "1y";
 
 const TIMEFRAMES: Array<{ id: ChartTimeframe; label: string }> = [
-  { id: "minute", label: "1분" },
-  { id: "day", label: "일" },
-  { id: "week", label: "주" },
-  { id: "month", label: "월" },
+  { id: "30s", label: "30초" },
+  { id: "1m", label: "1분" },
+  { id: "3m", label: "3분" },
+  { id: "5m", label: "5분" },
+  { id: "10m", label: "10분" },
+  { id: "30m", label: "30분" },
+  { id: "1d", label: "1일" },
+  { id: "1w", label: "1주" },
+  { id: "1mo", label: "1달" },
+  { id: "1y", label: "1년" },
 ];
+
+const INTRADAY_INTERVAL_MS: Partial<Record<ChartTimeframe, number>> = {
+  "30s": 30_000,
+  "1m": 60_000,
+  "3m": 3 * 60_000,
+  "5m": 5 * 60_000,
+  "10m": 10 * 60_000,
+  "30m": 30 * 60_000,
+};
+
+function aggregateCandlesByTime(candles: Candle[], intervalMs: number): Candle[] {
+  const buckets = new Map<number, Candle>();
+  for (const candle of candles) {
+    const timestamp = Math.floor(candle.timestamp / intervalMs) * intervalMs;
+    const current = buckets.get(timestamp);
+    if (!current) {
+      buckets.set(timestamp, { ...candle, timestamp });
+      continue;
+    }
+    current.high = Math.max(current.high, candle.high);
+    current.low = Math.min(current.low, candle.low);
+    current.close = candle.close;
+  }
+  return [...buckets.values()];
+}
 
 function toSeriesData(candles: Candle[]) {
   return candles.map((c) => ({
@@ -65,7 +106,7 @@ export function CandlestickChart({
   prevDayClose,
   priceKind = "dollar",
 }: CandlestickChartProps) {
-  const [timeframe, setTimeframe] = useState<ChartTimeframe>("day");
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("1m");
   const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -85,23 +126,23 @@ export function CandlestickChart({
 
   const data = useMemo(() => {
     const historyCandles = history ? buildCandles(history) : [];
-    const minuteSource =
+    const intradaySource =
       candles && candles.length >= historyCandles.length
         ? candles
         : historyCandles;
     const daySource =
       dailyCandles && dailyCandles.length > 0
         ? dailyCandles
-        : minuteSource;
-    const source =
-      timeframe === "minute"
-        ? minuteSource
-        : timeframe === "day"
-          ? daySource
-          : aggregateCandlesBySessions(
-              daySource,
-              timeframe === "week" ? 5 : 20,
-            );
+        : intradaySource;
+    const intradayInterval = INTRADAY_INTERVAL_MS[timeframe];
+    const source = intradayInterval
+      ? aggregateCandlesByTime(intradaySource, intradayInterval)
+      : timeframe === "1d"
+        ? daySource
+        : aggregateCandlesBySessions(
+            daySource,
+            timeframe === "1w" ? 5 : timeframe === "1mo" ? 20 : 240,
+          );
     return toSeriesData(source);
   }, [candles, dailyCandles, history, timeframe]);
   const hasData = data.length > 0;
@@ -135,11 +176,11 @@ export function CandlestickChart({
       leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
-        timeVisible: timeframe === "minute",
-        secondsVisible: false,
+        timeVisible: Boolean(INTRADAY_INTERVAL_MS[timeframe]),
+        secondsVisible: timeframe === "30s",
         rightOffset: 4,
-        barSpacing: timeframe === "minute" ? 12 : 9,
-        minBarSpacing: timeframe === "minute" ? 6 : 4,
+        barSpacing: INTRADAY_INTERVAL_MS[timeframe] ? 12 : 9,
+        minBarSpacing: INTRADAY_INTERVAL_MS[timeframe] ? 6 : 4,
       },
       localization: {
         priceFormatter:
@@ -269,13 +310,13 @@ function TimeframeTabs({
   onChange: (value: ChartTimeframe) => void;
 }) {
   return (
-    <div className="mb-1 flex gap-1 px-1 pt-1">
+    <div className="mb-1 flex gap-1 overflow-x-auto px-1 pt-1">
       {TIMEFRAMES.map((item) => (
         <button
           key={item.id}
           type="button"
           onClick={() => onChange(item.id)}
-          className={`rounded-lg px-3 py-1.5 text-xs transition ${
+          className={`shrink-0 rounded-lg px-3 py-1.5 text-xs transition ${
             value === item.id
               ? "bg-[var(--surface-elevated)] font-semibold text-[var(--foreground)]"
               : "text-[var(--muted)] hover:text-[var(--foreground)]"

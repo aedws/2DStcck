@@ -74,7 +74,7 @@ export default function HistoryPage() {
                   </td>
                   <td className="px-4 py-3 text-right text-[var(--muted)]">
                     {payment.quantity && payment.amountPerShare
-                      ? `${payment.quantity.toLocaleString()}주 × ${formatPrice(payment.amountPerShare)}`
+                      ? `${payment.quantity.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}주 × ${formatPrice(payment.amountPerShare)}`
                       : `거래일 ${payment.dueSession}`}
                   </td>
                   <td
@@ -133,7 +133,9 @@ export default function HistoryPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-mono">
-                    {trade.quantity.toLocaleString()}
+                    {trade.quantity.toLocaleString("ko-KR", {
+                      maximumFractionDigits: 6,
+                    })}
                   </td>
                   <td className="px-4 py-3 text-right font-mono">
                     {formatPrice(trade.price)}

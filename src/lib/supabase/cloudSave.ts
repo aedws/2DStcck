@@ -5,8 +5,10 @@ import type {
   Holding,
   InvestmentMission,
   InvestmentMissionHistory,
+  MarginLeverage,
   OpenOrder,
   OptionPosition,
+  RecurringInvestment,
   ShortPosition,
   StoryDecision,
   Trade,
@@ -20,6 +22,8 @@ import type { InvestmentSeasonState } from "@/lib/market/investmentSeasons";
  * 시장(stocks/events)은 결정론으로 재계산되므로 저장하지 않는다.
  */
 export interface WalletSave {
+  /** 저장 당시 거래일 길이. 구버전(없음)은 3시간으로 간주한다. */
+  sessionDurationMs?: number;
   cash: number;
   initialCash: number;
   holdings: Holding[];
@@ -53,6 +57,9 @@ export interface WalletSave {
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;
   storyDecisionHistory?: StoryDecision[];
+  marginEnabled?: boolean;
+  marginLeverage?: MarginLeverage;
+  recurringInvestments?: RecurringInvestment[];
 }
 
 /** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */

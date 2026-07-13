@@ -21,7 +21,7 @@ interface StockDetailPanelProps {
   events: MarketEvent[];
 }
 
-/** 홈 우측 미리보기 패널: 등락률 1위 종목의 1분봉 + 뉴스 + 회사 정보 */
+/** 홈 우측 미리보기 패널: 등락률 1위 종목의 실시간 차트 + 뉴스 + 회사 정보 */
 export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
   const holding = useMarketStore((s) =>
     stock ? s.holdings.find((h) => h.stockId === stock.id) : undefined,

@@ -1,5 +1,6 @@
 import { STOCK_DEFINITIONS } from "@/data/stocks";
 import {
+  BASE_CANDLE_INTERVAL_MS,
   MARKET_EPOCH_MS,
   MAX_PRICE_HISTORY,
   SESSION_DURATION_MS,
@@ -61,9 +62,9 @@ export function simTickTime(tick: number): number {
   return MARKET_EPOCH_MS + tick * SIM_TICK_MS;
 }
 
-const SYNTHETIC_HISTORY_SESSIONS = 120;
+const SYNTHETIC_HISTORY_SESSIONS = 1_200;
 
-/** 신규 접속자도 일·주·월봉을 바로 볼 수 있게 만드는 결정론적 과거 일봉 */
+/** 신규 접속자도 일·주·월·연봉을 바로 볼 수 있게 만드는 결정론적 과거 일봉 */
 function createHistoricalDailyCandles(def: StockDefinition): Candle[] {
   let laterPrice = def.initialPrice;
   const reversed: Candle[] = [];
@@ -157,8 +158,9 @@ export function replayMarket(
     (stock) => !stock.universalDerivative || Boolean(stock.coveredCallUnderlyingId),
   );
 
-  // 차트 데이터: 캔들은 최근 MAX_CANDLES분, 히스토리는 최근 MAX_PRICE_HISTORY틱만
-  const candleWindowStart = toTick - (MAX_CANDLES * 60_000) / SIM_TICK_MS;
+  // 차트 데이터: 30초봉과 최근 가격 히스토리만 표시 구간에서 축적한다.
+  const candleWindowStart =
+    toTick - (MAX_CANDLES * BASE_CANDLE_INTERVAL_MS) / SIM_TICK_MS;
   const historyWindowStart = toTick - MAX_PRICE_HISTORY;
   const historyMap = new Map<string, PricePoint[]>();
   const candleMap = new Map<string, Candle[]>();
@@ -357,18 +359,19 @@ export function replayMarket(
       }
     }
     if (tick > candleWindowStart) {
-      const minuteStart = Math.floor(now / 60_000) * 60_000;
+      const candleStart =
+        Math.floor(now / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS;
       for (const s of stocks) {
         const candles = candleMap.get(s.id)!;
         const last = candles[candles.length - 1];
         const price = s.currentPrice;
-        if (last && last.timestamp === minuteStart) {
+        if (last && last.timestamp === candleStart) {
           if (price > last.high) last.high = price;
           if (price < last.low) last.low = price;
           last.close = price;
         } else {
           candles.push({
-            timestamp: minuteStart,
+            timestamp: candleStart,
             open: price,
             high: price,
             low: price,
@@ -408,7 +411,7 @@ export function replayMarket(
         ? replayHistory
         : [...s.priceHistory, ...replayHistory].slice(-MAX_PRICE_HISTORY);
     const candles =
-      gapTicks >= (MAX_CANDLES * 60_000) / SIM_TICK_MS
+      gapTicks >= (MAX_CANDLES * BASE_CANDLE_INTERVAL_MS) / SIM_TICK_MS
         ? replayCandles
         : mergeCandles(s.candles ?? [], replayCandles);
 

@@ -36,7 +36,7 @@ export function latestEventFor(
   return undefined;
 }
 
-/** 당일 최고/최저 (1분봉 기준) */
+/** 당일 최고/최저 (30초봉 기준) */
 export function dayRange(stock: StockState): { high: number; low: number } {
   if (!stock.candles?.length) {
     return { high: stock.currentPrice, low: stock.currentPrice };

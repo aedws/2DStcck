@@ -7,6 +7,7 @@ import type {
   StockState,
 } from "@/lib/types/market";
 import {
+  BASE_CANDLE_INTERVAL_MS,
   CANDLE_TICKS,
   DRIFT_TIME_SCALE,
   EVENT_CHANCE_PER_TICK,
@@ -100,7 +101,8 @@ export function createInitialStockState(
     priceHistory: [{ timestamp: now, price: def.initialPrice }],
     candles: [
       {
-        timestamp: Math.floor(now / 60_000) * 60_000,
+        timestamp:
+          Math.floor(now / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS,
         open: def.initialPrice,
         high: def.initialPrice,
         low: def.initialPrice,
@@ -259,19 +261,20 @@ export function calculateTickPrice(
   return Math.max(Math.round(nextPrice), 100);
 }
 
-/** 1분봉 유지: 같은 분이면 고저종 갱신, 새 분이면 새 봉 시작 */
-export const MAX_CANDLES = 180;
-export const MAX_DAILY_CANDLES = 240;
+/** 30초봉 6시간, 일봉 약 5게임년을 보존한다. */
+export const MAX_CANDLES = 720;
+export const MAX_DAILY_CANDLES = 1_250;
 
 export function applyTickToCandles(
   candles: Candle[],
   price: number,
   now: number,
 ): Candle[] {
-  const minuteStart = Math.floor(now / 60_000) * 60_000;
+  const candleStart =
+    Math.floor(now / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS;
   const last = candles[candles.length - 1];
 
-  if (last && last.timestamp === minuteStart) {
+  if (last && last.timestamp === candleStart) {
     const updated: Candle = {
       ...last,
       high: Math.max(last.high, price),
@@ -283,11 +286,11 @@ export function applyTickToCandles(
 
   return [
     ...candles,
-    { timestamp: minuteStart, open: price, high: price, low: price, close: price },
+    { timestamp: candleStart, open: price, high: price, low: price, close: price },
   ].slice(-MAX_CANDLES);
 }
 
-/** 게임 거래일(3시간) 단위 OHLC 유지 */
+/** 게임 거래일(1시간) 단위 OHLC 유지 */
 export function applyTickToDailyCandles(
   candles: Candle[],
   price: number,
@@ -321,7 +324,7 @@ export function applyTickToDailyCandles(
   ].slice(-MAX_DAILY_CANDLES);
 }
 
-/** 연속 일봉을 5거래일 주봉 또는 20거래일 월봉으로 집계 */
+/** 연속 일봉을 주·월·연 단위로 집계 */
 export function aggregateCandlesBySessions(
   candles: Candle[],
   sessionsPerBar: number,
@@ -351,7 +354,7 @@ function applyTickPrice(
   nextPrice: number,
   now: number,
 ): StockState {
-  // 거래일: 벽시계 3시간 단위. 경계를 넘으면 전일 종가·시초가 롤오버.
+  // 거래일: 벽시계 1시간 단위. 경계를 넘으면 전일 종가·시초가 롤오버.
   // (구버전 상태는 daySessionId가 없음 → 롤오버 없이 현재 거래일에 편입)
   const session = Math.floor(now / SESSION_DURATION_MS);
   const isNewSession =
@@ -401,10 +404,11 @@ export function applyCashDistributionToStock(
   const unadjustedOpen = isNewSession ? stock.currentPrice : stock.dayOpen;
   const nextPrice = Math.max(Math.round(stock.currentPrice - amountPerShare), 100);
   const dayOpen = Math.max(Math.round(unadjustedOpen - amountPerShare), 100);
-  const minuteStart = Math.floor(now / 60_000) * 60_000;
+  const candleStart =
+    Math.floor(now / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS;
   const lastCandle = stock.candles?.[stock.candles.length - 1];
   const candles =
-    lastCandle?.timestamp === minuteStart
+    lastCandle?.timestamp === candleStart
       ? [
           ...stock.candles.slice(0, -1),
           {

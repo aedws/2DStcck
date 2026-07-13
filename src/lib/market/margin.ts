@@ -1,13 +1,25 @@
-import type { Holding, ShortPosition } from "@/lib/types/market";
+import type { Holding, MarginLeverage, ShortPosition } from "@/lib/types/market";
 import {
   SESSIONS_PER_YEAR,
   SHORT_BORROW_ANNUAL_PERCENT,
 } from "@/lib/market/interestRate";
 
-/** 최대 레버리지 (매수여력 = 자기자본의 2배까지) */
-export const MAX_LEVERAGE = 2;
-/** 유지증거금 비율 — 자기자본/총노출이 이 아래로 떨어지면 강제 청산 */
-export const MAINTENANCE_MARGIN = 0.3;
+export const DEFAULT_MARGIN_LEVERAGE: MarginLeverage = 2;
+export const MARGIN_LEVERAGE_OPTIONS: MarginLeverage[] = [2, 3, 4, 5];
+
+export function normalizeMarginLeverage(value: number | undefined): MarginLeverage {
+  return MARGIN_LEVERAGE_OPTIONS.includes(value as MarginLeverage)
+    ? (value as MarginLeverage)
+    : DEFAULT_MARGIN_LEVERAGE;
+}
+
+/** 선택 배율에서 진입 직후에도 완충 구간이 남도록 정한 유지증거금. */
+export function maintenanceMarginForLeverage(leverage: number): number {
+  if (leverage >= 5) return 0.16;
+  if (leverage >= 4) return 0.2;
+  if (leverage >= 3) return 0.25;
+  return 0.3;
+}
 
 export function longValue(
   holdings: Holding[],
@@ -62,10 +74,11 @@ export function computeBuyingPower(
   shorts: ShortPosition[],
   prices: Record<string, number>,
   luxuryValue: number,
+  leverage = 1,
 ): number {
   const equity = computeEquity(cash, holdings, shorts, prices, luxuryValue);
   const exposure = grossExposure(holdings, shorts, prices);
-  return Math.max(0, MAX_LEVERAGE * equity - exposure);
+  return Math.max(0, Math.max(1, leverage) * equity - exposure);
 }
 
 /** 마진 차입(음수 현금)액 */
@@ -80,11 +93,12 @@ export function needsLiquidation(
   shorts: ShortPosition[],
   prices: Record<string, number>,
   luxuryValue: number,
+  maintenanceMargin = 0.3,
 ): boolean {
   const exposure = grossExposure(holdings, shorts, prices);
   if (exposure <= 0) return false;
   const equity = computeEquity(cash, holdings, shorts, prices, luxuryValue);
-  return equity < MAINTENANCE_MARGIN * exposure;
+  return equity < maintenanceMargin * exposure;
 }
 
 /**

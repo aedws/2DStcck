@@ -181,7 +181,7 @@ function StockInfoTab({ stock }: { stock: StockState }) {
           </div>
           <div className="flex flex-col gap-0.5">
             <dt className="text-[11px] text-[var(--muted)]">1거래일</dt>
-            <dd>3시간</dd>
+            <dd>1시간</dd>
           </div>
           {stock.leverage !== undefined && (
             <div className="flex flex-col gap-0.5">

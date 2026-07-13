@@ -113,7 +113,9 @@ export function AccountSidebar() {
                   </div>
                   <div className="mt-1 flex items-center justify-between text-xs">
                     <span className="text-[var(--muted)]">
-                      {h.quantity.toLocaleString()}주
+                      {h.quantity.toLocaleString("ko-KR", {
+                        maximumFractionDigits: 6,
+                      })}주
                     </span>
                     <span className={`tabular-nums ${upDownClass(pnl)}`}>
                       {formatSignedPercent(pnl)}

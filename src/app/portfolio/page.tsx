@@ -337,7 +337,9 @@ export default function PortfolioPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {h.quantity.toLocaleString()}
+                      {h.quantity.toLocaleString("ko-KR", {
+                        maximumFractionDigits: 6,
+                      })}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {formatPrice(h.averagePrice)}

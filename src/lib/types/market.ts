@@ -113,9 +113,9 @@ export interface StockState extends StockDefinition {
   /** 현재 거래일 번호 = floor(now / SESSION_DURATION_MS). 바뀌면 새 거래일 */
   daySessionId?: number;
   priceHistory: PricePoint[];
-  /** 1분봉 (서버가 직접 관리, 최근 240개) */
+  /** 30초봉. 1·3·5·10·30분봉 집계의 원본. */
   candles: Candle[];
-  /** 게임 거래일(3시간) 기준 일봉. 주봉·월봉 집계의 원본 */
+  /** 게임 거래일(1시간) 기준 일봉. 주·월·연봉 집계의 원본. */
   dailyCandles: Candle[];
   orderBook: OrderBook;
 }
@@ -143,8 +143,24 @@ export interface Candle {
 
 export interface Holding {
   stockId: string;
+  /** 현물은 최대 소수점 6자리까지 보유할 수 있다. */
   quantity: number;
   averagePrice: number;
+}
+
+export type MarginLeverage = 2 | 3 | 4 | 5;
+
+/** 거래일 단위 자동 소수점 매수 계획. 자동 매수는 미수를 사용하지 않는다. */
+export interface RecurringInvestment {
+  id: string;
+  stockId: string;
+  amount: number;
+  intervalSessions: 1 | 5 | 20;
+  nextSession: number;
+  enabled: boolean;
+  createdAt: number;
+  lastExecutedSession?: number;
+  lastStatus?: "filled" | "insufficient_cash" | "unavailable";
 }
 
 /** 공매도 포지션 — 빌려서 판 주식. 되사서(cover) 갚으며, 하락 시 이익. */
