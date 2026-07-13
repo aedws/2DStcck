@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatPrice, formatPercent } from "@/lib/market/engine";
 import {
   fetchLeaderboard,
+  fetchRegisteredAccountCount,
   getCurrentUserId,
   type LeaderboardEntry,
 } from "@/lib/supabase/cloudSave";
@@ -14,16 +15,19 @@ const RANK_MEDAL = ["🥇", "🥈", "🥉"];
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [myId, setMyId] = useState<string | null>(null);
+  const [accountCount, setAccountCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [rows, id] = await Promise.all([
+    const [rows, id, registeredCount] = await Promise.all([
       fetchLeaderboard(100),
       getCurrentUserId(),
+      fetchRegisteredAccountCount(),
     ]);
     setEntries(rows);
     setMyId(id);
+    setAccountCount(registeredCount);
     setLoading(false);
   }, []);
 
@@ -46,6 +50,21 @@ export default function LeaderboardPage() {
         모두가 같은 시장에서 경쟁합니다. 순위 기준은 <b>순자산</b>(현금 + 주식 +
         감가 후 사치재 가치)입니다.
       </p>
+
+      <div className="mb-5 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <p className="text-xs text-[var(--muted)]">등록 계정</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {accountCount === null ? "—" : `${accountCount.toLocaleString()}명`}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <p className="text-xs text-[var(--muted)]">현재 표시된 랭커</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {loading ? "—" : `${entries.length.toLocaleString()}명`}
+          </p>
+        </div>
+      </div>
 
       {loading ? (
         <p className="py-16 text-center text-sm text-[var(--muted)]">

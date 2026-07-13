@@ -32,19 +32,19 @@ export function TossHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-md">
-      <div className="flex h-14 items-center gap-6 px-5">
+      <div className="flex h-14 items-center gap-3 overflow-hidden px-3 sm:px-5">
         <Link href="/" className="shrink-0 text-lg font-bold tracking-tight">
           2D<span className="text-[var(--accent)]">Stock</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex">
           {navItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-lg px-3 py-2 text-sm transition ${
+                className={`shrink-0 rounded-lg px-2.5 py-2 text-sm transition ${
                   active
                     ? "font-semibold text-[var(--foreground)]"
                     : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -56,11 +56,11 @@ export function TossHeader() {
           })}
         </nav>
 
-        <div className="mx-auto hidden max-w-md flex-1 md:block">
+        <div className="hidden w-56 shrink-0 lg:block xl:w-72">
           <StockSearch />
         </div>
 
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex shrink-0 items-center gap-2.5">
           <span className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--up)] opacity-60" />
@@ -74,7 +74,7 @@ export function TossHeader() {
           <AuthButton />
         </div>
       </div>
-      <div className="px-3 pb-3 md:hidden">
+      <div className="px-3 pb-3 lg:hidden">
         <StockSearch />
       </div>
     </header>

@@ -202,6 +202,15 @@ export async function fetchLeaderboard(
   }));
 }
 
+/** 아이디·이메일을 노출하지 않고 등록된 게임 계정 수만 집계한다. */
+export async function fetchRegisteredAccountCount(): Promise<number | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_registered_account_count");
+  if (error) return null;
+  const count = Number(data);
+  return Number.isSafeInteger(count) && count >= 0 ? count : null;
+}
+
 /** 현재 로그인 유저의 id (없으면 null). 리더보드에서 '나' 강조에 사용. */
 export async function getCurrentUserId(): Promise<string | null> {
   const supabase = createClient();

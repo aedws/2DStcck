@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useToastStore } from "@/store/toastStore";
 
 export function AuthButton() {
   const [gameId, setGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -39,14 +41,23 @@ export function AuthButton() {
           {gameId}
         </span>
         <button
+          type="button"
+          disabled={signingOut}
           onClick={async () => {
+            if (signingOut) return;
+            setSigningOut(true);
             const supabase = createClient();
-            await supabase.auth.signOut();
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+              setSigningOut(false);
+              useToastStore.getState().push("로그아웃에 실패했습니다. 다시 시도해 주세요.", "error");
+              return;
+            }
             window.location.reload();
           }}
-          className="rounded-lg px-2 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+          className="whitespace-nowrap rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-semibold hover:border-[var(--accent)] disabled:cursor-wait disabled:opacity-60"
         >
-          로그아웃
+          {signingOut ? "로그아웃 중…" : "↪ 로그아웃"}
         </button>
       </div>
     );

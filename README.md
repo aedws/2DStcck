@@ -35,6 +35,7 @@ npm run dev
    - `20260713102800_leaderboard_extra.sql`
    - `20260713113917_basic_leaderboard_integrity.sql`
    - `20260713121554_leaderboard_permissions.sql`
+   - `20260714101500_registered_account_count.sql`
 3. **Authentication** → Email 활성화
 
 > `initial_schema`, `cron_tick_market`, `cron_tick_10s`, `limit_orders`,
@@ -87,6 +88,8 @@ PIN은 별도 테이블에 저장하지 않고 Supabase Auth 비밀번호 해시
 `20260713121554_leaderboard_permissions.sql` 적용 후 `submit_leaderboard` RPC만
 허용합니다. 서버가 저장 지갑·수익률·시장 회차·급격한 자산 점프를 기본 검증합니다.
 완전한 e스포츠급 검증이 아니라 캐주얼 경쟁의 단순 조작 억제용입니다.
+등록 계정 수는 `get_registered_account_count`가 숫자만 반환하며 게임 아이디와
+인증 사용자 정보는 클라이언트에 공개하지 않습니다.
 
 ## 연속 시장 사건과 투자 의뢰
 

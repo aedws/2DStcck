@@ -12,6 +12,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "개선",
+    title: "로그아웃 상시 노출·등록 계정 집계",
+    detail:
+      "메뉴가 길어져도 계정 영역과 로그아웃 버튼이 화면 밖으로 밀리지 않도록 헤더를 정리했습니다. 랭킹에는 개인정보를 공개하지 않는 집계 함수를 통해 전체 등록 계정 수와 현재 표시된 랭커 수를 함께 보여줍니다.",
+  },
+  {
+    date: "2026-07-14",
     tag: "신규",
     title: "20거래일 투자 시즌·티어",
     detail:
