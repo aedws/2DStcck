@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import type { StockState } from "@/lib/types/market";
 import { formatPrice } from "@/lib/market/engine";
 import { upDownClass } from "@/lib/ui/marketColors";
@@ -17,7 +19,35 @@ import {
   optionLabel,
 } from "@/lib/market/options";
 
+const OPTIONS_TUTORIAL_STEPS = [
+  {
+    emoji: "↗️",
+    title: "콜은 상승, 풋은 하락",
+    body: "콜옵션은 기초 주가가 행사가보다 높아질수록, 풋옵션은 낮아질수록 유리합니다. 이 게임의 1계약은 기초자산 1주입니다.",
+  },
+  {
+    emoji: "🎟️",
+    title: "매수자는 프리미엄을 냅니다",
+    body: "옵션 매수의 최대 손실은 처음 낸 프리미엄입니다. 방향이 맞아도 만기까지 움직임이 부족하면 프리미엄이 줄어들 수 있습니다.",
+  },
+  {
+    emoji: "⚠️",
+    title: "발행은 훨씬 위험합니다",
+    body: "옵션 발행은 프리미엄을 먼저 받지만 큰 손실과 증거금 부담이 생깁니다. 유지증거금이 부족하면 다른 포지션과 함께 강제 청산될 수 있습니다.",
+  },
+  {
+    emoji: "⏳",
+    title: "만기에는 현금으로 정산",
+    body: "유럽식 옵션이라 만기 전에는 행사하지 않고 거래로 청산합니다. 만기일에는 기초 주가와 행사가의 차이를 기준으로 자동 현금 정산됩니다.",
+  },
+];
+
 export function OptionsPanel({ stock }: { stock: StockState }) {
+  const [mounted, setMounted] = useState(false);
+  const onboarded = useSettingsStore((s) => s.onboarded);
+  const tutorialSeen = useSettingsStore((s) => s.optionsTutorialSeen);
+  const setTutorialSeen = useSettingsStore((s) => s.setOptionsTutorialSeen);
+  useEffect(() => setMounted(true), []);
   const live = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
   const allOptions = useMarketStore((s) => s.options);
   const positions = useMemo(
@@ -53,6 +83,12 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
 
   return (
     <div className="max-w-2xl space-y-4">
+      {mounted && onboarded && !tutorialSeen && (
+        <FeatureTutorialModal
+          steps={OPTIONS_TUTORIAL_STEPS}
+          onFinish={() => setTutorialSeen(true)}
+        />
+      )}
       <div className="rounded-2xl bg-[var(--surface)] p-4">
         <p className="text-sm leading-relaxed text-[var(--muted)]">
           유럽식 현금정산 옵션(1계약 = 1주). 매수는 프리미엄만큼 손실이

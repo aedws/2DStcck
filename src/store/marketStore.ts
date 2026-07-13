@@ -17,6 +17,7 @@ import {
 } from "@/lib/market/trading";
 import type {
   CashPayment,
+  CharacterProgressMap,
   Holding,
   MarketSnapshot,
   NetWorthPoint,
@@ -125,6 +126,14 @@ import {
   getStoryDecisionOffer,
   resolveStoryDecision,
 } from "@/lib/market/storyArcs";
+import {
+  accrueLongHoldingAffinity,
+  addStorySupportAffinity,
+  canUseBondChoice,
+  getCharacterProgress,
+  normalizeCharacterProgressMap,
+  settleMissionRelationship,
+} from "@/lib/market/characterProgress";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -168,6 +177,8 @@ interface MarketStore extends MarketSnapshot {
   investmentMission: InvestmentMission | null;
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
+  /** 캐릭터별 업무 신뢰도·개인 호감도. */
+  characterProgress: CharacterProgressMap;
   acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
   /** 현재 연속 사건에 내린 판단과 최근 정산 기록. */
   storyDecision: StoryDecision | null;
@@ -239,6 +250,7 @@ function createInitialState(): MarketSnapshot & {
   investmentMission: InvestmentMission | null;
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
+  characterProgress: CharacterProgressMap;
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
 } {
@@ -288,6 +300,7 @@ function createInitialState(): MarketSnapshot & {
     investmentMission: null,
     missionHistory: [],
     reputation: 0,
+    characterProgress: {},
     storyDecision: null,
     storyDecisionHistory: [],
   };
@@ -697,6 +710,9 @@ export const useMarketStore = create<MarketStore>()(
           investmentMission: wallet.investmentMission ?? null,
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
+          characterProgress: normalizeCharacterProgressMap(
+            wallet.characterProgress,
+          ),
           storyDecision: wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
           lastInterestSession:
@@ -731,6 +747,7 @@ export const useMarketStore = create<MarketStore>()(
           investmentMission: s.investmentMission,
           missionHistory: s.missionHistory,
           reputation: s.reputation,
+          characterProgress: s.characterProgress,
           storyDecision: s.storyDecision,
           storyDecisionHistory: s.storyDecisionHistory,
           lastInterestSession: s.lastInterestSession,
@@ -988,6 +1005,13 @@ export const useMarketStore = create<MarketStore>()(
         let investmentMission = state.investmentMission;
         let missionHistory = state.missionHistory;
         let reputation = state.reputation;
+        let characterProgress = accrueLongHoldingAffinity(
+          state.characterProgress,
+          holdings,
+          combinedStocks,
+          netWorth,
+          currentSession,
+        );
         if (investmentMission?.status === "active") {
           const benchmarkPrice = getBenchmark(combinedStocks)?.currentPrice ?? 0;
           const updatedMission = updateInvestmentMission(
@@ -1003,6 +1027,13 @@ export const useMarketStore = create<MarketStore>()(
             !missionHistory.some((item) => item.id === updatedMission.id)
           ) {
             const succeeded = updatedMission.status === "completed";
+            const legacyIssuer = updatedMission.issuerCharacterId
+              ? undefined
+              : getStoryArcAtSession(updatedMission.windowStart);
+            const issuerCharacterId =
+              updatedMission.issuerCharacterId ?? legacyIssuer?.character?.id;
+            const issuerCompanyId =
+              updatedMission.issuerCompanyId ?? legacyIssuer?.company.id;
             const historyItem: InvestmentMissionHistory = {
               id: updatedMission.id,
               kind: updatedMission.kind,
@@ -1012,13 +1043,24 @@ export const useMarketStore = create<MarketStore>()(
               completedAt: updatedMission.completedAt ?? now,
               playerReturn: updatedMission.playerReturn ?? 0,
               benchmarkReturn: updatedMission.benchmarkReturn ?? 0,
+              issuerCharacterId,
+              issuerCompanyId,
             };
             missionHistory = [historyItem, ...missionHistory].slice(0, 30);
             if (succeeded) reputation += updatedMission.reward;
+            characterProgress = settleMissionRelationship(
+              characterProgress,
+              issuerCharacterId,
+              succeeded,
+              currentSession,
+              updatedMission.kind === "character",
+            );
             useToastStore.getState().push(
               succeeded
-                ? `📋 투자 의뢰 성공 · 평판 +${updatedMission.reward}`
-                : "📋 투자 의뢰 실패 · 다음 회차에 다시 도전하세요",
+                ? updatedMission.kind === "character"
+                  ? `💌 전용 의뢰 성공 · 평판 +${updatedMission.reward} · 신뢰 +8 · 호감 +6`
+                  : `📋 의뢰 성공 · 평판 +${updatedMission.reward} · 신뢰 +5 · 호감 +4`
+                : "📋 의뢰 완료 · 호감 +1 · 다음 회차에 다시 도전하세요",
               succeeded ? "success" : "info",
             );
             playSound(succeeded ? "cash" : "error");
@@ -1075,6 +1117,7 @@ export const useMarketStore = create<MarketStore>()(
           investmentMission,
           missionHistory,
           reputation,
+          characterProgress,
           storyDecision,
           storyDecisionHistory,
           trades,
@@ -1148,6 +1191,17 @@ export const useMarketStore = create<MarketStore>()(
         if (!benchmark) {
           return { success: false, message: "벤치마크 정보를 불러오지 못했습니다." };
         }
+        const arc = getStoryArcAtSession(session);
+        const relationship = getCharacterProgress(
+          state.characterProgress,
+          arc.character?.id,
+        );
+        if (kind === "character" && relationship.affinity < 50) {
+          return {
+            success: false,
+            message: "이 캐릭터의 전용 의뢰는 호감도 50부터 열립니다.",
+          };
+        }
         set({
           investmentMission: createInvestmentMission(
             kind,
@@ -1155,6 +1209,10 @@ export const useMarketStore = create<MarketStore>()(
             equity,
             benchmark.currentPrice,
             now,
+            {
+              characterId: arc.character?.id,
+              companyId: arc.company.id,
+            },
           ),
         });
         return { success: true, message: "5거래일 투자 의뢰를 시작했습니다." };
@@ -1177,8 +1235,26 @@ export const useMarketStore = create<MarketStore>()(
         if (state.storyDecision?.status === "active") {
           return { success: false, message: "이전 사건 판단이 아직 정산되지 않았습니다." };
         }
+        const progress = getCharacterProgress(
+          state.characterProgress,
+          arc.character?.id,
+        );
+        if (kind === "bond" && !canUseBondChoice(progress, arc.windowStart)) {
+          return {
+            success: false,
+            message: "사건 시작 전부터 해당 캐릭터 호감도 100이 필요합니다.",
+          };
+        }
         const decision = createStoryDecision(arc, kind, now);
-        set({ storyDecision: decision });
+        const characterProgress =
+          kind === "bullish"
+            ? addStorySupportAffinity(
+                state.characterProgress,
+                arc.character?.id,
+                session,
+              )
+            : state.characterProgress;
+        set({ storyDecision: decision, characterProgress });
         const offer = getStoryDecisionOffer(kind);
         useToastStore
           .getState()
@@ -1641,6 +1717,7 @@ export const useMarketStore = create<MarketStore>()(
         investmentMission: state.investmentMission,
         missionHistory: state.missionHistory,
         reputation: state.reputation,
+        characterProgress: state.characterProgress,
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory,
         // 자동 레버리지 상품은 기초종목에서 즉시 재구성한다. 커버드콜은 누적
@@ -1786,6 +1863,9 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? Math.max(0, (merged as Partial<MarketStore>).reputation ?? 0)
             : 0,
+          characterProgress: normalizeCharacterProgressMap(
+            (merged as Partial<MarketStore>).characterProgress,
+          ),
           storyDecision:
             (merged as Partial<MarketStore>).storyDecision ?? null,
           storyDecisionHistory: Array.isArray(

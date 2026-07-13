@@ -134,6 +134,11 @@ function DecisionRecord({ decision }: { decision: StoryDecision }) {
             <span className="rounded-full bg-[var(--background)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
               {marketDay}일차 · {THEME_LABEL[arc.theme]}
             </span>
+            {decision.topGrade && (
+              <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                최상급 판정
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-[var(--muted)]">
             단서 {arc.cluePositive ? "긍정" : "부정"} · 신뢰도 {arc.confidence}% · 실제 결말 {outcomePositive ? "호재" : "악재"}
@@ -154,7 +159,7 @@ function DecisionRecord({ decision }: { decision: StoryDecision }) {
         <RecordFact label="단서 판정" value={clueCorrect ? "진짜 단서" : "거짓 단서"} />
         <RecordFact
           label="선택 결과"
-          value={delta > 0 ? "성공" : delta < 0 ? "오판" : decision.kind === "observe" ? "관망 유지" : "중립"}
+          value={decision.topGrade ? "최상급 성공" : delta > 0 ? "성공" : delta < 0 ? "오판" : decision.kind === "observe" ? "관망 유지" : "중립"}
         />
       </div>
     </li>

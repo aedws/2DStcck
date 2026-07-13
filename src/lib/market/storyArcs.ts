@@ -57,6 +57,13 @@ export const STORY_DECISION_OFFERS: StoryDecisionOffer[] = [
   },
 ];
 
+export const STORY_BOND_DECISION_OFFER: StoryDecisionOffer = {
+  kind: "bond",
+  emoji: "🌟",
+  title: "특별 관계로 개입한다",
+  description: "호감도 100 특전 · 이 캐릭터 사건에서 최상급 판정 확정",
+};
+
 const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 
 export function storyWindowStart(session: number): number {
@@ -136,7 +143,9 @@ export function resolveStoryDecision(
     (decision.kind === "bearish" && !arc.positive);
   const clueWasWrong = arc.cluePositive !== arc.positive;
   const reputationDelta =
-    decision.kind === "observe"
+    decision.kind === "bond"
+      ? 120
+      : decision.kind === "observe"
       ? clueWasWrong
         ? 30
         : 0
@@ -149,14 +158,33 @@ export function resolveStoryDecision(
     resolvedAt,
     outcomePositive: arc.positive,
     reputationDelta,
+    topGrade: decision.kind === "bond",
   };
 }
 
 export function getStoryDecisionOffer(kind: StoryDecisionKind): StoryDecisionOffer {
+  if (kind === "bond") return STORY_BOND_DECISION_OFFER;
   return (
     STORY_DECISION_OFFERS.find((offer) => offer.kind === kind) ??
     STORY_DECISION_OFFERS[0]
   );
+}
+
+/** 호감도 30부터 보이는 개인 메시지. 신뢰가 높을수록 실제 결말에 가까워진다. */
+export function getPrivateStoryClue(
+  arc: MarketStoryArc,
+  trust: number,
+): string {
+  const name = arc.character?.name ?? "담당자";
+  if (trust >= 60) {
+    return arc.positive
+      ? `${name}: 공개 전 자료를 확인했어요. 이번 발표는 시장 기대보다 좋은 쪽에 가깝습니다.`
+      : `${name}: 아직 밖에는 말하지 마세요. 이번 발표에는 시장이 실망할 내용이 포함돼 있습니다.`;
+  }
+  const hintedPositive = arc.cluePositive;
+  return hintedPositive
+    ? `${name}: 확답은 어렵지만, 내부 분위기는 나쁘지 않아요. 긍정적인 가능성을 살펴봐 주세요.`
+    : `${name}: 지금은 공격적으로 움직이지 않는 편이 좋겠어요. 내부에 걱정스러운 신호가 있습니다.`;
 }
 
 function themeNoun(theme: StoryTheme): string {

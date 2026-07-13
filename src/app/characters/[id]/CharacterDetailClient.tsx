@@ -6,6 +6,7 @@ import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import { formatPrice } from "@/lib/market/engine";
 import { getCharacterRelation } from "@/lib/market/characterRelations";
+import { getCharacterProgress } from "@/lib/market/characterProgress";
 import { useMarketStore } from "@/store/marketStore";
 
 export function CharacterDetailClient({ id }: { id: string }) {
@@ -17,6 +18,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const live = useMarketStore((s) => s.getStockById(id));
   const holdings = useMarketStore((state) => state.holdings);
   const events = useMarketStore((s) => s.events);
+  const characterProgress = useMarketStore((s) => s.characterProgress);
   const relatedNews = useMemo(
     () =>
       events.filter((e) => e.quoteBy && e.affectedStockIds.includes(id)),
@@ -35,6 +37,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
   }
 
   const relation = getCharacterRelation(id, holdings);
+  const progress = getCharacterProgress(characterProgress, ceo.id);
   if (!relation.unlocked) {
     return (
       <div className="mx-auto max-w-2xl pb-20">
@@ -93,6 +96,23 @@ export function CharacterDetailClient({ id }: { id: string }) {
           {ceo.bio}
         </p>
       )}
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-xs text-blue-400">업무 신뢰도</p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{progress.trust}<span className="text-xs font-normal text-[var(--muted)]"> / 100</span></p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
+            <div className="h-full rounded-full bg-blue-400" style={{ width: `${progress.trust}%` }} />
+          </div>
+        </div>
+        <div className="rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4">
+          <p className="text-xs text-pink-400">개인 호감도</p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{progress.affinity}<span className="text-xs font-normal text-[var(--muted)]"> / 120</span></p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
+            <div className="h-full rounded-full bg-pink-400" style={{ width: `${(progress.affinity / 120) * 100}%` }} />
+          </div>
+        </div>
+      </div>
 
       <div className="mt-4 rounded-2xl border border-[var(--border)] p-4">
         <div className="flex items-center justify-between">

@@ -250,7 +250,7 @@ export interface MarketEvent {
   storyConfidence?: number;
 }
 
-export type StoryDecisionKind = "bullish" | "bearish" | "observe";
+export type StoryDecisionKind = "bullish" | "bearish" | "observe" | "bond";
 export type StoryDecisionStatus = "active" | "resolved";
 
 /** 연속 시장 사건의 단서를 본 뒤 결말 전에 고르는 플레이어 판단. */
@@ -267,9 +267,11 @@ export interface StoryDecision {
   outcomePositive?: boolean;
   /** 결말 정산으로 증감한 평판. 실패 시 음수가 될 수 있다. */
   reputationDelta?: number;
+  /** 호감도 100 특별 선택으로 획득한 확정 최상급 판정. */
+  topGrade?: boolean;
 }
 
-export type InvestmentMissionKind = "growth" | "benchmark" | "risk";
+export type InvestmentMissionKind = "growth" | "benchmark" | "risk" | "character";
 export type InvestmentMissionStatus = "active" | "completed" | "failed";
 
 /** 5거래일 단위 투자 의뢰 진행 상태. 현금 대신 평판을 보상한다. */
@@ -284,6 +286,9 @@ export interface InvestmentMission {
   minEquity: number;
   status: InvestmentMissionStatus;
   reward: number;
+  /** 이 의뢰를 맡긴 캐릭터와 소속 회사. 구버전 저장분은 없을 수 있다. */
+  issuerCharacterId?: string;
+  issuerCompanyId?: string;
   completedAt?: number;
   playerReturn?: number;
   benchmarkReturn?: number;
@@ -298,7 +303,23 @@ export interface InvestmentMissionHistory {
   completedAt: number;
   playerReturn: number;
   benchmarkReturn: number;
+  issuerCharacterId?: string;
+  issuerCompanyId?: string;
 }
+
+/** 캐릭터가 플레이어에게 쌓은 업무 신뢰와 개인적 호감. */
+export interface CharacterProgress {
+  characterId: string;
+  trust: number;
+  affinity: number;
+  /** 직접 주식의 연속 장기 보유 거래일(5일마다 호감도 정산). */
+  holdingSessions: number;
+  lastHoldingSession?: number;
+  /** 호감도 100을 최초 달성한 거래일. 진행 중 사건의 막판 해금을 막는다. */
+  bondedAtSession?: number;
+}
+
+export type CharacterProgressMap = Record<string, CharacterProgress>;
 
 export interface MarketSnapshot {
   marketVersion: number;

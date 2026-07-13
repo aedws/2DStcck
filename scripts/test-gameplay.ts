@@ -43,6 +43,14 @@ import {
   MARKET_CYCLE_PHASES,
   MARKET_CYCLE_SESSIONS,
 } from "../src/lib/market/marketCycles";
+import {
+  accrueLongHoldingAffinity,
+  addCharacterProgress,
+  addStorySupportAffinity,
+  canUseBondChoice,
+  getCharacterProgress,
+  settleMissionRelationship,
+} from "../src/lib/market/characterProgress";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 
 const session = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -268,10 +276,112 @@ assert.equal(
   "observing a misleading clue should earn the discipline reward",
 );
 
+const bondDecision = resolveStoryDecision(
+  createStoryDecision(positiveArc, "bond", 1),
+  positiveArc,
+  2,
+);
+assert.equal(bondDecision.reputationDelta, 120);
+assert.equal(bondDecision.topGrade, true);
+
+assert.ok(positiveArc.character);
+const relationshipCharacter = positiveArc.character;
+let relationshipProgress = settleMissionRelationship(
+  {},
+  relationshipCharacter.id,
+  true,
+  windowStart,
+);
+assert.deepEqual(
+  {
+    trust: getCharacterProgress(relationshipProgress, relationshipCharacter.id).trust,
+    affinity: getCharacterProgress(relationshipProgress, relationshipCharacter.id).affinity,
+  },
+  { trust: 5, affinity: 4 },
+);
+const exclusiveProgress = settleMissionRelationship(
+  {},
+  relationshipCharacter.id,
+  true,
+  windowStart,
+  true,
+);
+assert.deepEqual(
+  {
+    trust: getCharacterProgress(exclusiveProgress, relationshipCharacter.id).trust,
+    affinity: getCharacterProgress(exclusiveProgress, relationshipCharacter.id).affinity,
+  },
+  { trust: 8, affinity: 6 },
+);
+relationshipProgress = addStorySupportAffinity(
+  relationshipProgress,
+  relationshipCharacter.id,
+  windowStart,
+);
+assert.equal(
+  getCharacterProgress(relationshipProgress, relationshipCharacter.id).affinity,
+  7,
+);
+relationshipProgress = addCharacterProgress(
+  relationshipProgress,
+  relationshipCharacter.id,
+  0,
+  93,
+  windowStart - 1,
+);
+const bonded = getCharacterProgress(relationshipProgress, relationshipCharacter.id);
+assert.equal(bonded.affinity, 100);
+assert.equal(canUseBondChoice(bonded, windowStart), true);
+assert.equal(canUseBondChoice(bonded, windowStart - 1), false);
+
+const relationshipStock = createInitialStockState(positiveArc.company, MARKET_EPOCH_MS);
+const relationshipHolding = [{
+  stockId: relationshipStock.id,
+  quantity: 1,
+  averagePrice: relationshipStock.currentPrice,
+}];
+let holdProgress = accrueLongHoldingAffinity(
+  {},
+  relationshipHolding,
+  [relationshipStock],
+  relationshipStock.currentPrice * 10,
+  windowStart,
+);
+holdProgress = accrueLongHoldingAffinity(
+  holdProgress,
+  relationshipHolding,
+  [relationshipStock],
+  relationshipStock.currentPrice * 10,
+  windowStart + 5,
+);
+assert.equal(
+  getCharacterProgress(holdProgress, relationshipCharacter.id).affinity,
+  2,
+);
+
 const growth = createInvestmentMission("growth", windowStart, 10_000_000, 100_000, 1);
 assert.equal(
   updateInvestmentMission(growth, growth.endSession - 1, 10_400_000, 101_000, 2).status,
   "active",
+);
+const characterMission = createInvestmentMission(
+  "character",
+  windowStart,
+  10_000_000,
+  100_000,
+  1,
+  { characterId: relationshipCharacter.id, companyId: positiveArc.company.id },
+);
+assert.equal(characterMission.issuerCharacterId, relationshipCharacter.id);
+assert.equal(
+  updateInvestmentMission(
+    characterMission,
+    characterMission.endSession,
+    10_250_000,
+    101_000,
+    2,
+  ).status,
+  "completed",
 );
 assert.equal(
   updateInvestmentMission(growth, growth.endSession, 10_300_000, 101_000, 3).status,

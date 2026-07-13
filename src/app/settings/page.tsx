@@ -9,6 +9,12 @@ export default function SettingsPage() {
     (state) => state.setGroupDerivatives,
   );
   const setOnboarded = useSettingsStore((state) => state.setOnboarded);
+  const setMissionTutorialSeen = useSettingsStore(
+    (state) => state.setMissionTutorialSeen,
+  );
+  const setOptionsTutorialSeen = useSettingsStore(
+    (state) => state.setOptionsTutorialSeen,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -69,6 +75,30 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">튜토리얼 다시 보기</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               게임 방법 안내를 처음부터 다시 봅니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          onClick={() => setMissionTutorialSeen(false)}
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">의뢰·관계 튜토리얼 다시 보기</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              다음 의뢰 화면 진입 때 신뢰도와 호감도 안내를 표시합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          onClick={() => setOptionsTutorialSeen(false)}
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">옵션 튜토리얼 다시 보기</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              다음 옵션 탭 진입 때 옵션 거래 안내를 표시합니다.
             </span>
           </span>
           <span className="text-[var(--muted)]">›</span>

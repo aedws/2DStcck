@@ -9,6 +9,10 @@ interface SettingsState {
   /** 온보딩(첫 안내)을 마쳤는지 여부 */
   onboarded: boolean;
   setOnboarded: (value: boolean) => void;
+  missionTutorialSeen: boolean;
+  setMissionTutorialSeen: (value: boolean) => void;
+  optionsTutorialSeen: boolean;
+  setOptionsTutorialSeen: (value: boolean) => void;
   /** 체결·현금 효과음 사용 여부 */
   soundEnabled: boolean;
   setSoundEnabled: (value: boolean) => void;
@@ -24,6 +28,12 @@ export const useSettingsStore = create<SettingsState>()(
       setGroupDerivatives: (groupDerivatives) => set({ groupDerivatives }),
       onboarded: false,
       setOnboarded: (onboarded) => set({ onboarded }),
+      missionTutorialSeen: false,
+      setMissionTutorialSeen: (missionTutorialSeen) =>
+        set({ missionTutorialSeen }),
+      optionsTutorialSeen: false,
+      setOptionsTutorialSeen: (optionsTutorialSeen) =>
+        set({ optionsTutorialSeen }),
       soundEnabled: true,
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
       watchlist: [],

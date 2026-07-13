@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import type {
   CashPayment,
+  CharacterProgressMap,
   Holding,
   InvestmentMission,
   InvestmentMissionHistory,
@@ -44,6 +45,7 @@ export interface WalletSave {
   investmentMission?: InvestmentMission | null;
   missionHistory?: InvestmentMissionHistory[];
   reputation?: number;
+  characterProgress?: CharacterProgressMap;
   storyDecision?: StoryDecision | null;
   storyDecisionHistory?: StoryDecision[];
 }

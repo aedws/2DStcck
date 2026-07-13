@@ -10,6 +10,7 @@ import {
 } from "@/lib/market/characterRelations";
 import type { Character, StockDefinition } from "@/lib/types/market";
 import { useMarketStore } from "@/store/marketStore";
+import { getCharacterProgress } from "@/lib/market/characterProgress";
 
 const CARD_STYLE: Record<CharacterRelationStatus, string> = {
   leverage: "border-pink-400/60 bg-pink-500/10",
@@ -29,6 +30,7 @@ const BADGE_STYLE: Record<CharacterRelationStatus, string> = {
 
 export default function CharactersPage() {
   const holdings = useMarketStore((state) => state.holdings);
+  const characterProgress = useMarketStore((state) => state.characterProgress);
   const entries = useMemo(
     () =>
       getCompanyDefinitions()
@@ -65,6 +67,7 @@ export default function CharactersPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         {entries.map(({ company, ceo }) => {
           const relation = relations.get(company.id)!;
+          const progress = getCharacterProgress(characterProgress, ceo.id);
           const content = (
             <>
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--background)] text-2xl">
@@ -93,6 +96,11 @@ export default function CharactersPage() {
                       </span>
                     ))}
                   </div>
+                )}
+                {relation.unlocked && (
+                  <p className="mt-1.5 text-[10px] text-[var(--muted)]">
+                    신뢰 <span className="text-blue-400">{progress.trust}</span> · 호감 <span className="text-pink-400">{progress.affinity}</span>
+                  </p>
                 )}
                 {relation.unlocked && ceo.bio && (
                   <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[var(--muted)]">{ceo.bio}</p>

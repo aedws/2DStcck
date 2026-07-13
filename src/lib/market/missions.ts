@@ -41,6 +41,14 @@ export const INVESTMENT_MISSION_OFFERS: InvestmentMissionOffer[] = [
     reward: 100,
     emoji: "🛡️",
   },
+  {
+    kind: "character",
+    title: "전용 · 신뢰의 증명",
+    description: "호감도 50 이상인 캐릭터가 맡기는 고난도 성과 의뢰입니다.",
+    target: "순자산 +2% · 벤치마크 +0.5%p 초과",
+    reward: 220,
+    emoji: "💌",
+  },
 ];
 
 export function missionWindowStart(session: number): number {
@@ -61,6 +69,7 @@ export function createInvestmentMission(
   equity: number,
   benchmarkPrice: number,
   now = Date.now(),
+  issuer?: { characterId?: string; companyId?: string },
 ): InvestmentMission {
   // 사건은 공통 회차지만 의뢰는 신규·복귀 유저도 온전한 5거래일을 받도록
   // 수락 시점부터 개인 회차를 시작한다.
@@ -77,6 +86,8 @@ export function createInvestmentMission(
     minEquity: equity,
     status: "active",
     reward: offer.reward,
+    issuerCharacterId: issuer?.characterId,
+    issuerCompanyId: issuer?.companyId,
   };
 }
 
@@ -108,7 +119,9 @@ export function updateInvestmentMission(
       ? playerReturn >= 0.03
       : mission.kind === "benchmark"
         ? playerReturn >= benchmarkReturn + 0.01
-        : playerReturn >= 0 && drawdown <= 0.05;
+        : mission.kind === "risk"
+          ? playerReturn >= 0 && drawdown <= 0.05
+          : playerReturn >= 0.02 && playerReturn >= benchmarkReturn + 0.005;
 
   return {
     ...mission,
@@ -134,6 +147,11 @@ export function missionProgressPercent(
   if (mission.kind === "growth") return Math.max(0, Math.min(100, (playerReturn / 0.03) * 100));
   if (mission.kind === "benchmark") {
     return Math.max(0, Math.min(100, ((playerReturn - benchmarkReturn) / 0.01) * 100));
+  }
+  if (mission.kind === "character") {
+    const growthProgress = playerReturn / 0.02;
+    const alphaProgress = (playerReturn - benchmarkReturn) / 0.005;
+    return Math.max(0, Math.min(100, Math.min(growthProgress, alphaProgress) * 100));
   }
   const drawdown = mission.startEquity > 0 ? 1 - mission.minEquity / mission.startEquity : 1;
   return playerReturn >= 0 && drawdown <= 0.05 ? 100 : Math.max(0, 100 - drawdown * 2_000);
