@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSettingsStore } from "@/store/settingsStore";
 
 export default function SettingsPage() {
@@ -46,7 +47,7 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={() => setOnboarded(false)}
-          className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span>
             <span className="block text-sm font-medium">튜토리얼 다시 보기</span>
@@ -56,6 +57,18 @@ export default function SettingsPage() {
           </span>
           <span className="text-[var(--muted)]">›</span>
         </button>
+        <Link
+          href="/updates"
+          className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">업데이트 내역</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              그동안의 변경 사항을 확인합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] px-4 py-4">

@@ -14,6 +14,7 @@ const navItems = [
   { href: "/portfolio", label: "내 계좌" },
   { href: "/shop", label: "상점" },
   { href: "/history", label: "주문내역" },
+  { href: "/updates", label: "업데이트" },
   { href: "/settings", label: "설정" },
 ];
 
