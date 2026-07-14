@@ -381,6 +381,17 @@ export function replayMarket(
       events = [...events, event].slice(-50);
     }
 
+    // 자동 생성 레버리지·인버스 ETF는 본래 비용 절감을 위해 루프 종료 후 최종가만
+    // 한 번 계산한다(아래). 그러면 표시 구간의 매 틱 가격이 없어 30초·분봉이 전부
+    // open=high=low=close 인 "점"으로만 찍힌다. 표시 구간(마지막 720봉)에서만 매 틱
+    // 실제 가격을 계산해 정상적인 봉이 그려지게 한다. 최종가는 기존과 동일하다.
+    if (tick > candleWindowStart) {
+      for (const s of universalDerivatives) {
+        const underlying = byId.get(s.leverageUnderlyingId ?? "vnasdaq");
+        if (underlying) s.currentPrice = computeLeveragedPrice(s, underlying);
+      }
+    }
+
     // 차트 데이터는 표시 구간에서만 축적
     if (tick > historyWindowStart) {
       for (const s of stocks) {

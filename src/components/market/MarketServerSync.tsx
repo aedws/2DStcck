@@ -17,34 +17,39 @@ function CloudSaveSync() {
   const loadCloudSave = useMarketStore((s) => s.loadCloudSave);
   const saveCloud = useMarketStore((s) => s.saveCloud);
 
-  // 로그인 상태 추적 + 로그인 시 저장분 로드
+  // 로그인 상태 추적 + 로그인 시 저장분 로드.
+  // onAuthStateChange는 구독 즉시 INITIAL_SESSION을 한 번 발생시키므로 별도의
+  // getSession() 초기 로드는 필요 없다(중복 왕복 제거 → 초기 로딩 단축).
   useEffect(() => {
     const supabase = createClient();
-    let cancelled = false;
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled || !data.session?.user) return;
-      setUserId(data.session.user.id);
-      await loadCloudSave();
-      await saveCloud();
-    });
+    let loadedFor: string | null = null;
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          setUserId(session.user.id);
-          await loadCloudSave();
-          await saveCloud();
-        } else {
+      (_event, session) => {
+        const user = session?.user ?? null;
+        if (!user) {
+          loadedFor = null;
           setUserId(null);
+          return;
         }
+        setUserId(user.id);
+        // 같은 세션의 반복 이벤트(토큰 갱신 등)에는 재로딩하지 않는다.
+        // 매번 로드하면 클라우드 지갑이 진행 중인 로컬 매매를 덮어쓸 수 있다.
+        if (loadedFor === user.id) return;
+        loadedFor = user.id;
+        // supabase-js는 이 콜백 실행 중 내부 auth 락을 잡고 있어, 여기서 곧바로
+        // 다른 supabase 호출(getSession·DB)을 await 하면 락 경합으로 로그인이
+        // 수 초간 멈춘다. 락이 풀린 뒤 실행되도록 마이크로태스크 밖으로 미룬다.
+        setTimeout(() => {
+          void (async () => {
+            await loadCloudSave();
+            await saveCloud();
+          })();
+        }, 0);
       },
     );
 
-    return () => {
-      cancelled = true;
-      listener.subscription.unsubscribe();
-    };
+    return () => listener.subscription.unsubscribe();
   }, [setUserId, loadCloudSave, saveCloud]);
 
   // 지갑 변경 시 디바운스 저장 (로그인 상태에서만)
