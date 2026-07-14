@@ -94,6 +94,7 @@ import {
   MARKET_EPOCH_MS,
   MARKET_SIM_VERSION,
   SESSION_DURATION_MS,
+  WALLET_EPOCH,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
 import {
@@ -377,6 +378,7 @@ function createInitialState(): MarketSnapshot & {
   const now = Date.now();
   return {
     marketVersion: MARKET_SIM_VERSION,
+    walletEpoch: WALLET_EPOCH,
     sessionDurationMs: SESSION_DURATION_MS,
     tick: 0,
     // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
@@ -1152,11 +1154,56 @@ export const useMarketStore = create<MarketStore>()(
       loadCloudSave: async () => {
         if (!get().userId) return;
         const wallet = await loadGameSave();
-        if (!wallet) {
-          // 첫 로그인: 현재 로컬 지갑을 그대로 클라우드에 올려 시작점으로 삼는다
+        if (!wallet || (wallet.walletEpoch ?? 0) < WALLET_EPOCH) {
+          // 첫 로그인·구세대 저장분: 현재(이미 epoch 리셋된) 로컬 지갑을 클라우드에 올린다.
+          // 구세대 클라우드가 로컬을 다시 오염시키지 않도록 적용하지 않는다.
           await get().saveCloud();
           return;
         }
+
+        const local = get();
+        const activityAt = (trades: Trade[] | undefined, payments: CashPayment[] | undefined) => {
+          let max = 0;
+          for (const trade of trades ?? []) {
+            if (trade.timestamp > max) max = trade.timestamp;
+          }
+          for (const payment of payments ?? []) {
+            if (payment.timestamp > max) max = payment.timestamp;
+          }
+          return max;
+        };
+        const checkpointScore = (w: {
+          lastSalarySession?: number;
+          lastMonthlyDistributionSession?: number;
+          lastSingleCoveredCallDistributionSession?: number;
+          lastQuarterlyDividendSession?: number;
+        }) =>
+          Math.max(
+            Number.isFinite(w.lastSalarySession) ? w.lastSalarySession! : 0,
+            Number.isFinite(w.lastMonthlyDistributionSession)
+              ? w.lastMonthlyDistributionSession!
+              : 0,
+            Number.isFinite(w.lastSingleCoveredCallDistributionSession)
+              ? w.lastSingleCoveredCallDistributionSession!
+              : 0,
+            Number.isFinite(w.lastQuarterlyDividendSession)
+              ? w.lastQuarterlyDividendSession!
+              : 0,
+          );
+        // 로그인 직전 로컬 매매·분배 정산이 아직 클라우드에 없다면 덮어쓰지 않는다.
+        // (체크포인트만 과거인 클라우드를 적용하면 분배가 재지급되어 현금이 복제된다.)
+        const localActivity = activityAt(local.trades, local.cashPayments);
+        const cloudActivity = activityAt(wallet.trades, wallet.cashPayments);
+        const localCheckpoint = checkpointScore(local);
+        const cloudCheckpoint = checkpointScore(wallet);
+        if (
+          localActivity > cloudActivity ||
+          (localActivity === cloudActivity && localCheckpoint > cloudCheckpoint)
+        ) {
+          await get().saveCloud();
+          return;
+        }
+
         // 클라우드 지갑을 로컬 계산 시장 위에 얹고, 그동안 밀린 급여·배당을 정산
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         const cloudClockChanged =
@@ -1243,32 +1290,43 @@ export const useMarketStore = create<MarketStore>()(
               ]),
             )
           : normalizedCloudProgress;
+        // 분배 체크포인트는 절대 뒤로 돌리지 않는다. 회귀 + settle 가 현금 복제 원인.
+        const maxSession = (cloudValue: number | undefined, localValue: number) => {
+          const cloud = Number.isFinite(cloudValue) ? Math.floor(cloudValue!) : localValue;
+          return Math.max(cloud, localValue);
+        };
         set({
+          walletEpoch: WALLET_EPOCH,
           cash: wallet.cash,
           initialCash: wallet.initialCash,
           holdings: wallet.holdings ?? [],
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
           cashPayments: wallet.cashPayments ?? [],
-          lastSalarySession: cloudClockChanged ? nowSession : wallet.lastSalarySession,
-          lastMonthlyDistributionSession:
-            cloudClockChanged
-              ? alignSessionToGrid(nowSession, COVERED_CALL_INTERVAL_DAYS)
-              : wallet.lastMonthlyDistributionSession,
-          lastSingleCoveredCallDistributionSession:
-            cloudClockChanged
-              ? alignSessionToGrid(
-                  nowSession,
-                  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
-                )
-              : wallet.lastSingleCoveredCallDistributionSession ??
-            alignSessionToGrid(
-              nowSession,
-              SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
-            ),
+          lastSalarySession: cloudClockChanged
+            ? nowSession
+            : maxSession(wallet.lastSalarySession, local.lastSalarySession),
+          lastMonthlyDistributionSession: cloudClockChanged
+            ? alignSessionToGrid(nowSession, COVERED_CALL_INTERVAL_DAYS)
+            : maxSession(
+                wallet.lastMonthlyDistributionSession,
+                local.lastMonthlyDistributionSession,
+              ),
+          lastSingleCoveredCallDistributionSession: cloudClockChanged
+            ? alignSessionToGrid(
+                nowSession,
+                SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+              )
+            : maxSession(
+                wallet.lastSingleCoveredCallDistributionSession,
+                local.lastSingleCoveredCallDistributionSession,
+              ),
           lastQuarterlyDividendSession: cloudClockChanged
             ? alignSessionToGrid(nowSession, QUARTERLY_DIVIDEND_INTERVAL_DAYS)
-            : wallet.lastQuarterlyDividendSession,
+            : maxSession(
+                wallet.lastQuarterlyDividendSession,
+                local.lastQuarterlyDividendSession,
+              ),
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: wallet.shorts ?? [],
           options: wallet.options ?? [],
@@ -1323,7 +1381,7 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession:
             cloudClockChanged
               ? nowSession
-              : wallet.lastInterestSession ?? nowSession,
+              : maxSession(wallet.lastInterestSession, local.lastInterestSession),
         });
         get().settleCashflows();
       },
@@ -1332,6 +1390,7 @@ export const useMarketStore = create<MarketStore>()(
         if (!get().userId) return;
         const s = get();
         await saveGameSave({
+          walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
           initialCash: s.initialCash,
@@ -2554,6 +2613,7 @@ export const useMarketStore = create<MarketStore>()(
       partialize: (state) => ({
         tick: state.tick,
         marketVersion: state.marketVersion,
+        walletEpoch: state.walletEpoch,
         sessionDurationMs: state.sessionDurationMs,
         marketStartedAt: state.marketStartedAt,
         cash: state.cash,
@@ -2615,10 +2675,17 @@ export const useMarketStore = create<MarketStore>()(
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const walletEpochOk =
+          (merged as Partial<MarketSnapshot>).walletEpoch === WALLET_EPOCH;
+        // 구세대 지갑(비정상 자산·거래내역 누락 시즌)은 버리고 초기 자금으로 재시작한다.
+        // 시장 체크포인트는 marketVersion으로 따로 판정한다.
+        const walletSource = walletEpochOk
+          ? merged
+          : { ...merged, ...createInitialState() };
         const persistedSessionDuration = Number.isFinite(
-          (merged as Partial<MarketSnapshot>).sessionDurationMs,
+          (walletSource as Partial<MarketSnapshot>).sessionDurationMs,
         )
-          ? (merged as Partial<MarketSnapshot>).sessionDurationMs!
+          ? (walletSource as Partial<MarketSnapshot>).sessionDurationMs!
           : SESSION_DURATION_MS;
         const sessionClockChanged =
           persistedSessionDuration !== SESSION_DURATION_MS;
@@ -2693,7 +2760,7 @@ export const useMarketStore = create<MarketStore>()(
             : stock;
         });
 
-        const rawMission = (merged as Partial<MarketStore>).investmentMission ?? null;
+        const rawMission = (walletSource as Partial<MarketStore>).investmentMission ?? null;
         const investmentMission =
           sessionClockChanged && rawMission?.status === "active"
             ? (() => {
@@ -2702,7 +2769,7 @@ export const useMarketStore = create<MarketStore>()(
               })()
             : rawMission;
         const normalizedSeason = normalizeInvestmentSeasonState(
-          (merged as Partial<MarketStore>).investmentSeason,
+          (walletSource as Partial<MarketStore>).investmentSeason,
         );
         const investmentSeason =
           sessionClockChanged && normalizedSeason.current
@@ -2730,11 +2797,11 @@ export const useMarketStore = create<MarketStore>()(
         const persistedSeasonRewardIds = rewardsFromSeasonHistory(
           investmentSeason.history,
           normalizeSeasonRewardIds(
-            (merged as Partial<MarketStore>).unlockedSeasonRewardIds,
+            (walletSource as Partial<MarketStore>).unlockedSeasonRewardIds,
           ),
         );
         const normalizedProgress = normalizeCharacterProgressMap(
-          (merged as Partial<MarketStore>).characterProgress,
+          (walletSource as Partial<MarketStore>).characterProgress,
         );
         const characterProgress = sessionClockChanged
           ? Object.fromEntries(
@@ -2753,8 +2820,9 @@ export const useMarketStore = create<MarketStore>()(
           : normalizedProgress;
 
         return {
-          ...merged,
+          ...walletSource,
           marketVersion: MARKET_SIM_VERSION,
+          walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
@@ -2763,134 +2831,134 @@ export const useMarketStore = create<MarketStore>()(
             marketValid && Array.isArray(merged.events)
               ? merged.events.map(ensureEventDialogue)
               : [],
-          lastSalarySession: sessionBaseline ?? (Number.isSafeInteger(merged.lastSalarySession)
-            ? merged.lastSalarySession
+          lastSalarySession: sessionBaseline ?? (Number.isSafeInteger(walletSource.lastSalarySession)
+            ? walletSource.lastSalarySession
             : nowSession),
           lastMonthlyDistributionSession: alignSessionToGrid(
-            sessionBaseline ?? (Number.isSafeInteger(merged.lastMonthlyDistributionSession)
-              ? merged.lastMonthlyDistributionSession
+            sessionBaseline ?? (Number.isSafeInteger(walletSource.lastMonthlyDistributionSession)
+              ? walletSource.lastMonthlyDistributionSession
               : nowSession),
             COVERED_CALL_INTERVAL_DAYS,
           ),
           lastSingleCoveredCallDistributionSession: alignSessionToGrid(
             sessionBaseline ?? (Number.isSafeInteger(
-              merged.lastSingleCoveredCallDistributionSession,
+              walletSource.lastSingleCoveredCallDistributionSession,
             )
-              ? merged.lastSingleCoveredCallDistributionSession
+              ? walletSource.lastSingleCoveredCallDistributionSession
               : nowSession),
             SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
           ),
           lastQuarterlyDividendSession: alignSessionToGrid(
-            sessionBaseline ?? (Number.isSafeInteger(merged.lastQuarterlyDividendSession)
-              ? merged.lastQuarterlyDividendSession
+            sessionBaseline ?? (Number.isSafeInteger(walletSource.lastQuarterlyDividendSession)
+              ? walletSource.lastQuarterlyDividendSession
               : nowSession),
             QUARTERLY_DIVIDEND_INTERVAL_DAYS,
           ),
-          cashPayments: Array.isArray(merged.cashPayments)
-            ? merged.cashPayments
+          cashPayments: Array.isArray(walletSource.cashPayments)
+            ? walletSource.cashPayments
             : [],
           ownedLuxuries: Array.isArray(
-            (merged as Partial<MarketStore>).ownedLuxuries,
+            (walletSource as Partial<MarketStore>).ownedLuxuries,
           )
-            ? (merged as Partial<MarketStore>).ownedLuxuries!
+            ? (walletSource as Partial<MarketStore>).ownedLuxuries!
             : [],
           netWorthHistory: Array.isArray(
-            (merged as Partial<MarketStore>).netWorthHistory,
+            (walletSource as Partial<MarketStore>).netWorthHistory,
           )
-            ? (merged as Partial<MarketStore>).netWorthHistory!
+            ? (walletSource as Partial<MarketStore>).netWorthHistory!
             : [],
-          shorts: Array.isArray((merged as Partial<MarketStore>).shorts)
-            ? (merged as Partial<MarketStore>).shorts!
+          shorts: Array.isArray((walletSource as Partial<MarketStore>).shorts)
+            ? (walletSource as Partial<MarketStore>).shorts!
             : [],
-          options: Array.isArray((merged as Partial<MarketStore>).options)
-            ? (merged as Partial<MarketStore>).options!
+          options: Array.isArray((walletSource as Partial<MarketStore>).options)
+            ? (walletSource as Partial<MarketStore>).options!
             : [],
           lastInterestSession: sessionBaseline ?? (Number.isSafeInteger(
-            (merged as Partial<MarketStore>).lastInterestSession,
+            (walletSource as Partial<MarketStore>).lastInterestSession,
           )
-            ? (merged as Partial<MarketStore>).lastInterestSession!
+            ? (walletSource as Partial<MarketStore>).lastInterestSession!
             : nowSession),
           marginCallAt: null,
           achievements: Array.isArray(
-            (merged as Partial<MarketStore>).achievements,
+            (walletSource as Partial<MarketStore>).achievements,
           )
-            ? (merged as Partial<MarketStore>).achievements!
+            ? (walletSource as Partial<MarketStore>).achievements!
             : [],
           lotteryWindowStart: sessionClockChanged
             ? alignSessionToGrid(nowSession, LOTTERY_INTERVAL_DAYS)
             : Number.isSafeInteger(
-            (merged as Partial<MarketStore>).lotteryWindowStart,
+            (walletSource as Partial<MarketStore>).lotteryWindowStart,
           )
-            ? (merged as Partial<MarketStore>).lotteryWindowStart!
+            ? (walletSource as Partial<MarketStore>).lotteryWindowStart!
             : alignSessionToGrid(nowSession, LOTTERY_INTERVAL_DAYS),
           lotteryTicketsBought: sessionClockChanged
             ? 0
             : Number.isSafeInteger(
-            (merged as Partial<MarketStore>).lotteryTicketsBought,
+            (walletSource as Partial<MarketStore>).lotteryTicketsBought,
           )
-            ? (merged as Partial<MarketStore>).lotteryTicketsBought!
+            ? (walletSource as Partial<MarketStore>).lotteryTicketsBought!
             : 0,
-          wonJackpot: Boolean((merged as Partial<MarketStore>).wonJackpot),
+          wonJackpot: Boolean((walletSource as Partial<MarketStore>).wonJackpot),
           investmentMission,
           missionHistory: Array.isArray(
-            (merged as Partial<MarketStore>).missionHistory,
+            (walletSource as Partial<MarketStore>).missionHistory,
           )
-            ? (merged as Partial<MarketStore>).missionHistory!
+            ? (walletSource as Partial<MarketStore>).missionHistory!
             : [],
           reputation: Number.isFinite(
-            (merged as Partial<MarketStore>).reputation,
+            (walletSource as Partial<MarketStore>).reputation,
           )
-            ? Math.max(0, (merged as Partial<MarketStore>).reputation ?? 0)
+            ? Math.max(0, (walletSource as Partial<MarketStore>).reputation ?? 0)
             : 0,
           characterProgress,
           readCharacterMessageIds: Array.isArray(
-            (merged as Partial<MarketStore>).readCharacterMessageIds,
+            (walletSource as Partial<MarketStore>).readCharacterMessageIds,
           )
-            ? (merged as Partial<MarketStore>).readCharacterMessageIds!.slice(0, 300)
+            ? (walletSource as Partial<MarketStore>).readCharacterMessageIds!.slice(0, 300)
             : [],
           investmentMastery: normalizeInvestmentMastery(
-            (merged as Partial<MarketStore>).investmentMastery,
+            (walletSource as Partial<MarketStore>).investmentMastery,
           ),
           investmentSeason,
           storyDecision:
             sessionClockChanged
               ? null
-              : (merged as Partial<MarketStore>).storyDecision ?? null,
+              : (walletSource as Partial<MarketStore>).storyDecision ?? null,
           storyDecisionHistory: Array.isArray(
-            (merged as Partial<MarketStore>).storyDecisionHistory,
+            (walletSource as Partial<MarketStore>).storyDecisionHistory,
           )
-            ? (merged as Partial<MarketStore>).storyDecisionHistory!
+            ? (walletSource as Partial<MarketStore>).storyDecisionHistory!
             : [],
-          marginEnabled: (merged as Partial<MarketStore>).marginEnabled === true,
+          marginEnabled: (walletSource as Partial<MarketStore>).marginEnabled === true,
           marginLeverage: normalizeMarginLeverage(
-            (merged as Partial<MarketStore>).marginLeverage,
+            (walletSource as Partial<MarketStore>).marginLeverage,
           ),
           recurringInvestments: normalizeRecurringInvestments(
-            (merged as Partial<MarketStore>).recurringInvestments,
+            (walletSource as Partial<MarketStore>).recurringInvestments,
           ),
           attendance: normalizeAttendance(
-            (merged as Partial<MarketStore>).attendance,
+            (walletSource as Partial<MarketStore>).attendance,
           ),
           selectedTitleId: getPlayerTitle(
-            (merged as Partial<MarketStore>).selectedTitleId,
+            (walletSource as Partial<MarketStore>).selectedTitleId,
           ).id,
           dailyOperation: normalizeDailyOperation(
-            (merged as Partial<MarketStore>).dailyOperation,
+            (walletSource as Partial<MarketStore>).dailyOperation,
           ),
           dailyOperationHistory: normalizeDailyOperationHistory(
-            (merged as Partial<MarketStore>).dailyOperationHistory,
+            (walletSource as Partial<MarketStore>).dailyOperationHistory,
           ),
           selectedPortfolioStrategyId: normalizePortfolioStrategyId(
-            (merged as Partial<MarketStore>).selectedPortfolioStrategyId,
+            (walletSource as Partial<MarketStore>).selectedPortfolioStrategyId,
           ),
           portfolioStrategySelectedAt: Number.isFinite(
-            (merged as Partial<MarketStore>).portfolioStrategySelectedAt,
+            (walletSource as Partial<MarketStore>).portfolioStrategySelectedAt,
           )
-            ? (merged as Partial<MarketStore>).portfolioStrategySelectedAt!
+            ? (walletSource as Partial<MarketStore>).portfolioStrategySelectedAt!
             : 0,
           unlockedSeasonRewardIds: persistedSeasonRewardIds,
           selectedSeasonFrameId: normalizeSelectedSeasonFrame(
-            (merged as Partial<MarketStore>).selectedSeasonFrameId,
+            (walletSource as Partial<MarketStore>).selectedSeasonFrameId,
             persistedSeasonRewardIds,
           ),
           userId: null,

@@ -26,6 +26,11 @@ import type { SeasonRewardId } from "@/lib/player/seasonRewards";
  * 시장(stocks/events)은 결정론으로 재계산되므로 저장하지 않는다.
  */
 export interface WalletSave {
+  /**
+   * 지갑 스키마 세대. 없거나 현재 `WALLET_EPOCH` 미만이면 폐기 대상.
+   * (비정상 자산·거래내역 누락 시즌을 한 번에 리셋할 때 올린다.)
+   */
+  walletEpoch?: number;
   /** 저장 당시 거래일 길이. 구버전(없음)은 3시간으로 간주한다. */
   sessionDurationMs?: number;
   cash: number;

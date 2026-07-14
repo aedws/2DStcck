@@ -3,6 +3,8 @@ export const COVERED_CALL_INTERVAL_DAYS = 20;
 export const SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS = 5;
 export const QUARTERLY_DIVIDEND_INTERVAL_DAYS = 60;
 export const TRADING_SESSIONS_PER_YEAR = 240;
+/** 한 번에 소급 지급할 최대 주기. 체크포인트 회귀·오염 시 현금 폭주를 막는다. */
+export const MAX_DISTRIBUTION_CATCHUP_PERIODS = 3;
 
 export interface DistributionScheduleSettlement {
   dueSessions: number[];
@@ -16,6 +18,9 @@ function normalizeSession(value: number, fallback: number): number {
 /**
  * 마지막 처리 지점부터 현재까지 도래한 모든 지급 회차를 반환한다.
  * 체크포인트는 완성된 주기만큼만 전진하므로 장기 미접속 뒤의 잔여 일수가 보존된다.
+ * 비정상적으로 많은 미지급 회차가 쌓이면 최근
+ * {@link MAX_DISTRIBUTION_CATCHUP_PERIODS} 주기만 현금 지급하고,
+ * 체크포인트는 전체 미지급분까지 전진시켜 과거 회차 재지급을 막는다.
  */
 export function settleDistributionSchedule(
   lastSession: number,
@@ -25,15 +30,17 @@ export function settleDistributionSchedule(
   const current = normalizeSession(currentSession, 0);
   const last = Math.min(normalizeSession(lastSession, current), current);
   const interval = Math.max(1, Math.floor(intervalDays));
-  const periods = Math.floor(Math.max(0, current - last) / interval);
+  const allPeriods = Math.floor(Math.max(0, current - last) / interval);
+  const periods = Math.min(allPeriods, MAX_DISTRIBUTION_CATCHUP_PERIODS);
+  const skip = allPeriods - periods;
   const dueSessions = Array.from(
     { length: periods },
-    (_, index) => last + interval * (index + 1),
+    (_, index) => last + interval * (skip + index + 1),
   );
 
   return {
     dueSessions,
-    lastSession: last + periods * interval,
+    lastSession: last + allPeriods * interval,
   };
 }
 

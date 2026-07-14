@@ -38,9 +38,14 @@ export interface LocalCashflowSettlement {
   creditedAmount: number;
 }
 
+function paymentKey(payment: Pick<CashPayment, "id">): string {
+  return payment.id;
+}
+
 /**
  * 로컬 게임의 급여와 투자 현금흐름을 한 번에 정산한다.
  * 보유 수량이 0이어도 지급 회차를 소진해 이후 매수로 과거 지급분을 받을 수 없게 한다.
+ * 동일 id 지급이 이미 있으면 현금을 다시 넣지 않는다(클라우드 체크포인트 회귀 방어).
  */
 export function settleLocalCashflows(
   input: LocalCashflowInput,
@@ -87,15 +92,24 @@ export function settleLocalCashflows(
   let creditedAmount = 0;
   let stocks = input.stocks;
   const issued: CashPayment[] = [];
+  const paidIds = new Set(input.cashPayments.map(paymentKey));
   const quantityByStockId = new Map(
     input.holdings.map((holding) => [holding.stockId, holding.quantity]),
   );
 
+  const creditOnce = (payment: CashPayment) => {
+    if (paidIds.has(payment.id)) return;
+    paidIds.add(payment.id);
+    creditedAmount += payment.amount;
+    issued.push(payment);
+  };
+
   for (let index = 0; index < salary.periods; index++) {
+    // 소급 상한으로 last 가 앞으로 당겨졌을 수 있으므로 실제 지급 회차는
+    // 정산 결과 체크포인트에서 역산한다.
     const dueSession =
-      input.lastSalarySession + SALARY_INTERVAL_DAYS * (index + 1);
-    creditedAmount += SALARY_AMOUNT;
-    issued.push({
+      salary.lastSalarySession - SALARY_INTERVAL_DAYS * (salary.periods - 1 - index);
+    creditOnce({
       id: `local-salary-${dueSession}`,
       kind: "salary",
       sourceId: "fixed_salary",
@@ -131,8 +145,7 @@ export function settleLocalCashflows(
       const quantity = quantityByStockId.get(stock.id) ?? 0;
       const amount = quantity * amountPerShare;
       if (amount > 0) {
-        creditedAmount += amount;
-        issued.push({
+        creditOnce({
           id: `local-covered-call-${stock.id}-${dueSession}`,
           kind: "covered_call",
           sourceId: stock.id,
@@ -178,8 +191,7 @@ export function settleLocalCashflows(
       const quantity = quantityByStockId.get(stock.id) ?? 0;
       const amount = quantity * amountPerShare;
       if (amount > 0) {
-        creditedAmount += amount;
-        issued.push({
+        creditOnce({
           id: `local-covered-call-${stock.id}-${dueSession}`,
           kind: "covered_call",
           sourceId: stock.id,
@@ -210,8 +222,7 @@ export function settleLocalCashflows(
       const quantity = quantityByStockId.get(stock.id) ?? 0;
       const amount = quantity * amountPerShare;
       if (amount > 0) {
-        creditedAmount += amount;
-        issued.push({
+        creditOnce({
           id: `local-dividend-${stock.id}-${dueSession}`,
           kind: "dividend",
           sourceId: stock.id,
