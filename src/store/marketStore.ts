@@ -1424,12 +1424,18 @@ export const useMarketStore = create<MarketStore>()(
         // 오래 접속하지 않았어도 같은 시각이면 모든 클라이언트가 같은 상태에 도달한다.
         const targetTick = currentSimTick(now);
         if (targetTick <= tick) return;
+        // 신선/무효 상태(tick 0)에서 고정 기원점부터 현재까지 수십만 틱을 한 번에
+        // 리플레이하면 메인 스레드가 길게 멈춰 시장이 안 뜨는 것처럼 보인다(날짜가
+        // 지날수록 악화). 한 번에 처리하는 틱 수를 제한하고, 남은 구간은 다음 틱
+        // 호출에서 이어서 따라잡는다 — 결정론 리플레이라 나눠도 결과가 동일하다.
+        const MAX_CATCHUP_TICKS = 30_000;
+        const stepTarget = Math.min(targetTick, tick + MAX_CATCHUP_TICKS);
         // 급등주는 벽시계의 순함수로 다시 만들기 때문에 일반 시장 리플레이에
         // 넣지 않는다. 이전 구현은 저장된 급등주를 리플레이한 뒤 다시 덧붙여
         // 같은 종목을 매 틱 복제했다.
         const regularStocks = stocks.filter((stock) => !isPumpStock(stock));
-        const replayed = replayMarket(regularStocks, events, tick, targetTick);
-        const nextTick = targetTick;
+        const replayed = replayMarket(regularStocks, events, tick, stepTarget);
+        const nextTick = stepTarget;
         const allEvents = replayed.events;
         // 결정론 급등주(2거래일 내 상장폐지)를 고정 시장에 얹는다
         const combinedStocks = replaceActivePumpStocks(replayed.stocks, now);

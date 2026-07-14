@@ -90,6 +90,30 @@ function aggregateCandlesByTime(candles: Candle[], intervalMs: number): Candle[]
   return [...buckets.values()];
 }
 
+/**
+ * lightweight-charts 는 유한값·시간 오름차순·중복 없는 데이터만 허용하며, 하나라도
+ * 어기면 setData 가 예외를 던져 페이지 전체가 죽는다(Application error). 결정론
+ * 리플레이가 비정상값(NaN/Infinity)이나 순서 흐트러짐을 만들 수 있으므로 방어적으로 정제한다.
+ */
+function sanitizeCandles(candles: Candle[]): Candle[] {
+  const finite = candles.filter(
+    (c) =>
+      Number.isFinite(c.timestamp) &&
+      Number.isFinite(c.open) &&
+      Number.isFinite(c.high) &&
+      Number.isFinite(c.low) &&
+      Number.isFinite(c.close),
+  );
+  finite.sort((a, b) => a.timestamp - b.timestamp);
+  const out: Candle[] = [];
+  for (const c of finite) {
+    const last = out[out.length - 1];
+    if (last && last.timestamp === c.timestamp) out[out.length - 1] = c;
+    else out.push(c);
+  }
+  return out;
+}
+
 function toSeriesData(candles: Candle[]) {
   return candles.map((c) => ({
     time: ((c.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
@@ -160,7 +184,7 @@ export function CandlestickChart({
             daySource,
             timeframe === "1w" ? 5 : timeframe === "1mo" ? 20 : 240,
           );
-    return source;
+    return sanitizeCandles(source);
   }, [candles, dailyCandles, history, timeframe]);
   const data = useMemo(() => toSeriesData(visibleCandles), [visibleCandles]);
   const rsiData = useMemo(
