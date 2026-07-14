@@ -50,6 +50,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "개선",
+    title: "수집 비용 자산 스케일링 + 집중 투자 업적",
+    detail:
+      "‘돈은 연료’ 방향에 맞춰 사치재(수집) 가격을 자산 규모에 따라 올렸습니다. 시작 자산 기준 배율 1에서 자산이 커질수록 최대 5배까지 오르며, 상점에는 스케일된 가격과 기본가를 함께 표시합니다. 또한 한 캐릭터 기업 종목에 자산을 몰아넣는 집중 투자 업적을 추가했습니다 — ‘원 앤 온리’(단일 캐릭터 순자산 45% 이상), ‘트윈 스타’(서로 다른 두 캐릭터 합산 70% 이상).",
+  },
+  {
+    date: "2026-07-14",
     tag: "신규",
     title: "시장 국면(에라)과 시즌 정렬 — 시즌마다 다른 시장",
     detail:

@@ -45,6 +45,7 @@ import {
   getLuxuryValue,
   getLuxuryShowcase,
   getTopLuxuryTier,
+  scaledLuxuryPrice,
 } from "@/lib/market/luxury";
 import {
   computeEquity,
@@ -2093,16 +2094,18 @@ export const useMarketStore = create<MarketStore>()(
         if (state.ownedLuxuries.some((o) => o.id === itemId)) {
           return { success: false, message: "이미 보유한 상품입니다." };
         }
-        if (item.price > state.cash) {
+        // 자산 규모별 sink 스케일링 — 부유할수록 수집 비용이 오른다.
+        const price = scaledLuxuryPrice(item.price, get().getTotalAssets());
+        if (price > state.cash) {
           return { success: false, message: "보유 현금이 부족합니다." };
         }
         const owned: OwnedLuxury = {
           id: item.id,
           purchasedAt: Date.now(),
-          paidPrice: item.price,
+          paidPrice: price,
         };
         set({
-          cash: state.cash - item.price,
+          cash: state.cash - price,
           ownedLuxuries: [...state.ownedLuxuries, owned],
         });
         get().checkAchievements();
@@ -2422,8 +2425,27 @@ export const useMarketStore = create<MarketStore>()(
       checkAchievements: () => {
         const s = get();
         const unlocked = new Set(s.achievements);
+        const equity = fullEquityOf(s);
+        // 캐릭터(기업)별 보유 종목 가치 비중 — 원 앤 온리·트윈 스타 판정용.
+        const byCharacter = new Map<string, number>();
+        for (const h of s.holdings) {
+          const stock = s.stocks.find((x) => x.id === h.stockId);
+          if (!stock?.ceoId) continue;
+          byCharacter.set(
+            stock.ceoId,
+            (byCharacter.get(stock.ceoId) ?? 0) + h.quantity * stock.currentPrice,
+          );
+        }
+        const shares =
+          equity > 0
+            ? [...byCharacter.values()]
+                .map((v) => v / equity)
+                .sort((a, b) => b - a)
+            : [];
         const ctx = {
-          netWorth: fullEquityOf(s),
+          netWorth: equity,
+          topCharacterShare: shares[0] ?? 0,
+          topTwoCharacterShare: shares.length >= 2 ? shares[0] + shares[1] : 0,
           initialCash: s.initialCash,
           tradeCount: s.trades.length,
           hasShorted: s.trades.some((t) => t.type === "short"),

@@ -10,6 +10,10 @@ export interface AchievementContext {
   marginCalled: boolean;
   luxuryCount: number;
   wonJackpot: boolean;
+  /** 최대 단일 캐릭터(기업) 종목이 순자산에서 차지하는 비율 (0~1) */
+  topCharacterShare: number;
+  /** 상위 서로 다른 2캐릭터 종목 합산 비율 (2캐릭터 미만이면 0) */
+  topTwoCharacterShare: number;
 }
 
 export interface Achievement {
@@ -118,5 +122,19 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: "순자산이 시작 자본의 10배가 되었습니다.",
     emoji: "👑",
     check: (c) => c.netWorth >= c.initialCash * 10,
+  },
+  {
+    id: "one_and_only",
+    title: "원 앤 온리",
+    detail: "단일 캐릭터 기업 종목이 순자산의 45% 이상을 차지합니다.",
+    emoji: "💍",
+    check: (c) => c.topCharacterShare >= 0.45,
+  },
+  {
+    id: "twin_star",
+    title: "트윈 스타",
+    detail: "서로 다른 두 캐릭터 기업 종목이 순자산의 70% 이상을 차지합니다.",
+    emoji: "✌️",
+    check: (c) => c.topTwoCharacterShare >= 0.7,
   },
 ];

@@ -6,7 +6,7 @@ import {
   LUXURY_ITEMS,
 } from "@/data/luxuries";
 import { formatPrice } from "@/lib/market/engine";
-import { getLuxuryValue } from "@/lib/market/luxury";
+import { getLuxuryValue, scaledLuxuryPrice } from "@/lib/market/luxury";
 import { useMarketStore } from "@/store/marketStore";
 import { playSound } from "@/lib/ui/sound";
 import type { LuxuryItem } from "@/lib/types/luxury";
@@ -14,6 +14,7 @@ import type { LuxuryItem } from "@/lib/types/luxury";
 export default function ShopPage() {
   const cash = useMarketStore((s) => s.cash);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
+  const netWorth = useMarketStore((s) => s.getTotalAssets());
   const purchaseLuxury = useMarketStore((s) => s.purchaseLuxury);
   const saveCloud = useMarketStore((s) => s.saveCloud);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(
@@ -65,7 +66,8 @@ export default function ShopPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 {items.map((item) => {
                   const owned = ownedIds.has(item.id);
-                  const affordable = cash >= item.price;
+                  const price = scaledLuxuryPrice(item.price, netWorth);
+                  const affordable = cash >= price;
                   return (
                     <div
                       key={item.id}
@@ -91,7 +93,12 @@ export default function ShopPage() {
                           {item.description}
                         </p>
                         <p className="mt-1 text-sm font-semibold tabular-nums">
-                          {formatPrice(item.price)}
+                          {formatPrice(price)}
+                          {price > item.price && (
+                            <span className="ml-1 text-[10px] font-normal text-[var(--muted)]">
+                              (기본 {formatPrice(item.price)})
+                            </span>
+                          )}
                         </p>
                       </div>
                       {owned ? (
