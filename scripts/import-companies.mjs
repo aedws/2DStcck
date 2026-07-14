@@ -23,6 +23,13 @@
  *   ceoEmoji    아바타 이모지 (빈칸이면 👤)
  *   etfHoldings ETF 구성종목 "티커:비중;티커:비중" (설정 시 NAV 추종 모드, 비중은 자동 정규화)
  *   quarterlyDividend  분기 배당: 60거래일마다 지급할 주당 금액(센트, 정수). 빈칸 = 무배당
+ *
+ * (선택) data/character-quotes.csv — 캐릭터별 뉴스 대사 오버라이드:
+ *   ticker      대상 회사 티커 (CEO가 있는 회사여야 함)
+ *   tag         이벤트 태그(수주·신제품·실적·스캔들·행보 …) 또는 "*"(캐릭터 기본 대사)
+ *   direction   호재 또는 악재
+ *   quote1..N   대사 후보 열(quote1 필수, quote2·quote3 … 선택). 여러 개면 랜덤 선택.
+ *   그 외 열(캐릭터·참고 등)은 무시한다. 파일이 없으면 공용 태그 풀만 사용.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -30,6 +37,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const csvPath = process.argv[2] ?? join(root, "data", "companies.csv");
+const quotesCsvPath = process.argv[3] ?? join(root, "data", "character-quotes.csv");
 const outPath = join(root, "src", "data", "generated.ts");
 
 const HEADER = [
@@ -217,15 +225,93 @@ for (const c of companies) {
 
 if (process.exitCode) process.exit(process.exitCode);
 
-const banner = `// AUTO-GENERATED from data/companies.csv — 직접 수정 금지, \`npm run import:companies\` 로 재생성\n`;
-const body = `${banner}import type { Character, StockDefinition } from "@/lib/types/market";
+/**
+ * (선택) data/character-quotes.csv → 캐릭터별 뉴스 대사 오버라이드.
+ * 열 이름 기반 파싱이라 순서·부가열(참고 등)에 관대하다. 필수 열:
+ *   ticker, tag, direction, quote1 (quote2, quote3 … 는 추가 후보로 선택)
+ * direction 은 호재/악재(또는 positive/negative, +/-)를 허용한다.
+ * 파일이 없으면 빈 목록으로 두어 공용 태그 풀만 사용한다.
+ */
+function parseDirection(value) {
+  const v = value.trim().toLowerCase();
+  if (["호재", "positive", "pos", "+", "up", "good"].includes(v)) return "positive";
+  if (["악재", "negative", "neg", "-", "down", "bad"].includes(v)) return "negative";
+  return null;
+}
+
+const characterIdByTicker = new Map(
+  companies.filter((c) => c.ceoId).map((c) => [c.ticker, c.ceoId]),
+);
+const characterQuotes = [];
+
+if (existsSync(quotesCsvPath)) {
+  const qrows = parseCsv(readFileSync(quotesCsvPath, "utf8").replace(/^﻿/, ""));
+  const qheader = qrows.shift()?.map((h) => h.trim());
+  if (!qheader) {
+    console.error(`[import:companies] character-quotes.csv 헤더가 비어 있습니다.`);
+    process.exit(1);
+  }
+  const col = (name) => qheader.indexOf(name);
+  const tickerCol = col("ticker");
+  const tagCol = col("tag");
+  const dirCol = col("direction");
+  const quoteCols = qheader
+    .map((h, i) => ({ h, i }))
+    .filter(({ h }) => /^quote\d*$/.test(h.trim()))
+    .map(({ i }) => i);
+  if (tickerCol < 0 || tagCol < 0 || dirCol < 0 || quoteCols.length === 0) {
+    console.error(
+      `[import:companies] character-quotes.csv 필수 열 누락. 필요: ticker, tag, direction, quote1(…)\n실제: ${qheader.join(",")}`,
+    );
+    process.exit(1);
+  }
+  // 같은 (캐릭터·태그·방향)의 여러 행/열 대사를 하나로 합친다.
+  const merged = new Map();
+  qrows.forEach((cols, idx) => {
+    const line = idx + 2;
+    const ticker = (cols[tickerCol] ?? "").trim();
+    if (!ticker) return; // 빈 줄 무시
+    const tag = (cols[tagCol] ?? "").trim();
+    const direction = parseDirection(cols[dirCol] ?? "");
+    const quotes = quoteCols
+      .map((i) => (cols[i] ?? "").trim())
+      .filter(Boolean);
+    if (quotes.length === 0) return; // 대사 비어 있으면 건너뜀(미작성 행)
+    const characterId = characterIdByTicker.get(ticker);
+    if (!characterId) {
+      return fail(line, `character-quotes: CEO 없는/모르는 ticker "${ticker}"`);
+    }
+    if (!tag) return fail(line, `character-quotes: tag 비어 있음`);
+    if (!direction) {
+      return fail(line, `character-quotes: direction 은 호재/악재 여야 함 ("${cols[dirCol]}")`);
+    }
+    const key = `${characterId}|${tag}|${direction}`;
+    const list = merged.get(key) ?? [];
+    list.push(...quotes);
+    merged.set(key, list);
+  });
+  if (process.exitCode) process.exit(process.exitCode);
+  for (const [key, quotes] of merged) {
+    const [characterId, tag, direction] = key.split("|");
+    characterQuotes.push({ characterId, tag, direction, quotes });
+  }
+}
+
+const banner = `// AUTO-GENERATED from data/companies.csv (+ data/character-quotes.csv) — 직접 수정 금지, \`npm run import:companies\` 로 재생성\n`;
+const body = `${banner}import type {
+  Character,
+  CharacterQuoteEntry,
+  StockDefinition,
+} from "@/lib/types/market";
 
 export const CSV_COMPANIES: StockDefinition[] = ${JSON.stringify(companies, null, 2)};
 
 export const CSV_CHARACTERS: Character[] = ${JSON.stringify(characters, null, 2)};
+
+export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = ${JSON.stringify(characterQuotes, null, 2)};
 `;
 
 writeFileSync(outPath, body);
 console.log(
-  `[import:companies] 회사 ${companies.length}개, 캐릭터 ${characters.length}명 → src/data/generated.ts`,
+  `[import:companies] 회사 ${companies.length}개, 캐릭터 ${characters.length}명, 캐릭터 대사 ${characterQuotes.length}건 → src/data/generated.ts`,
 );

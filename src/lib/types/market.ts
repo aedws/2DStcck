@@ -26,6 +26,22 @@ export interface Character {
 
 export type EventCategory = "macro" | "sector" | "company";
 
+/**
+ * 캐릭터별 뉴스 대사 오버라이드. 특정 캐릭터가 특정 태그·방향의 뉴스에서
+ * 남길 전용 한마디. 없으면 공용 태그 풀(eventQuotes)로 자동 폴백한다.
+ * tag "*" 는 해당 캐릭터의 기본 대사로, 전용 태그가 없는 뉴스에 쓰인다.
+ */
+export interface CharacterQuoteEntry {
+  /** 대상 캐릭터 id (generated.ts의 chr_<ticker>) */
+  characterId: string;
+  /** 이벤트 태그(수주·신제품·실적·스캔들·행보·…) 또는 "*"(기본) */
+  tag: string;
+  /** 뉴스 방향 */
+  direction: "positive" | "negative";
+  /** 대사 후보(여러 개면 seeded rand로 하나 선택) */
+  quotes: string[];
+}
+
 export interface StockDefinition {
   id: string;
   ticker: string;

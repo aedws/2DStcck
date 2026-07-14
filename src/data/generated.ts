@@ -1,5 +1,9 @@
-// AUTO-GENERATED from data/companies.csv — 직접 수정 금지, `npm run import:companies` 로 재생성
-import type { Character, StockDefinition } from "@/lib/types/market";
+// AUTO-GENERATED from data/companies.csv (+ data/character-quotes.csv) — 직접 수정 금지, `npm run import:companies` 로 재생성
+import type {
+  Character,
+  CharacterQuoteEntry,
+  StockDefinition,
+} from "@/lib/types/market";
 
 export const CSV_COMPANIES: StockDefinition[] = [
   {
@@ -1190,3 +1194,5 @@ export const CSV_CHARACTERS: Character[] = [
     "emoji": "🎧"
   }
 ];
+
+export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = [];

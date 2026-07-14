@@ -1,4 +1,5 @@
 import { getCharacterById } from "@/data/characters";
+import { CSV_CHARACTER_QUOTES } from "@/data/generated";
 import { STOCK_DEFINITIONS } from "@/data/stocks";
 import type { Character, MarketEvent } from "@/lib/types/market";
 
@@ -6,7 +7,7 @@ import type { Character, MarketEvent } from "@/lib/types/market";
  * 회사 이벤트가 터질 때 해당 회사 캐릭터가 남기는 한마디.
  * 태그별 톤에 맞춰 결정론(seeded rand)으로 하나 뽑아 뉴스에 붙인다.
  */
-const POSITIVE_QUOTES: Record<string, string[]> = {
+export const POSITIVE_QUOTES: Record<string, string[]> = {
   수주: [
     "대형 계약을 따냈습니다. 다음 분기가 기대되네요.",
     "이 정도 수주는 시작에 불과합니다.",
@@ -29,7 +30,7 @@ const POSITIVE_QUOTES: Record<string, string[]> = {
   ],
 };
 
-const NEGATIVE_QUOTES: Record<string, string[]> = {
+export const NEGATIVE_QUOTES: Record<string, string[]> = {
   스캔들: [
     "…드릴 말씀이 없습니다.",
     "오해가 있었습니다. 곧 해명하겠습니다.",
@@ -50,28 +51,48 @@ const NEGATIVE_QUOTES: Record<string, string[]> = {
   ],
 };
 
-const POSITIVE_GENERIC = [
+export const POSITIVE_GENERIC = [
   "흥미로운 하루군요.",
   "시장은 늘 예측불가입니다.",
   "다음 수를 준비하고 있습니다.",
 ];
 
-const NEGATIVE_GENERIC = [
+export const NEGATIVE_GENERIC = [
   "상황을 무겁게 받아들이고 있습니다.",
   "문제를 피하지 않고 수습하겠습니다.",
   "지금은 변명보다 결과로 책임질 때입니다.",
 ];
 
-/** 태그·이벤트 방향·화자에 맞는 대사를 seeded rand로 선택 */
+/**
+ * 캐릭터별 전용 대사 조회 맵: "characterId|tag|direction" → 대사 후보.
+ * data/character-quotes.csv 에서 생성된다(비어 있으면 공용 풀만 사용).
+ */
+const CHARACTER_QUOTE_LOOKUP = new Map<string, string[]>(
+  CSV_CHARACTER_QUOTES.filter((entry) => entry.quotes.length > 0).map((entry) => [
+    `${entry.characterId}|${entry.tag}|${entry.direction}`,
+    entry.quotes,
+  ]),
+);
+
+/**
+ * 태그·이벤트 방향·화자에 맞는 대사를 seeded rand로 선택한다.
+ * 우선순위: 캐릭터 전용(tag) → 캐릭터 기본("*") → 공용 태그 풀 → 공용 기본.
+ */
 export function pickEventQuote(
   tag: string,
   ceo: Character,
   rand: () => number,
   impact = 0,
 ): { quote: string; quoteBy: string } {
-  const pool = impact < 0
-    ? NEGATIVE_QUOTES[tag] ?? NEGATIVE_GENERIC
-    : POSITIVE_QUOTES[tag] ?? POSITIVE_GENERIC;
+  const direction = impact < 0 ? "negative" : "positive";
+  const sharedPool =
+    impact < 0
+      ? NEGATIVE_QUOTES[tag] ?? NEGATIVE_GENERIC
+      : POSITIVE_QUOTES[tag] ?? POSITIVE_GENERIC;
+  const pool =
+    CHARACTER_QUOTE_LOOKUP.get(`${ceo.id}|${tag}|${direction}`) ??
+    CHARACTER_QUOTE_LOOKUP.get(`${ceo.id}|*|${direction}`) ??
+    sharedPool;
   const quote = pool[Math.floor(rand() * pool.length)] ?? pool[0];
   return { quote, quoteBy: `${ceo.emoji} ${ceo.name}` };
 }
