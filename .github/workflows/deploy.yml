@@ -30,8 +30,8 @@ jobs:
       - name: Build (static export)
         env:
           # 아래 두 값은 공개용(anon)이라 시크릿이 아니어도 안전합니다
-          NEXT_PUBLIC_SUPABASE_URL: https://mhhyolagigidjwecelet.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaHlvbGFnaWdpZGp3ZWNlbGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzk5NzIsImV4cCI6MjA5ODc1NTk3Mn0.pz-VETSXl2CDBMo7zzN6iwlXzmNuu5_lHqPRMo2CTJQ
+          NEXT_PUBLIC_SUPABASE_URL: https://fzkrnzxflfvpmmkeaxlj.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_wjbouYDV_guTjnZvZN9v-w_sAYeK6zj
           # user/organization 페이지(<user>.github.io 저장소)면 이 줄을 삭제하세요
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
