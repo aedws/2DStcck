@@ -5,8 +5,10 @@ export const SERVER_TICK_SECONDS = 10;
 /** 공통 시장 기원점 (UTC). 로컬 모드는 이 시점부터 시드 고정 결정론 시뮬레이션으로
  * 시장을 계산하므로, 서버 없이도 모든 접속자가 동일한 시장을 본다. */
 export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
-/** 결정론 가격 규칙 변경 시 증가. 구버전 체크포인트만 폐기하고 지갑은 유지한다. */
-export const MARKET_SIM_VERSION = 8;
+/** 결정론 가격 규칙 변경 시 증가. 구버전 체크포인트만 폐기하고 지갑은 유지한다.
+ *  v9: 실시간 1틱 갱신에서 진행 중 봉이 덮어써져 완성 봉이 전부 점으로 남던
+ *  버그(mergeCandles) 수정 — 기존 평면 캔들 체크포인트를 폐기하고 재생성한다. */
+export const MARKET_SIM_VERSION = 9;
 /** 결정론 시뮬레이션 tick 간격 (ms) — 로컬 모드 1초 */
 export const SIM_TICK_MS = 1000;
 

@@ -468,10 +468,25 @@ export function replayMarket(
   return { stocks: finalStocks, events };
 }
 
-/** 기존 캔들 뒤에 리플레이 캔들을 이어붙인다 (같은 분은 리플레이 쪽 우선) */
+/** 기존 캔들 뒤에 리플레이 캔들을 이어붙인다. */
 function mergeCandles(existing: Candle[], replayed: Candle[]): Candle[] {
   if (replayed.length === 0) return existing.slice(-MAX_CANDLES);
   const firstReplayTs = replayed[0].timestamp;
   const kept = existing.filter((c) => c.timestamp < firstReplayTs);
-  return [...kept, ...replayed].slice(-MAX_CANDLES);
+  const merged = replayed.slice();
+  // 겹치는 첫 버킷(진행 중 봉)은 기존 누적분과 병합해야 실시간 1틱 갱신에서도
+  // 시가·고가·저가가 보존된다. 병합하지 않으면 매 틱 단일 틱 봉으로 덮어써져
+  // 완성된 봉이 전부 open=high=low=close(점)로 남는다.
+  const inProgress = existing.find((c) => c.timestamp === firstReplayTs);
+  if (inProgress) {
+    const head = merged[0];
+    merged[0] = {
+      timestamp: firstReplayTs,
+      open: inProgress.open,
+      high: Math.max(inProgress.high, head.high),
+      low: Math.min(inProgress.low, head.low),
+      close: head.close,
+    };
+  }
+  return [...kept, ...merged].slice(-MAX_CANDLES);
 }
