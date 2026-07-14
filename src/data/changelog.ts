@@ -50,6 +50,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "개선",
+    title: "포트폴리오 전략·대형 위기 체험 튜토리얼",
+    detail:
+      "포트폴리오 전략 화면과 대형 위기 스트레스 테스트에 첫 진입 안내를 추가했습니다. 전략 튜토리얼은 운용 기준 선택, 목표·실제 비중 비교, 전략별 성공률·파산율 통계와 자동 매매가 아니라는 점을 안내합니다. 위기 체험 튜토리얼은 메인 계좌와 완전히 분리된 20거래일 위기 세션의 목적과 위기 테마·전략 조합, 생존 등급 확인 방법을 안내합니다. 두 안내 모두 설정의 ‘튜토리얼 다시 보기’에서 언제든 다시 열 수 있습니다.",
+  },
+  {
+    date: "2026-07-14",
     tag: "신규",
     title: "단기채 ETF·금 ETF 상장",
     detail:

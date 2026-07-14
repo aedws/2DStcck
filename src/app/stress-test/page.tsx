@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { STRESS_TEST_TUTORIAL_STEPS } from "@/data/featureTutorials";
+import { useSettingsStore } from "@/store/settingsStore";
 import { formatPrice } from "@/lib/market/engine";
 import {
   MARKET_CRISIS_THEMES,
@@ -32,11 +35,24 @@ export default function StressTestPage() {
   const [strategyId, setStrategyId] = useState<PortfolioStrategyId>("index_core");
   const [themeId, setThemeId] = useState<MarketCrisisThemeId>("credit-crunch");
   const [result, setResult] = useState<StressTestResult | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const onboarded = useSettingsStore((state) => state.onboarded);
+  const tutorialSeen = useSettingsStore((state) => state.stressTestTutorialSeen);
+  const setTutorialSeen = useSettingsStore(
+    (state) => state.setStressTestTutorialSeen,
+  );
+  useEffect(() => setMounted(true), []);
   const strategy = PORTFOLIO_STRATEGIES.find((item) => item.id === strategyId)!;
   const theme = MARKET_CRISIS_THEMES.find((item) => item.id === themeId)!;
 
   return (
     <div className="mx-auto max-w-5xl pb-20">
+      {mounted && onboarded && !tutorialSeen && (
+        <FeatureTutorialModal
+          steps={STRESS_TEST_TUTORIAL_STEPS}
+          onFinish={() => setTutorialSeen(true)}
+        />
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-red-300">ISOLATED CRISIS SESSION</p>

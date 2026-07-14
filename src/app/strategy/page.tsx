@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   PORTFOLIO_STRATEGIES,
   backtestPortfolioStrategy,
   calculateStrategyAllocation,
   getPortfolioStrategy,
 } from "@/lib/market/portfolioStrategies";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { STRATEGY_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 function percent(value: number, digits = 1): string {
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(digits)}%`;
@@ -45,6 +48,13 @@ export default function PortfolioStrategyPage() {
   const cash = useMarketStore((state) => state.cash);
   const equity = useMarketStore((state) => state.getTotalAssets());
   const [message, setMessage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const onboarded = useSettingsStore((state) => state.onboarded);
+  const tutorialSeen = useSettingsStore((state) => state.strategyTutorialSeen);
+  const setTutorialSeen = useSettingsStore(
+    (state) => state.setStrategyTutorialSeen,
+  );
+  useEffect(() => setMounted(true), []);
   const selected = getPortfolioStrategy(selectedId);
   const allocation = calculateStrategyAllocation(
     selected,
@@ -57,6 +67,12 @@ export default function PortfolioStrategyPage() {
 
   return (
     <div className="mx-auto max-w-6xl pb-20">
+      {mounted && onboarded && !tutorialSeen && (
+        <FeatureTutorialModal
+          steps={STRATEGY_TUTORIAL_STEPS}
+          onFinish={() => setTutorialSeen(true)}
+        />
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-cyan-300">PORTFOLIO LAB</p>

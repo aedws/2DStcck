@@ -10,10 +10,12 @@ import {
   OPTIONS_TUTORIAL_STEPS,
   SEASON_TUTORIAL_STEPS,
   SEASON_TUTORIAL_VERSION,
+  STRATEGY_TUTORIAL_STEPS,
+  STRESS_TEST_TUTORIAL_STEPS,
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 
-type TutorialKind = "mission" | "options" | "season";
+type TutorialKind = "mission" | "options" | "season" | "strategy" | "stress";
 
 export default function SettingsPage() {
   const [openTutorial, setOpenTutorial] = useState<TutorialKind | null>(null);
@@ -37,6 +39,12 @@ export default function SettingsPage() {
   const setSeasonTutorialVersion = useSettingsStore(
     (state) => state.setSeasonTutorialVersion,
   );
+  const setStrategyTutorialSeen = useSettingsStore(
+    (state) => state.setStrategyTutorialSeen,
+  );
+  const setStressTestTutorialSeen = useSettingsStore(
+    (state) => state.setStressTestTutorialSeen,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -47,7 +55,11 @@ export default function SettingsPage() {
         ? OPTIONS_TUTORIAL_STEPS
         : openTutorial === "season"
           ? SEASON_TUTORIAL_STEPS
-          : null;
+          : openTutorial === "strategy"
+            ? STRATEGY_TUTORIAL_STEPS
+            : openTutorial === "stress"
+              ? STRESS_TEST_TUTORIAL_STEPS
+              : null;
 
   function showTutorial(kind: TutorialKind) {
     if (kind === "mission") {
@@ -55,9 +67,13 @@ export default function SettingsPage() {
       setMissionTutorialVersion(0);
     } else if (kind === "options") {
       setOptionsTutorialSeen(false);
-    } else {
+    } else if (kind === "season") {
       setSeasonTutorialSeen(false);
       setSeasonTutorialVersion(0);
+    } else if (kind === "strategy") {
+      setStrategyTutorialSeen(false);
+    } else {
+      setStressTestTutorialSeen(false);
     }
     setOpenTutorial(kind);
   }
@@ -71,6 +87,10 @@ export default function SettingsPage() {
     } else if (openTutorial === "season") {
       setSeasonTutorialSeen(true);
       setSeasonTutorialVersion(SEASON_TUTORIAL_VERSION);
+    } else if (openTutorial === "strategy") {
+      setStrategyTutorialSeen(true);
+    } else if (openTutorial === "stress") {
+      setStressTestTutorialSeen(true);
     }
     setOpenTutorial(null);
   }
@@ -198,7 +218,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => showTutorial("season")}
-          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>🏆</span>
@@ -206,6 +226,38 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">투자 시즌·티어 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               20거래일 진행과 지수 대비 티어 평가를 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("strategy")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🧭</span>
+            <span>
+            <span className="block text-sm font-medium">포트폴리오 전략 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              운용 기준 선택과 전략별 성공률·파산율 통계를 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("stress")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🚨</span>
+            <span>
+            <span className="block text-sm font-medium">대형 위기 조기 체험 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              메인 계좌와 분리된 20거래일 위기 세션 활용법을 다시 안내합니다.
             </span>
             </span>
           </span>
