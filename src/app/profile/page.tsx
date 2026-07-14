@@ -14,6 +14,8 @@ import {
   SEASON_REWARDS,
   getSeasonReward,
 } from "@/lib/player/seasonRewards";
+import { computePrestige } from "@/lib/player/prestige";
+import { INVESTMENT_SEASON_TIERS } from "@/lib/market/investmentSeasons";
 
 export default function ProfilePage() {
   const attendance = useMarketStore((state) => state.attendance);
@@ -27,8 +29,25 @@ export default function ProfilePage() {
   const initialCash = useMarketStore((state) => state.initialCash);
   const investmentSeason = useMarketStore((state) => state.investmentSeason);
   const investmentMastery = useMarketStore((state) => state.investmentMastery);
+  const achievements = useMarketStore((state) => state.achievements);
+  const characterProgress = useMarketStore((state) => state.characterProgress);
+  const reputation = useMarketStore((state) => state.reputation);
+  const ownedLuxuries = useMarketStore((state) => state.ownedLuxuries);
   const netWorth = useMarketStore((state) => state.getTotalAssets());
   const stats = buildTradingStats(trades);
+  const prestige = computePrestige({
+    achievements,
+    characterProgress,
+    unlockedSeasonRewardIds,
+    investmentMastery,
+    investmentSeason,
+    ownedLuxuries,
+    reputation,
+  });
+  const bestSeasonTier =
+    prestige.bestSeasonTierIndex >= 0
+      ? INVESTMENT_SEASON_TIERS[prestige.bestSeasonTierIndex]
+      : null;
   const titleContext = {
     tradeCount: stats.tradeCount,
     attendanceStreak: attendance.streak,
@@ -61,6 +80,32 @@ export default function ProfilePage() {
           <AuthButton wide />
         </div>
       </div>
+
+      <section className="mb-6 rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-violet-300">
+              수집·경쟁 종합 지표
+            </p>
+            <h2 className="mt-1 text-lg font-bold">✨ 프레스티지 점수</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              캐릭터 호감도·업적·시즌 티어·숙련도·과시를 합산합니다. 자산(현금)은 이
+              점수의 연료일 뿐, 대표 성취는 이 점수로 드러납니다.
+            </p>
+          </div>
+          <p className="text-4xl font-black tabular-nums text-violet-200">
+            {prestige.total.toLocaleString()}
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <PrestigePart label="캐릭터" value={prestige.characters} sub={`유대 ${prestige.bondedCharacters}명`} />
+          <PrestigePart label="업적" value={prestige.achievements} />
+          <PrestigePart label="시즌" value={prestige.season} sub={bestSeasonTier ? `최고 ${bestSeasonTier.emoji}${bestSeasonTier.name}` : "미달성"} />
+          <PrestigePart label="숙련도" value={prestige.mastery} />
+          <PrestigePart label="과시" value={prestige.luxury} />
+          <PrestigePart label="평판" value={prestige.reputation} />
+        </div>
+      </section>
 
       <section className="rounded-3xl border border-emerald-400/30 bg-emerald-400/5 p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -193,6 +238,26 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl bg-[var(--surface)] p-4">
       <p className="text-xs text-[var(--muted)]">{label}</p>
       <p className="mt-1 text-lg font-bold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function PrestigePart({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-[var(--background)]/40 p-3 text-center">
+      <p className="text-[11px] text-[var(--muted)]">{label}</p>
+      <p className="mt-0.5 text-lg font-black tabular-nums text-violet-200">
+        {value.toLocaleString()}
+      </p>
+      {sub && <p className="mt-0.5 text-[10px] text-[var(--muted)]">{sub}</p>}
     </div>
   );
 }

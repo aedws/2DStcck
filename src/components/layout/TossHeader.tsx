@@ -9,21 +9,23 @@ import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 
+// 정체성: 수집·경쟁 메타가 주(主). 도감·시즌·랭킹·프로필 등 수집/경쟁 항목을
+// 앞에 두고, 거래·유틸리티(내 계좌·실적·전략·복권·주문내역)는 뒤로 배치한다.
 const navItems = [
   { href: "/", label: "홈" },
-  { href: "/calendar", label: "실적" },
   { href: "/season", label: "시즌" },
-  { href: "/strategy", label: "전략" },
   { href: "/leaderboard", label: "랭킹" },
-  { href: "/portfolio", label: "내 계좌" },
+  { href: "/characters", label: "도감" },
   { href: "/profile", label: "프로필" },
   { href: "/mastery", label: "숙련도" },
   { href: "/missions", label: "의뢰" },
   { href: "/messages", label: "메시지" },
-  { href: "/shop", label: "상점" },
-  { href: "/lottery", label: "복권" },
   { href: "/achievements", label: "업적" },
-  { href: "/characters", label: "도감" },
+  { href: "/shop", label: "상점" },
+  { href: "/portfolio", label: "내 계좌" },
+  { href: "/calendar", label: "실적" },
+  { href: "/strategy", label: "전략" },
+  { href: "/lottery", label: "복권" },
   { href: "/history", label: "주문내역" },
   { href: "/updates", label: "업데이트" },
   { href: "/settings", label: "설정" },

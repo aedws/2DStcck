@@ -16,6 +16,7 @@ import {
   getSalaryDaysRemaining,
   SALARY_AMOUNT,
 } from "@/lib/market/salary";
+import { computePrestige } from "@/lib/player/prestige";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
@@ -30,7 +31,23 @@ export function AccountSidebar() {
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
   const reset = useMarketStore((s) => s.reset);
+  const achievements = useMarketStore((s) => s.achievements);
+  const characterProgress = useMarketStore((s) => s.characterProgress);
+  const unlockedSeasonRewardIds = useMarketStore((s) => s.unlockedSeasonRewardIds);
+  const investmentMastery = useMarketStore((s) => s.investmentMastery);
+  const investmentSeason = useMarketStore((s) => s.investmentSeason);
+  const reputation = useMarketStore((s) => s.reputation);
+  const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
 
+  const prestige = computePrestige({
+    achievements,
+    characterProgress,
+    unlockedSeasonRewardIds,
+    investmentMastery,
+    investmentSeason,
+    ownedLuxuries,
+    reputation,
+  });
   const total = getTotalAssets();
   const profit = total - initialCash;
   const returnRate = (profit / initialCash) * 100;
@@ -63,6 +80,20 @@ export function AccountSidebar() {
         <p className="mt-2 text-xs text-[var(--muted)]">
           가용 현금 {formatPrice(cash)}
         </p>
+        <Link
+          href="/profile"
+          className="mt-3 flex items-center justify-between rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-2.5 transition hover:border-violet-400/50"
+        >
+          <div>
+            <p className="text-xs font-medium text-violet-200">✨ 프레스티지</p>
+            <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+              수집·경쟁 종합 · 유대 {prestige.bondedCharacters}명
+            </p>
+          </div>
+          <span className="text-lg font-black tabular-nums text-violet-200">
+            {prestige.total.toLocaleString()}
+          </span>
+        </Link>
         <div className="mt-3 flex items-center justify-between rounded-xl bg-[var(--surface)] px-3 py-2.5">
           <div>
             <p className="text-xs font-medium">20거래일 고정급</p>

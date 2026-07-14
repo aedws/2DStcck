@@ -7,9 +7,9 @@ const items = [
   { href: "/", label: "시장", icon: "⌂" },
   { href: "/news", label: "뉴스", icon: "◈" },
   { href: "/season", label: "시즌", icon: "🏆" },
+  { href: "/characters", label: "도감", icon: "🎭" },
   { href: "/missions", label: "의뢰", icon: "📋" },
   { href: "/shop", label: "상점", icon: "🛍" },
-  { href: "/history", label: "주문", icon: "≡" },
   { href: "/portfolio", label: "계좌", icon: "○" },
   { href: "/settings", label: "설정", icon: "⚙" },
 ];
