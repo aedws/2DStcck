@@ -359,6 +359,11 @@ export type CharacterProgressMap = Record<string, CharacterProgress>;
 
 export interface MarketSnapshot {
   marketVersion: number;
+  /**
+   * 지갑 스키마 세대. `WALLET_EPOCH` 미만(또는 없음)이면 로컬·클라우드 지갑을
+   * 초기화한다. 시장 체크포인트와 독립.
+   */
+  walletEpoch: number;
   /** 저장 당시 거래일 길이. 시장 버전과 별도로 시간축 마이그레이션을 판정한다. */
   sessionDurationMs: number;
   tick: number;

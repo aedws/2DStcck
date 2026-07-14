@@ -50,6 +50,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "수정",
+    title: "거래 내역 클라우드 저장 정상화 · 시즌 지갑 리셋",
+    detail:
+      "매매 직후 탭을 닫거나 새로고침하면 거래 내역이 클라우드에 안 남던 문제를 고쳤습니다. 거래 변경은 더 빨리 저장되고, 화면을 숨기거나 닫을 때 대기 중인 저장을 즉시 밀어 넣습니다. 또한 로그인 시 오래된 클라우드 저장이 방금 한 로컬 매매를 덮어쓰지 않도록 했습니다. 비정상 자산·누락된 거래내역이 섞인 시즌을 정리하기 위해 모든 계정의 지갑·랭킹을 한 번 초기 상태로 되돌립니다(아이디·PIN은 유지).",
+  },
+  {
+    date: "2026-07-14",
     tag: "개선",
     title: "이번 국면 배너 · 집중 투자 업적에 파생 포함",
     detail:

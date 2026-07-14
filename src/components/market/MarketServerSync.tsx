@@ -52,16 +52,30 @@ function CloudSaveSync() {
     return () => listener.subscription.unsubscribe();
   }, [setUserId, loadCloudSave, saveCloud]);
 
-  // 지갑 변경 시 디바운스 저장 (로그인 상태에서만)
+  // 지갑 변경 시 디바운스 저장 (로그인 상태에서만).
+  // 매매 직후 탭을 닫으면 디바운스가 날아가 거래내역이 유실되므로,
+  // 숨김/종료 시점에 대기 중인 저장을 즉시 flush 한다.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let pending = false;
+
+    const flush = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (!pending) return;
+      pending = false;
+      if (useMarketStore.getState().userId) void saveCloud();
+    };
 
     const unsub = useMarketStore.subscribe((state, prev) => {
       if (!state.userId) return;
+      const tradesChanged = state.trades !== prev.trades;
       const walletChanged =
+        tradesChanged ||
         state.cash !== prev.cash ||
         state.holdings !== prev.holdings ||
-        state.trades !== prev.trades ||
         state.openOrders !== prev.openOrders ||
         state.cashPayments !== prev.cashPayments ||
         state.ownedLuxuries !== prev.ownedLuxuries ||
@@ -88,12 +102,22 @@ function CloudSaveSync() {
         state.unlockedSeasonRewardIds !== prev.unlockedSeasonRewardIds ||
         state.selectedSeasonFrameId !== prev.selectedSeasonFrameId;
       if (!walletChanged) return;
+      pending = true;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => saveCloud(), 2000);
+      // 거래내역은 유실 비용이 크므로 짧게, 그 외는 2초.
+      timer = setTimeout(() => flush(), tradesChanged ? 400 : 2000);
     });
 
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+
     return () => {
-      if (timer) clearTimeout(timer);
+      flush();
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
       unsub();
     };
   }, [saveCloud]);

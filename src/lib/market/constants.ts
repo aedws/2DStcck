@@ -9,6 +9,13 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  v9: 실시간 1틱 갱신에서 진행 중 봉이 덮어써져 완성 봉이 전부 점으로 남던
  *  버그(mergeCandles) 수정 — 기존 평면 캔들 체크포인트를 폐기하고 재생성한다. */
 export const MARKET_SIM_VERSION = 9;
+/**
+ * 지갑(현금·보유·거래내역) 스키마 세대.
+ * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.
+ * 시장 체크포인트(marketVersion)와 분리 — 가격 엔진만 바꿀 때는 올리지 않는다.
+ * v1: 거래내역 미동기화·비정상 자산 시즌을 한 번 리셋해 정상화.
+ */
+export const WALLET_EPOCH = 1;
 /** 결정론 시뮬레이션 tick 간격 (ms) — 로컬 모드 1초 */
 export const SIM_TICK_MS = 1000;
 
