@@ -15,8 +15,9 @@ export const MARKET_SIM_VERSION = 9;
  * 시장 체크포인트(marketVersion)와 분리 — 가격 엔진만 바꿀 때는 올리지 않는다.
  * v1: 거래내역 미동기화·비정상 자산 시즌을 한 번 리셋해 정상화.
  * v2: 분배 체크포인트 회귀로 현금이 복제되던 시즌을 재리셋.
+ * v3: epoch 판정이 초기값에 가려져 로컬 구저장분이 안 지워지던 버그 수정 후 재리셋.
  */
-export const WALLET_EPOCH = 2;
+export const WALLET_EPOCH = 3;
 /** 결정론 시뮬레이션 tick 간격 (ms) — 로컬 모드 1초 */
 export const SIM_TICK_MS = 1000;
 
