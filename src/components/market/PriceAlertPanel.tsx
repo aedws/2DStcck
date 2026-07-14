@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatPrice } from "@/lib/market/engine";
 import type { StockState } from "@/lib/types/market";
 import { useSettingsStore } from "@/store/settingsStore";
 
 export function PriceAlertPanel({ stock }: { stock: StockState }) {
-  const alerts = useSettingsStore((state) =>
-    state.priceAlerts.filter((alert) => alert.stockId === stock.id),
+  // 셀렉터 안에서 filter로 새 배열을 만들면 매 렌더마다 참조가 바뀌어
+  // (zustand v5 = useSyncExternalStore) 무한 리렌더 → React #185가 난다.
+  // 원본 배열을 그대로 구독하고 파생값은 useMemo로 계산한다.
+  const priceAlerts = useSettingsStore((state) => state.priceAlerts);
+  const alerts = useMemo(
+    () => priceAlerts.filter((alert) => alert.stockId === stock.id),
+    [priceAlerts, stock.id],
   );
   const addAlert = useSettingsStore((state) => state.addPriceAlert);
   const removeAlert = useSettingsStore((state) => state.removePriceAlert);
