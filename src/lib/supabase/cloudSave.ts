@@ -124,6 +124,22 @@ export interface LeaderboardEntry {
   title: string;
   tradeCount: number;
   winRate: number;
+  /** 수집·경쟁 종합 점수. 백엔드 마이그레이션 전이면 0. */
+  prestige: number;
+}
+
+/** 신 함수 시그니처/컬럼이 아직 배포 전인지(마이그레이션 전) 판별 */
+function isMissingSchema(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const code = error.code ?? "";
+  const message = error.message ?? "";
+  return (
+    code === "42883" || // undefined_function
+    code === "42703" || // undefined_column
+    code === "PGRST202" || // PostgREST: function not found
+    code === "PGRST204" || // PostgREST: column not found
+    /prestige|function|argument|column/i.test(message)
+  );
 }
 
 export const LEADERBOARD_REFRESH_MS = 10 * 60 * 1_000;
@@ -141,6 +157,7 @@ export async function syncLeaderboard(stats: {
   title: string;
   tradeCount: number;
   winRate: number;
+  prestige: number;
 }): Promise<boolean> {
   const supabase = createClient();
   const {
@@ -179,7 +196,7 @@ export async function syncLeaderboard(stats: {
     return false;
   }
 
-  const { error: rpcError } = await supabase.rpc("submit_leaderboard", {
+  const baseParams = {
     p_display_name: displayName,
     p_net_worth: Math.round(stats.netWorth),
     p_return_rate: Number(stats.returnRate.toFixed(2)),
@@ -192,15 +209,24 @@ export async function syncLeaderboard(stats: {
     p_title: stats.title.slice(0, 30),
     p_trade_count: Math.max(0, Math.floor(stats.tradeCount)),
     p_win_rate: Number(Math.max(0, Math.min(100, stats.winRate)).toFixed(2)),
+  };
+  const p_prestige = Math.max(0, Math.min(100000000, Math.round(stats.prestige)));
+
+  // 1) 프레스티지 포함 신 시그니처. 2) 아직 마이그레이션 전이면 구 시그니처로 재시도.
+  let { error: rpcError } = await supabase.rpc("submit_leaderboard", {
+    ...baseParams,
+    p_prestige,
   });
+  if (rpcError && isMissingSchema(rpcError)) {
+    ({ error: rpcError } = await supabase.rpc("submit_leaderboard", baseParams));
+  }
   if (!rpcError) {
     window.localStorage.setItem(throttleKey, String(Date.now()));
     return true;
   }
 
-  // 마이그레이션 적용 전 개발 DB 호환. 함수가 존재하는데 검증에 실패한 경우에는
-  // 직접 upsert로 우회하지 않는다.
-  if (rpcError.code !== "42883" && !rpcError.message.includes("submit_leaderboard")) {
+  // 함수 자체가 없는 초기 DB만 직접 upsert로 우회한다. 검증 실패는 우회하지 않는다.
+  if (!isMissingSchema(rpcError)) {
     return false;
   }
 
@@ -224,33 +250,51 @@ export async function syncLeaderboard(stats: {
 /** 순자산 상위 랭킹을 읽는다 (공개). 실패 시 빈 배열. */
 export async function fetchLeaderboard(
   limit = 100,
-  sort: "netWorth" | "weekly" = "netWorth",
+  sort: "netWorth" | "weekly" | "prestige" = "netWorth",
 ): Promise<LeaderboardEntry[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  const baseCols =
+    "user_id, display_name, net_worth, return_rate, weekly_return, title, trade_count, win_rate, top_tier, luxury_count, showcase, updated_at";
+  const orderCol =
+    sort === "weekly" ? "weekly_return" : sort === "prestige" ? "prestige" : "net_worth";
+
+  const primary = await supabase
     .from("leaderboard")
-    .select(
-      "user_id, display_name, net_worth, return_rate, weekly_return, title, trade_count, win_rate, top_tier, luxury_count, showcase, updated_at",
-    )
-    .order(sort === "weekly" ? "weekly_return" : "net_worth", {
-      ascending: false,
-    })
+    .select(`${baseCols}, prestige`)
+    .order(orderCol, { ascending: false })
     .limit(limit);
 
-  if (error || !data) return [];
-  return data.map((row) => ({
-    userId: row.user_id,
-    displayName: row.display_name,
+  let rows = primary.data as Array<Record<string, unknown>> | null;
+  let error = primary.error;
+
+  // 마이그레이션 전(프레스티지 컬럼 없음)에는 컬럼을 빼고 안전 정렬로 재조회한다.
+  if (error && isMissingSchema(error)) {
+    const fallback = await supabase
+      .from("leaderboard")
+      .select(baseCols)
+      .order(sort === "weekly" ? "weekly_return" : "net_worth", {
+        ascending: false,
+      })
+      .limit(limit);
+    rows = fallback.data as Array<Record<string, unknown>> | null;
+    error = fallback.error;
+  }
+
+  if (error || !rows) return [];
+  return rows.map((row) => ({
+    userId: String(row.user_id),
+    displayName: String(row.display_name),
     netWorth: Number(row.net_worth),
     returnRate: Number(row.return_rate),
     topTier: Number(row.top_tier),
     luxuryCount: Number(row.luxury_count),
     showcase: (row.showcase as string[]) ?? [],
-    updatedAt: new Date(row.updated_at).getTime(),
+    updatedAt: new Date(row.updated_at as string).getTime(),
     weeklyReturn: Number(row.weekly_return ?? 0),
     title: String(row.title ?? ""),
     tradeCount: Number(row.trade_count ?? 0),
     winRate: Number(row.win_rate ?? 0),
+    prestige: Number(row.prestige ?? 0),
   }));
 }
 

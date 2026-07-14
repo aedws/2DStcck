@@ -191,6 +191,7 @@ import {
   normalizePortfolioStrategyId,
   type PortfolioStrategyId,
 } from "@/lib/market/portfolioStrategies";
+import { computePrestige } from "@/lib/player/prestige";
 import {
   getSeasonReward,
   mergeSeasonRewards,
@@ -1392,6 +1393,15 @@ export const useMarketStore = create<MarketStore>()(
           title: `${seasonFrame ? `${seasonFrame.emoji} ` : ""}${playerTitle.emoji} ${playerTitle.name}`,
           tradeCount: tradingStats.tradeCount,
           winRate: tradingStats.winRate,
+          prestige: computePrestige({
+            achievements: s.achievements,
+            characterProgress: s.characterProgress,
+            unlockedSeasonRewardIds: s.unlockedSeasonRewardIds,
+            investmentMastery: s.investmentMastery,
+            investmentSeason: s.investmentSeason,
+            ownedLuxuries: s.ownedLuxuries,
+            reputation: s.reputation,
+          }).total,
         });
       },
 

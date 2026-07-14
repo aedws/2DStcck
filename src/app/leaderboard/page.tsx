@@ -14,7 +14,7 @@ import { upDownClass } from "@/lib/ui/marketColors";
 const RANK_MEDAL = ["🥇", "🥈", "🥉"];
 
 export default function LeaderboardPage() {
-  const [mode, setMode] = useState<"netWorth" | "weekly">("netWorth");
+  const [mode, setMode] = useState<"prestige" | "netWorth" | "weekly">("prestige");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [myId, setMyId] = useState<string | null>(null);
   const [accountCount, setAccountCount] = useState<number | null>(null);
@@ -71,11 +71,19 @@ export default function LeaderboardPage() {
         </div>
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
-        모두가 같은 시장에서 경쟁합니다. 순위 기준은 <b>순자산</b>(현금 + 주식 +
-        감가 후 사치재 가치)입니다.
+        모두가 같은 시장에서 경쟁합니다. 대표 순위는 <b>프레스티지</b>(캐릭터
+        호감도·업적·시즌 티어·숙련도·과시의 종합)이며, 순자산·주간 수익률은 부가
+        지표입니다. 자산은 프레스티지를 쌓는 연료입니다.
       </p>
 
-      <div className="mb-5 grid grid-cols-2 rounded-xl bg-[var(--surface)] p-1">
+      <div className="mb-5 grid grid-cols-3 rounded-xl bg-[var(--surface)] p-1">
+        <button
+          type="button"
+          onClick={() => setMode("prestige")}
+          className={`min-h-10 rounded-lg text-sm font-semibold ${mode === "prestige" ? "bg-[var(--background)] text-[var(--foreground)]" : "text-[var(--muted)]"}`}
+        >
+          ✨ 프레스티지
+        </button>
         <button
           type="button"
           onClick={() => setMode("netWorth")}
@@ -161,14 +169,18 @@ export default function LeaderboardPage() {
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm font-semibold tabular-nums">
-                    {mode === "weekly"
-                      ? `${entry.weeklyReturn >= 0 ? "+" : ""}${entry.weeklyReturn.toFixed(2)}%`
-                      : formatPrice(entry.netWorth)}
+                    {mode === "prestige"
+                      ? `✨ ${entry.prestige.toLocaleString()}`
+                      : mode === "weekly"
+                        ? `${entry.weeklyReturn >= 0 ? "+" : ""}${entry.weeklyReturn.toFixed(2)}%`
+                        : formatPrice(entry.netWorth)}
                   </p>
-                  <p className={`text-xs tabular-nums ${upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
-                    {mode === "weekly"
-                      ? `${formatPrice(entry.netWorth)} · 승률 ${entry.winRate.toFixed(0)}%`
-                      : `${formatPercent(entry.returnRate)} · ${entry.tradeCount}체결`}
+                  <p className={`text-xs tabular-nums ${mode === "prestige" ? "text-[var(--muted)]" : upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
+                    {mode === "prestige"
+                      ? `${formatPrice(entry.netWorth)} · ${entry.tradeCount}체결`
+                      : mode === "weekly"
+                        ? `${formatPrice(entry.netWorth)} · 승률 ${entry.winRate.toFixed(0)}%`
+                        : `${formatPercent(entry.returnRate)} · ${entry.tradeCount}체결`}
                   </p>
                 </div>
               </li>
