@@ -2427,13 +2427,24 @@ export const useMarketStore = create<MarketStore>()(
         const unlocked = new Set(s.achievements);
         const equity = fullEquityOf(s);
         // 캐릭터(기업)별 보유 종목 가치 비중 — 원 앤 온리·트윈 스타 판정용.
+        // 직접 회사 종목뿐 아니라 그 회사를 기초로 한 커버드콜·레버리지 파생도
+        // 같은 캐릭터에 합산한다.
         const byCharacter = new Map<string, number>();
         for (const h of s.holdings) {
           const stock = s.stocks.find((x) => x.id === h.stockId);
-          if (!stock?.ceoId) continue;
+          if (!stock) continue;
+          let ceoId = stock.ceoId;
+          if (!ceoId) {
+            const underlyingId =
+              stock.coveredCallUnderlyingId ?? stock.leverageUnderlyingId;
+            ceoId = underlyingId
+              ? s.stocks.find((x) => x.id === underlyingId)?.ceoId
+              : undefined;
+          }
+          if (!ceoId) continue;
           byCharacter.set(
-            stock.ceoId,
-            (byCharacter.get(stock.ceoId) ?? 0) + h.quantity * stock.currentPrice,
+            ceoId,
+            (byCharacter.get(ceoId) ?? 0) + h.quantity * stock.currentPrice,
           );
         }
         const shares =

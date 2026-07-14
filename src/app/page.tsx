@@ -8,6 +8,7 @@ import { StockDetailPanel } from "@/components/home/StockDetailPanel";
 import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
+import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { useMarketStore } from "@/store/marketStore";
@@ -34,6 +35,9 @@ export default function MarketPage() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
       <MarketOverview stocks={marketStocks} events={events} />
+      <div className="px-4 pt-3 md:px-5">
+        <MarketEraBanner />
+      </div>
       <OperationBriefing />
       <PumpBanner pumps={pumpStocks} />
       {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SeasonCeremonyModal } from "@/components/season/SeasonCeremonyModal";
+import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import {
   SEASON_TUTORIAL_STEPS,
@@ -143,6 +144,10 @@ export default function InvestmentSeasonPage() {
         <Link href="/leaderboard" className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm font-semibold hover:border-[var(--accent)]">
           전체 순자산 랭킹 →
         </Link>
+      </div>
+
+      <div className="mb-4">
+        <MarketEraBanner />
       </div>
 
       <section className={`rounded-3xl border p-5 sm:p-7 ${TIER_STYLE[projectedTier.id]}`}>
