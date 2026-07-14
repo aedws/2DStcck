@@ -12,10 +12,10 @@ export function AuthButton({ wide = false }: { wide?: boolean }) {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       setGameId(
-        (data.user?.user_metadata?.game_id as string | undefined) ??
-          data.user?.email?.split("@")[0] ??
+        (data.session?.user?.user_metadata?.game_id as string | undefined) ??
+          data.session?.user?.email?.split("@")[0] ??
           null,
       );
       setLoading(false);

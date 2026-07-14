@@ -78,8 +78,9 @@ export interface WalletSave {
 export async function loadGameSave(): Promise<WalletSave | null> {
   const supabase = createClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -96,8 +97,9 @@ export async function loadGameSave(): Promise<WalletSave | null> {
 export async function saveGameSave(wallet: WalletSave): Promise<boolean> {
   const supabase = createClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) return false;
 
   const { error } = await supabase.from("game_saves").upsert({
@@ -142,8 +144,9 @@ export async function syncLeaderboard(stats: {
 }): Promise<boolean> {
   const supabase = createClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) return false;
 
   const throttleKey = `2dstock-leaderboard-sync:${user.id}`;
@@ -264,7 +267,8 @@ export async function fetchRegisteredAccountCount(): Promise<number | null> {
 export async function getCurrentUserId(): Promise<string | null> {
   const supabase = createClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   return user?.id ?? null;
 }

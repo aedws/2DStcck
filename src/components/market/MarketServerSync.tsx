@@ -22,9 +22,9 @@ function CloudSaveSync() {
     const supabase = createClient();
     let cancelled = false;
 
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (cancelled || !data.user) return;
-      setUserId(data.user.id);
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (cancelled || !data.session?.user) return;
+      setUserId(data.session.user.id);
       await loadCloudSave();
       await saveCloud();
     });
