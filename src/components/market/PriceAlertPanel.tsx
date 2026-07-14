@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { formatPrice } from "@/lib/market/engine";
 import type { StockState } from "@/lib/types/market";
 import { useSettingsStore } from "@/store/settingsStore";
 
 export function PriceAlertPanel({ stock }: { stock: StockState }) {
-  const alerts = useSettingsStore((state) =>
-    state.priceAlerts.filter((alert) => alert.stockId === stock.id),
+  const allAlerts = useSettingsStore((state) => state.priceAlerts);
+  const alerts = useMemo(
+    () => allAlerts.filter((alert) => alert.stockId === stock.id),
+    [allAlerts, stock.id],
   );
   const addAlert = useSettingsStore((state) => state.addPriceAlert);
   const removeAlert = useSettingsStore((state) => state.removePriceAlert);
