@@ -2609,7 +2609,7 @@ export const useMarketStore = create<MarketStore>()(
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
     {
-      name: "2dstock-market-local",
+      name: "2dstock-market-local-v3",
       partialize: (state) => ({
         tick: state.tick,
         marketVersion: state.marketVersion,
@@ -2673,10 +2673,13 @@ export const useMarketStore = create<MarketStore>()(
         events: state.events,
       }),
       merge: (persisted, current) => {
-        const merged = { ...current, ...(persisted as Partial<MarketSnapshot>) };
+        const raw = (persisted ?? {}) as Partial<MarketSnapshot>;
+        const merged = { ...current, ...raw };
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
-        const walletEpochOk =
-          (merged as Partial<MarketSnapshot>).walletEpoch === WALLET_EPOCH;
+        // 반드시 persisted 쪽 epoch 만 본다. current(createInitialState)에 이미
+        // 최신 WALLET_EPOCH 가 들어 있어 merged 로 판정하면 구 LocalStorage 가
+        // 리셋 대상에서 빠져 분배 복제 잔액이 SQL truncate 후에도 다시 올라간다.
+        const walletEpochOk = raw.walletEpoch === WALLET_EPOCH;
         // 구세대 지갑(비정상 자산·거래내역 누락 시즌)은 버리고 초기 자금으로 재시작한다.
         // 시장 체크포인트는 marketVersion으로 따로 판정한다.
         const walletSource = walletEpochOk
