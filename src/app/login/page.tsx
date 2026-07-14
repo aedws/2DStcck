@@ -36,37 +36,22 @@ export default function LoginPage() {
     });
 
     if (error) {
-      // 처음 접근하는 아이디면 자동 가입. 서버측 Edge Function 없이 클라이언트에서
-      // 바로 signUp 하고, DB 트리거가 game_accounts 매핑을 자동 생성한다.
-      // (game_id 중복은 이메일 유일성으로 걸러진다 → signUp 오류로 반환)
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password: pin,
-        options: { data: { game_id: normalizedId } },
+      // 처음 접근하는 아이디면 자동 가입. 이메일 발송·Edge Function·"Confirm email"
+      // 설정에 의존하지 않도록 서버 DB 함수로 계정을 만든다(비밀번호는 bcrypt 해시).
+      // 이미 존재하는 아이디면 'exists'만 반환하고 그대로 로그인으로 PIN을 검증한다.
+      const { error: regError } = await supabase.rpc("register_game_account", {
+        p_game_id: normalizedId,
+        p_pin: pin,
       });
 
-      if (signUpError) {
-        // 자격 불일치(이미 쓰는 아이디+다른 PIN 등)와 서버 오류를 구분해 안내한다.
-        const status = (signUpError as { status?: number }).status;
-        setMessage(
-          status === 400 || status === 422
-            ? "아이디 또는 PIN이 일치하지 않습니다."
-            : "서버 문제로 로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-        );
+      if (regError) {
+        setMessage("서버 문제로 로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.");
         setLoading(false);
         return;
       }
 
-      if (signUpData.session) {
-        // Confirm email 비활성 시: 가입과 동시에 세션이 생겨 바로 로그인 완료.
-        error = null;
-      } else {
-        // Confirm email 활성 시: 자동확인 트리거로 이미 확인 처리됐으므로 재로그인.
-        ({ error } = await supabase.auth.signInWithPassword({
-          email,
-          password: pin,
-        }));
-      }
+      // 신규 생성이든 기존 계정이든 표준 로그인으로 검증한다.
+      ({ error } = await supabase.auth.signInWithPassword({ email, password: pin }));
     }
 
     if (error) setMessage("아이디 또는 PIN이 일치하지 않습니다.");
