@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
 import {
+  computeLeveragedPrice,
   createInitialStockState,
   formatPrice,
   getMarketBuyPrice,
@@ -711,6 +712,72 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
     candles: withBook.candles ?? [],
     dailyCandles: withBook.dailyCandles ?? [],
   });
+}
+
+/**
+ * 자동 생성 레버리지·인버스 ETF(universalDerivative)는 용량 때문에 저장하지 않아
+ * 복원 시 빈 캔들로 재생성된다. 접속 간격이 짧으면 리플레이가 캔들을 채우지 못해
+ * 차트가 "종가 점 하나"로만 보인다. 이 상품 가격은 기초자산의 결정론 함수이므로,
+ * 복원된 기초자산의 캔들·히스토리에서 파생 시계열을 역산해 즉시 정상 봉을 만든다.
+ * (prevDayClose가 고정 기준가인 모델과 동일하게 computeLeveragedPrice를 사용)
+ */
+function reconstructDerivativeSeries(
+  etf: StockState,
+  underlying: StockState,
+): StockState {
+  const lev = etf.leverage ?? 1;
+  const base = etf.prevDayClose; // 고정 기준가 (상장가)
+  const uCandles = underlying.candles ?? [];
+  if (uCandles.length === 0) {
+    return { ...etf, currentPrice: computeLeveragedPrice(etf, underlying) };
+  }
+
+  // 세션별 기초자산 전일종가(직전 세션 마지막 종가) 추정
+  const sessionClose = new Map<number, number>();
+  for (const candle of uCandles) {
+    sessionClose.set(
+      Math.floor(candle.timestamp / SESSION_DURATION_MS),
+      candle.close,
+    );
+  }
+  const prevCloseFor = (session: number) =>
+    sessionClose.get(session - 1) ?? underlying.prevDayClose ?? base;
+
+  const mapPrice = (uPrice: number, session: number) => {
+    const prev = prevCloseFor(session) || 1;
+    return Math.max(Math.round(base * (1 + lev * (uPrice / prev - 1))), 100);
+  };
+
+  const candles = uCandles.map((candle) => {
+    const session = Math.floor(candle.timestamp / SESSION_DURATION_MS);
+    const open = mapPrice(candle.open, session);
+    const close = mapPrice(candle.close, session);
+    // 인버스(음수 레버리지)는 고·저가가 뒤집히므로 매핑 후 다시 max/min을 취한다.
+    const a = mapPrice(candle.high, session);
+    const b = mapPrice(candle.low, session);
+    return {
+      timestamp: candle.timestamp,
+      open,
+      close,
+      high: Math.max(open, close, a, b),
+      low: Math.min(open, close, a, b),
+    };
+  });
+
+  const priceHistory = (underlying.priceHistory ?? []).map((point) => ({
+    timestamp: point.timestamp,
+    price: mapPrice(
+      point.price,
+      Math.floor(point.timestamp / SESSION_DURATION_MS),
+    ),
+  }));
+
+  return {
+    ...etf,
+    currentPrice: computeLeveragedPrice(etf, underlying),
+    candles,
+    priceHistory: priceHistory.length > 0 ? priceHistory : etf.priceHistory,
+  };
 }
 
 function applyLocalBuySell(
@@ -2558,6 +2625,27 @@ export const useMarketStore = create<MarketStore>()(
             })
           : genesisStocks;
 
+        // 저장하지 않는 레버리지·인버스 ETF는 기초자산 캔들에서 시계열을 역산해
+        // 복원 직후에도 차트가 점이 아닌 정상 봉으로 보이게 한다.
+        const restoredById = new Map(
+          restoredStocks.map((stock) => [stock.id, stock]),
+        );
+        const stocksWithDerived = restoredStocks.map((stock) => {
+          if (
+            !stock.universalDerivative ||
+            stock.coveredCallUnderlyingId ||
+            stock.leverage === undefined
+          ) {
+            return stock;
+          }
+          const underlying = restoredById.get(
+            stock.leverageUnderlyingId ?? "vnasdaq",
+          );
+          return underlying
+            ? reconstructDerivativeSeries(stock, underlying)
+            : stock;
+        });
+
         const rawMission = (merged as Partial<MarketStore>).investmentMission ?? null;
         const investmentMission =
           sessionClockChanged && rawMission?.status === "active"
@@ -2623,7 +2711,7 @@ export const useMarketStore = create<MarketStore>()(
           sessionDurationMs: SESSION_DURATION_MS,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
-          stocks: restoredStocks,
+          stocks: stocksWithDerived,
           events:
             marketValid && Array.isArray(merged.events)
               ? merged.events.map(ensureEventDialogue)

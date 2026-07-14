@@ -32,11 +32,14 @@ export default function MarketPage() {
       : undefined;
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col lg:h-[calc(100vh-3.5rem)]">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
       <MarketOverview stocks={marketStocks} events={events} />
       <OperationBriefing />
       <PumpBanner pumps={pumpStocks} />
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:overflow-hidden">
+      {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해
+          페이지 전체가 스크롤되도록 두고, 이 행에만 한 화면 높이를 줘 각 패널이
+          내부 스크롤을 유지하게 한다. */}
+      <div className="flex min-h-0 flex-1 flex-col lg:h-[calc(100vh-3.5rem)] lg:flex-row lg:overflow-hidden">
         <StockListPanel stocks={marketStocks} events={events} />
         <StockDetailPanel stock={topStock} events={events} />
         <AccountSidebar />
