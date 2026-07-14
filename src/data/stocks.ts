@@ -189,6 +189,34 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     description:
       "V-NASDAQ을 보유하면서 콜옵션 프리미엄을 수취하는 커버드콜 ETF. 하락은 그대로 반영되고 상승 일부를 포기하는 대신, 변동 가능한 월 분배금을 20거래일마다 지급한다.",
   },
+  // ── 안전자산 ETF (캐릭터 없는 시장 상품) ──
+  {
+    id: "sbnd",
+    ticker: "SBND",
+    name: "단기채 ETF",
+    sector: "ETF",
+    subsector: "단기채 ETF",
+    initialPrice: 10000,
+    volatility: 0.0025,
+    drift: 0.0006,
+    beta: 0.05,
+    quarterlyDividend: 90,
+    description:
+      "만기가 짧은 우량 채권에 투자하는 저변동 ETF. 주가 등락에 거의 흔들리지 않고 60거래일마다 이자 성격의 분기 분배금을 지급해 현금 대기·방어 자산으로 쓰인다.",
+  },
+  {
+    id: "gldx",
+    ticker: "GLDX",
+    name: "금 ETF",
+    sector: "ETF",
+    subsector: "금 ETF",
+    initialPrice: 18000,
+    volatility: 0.009,
+    drift: 0.0008,
+    beta: -0.1,
+    description:
+      "실물 금 가격을 추종하는 ETF. 시장이 흔들릴 때 오히려 강세를 보이는 경향이 있어 위기 국면의 헤지·분산 수단으로 쓰인다. 배당은 없다.",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
