@@ -1,16 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-// 공개용(publishable) Supabase 설정. env가 있으면 우선하고, 없으면 아래 기본값으로
-// 대체한다 → 어떤 호스트(GitHub Pages·Vercel·로컬)에서도 env 설정 없이
-// 로그인·랭킹이 항상 동작하며, env 누락 시 createClient가 throw해 앱이
-// 통째로 크래시하는 일을 막는다. publishable 키는 공개용이라 소스에 포함해도
+// 공개용(publishable) Supabase 설정을 하드코딩한다. 배포 환경(Vercel·GitHub Pages)에
+// 잘못 설정되었거나 다른 프로젝트를 가리키는 env가 있어도, 앱이 항상 올바른 프로젝트에
+// 접속하도록 env를 참조하지 않는다. publishable 키는 공개용이라 소스에 포함해도
 // 안전하다(RLS로 보호되며 이미 정적 번들에 인라인된다). 시크릿 키는 절대 넣지 않는다.
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://fzkrnzxflfvpmmkeaxlj.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "sb_publishable_wjbouYDV_guTjnZvZN9v-w_sAYeK6zj";
+const SUPABASE_URL = "https://fzkrnzxflfvpmmkeaxlj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_wjbouYDV_guTjnZvZN9v-w_sAYeK6zj";
 
 function makeClient() {
   return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
