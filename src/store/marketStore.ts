@@ -1172,11 +1172,34 @@ export const useMarketStore = create<MarketStore>()(
           }
           return max;
         };
-        // 로그인 직전 로컬 매매가 아직 클라우드에 없다면 클라우드로 덮어쓰지 않는다.
-        // (디바운스 저장 전에 새로고침·재로그인하면 거래내역이 사라지던 원인)
+        const checkpointScore = (w: {
+          lastSalarySession?: number;
+          lastMonthlyDistributionSession?: number;
+          lastSingleCoveredCallDistributionSession?: number;
+          lastQuarterlyDividendSession?: number;
+        }) =>
+          Math.max(
+            Number.isFinite(w.lastSalarySession) ? w.lastSalarySession! : 0,
+            Number.isFinite(w.lastMonthlyDistributionSession)
+              ? w.lastMonthlyDistributionSession!
+              : 0,
+            Number.isFinite(w.lastSingleCoveredCallDistributionSession)
+              ? w.lastSingleCoveredCallDistributionSession!
+              : 0,
+            Number.isFinite(w.lastQuarterlyDividendSession)
+              ? w.lastQuarterlyDividendSession!
+              : 0,
+          );
+        // 로그인 직전 로컬 매매·분배 정산이 아직 클라우드에 없다면 덮어쓰지 않는다.
+        // (체크포인트만 과거인 클라우드를 적용하면 분배가 재지급되어 현금이 복제된다.)
         const localActivity = activityAt(local.trades, local.cashPayments);
         const cloudActivity = activityAt(wallet.trades, wallet.cashPayments);
-        if (localActivity > cloudActivity) {
+        const localCheckpoint = checkpointScore(local);
+        const cloudCheckpoint = checkpointScore(wallet);
+        if (
+          localActivity > cloudActivity ||
+          (localActivity === cloudActivity && localCheckpoint > cloudCheckpoint)
+        ) {
           await get().saveCloud();
           return;
         }
@@ -1267,6 +1290,11 @@ export const useMarketStore = create<MarketStore>()(
               ]),
             )
           : normalizedCloudProgress;
+        // 분배 체크포인트는 절대 뒤로 돌리지 않는다. 회귀 + settle 가 현금 복제 원인.
+        const maxSession = (cloudValue: number | undefined, localValue: number) => {
+          const cloud = Number.isFinite(cloudValue) ? Math.floor(cloudValue!) : localValue;
+          return Math.max(cloud, localValue);
+        };
         set({
           walletEpoch: WALLET_EPOCH,
           cash: wallet.cash,
@@ -1275,25 +1303,30 @@ export const useMarketStore = create<MarketStore>()(
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
           cashPayments: wallet.cashPayments ?? [],
-          lastSalarySession: cloudClockChanged ? nowSession : wallet.lastSalarySession,
-          lastMonthlyDistributionSession:
-            cloudClockChanged
-              ? alignSessionToGrid(nowSession, COVERED_CALL_INTERVAL_DAYS)
-              : wallet.lastMonthlyDistributionSession,
-          lastSingleCoveredCallDistributionSession:
-            cloudClockChanged
-              ? alignSessionToGrid(
-                  nowSession,
-                  SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
-                )
-              : wallet.lastSingleCoveredCallDistributionSession ??
-            alignSessionToGrid(
-              nowSession,
-              SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
-            ),
+          lastSalarySession: cloudClockChanged
+            ? nowSession
+            : maxSession(wallet.lastSalarySession, local.lastSalarySession),
+          lastMonthlyDistributionSession: cloudClockChanged
+            ? alignSessionToGrid(nowSession, COVERED_CALL_INTERVAL_DAYS)
+            : maxSession(
+                wallet.lastMonthlyDistributionSession,
+                local.lastMonthlyDistributionSession,
+              ),
+          lastSingleCoveredCallDistributionSession: cloudClockChanged
+            ? alignSessionToGrid(
+                nowSession,
+                SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
+              )
+            : maxSession(
+                wallet.lastSingleCoveredCallDistributionSession,
+                local.lastSingleCoveredCallDistributionSession,
+              ),
           lastQuarterlyDividendSession: cloudClockChanged
             ? alignSessionToGrid(nowSession, QUARTERLY_DIVIDEND_INTERVAL_DAYS)
-            : wallet.lastQuarterlyDividendSession,
+            : maxSession(
+                wallet.lastQuarterlyDividendSession,
+                local.lastQuarterlyDividendSession,
+              ),
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: wallet.shorts ?? [],
           options: wallet.options ?? [],
@@ -1348,7 +1381,7 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession:
             cloudClockChanged
               ? nowSession
-              : wallet.lastInterestSession ?? nowSession,
+              : maxSession(wallet.lastInterestSession, local.lastInterestSession),
         });
         get().settleCashflows();
       },

@@ -78,6 +78,13 @@ function CloudSaveSync() {
         state.holdings !== prev.holdings ||
         state.openOrders !== prev.openOrders ||
         state.cashPayments !== prev.cashPayments ||
+        state.lastSalarySession !== prev.lastSalarySession ||
+        state.lastMonthlyDistributionSession !==
+          prev.lastMonthlyDistributionSession ||
+        state.lastSingleCoveredCallDistributionSession !==
+          prev.lastSingleCoveredCallDistributionSession ||
+        state.lastQuarterlyDividendSession !== prev.lastQuarterlyDividendSession ||
+        state.lastInterestSession !== prev.lastInterestSession ||
         state.ownedLuxuries !== prev.ownedLuxuries ||
         state.shorts !== prev.shorts ||
         state.options !== prev.options ||
