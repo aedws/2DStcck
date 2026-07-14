@@ -103,7 +103,8 @@ export default function InvestmentSeasonPage() {
     );
   }
 
-  const elapsed = Math.max(0, Math.min(INVESTMENT_SEASON_SESSIONS, currentSession - current.startSession));
+  const seasonLength = Math.max(1, current.endSession - current.startSession);
+  const elapsed = Math.max(0, Math.min(seasonLength, currentSession - current.startSession));
   const sessionsLeft = Math.max(0, current.endSession - currentSession);
   const performance = calculateSeasonPerformance(current, equity, benchmarkPrice, seasonExternalCashTotal(cashPayments));
   const projectedTier = seasonTierForAlpha(performance.alpha);
@@ -112,7 +113,7 @@ export default function InvestmentSeasonPage() {
   const goal = getSeasonGoal(current.goalId);
   const trait = getSeasonTrait(current.traitId);
   const goalAllocation = calculateSeasonGoalAllocation(current.goalId, holdings, stocks, equity);
-  const progress = (elapsed / INVESTMENT_SEASON_SESSIONS) * 100;
+  const progress = (elapsed / seasonLength) * 100;
   const nextTier = INVESTMENT_SEASON_TIERS[
     INVESTMENT_SEASON_TIERS.findIndex((tier) => tier.id === projectedTier.id) + 1
   ];
@@ -147,7 +148,11 @@ export default function InvestmentSeasonPage() {
       <section className={`rounded-3xl border p-5 sm:p-7 ${TIER_STYLE[projectedTier.id]}`}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs opacity-75">진행 중 · 시즌 {current.number}</p>
+            <p className="text-xs opacity-75">
+              {current.warmup
+                ? "🎯 연습 시즌 · 무순위 (다음 국면 경계에 맞춰 정식 시즌 시작)"
+                : `진행 중 · 시즌 ${current.number}`}
+            </p>
             <h2 className="mt-2 text-3xl font-black">{projectedTier.emoji} 예상 {projectedTier.name}</h2>
             <p className="mt-2 text-sm opacity-80">
               지수 대비 <b>{signedPercent(performance.alpha, true)}</b>
@@ -163,7 +168,7 @@ export default function InvestmentSeasonPage() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">D-{sessionsLeft}</p>
-              <p className="text-xs opacity-75">{elapsed}/20거래일</p>
+              <p className="text-xs opacity-75">{elapsed}/{seasonLength}거래일</p>
             </div>
           </div>
         </div>

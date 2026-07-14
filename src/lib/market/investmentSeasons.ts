@@ -3,9 +3,22 @@ import type {
   Holding,
   StockState,
 } from "@/lib/types/market";
+import { MARKET_ERA_START_SESSION } from "@/lib/market/marketEras";
 
 export const INVESTMENT_SEASON_SESSIONS = 20;
 export const MAX_SEASON_HISTORY = 20;
+
+/**
+ * 시즌 그리드: 국면(에라) 시작 세션에 앵커링된 20거래일 블록.
+ * 국면(60) = 3 × 시즌(20)이라 각 시즌이 하나의 국면 안에 들어온다.
+ */
+function seasonBlockStart(session: number): number {
+  const offset =
+    (((session - MARKET_ERA_START_SESSION) % INVESTMENT_SEASON_SESSIONS) +
+      INVESTMENT_SEASON_SESSIONS) %
+    INVESTMENT_SEASON_SESSIONS;
+  return session - offset;
+}
 
 export type InvestmentSeasonTierId =
   | "bronze"
@@ -189,6 +202,8 @@ export interface ActiveInvestmentSeason {
   lastGoalAllocation?: number;
   traitId?: SeasonTraitId;
   traitSelectedAtSession?: number;
+  /** 중도 참가로 국면 경계에 못 맞춘 부분 시즌 — 연습(무순위). 기록·보상 없음. */
+  warmup?: boolean;
 }
 
 export interface InvestmentSeasonResult extends ActiveInvestmentSeason {
@@ -595,11 +610,17 @@ function createActiveSeason(
   benchmarkPrice: number,
   externalCashTotal: number,
 ): ActiveInvestmentSeason {
+  // 시즌은 국면 그리드에 정렬한다. 블록 경계에서 시작하면 정식 시즌(20거래일 전체),
+  // 중도 참가(블록 중간)면 다음 경계까지의 연습(무순위) 시즌으로 만든다.
+  const blockStart = seasonBlockStart(session);
+  const onBoundary = blockStart === session;
+  const endSession = blockStart + INVESTMENT_SEASON_SESSIONS;
   return {
     id: `season-${number}-${session}`,
     number,
     startSession: session,
-    endSession: session + INVESTMENT_SEASON_SESSIONS,
+    endSession,
+    ...(onBoundary ? {} : { warmup: true }),
     startEquity: Math.max(1, Math.round(equity)),
     startBenchmarkPrice: Math.max(1, Math.round(benchmarkPrice)),
     minimumEquity: Math.max(1, Math.round(equity)),
@@ -819,6 +840,23 @@ export function updateInvestmentSeason(
     return current === state.current
       ? { state: input, completed: null }
       : { state: { ...state, current }, completed: null };
+  }
+
+  // 연습(무순위) 시즌은 기록·보상·의식 없이 다음 정식 시즌으로 롤오버한다.
+  if (current.warmup) {
+    return {
+      state: {
+        ...state,
+        current: createActiveSeason(
+          current.number,
+          currentSession,
+          equity,
+          benchmarkPrice,
+          externalCashTotal,
+        ),
+      },
+      completed: null,
+    };
   }
 
   const performance = calculateSeasonPerformance(current, equity, benchmarkPrice, externalCashTotal);

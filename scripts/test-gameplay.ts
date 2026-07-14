@@ -127,6 +127,7 @@ import {
   seasonTierForAlpha,
   updateInvestmentSeason,
 } from "../src/lib/market/investmentSeasons";
+import { MARKET_ERA_START_SESSION } from "../src/lib/market/marketEras";
 import type { Character, EventTemplate, OptionPosition, StockState, Trade } from "../src/lib/types/market";
 import {
   PORTFOLIO_STRATEGIES,
@@ -138,7 +139,14 @@ import {
   normalizeSelectedSeasonFrame,
 } from "../src/lib/player/seasonRewards";
 
-const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+// 시즌은 국면 그리드 경계에서 시작해야 정식(무순위 아님) 시즌이 된다.
+// 시나리오가 정식 시즌 완료를 검증하므로 세션을 그리드 경계로 정렬한다.
+const rawSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+const session =
+  rawSession -
+  ((((rawSession - MARKET_ERA_START_SESSION) % INVESTMENT_SEASON_SESSIONS) +
+    INVESTMENT_SEASON_SESSIONS) %
+    INVESTMENT_SEASON_SESSIONS);
 const windowStart = missionWindowStart(session);
 
 const attendanceDayOne = Date.UTC(2026, 6, 13, 15, 30);
