@@ -2435,8 +2435,12 @@ export const useMarketStore = create<MarketStore>()(
           if (!stock) continue;
           let ceoId = stock.ceoId;
           if (!ceoId) {
+            // 인버스·곱버스(음수 레버리지)는 그 캐릭터에 반대 베팅이므로 제외한다.
             const underlyingId =
-              stock.coveredCallUnderlyingId ?? stock.leverageUnderlyingId;
+              stock.coveredCallUnderlyingId ??
+              ((stock.leverage ?? 0) > 0
+                ? stock.leverageUnderlyingId
+                : undefined);
             ceoId = underlyingId
               ? s.stocks.find((x) => x.id === underlyingId)?.ceoId
               : undefined;
