@@ -47,6 +47,7 @@ import {
   crisisReturnForStock,
   getActiveMarketCrisis,
 } from "@/lib/market/marketCrises";
+import { getMarketEra } from "@/lib/market/marketEras";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -222,13 +223,16 @@ export function calculateTickPrice(
   const regime = getMarketRegimeAtSession(session);
   const cycle = getMarketCycleAtSession(session);
   const crisis = getActiveMarketCrisis(session);
+  // 전역 시장 국면(에라). 시작 전이면 배율 1·편향 0이라 결과가 동일하다.
+  const era = getMarketEra(session);
   const volatilityMultiplier = Math.min(
     4.5,
     Math.max(
       0.45,
       regime.volatilityMultiplier *
         cycle.volatilityMultiplier *
-        (crisis?.phase.volatilityMultiplier ?? 1),
+        (crisis?.phase.volatilityMultiplier ?? 1) *
+        era.volMul,
     ),
   );
   const noise =
@@ -247,6 +251,7 @@ export function calculateTickPrice(
     (stock.trendStrength ?? beta * MARKET_TREND_BASE_PER_SEC) * dtSeconds;
   const trend =
     trendAmplitude *
+    era.trendMul *
     Math.sin(((now + trendLead) / MARKET_TREND_PERIOD_MS) * 2 * Math.PI);
   // 공통 충격: 같은 틱의 모든 종목이 같은 z를 받아 지수와 동반 등락한다
   const shock =
@@ -268,6 +273,7 @@ export function calculateTickPrice(
 
   const changeRate =
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
+    beta * era.driftPerSecond * dtSeconds +
     regimeReturn +
     cycleReturn +
     crisisReturn +
