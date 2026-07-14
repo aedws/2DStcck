@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMarketStore } from "@/store/marketStore";
 import { MarketSyncRouter } from "@/components/market/MarketServerSync";
+import { clearLegacyMarketStorage } from "@/lib/storage/safeLocalStorage";
 
 export function StoreHydration({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -10,6 +11,9 @@ export function StoreHydration({ children }: { children: ReactNode }) {
   const settleCashflows = useMarketStore((s) => s.settleCashflows);
 
   useEffect(() => {
+    // 구 persist 키가 quota 를 차지한 채 남아 tickMarket setItem 이 터지지 않게 먼저 비운다.
+    clearLegacyMarketStorage();
+
     const unsub = useMarketStore.persist.onFinishHydration(() => {
       settleCashflows();
       setStoreReady(true);

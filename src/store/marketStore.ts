@@ -1,6 +1,10 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
+import {
+  clearLegacyMarketStorage,
+  safeMarketStorage,
+} from "@/lib/storage/safeLocalStorage";
 import {
   computeLeveragedPrice,
   createInitialStockState,
@@ -2610,6 +2614,10 @@ export const useMarketStore = create<MarketStore>()(
     }),
     {
       name: "2dstock-market-local-v3",
+      storage: createJSONStorage(() => {
+        clearLegacyMarketStorage();
+        return safeMarketStorage;
+      }),
       partialize: (state) => ({
         tick: state.tick,
         marketVersion: state.marketVersion,
@@ -2627,36 +2635,37 @@ export const useMarketStore = create<MarketStore>()(
         shorts: state.shorts,
         options: state.options,
         lastInterestSession: state.lastInterestSession,
-        trades: state.trades,
-        openOrders: state.openOrders,
-        cashPayments: state.cashPayments,
+        trades: state.trades.slice(0, 100),
+        openOrders: state.openOrders.slice(0, 50),
+        cashPayments: state.cashPayments.slice(0, 50),
         ownedLuxuries: state.ownedLuxuries,
-        netWorthHistory: state.netWorthHistory,
+        netWorthHistory: state.netWorthHistory.slice(-80),
         achievements: state.achievements,
         lotteryWindowStart: state.lotteryWindowStart,
         lotteryTicketsBought: state.lotteryTicketsBought,
         wonJackpot: state.wonJackpot,
         investmentMission: state.investmentMission,
-        missionHistory: state.missionHistory,
+        missionHistory: state.missionHistory.slice(0, 30),
         reputation: state.reputation,
         characterProgress: state.characterProgress,
-        readCharacterMessageIds: state.readCharacterMessageIds,
+        readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
-        storyDecisionHistory: state.storyDecisionHistory,
+        storyDecisionHistory: state.storyDecisionHistory.slice(0, 30),
         marginEnabled: state.marginEnabled,
         marginLeverage: state.marginLeverage,
         recurringInvestments: state.recurringInvestments,
         attendance: state.attendance,
         selectedTitleId: state.selectedTitleId,
         dailyOperation: state.dailyOperation,
-        dailyOperationHistory: state.dailyOperationHistory,
+        dailyOperationHistory: state.dailyOperationHistory.slice(0, 30),
         selectedPortfolioStrategyId: state.selectedPortfolioStrategyId,
         portfolioStrategySelectedAt: state.portfolioStrategySelectedAt,
         unlockedSeasonRewardIds: state.unlockedSeasonRewardIds,
         selectedSeasonFrameId: state.selectedSeasonFrameId,
-        // 시장 체크포인트는 최근 구간만 저장하고 장기 합성 일봉은 복원 시 재생성한다.
+        // 시장 체크포인트는 초경량만 저장한다. 캔들·호가·이벤트가 quota 를 초과했다.
+        // 복원 시 일봉은 제네시스에서 합성하고, 분봉은 틱 리플레이로 채운다.
         stocks: state.stocks
           .filter(
             (stock) =>
@@ -2664,13 +2673,18 @@ export const useMarketStore = create<MarketStore>()(
                 Boolean(stock.coveredCallUnderlyingId)) &&
               !isPumpStock(stock),
           )
-          .map((stock) => ({
-            ...stock,
-            priceHistory: stock.priceHistory.slice(-60),
-            candles: stock.candles.slice(-240),
-            dailyCandles: stock.dailyCandles.slice(-120),
-          })),
-        events: state.events,
+          .map((stock) => {
+            // orderBook 은 복원 시 재생성 — persist 용량의 상당 부분을 차지한다.
+            const { orderBook: _orderBook, ...rest } = stock;
+            return {
+              ...rest,
+              priceHistory: stock.priceHistory.slice(-20),
+              candles: stock.candles.slice(-30),
+              dailyCandles: stock.dailyCandles.slice(-40),
+              orderBook: { bids: [], asks: [] },
+            };
+          }),
+        events: state.events.slice(-30),
       }),
       merge: (persisted, current) => {
         const raw = (persisted ?? {}) as Partial<MarketSnapshot>;
