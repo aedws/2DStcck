@@ -48,6 +48,7 @@ import {
   getActiveMarketCrisis,
 } from "@/lib/market/marketCrises";
 import { getMarketEra } from "@/lib/market/marketEras";
+import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -223,8 +224,12 @@ export function calculateTickPrice(
   const regime = getMarketRegimeAtSession(session);
   const cycle = getMarketCycleAtSession(session);
   const crisis = getActiveMarketCrisis(session);
-  // 전역 시장 국면(에라). 시작 전이면 배율 1·편향 0이라 결과가 동일하다.
+  // 전역 시장 국면(에라)과 캐릭터 운영 지침. 국면 시작 전이면 배율 1·편향 0이라
+  // 결과가 완전히 동일하다(과거 바이트 동일 → 버전 bump 불필요).
   const era = getMarketEra(session);
+  const guideline = stock.ceoId
+    ? getGuidelineModifiers(stock.ceoId, era)
+    : { volMul: 1, driftPerSecond: 0 };
   const volatilityMultiplier = Math.min(
     4.5,
     Math.max(
@@ -232,7 +237,8 @@ export function calculateTickPrice(
       regime.volatilityMultiplier *
         cycle.volatilityMultiplier *
         (crisis?.phase.volatilityMultiplier ?? 1) *
-        era.volMul,
+        era.volMul *
+        guideline.volMul,
     ),
   );
   const noise =
@@ -274,6 +280,7 @@ export function calculateTickPrice(
   const changeRate =
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
     beta * era.driftPerSecond * dtSeconds +
+    beta * guideline.driftPerSecond * dtSeconds +
     regimeReturn +
     cycleReturn +
     crisisReturn +

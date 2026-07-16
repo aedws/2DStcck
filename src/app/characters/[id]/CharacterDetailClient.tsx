@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
+import { CharacterGuidelineTag } from "@/components/market/CharacterGuidelineTag";
 import { formatPrice } from "@/lib/market/engine";
 import { getCharacterRelation } from "@/lib/market/characterRelations";
 import { getCharacterProgress } from "@/lib/market/characterProgress";
@@ -96,6 +97,10 @@ export function CharacterDetailClient({ id }: { id: string }) {
           {ceo.bio}
         </p>
       )}
+
+      <div className="mt-4">
+        <CharacterGuidelineTag ceoId={ceo.id} />
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
