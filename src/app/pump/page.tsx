@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { OrderBook } from "@/components/market/OrderBook";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { PUMP_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { StockLogo } from "@/components/ui/StockLogo";
 import { FlashValue } from "@/components/ui/FlashValue";
 import { formatPrice, getChangePercent } from "@/lib/market/engine";
@@ -11,6 +14,7 @@ import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { PUMP_LIFETIME_SESSIONS, isPumpStock } from "@/lib/market/pumpStocks";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 /**
  * 급등주 전용 상세 화면. 급등주는 시각의 순함수라 정적 상세 페이지(/stock/[id])를
@@ -24,9 +28,23 @@ export default function PumpDetailPage() {
   );
   const pump = stocks.find(isPumpStock);
 
+  const [mounted, setMounted] = useState(false);
+  const onboarded = useSettingsStore((s) => s.onboarded);
+  const tutorialSeen = useSettingsStore((s) => s.pumpTutorialSeen);
+  const setTutorialSeen = useSettingsStore((s) => s.setPumpTutorialSeen);
+  useEffect(() => setMounted(true), []);
+  const tutorial =
+    mounted && onboarded && !tutorialSeen ? (
+      <FeatureTutorialModal
+        steps={PUMP_TUTORIAL_STEPS}
+        onFinish={() => setTutorialSeen(true)}
+      />
+    ) : null;
+
   if (!pump) {
     return (
       <div className="py-20 text-center text-[var(--muted)]">
+        {tutorial}
         <p className="text-4xl">🚀</p>
         <p className="mt-3">현재 상장 중인 급등주가 없습니다.</p>
         <Link
@@ -48,6 +66,7 @@ export default function PumpDetailPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
+      {tutorial}
       <div className="flex shrink-0 items-center gap-3 border-b border-amber-500/30 bg-amber-500/[0.06] px-3 py-3 md:px-5">
         <Link
           href="/"

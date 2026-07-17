@@ -13,6 +13,7 @@ import {
   STRATEGY_TUTORIAL_STEPS,
   STRESS_TEST_TUTORIAL_STEPS,
   MARKET_ERA_TUTORIAL_STEPS,
+  PUMP_TUTORIAL_STEPS,
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -22,7 +23,8 @@ type TutorialKind =
   | "season"
   | "strategy"
   | "stress"
-  | "market_era";
+  | "market_era"
+  | "pump";
 
 export default function SettingsPage() {
   const [openTutorial, setOpenTutorial] = useState<TutorialKind | null>(null);
@@ -55,6 +57,9 @@ export default function SettingsPage() {
   const setMarketEraTutorialSeen = useSettingsStore(
     (state) => state.setMarketEraTutorialSeen,
   );
+  const setPumpTutorialSeen = useSettingsStore(
+    (state) => state.setPumpTutorialSeen,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -71,7 +76,9 @@ export default function SettingsPage() {
               ? STRESS_TEST_TUTORIAL_STEPS
               : openTutorial === "market_era"
                 ? MARKET_ERA_TUTORIAL_STEPS
-                : null;
+                : openTutorial === "pump"
+                  ? PUMP_TUTORIAL_STEPS
+                  : null;
 
   function showTutorial(kind: TutorialKind) {
     if (kind === "mission") {
@@ -86,8 +93,10 @@ export default function SettingsPage() {
       setStrategyTutorialSeen(false);
     } else if (kind === "stress") {
       setStressTestTutorialSeen(false);
-    } else {
+    } else if (kind === "market_era") {
       setMarketEraTutorialSeen(false);
+    } else {
+      setPumpTutorialSeen(false);
     }
     setOpenTutorial(kind);
   }
@@ -107,6 +116,8 @@ export default function SettingsPage() {
       setStressTestTutorialSeen(true);
     } else if (openTutorial === "market_era") {
       setMarketEraTutorialSeen(true);
+    } else if (openTutorial === "pump") {
+      setPumpTutorialSeen(true);
     }
     setOpenTutorial(null);
   }
@@ -282,7 +293,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => showTutorial("market_era")}
-          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>🌐</span>
@@ -290,6 +301,22 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">시장 국면·운영 지침 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               국면 순환, 시즌 정렬, 캐릭터 운영 지침을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("pump")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🚀</span>
+            <span>
+            <span className="block text-sm font-medium">급등주 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              급등주 위험과 차트·정밀주문·빠른 버튼 사용법을 다시 안내합니다.
             </span>
             </span>
           </span>

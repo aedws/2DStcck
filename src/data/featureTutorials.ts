@@ -62,6 +62,29 @@ export const OPTIONS_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
+export const PUMP_TUTORIAL_STEPS: FeatureTutorialStep[] = [
+  {
+    emoji: "🚀",
+    title: "급등주는 초고위험 한탕입니다",
+    body: "가끔 결정론적으로 상장되는 급등주는 상장가의 3~8배까지 폭등합니다. 하지만 단 2거래일 안에 상장폐지되는 펌프-앤-덤프입니다.",
+  },
+  {
+    emoji: "📉",
+    title: "정점에서 반드시 팔아야 합니다",
+    body: "초반에 급등한 뒤 급락합니다. 상장폐지 시점까지 보유하면 폭락가로 강제 정산되어 큰 손실이 납니다. 오를 때 사서 정점 근처에서 파는 타이밍 싸움입니다.",
+  },
+  {
+    emoji: "🧾",
+    title: "차트·정밀주문으로 거래하세요",
+    body: "홈 급등주 배너의 ‘차트·정밀주문’을 누르면 캔들 차트·호가창과 함께 수량·지정가 주문을 쓸 수 있습니다. 하락에 베팅하려면 공매도로 급락을 노릴 수도 있습니다.",
+  },
+  {
+    emoji: "⚡",
+    title: "빠른 버튼으로 즉시 매매",
+    body: "급한 순간에는 홈 배너의 1·10·100·전체 버튼으로 원하는 수량을 곧바로 시장가 매수·매도할 수 있습니다. ‘전체’는 매수 시 최대 매수 가능 수량, 매도 시 보유 전량입니다.",
+  },
+];
+
 export const MARKET_ERA_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🌐",
