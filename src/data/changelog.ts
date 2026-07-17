@@ -10,7 +10,8 @@ export interface ChangelogEntry {
 }
 
 export interface ChangelogDaySummary {
-  highlights: string;
+  /** 한 줄 문자열, 또는 항목이 많은 날은 3~5줄 불릿 배열 */
+  highlights: string | string[];
   intent: string;
 }
 
@@ -28,8 +29,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
       "국면이라는 공통 배경을 캐릭터·기업 개성과 연결해, 같은 시장에서도 종목마다 다른 태세와 이야기가 드러나게 했습니다.",
   },
   "2026-07-14": {
-    highlights:
-      "게임 방향을 ‘수집·경쟁 메타’로 정하고 프레스티지 점수·랭킹, 60거래일 시장 국면과 시즌 정렬, 자산 규모별 수집 비용, 집중 투자 업적, 안전자산 ETF(단기채·금)를 도입했습니다. 동시에 캔들이 점으로 찍히던 문제, 종목 화면 크래시, 로그인 지연, 저장 용량·지갑·거래내역 문제를 대거 바로잡았습니다.",
+    highlights: [
+      "게임 방향을 ‘수집·경쟁 메타’로 확정 — 프레스티지 점수·랭킹 도입, 자산은 연료로.",
+      "60거래일 시장 국면(에라)과 시즌 정렬 도입.",
+      "자산 규모별 수집 비용(sink)·집중 투자 업적·안전자산 ETF(단기채·금) 추가.",
+      "실시간·레버리지·인버스 캔들이 점으로 찍히던 문제, 종목 화면 크래시(React #185), 로그인 지연 수정.",
+      "로컬 저장 용량 초과·지갑 리셋·거래내역 유실 등 저장 안정성 문제 정리.",
+    ],
     intent:
       "돈을 목적이 아니라 연료로 두고 수집·경쟁으로 대표 성취를 드러내는 방향을 세우면서, 시장 국면으로 매 시즌 다른 판을 만들고 그동안 쌓인 표시·안정성 문제를 한 번에 정리했습니다.",
   },
@@ -60,6 +66,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-17",
+    tag: "개선",
+    title: "업데이트 내역 화면 정리",
+    detail:
+      "한 날짜에 항목이 많아 읽기 어렵던 업데이트 화면을 정리했습니다. 항목을 신규·개선·수정으로 묶어 소제목으로 보여주고, 각 항목은 제목만 한 줄로 접어 두었다가 누르면 상세가 열립니다. 항목이 많은 날은 상단 ‘핵심 개선’ 요약을 3~5줄 불릿으로 정리했습니다.",
+  },
   {
     date: "2026-07-17",
     tag: "수정",
