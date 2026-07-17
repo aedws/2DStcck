@@ -769,6 +769,85 @@ export const CSV_COMPANIES: StockDefinition[] = [
       }
     ],
     "quarterlyDividend": 125
+  },
+  {
+    "id": "aeyvn",
+    "ticker": "AEYVN",
+    "name": "Yvonne Microsystems",
+    "sector": "반도체",
+    "initialPrice": 72000,
+    "volatility": 0.05,
+    "drift": 0.0009,
+    "beta": 1.5,
+    "description": "미세공정 반도체와 연산 칩을 설계·양산하는 첨단 반도체 기업.",
+    "eventBias": {
+      "신제품": 3,
+      "스캔들": 1.5
+    },
+    "ceoId": "chr_aeyvn"
+  },
+  {
+    "id": "nkilg",
+    "ticker": "NKILG",
+    "name": "Elleg Power Grid",
+    "sector": "유틸리티",
+    "initialPrice": 41000,
+    "volatility": 0.014,
+    "drift": 0.0004,
+    "beta": 0.45,
+    "description": "도시 전력망과 송배전 인프라를 운영하는 전력 유틸리티.",
+    "eventBias": {
+      "실적": 1.5
+    },
+    "quarterlyDividend": 480,
+    "ceoId": "chr_nkilg"
+  },
+  {
+    "id": "aegil",
+    "ticker": "AEGIL",
+    "name": "Gilberta Advanced Materials",
+    "sector": "소재",
+    "initialPrice": 53000,
+    "volatility": 0.03,
+    "drift": 0.0005,
+    "beta": 1.05,
+    "description": "합금·2차전지 소재를 연구·공급하는 소재공학 기업.",
+    "eventBias": {
+      "수주": 2,
+      "신제품": 2
+    },
+    "ceoId": "chr_aegil"
+  },
+  {
+    "id": "wwlne",
+    "ticker": "WWLNE",
+    "name": "Linne Mobility",
+    "sector": "모빌리티",
+    "initialPrice": 45000,
+    "volatility": 0.036,
+    "drift": 0.0006,
+    "beta": 1.15,
+    "description": "전기차와 차세대 이동수단을 개발하는 모빌리티 기업.",
+    "eventBias": {
+      "신제품": 3
+    },
+    "ceoId": "chr_wwlne"
+  },
+  {
+    "id": "ersua",
+    "ticker": "ERSUA",
+    "name": "Sua Assurance",
+    "sector": "보험",
+    "initialPrice": 57000,
+    "volatility": 0.02,
+    "drift": 0.0004,
+    "beta": 0.6,
+    "description": "손해·생명보험과 리스크 관리를 제공하는 보험사.",
+    "eventBias": {
+      "실적": 2
+    },
+    "quarterlyDividend": 320,
+    "ceoId": "chr_ersua"
   }
 ];
 
@@ -1192,6 +1271,59 @@ export const CSV_CHARACTERS: Character[] = [
     ],
     "bio": "랭킹 1위를 위해 밤을 새우는 게이머 사장.",
     "emoji": "🎧"
+  },
+  {
+    "id": "chr_aeyvn",
+    "name": "이본",
+    "title": "CEO",
+    "traits": [
+      "천재",
+      "워커홀릭"
+    ],
+    "bio": "미세공정의 한계를 매번 갱신하는 반도체 설계의 귀재.",
+    "emoji": "💠"
+  },
+  {
+    "id": "chr_nkilg",
+    "name": "일레그",
+    "title": "관리소장",
+    "traits": [
+      "성실"
+    ],
+    "bio": "도시의 불빛이 꺼지지 않게 밤새 전력망을 지키는 관리자.",
+    "emoji": "🔌"
+  },
+  {
+    "id": "chr_aegil",
+    "name": "질베르타",
+    "title": "수석연구원",
+    "traits": [
+      "천재",
+      "워커홀릭"
+    ],
+    "bio": "새로운 합금과 소재로 산업의 기초를 다시 쓰는 연구자.",
+    "emoji": "⚗️"
+  },
+  {
+    "id": "chr_wwlne",
+    "name": "린네",
+    "title": "CEO",
+    "traits": [
+      "카리스마"
+    ],
+    "bio": "차세대 이동수단을 직접 몰아보며 다듬는 질주의 설계자.",
+    "emoji": "🚗"
+  },
+  {
+    "id": "chr_ersua",
+    "name": "수아",
+    "title": "대표",
+    "traits": [
+      "성실",
+      "카리스마"
+    ],
+    "bio": "최악을 미리 계산해 사람들의 내일을 지키는 보험 설계자.",
+    "emoji": "☂️"
   }
 ];
 
@@ -1974,6 +2106,106 @@ export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "한 판 졌다고 접나요? 리트라이하면 되죠.",
       "패배도 리플레이 분석하면 다음 승리의 재료예요.",
       "랭킹 떨어졌네요… 오늘 밤도 새우면 되겠어요."
+    ]
+  },
+  {
+    "characterId": "chr_aeyvn",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "공정 수율이 목표를 넘었어요. 다음 노드로 바로 넘어가죠.",
+      "설계가 맞아떨어졌네요. 밤샘한 보람이 있어요.",
+      "이 칩"
+    ]
+  },
+  {
+    "characterId": "chr_aeyvn",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "수율이 흔들렸네요. 원인 웨이퍼부터 다시 봅니다.",
+      "실패한 공정도 데이터예요. 재설계하죠.",
+      "지연은 있어도 후퇴는 없어요. 다시 돌립니다."
+    ]
+  },
+  {
+    "characterId": "chr_nkilg",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "전력망이 안정적입니다. 그게 최고의 실적이죠.",
+      "정전 없는 하루",
+      "그거면 충분합니다."
+    ]
+  },
+  {
+    "characterId": "chr_nkilg",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "부하가 몰렸지만 예비 전력으로 버팁니다.",
+      "불이 꺼지지 않게 하는 게 제 일입니다. 복구하죠.",
+      "당황하지 않고 계통부터 안정시키겠습니다."
+    ]
+  },
+  {
+    "characterId": "chr_aegil",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "새 합금이 규격을 통과했어요. 산업이 바뀔 겁니다.",
+      "데이터가 옳았네요. 다음 배합으로 가죠.",
+      "기초 소재가 튼튼해야 위가 산다니까요."
+    ]
+  },
+  {
+    "characterId": "chr_aegil",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "배합이 틀어졌네요. 처음부터 다시 계산합니다.",
+      "실패한 시료도 결과예요. 원인을 파헤치죠.",
+      "납기는 늦어도 품질은 못 타협합니다."
+    ]
+  },
+  {
+    "characterId": "chr_wwlne",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "신차 반응 폭발이네요. 다음 라인업도 기대하세요.",
+      "직접 몰아보고 다듬은 값어치가 나왔어요.",
+      "길 위에서 증명했으니 됐죠."
+    ]
+  },
+  {
+    "characterId": "chr_wwlne",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "리콜? 안전이 먼저니 바로 잡습니다.",
+      "이번 모델은 아쉽지만 다음 세대로 뒤집죠.",
+      "멈춰 섰다고 끝은 아니에요. 다시 달립니다."
+    ]
+  },
+  {
+    "characterId": "chr_ersua",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "손해율이 안정적이에요. 계산대로입니다.",
+      "가입자분들을 잘 지켜냈다면 그걸로 됐죠.",
+      "리스크를 미리 읽은 보람이 있네요."
+    ]
+  },
+  {
+    "characterId": "chr_ersua",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "대형 청구가 들어왔지만 준비금으로 감당합니다.",
+      "최악을 가정해 둔 게 이럴 때 빛나죠.",
+      "약속은 지킵니다. 그게 보험이니까요."
     ]
   }
 ];

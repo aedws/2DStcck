@@ -7,8 +7,10 @@ export const SERVER_TICK_SECONDS = 10;
 export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
 /** 결정론 가격 규칙 변경 시 증가. 구버전 체크포인트만 폐기하고 지갑은 유지한다.
  *  v9: 실시간 1틱 갱신에서 진행 중 봉이 덮어써져 완성 봉이 전부 점으로 남던
- *  버그(mergeCandles) 수정 — 기존 평면 캔들 체크포인트를 폐기하고 재생성한다. */
-export const MARKET_SIM_VERSION = 9;
+ *  버그(mergeCandles) 수정 — 기존 평면 캔들 체크포인트를 폐기하고 재생성한다.
+ *  v10: 신규 섹터 5종(반도체·유틸리티·소재·모빌리티·보험) 상장 — 종목 구성이
+ *  바뀌어 신규 종목이 결정론 히스토리를 갖도록 전체 리플레이를 강제한다. */
+export const MARKET_SIM_VERSION = 10;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.
