@@ -14,6 +14,10 @@ export interface AchievementContext {
   topCharacterShare: number;
   /** 상위 서로 다른 2캐릭터 종목 합산 비율 (2캐릭터 미만이면 0) */
   topTwoCharacterShare: number;
+  /** 상위 서로 다른 3캐릭터 종목 합산 비율 (3캐릭터 미만이면 0) */
+  topThreeCharacterShare: number;
+  /** 보유 중인 서로 다른 캐릭터(기업) 수 */
+  heldCharacterCount: number;
 }
 
 export interface Achievement {
@@ -136,5 +140,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: "서로 다른 두 캐릭터 기업 종목이 순자산의 70% 이상을 차지합니다.",
     emoji: "✌️",
     check: (c) => c.topTwoCharacterShare >= 0.7,
+  },
+  {
+    id: "triple_harmonia",
+    title: "트리플 하르모니아",
+    detail:
+      "서로 다른 세 캐릭터 기업 종목이 순자산의 75% 이상을 차지합니다. (4캐릭터 이상 보유 시 비활성)",
+    emoji: "🎼",
+    check: (c) => c.heldCharacterCount <= 3 && c.topThreeCharacterShare >= 0.75,
   },
 ];

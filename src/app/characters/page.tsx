@@ -118,10 +118,16 @@ export default function CharactersPage() {
                 )}
                 {relation.unlocked && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
-                    <span className="rounded-full bg-pink-500/15 px-2 py-0.5 font-semibold text-pink-300">
-                      {getRelationshipTier(progress.affinity).emoji}{" "}
-                      {getRelationshipTier(progress.affinity).name}
-                    </span>
+                    {progress.affinity < 0 ? (
+                      <span className="rounded-full bg-red-500/15 px-2 py-0.5 font-semibold text-red-400">
+                        ⚔️ 적대
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-pink-500/15 px-2 py-0.5 font-semibold text-pink-300">
+                        {getRelationshipTier(progress.affinity).emoji}{" "}
+                        {getRelationshipTier(progress.affinity).name}
+                      </span>
+                    )}
                     <span className="text-[var(--muted)]">
                       신뢰 <span className="text-blue-400">{progress.trust}</span> · 호감{" "}
                       <span className="text-pink-400">{progress.affinity}</span>

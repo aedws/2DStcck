@@ -167,6 +167,7 @@ import {
   normalizePreferredShares,
   reconcilePreferredShares,
 } from "@/lib/player/preferredShares";
+import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import {
   createInitialMastery,
   normalizeInvestmentMastery,
@@ -1366,12 +1367,8 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
           characterProgress: cloudCharacterProgress,
-          preferredShares: reconcilePreferredShares(
-            cloudCharacterProgress,
-            normalizePreferredShares(wallet.preferredShares),
-            nowSession,
-            Date.now(),
-          ).shares,
+          // 발행은 직후 tick 정산에서 처리 — 여기선 기존 우선주만 보존한다.
+          preferredShares: normalizePreferredShares(wallet.preferredShares),
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
@@ -2024,6 +2021,14 @@ export const useMarketStore = create<MarketStore>()(
           state.preferredShares,
           currentSession,
           now,
+          {
+            stocks: combinedStocks,
+            concentration: computeCharacterConcentration(
+              holdings,
+              combinedStocks,
+              netWorth,
+            ),
+          },
         );
         const preferredShares = preferredReconcile.shares;
         for (const toast of relationshipToasts.slice(0, 3)) {
@@ -2135,11 +2140,17 @@ export const useMarketStore = create<MarketStore>()(
           return { success: false, message: "벤치마크 정보를 불러오지 못했습니다." };
         }
         const arc = getStoryArcAtSession(session);
+        const concentration = computeCharacterConcentration(
+          state.holdings,
+          state.stocks,
+          equity,
+        );
         const issuer = resolveMissionIssuer(
           state.holdings,
           STOCK_DEFINITIONS,
-          Object.fromEntries(state.stocks.map((x) => [x.id, x.currentPrice])),
+          concentration,
           arc.character?.id,
+          session,
         );
         if (!issuer) {
           return {
@@ -2557,41 +2568,18 @@ export const useMarketStore = create<MarketStore>()(
         const s = get();
         const unlocked = new Set(s.achievements);
         const equity = fullEquityOf(s);
-        // 캐릭터(기업)별 보유 종목 가치 비중 — 원 앤 온리·트윈 스타 판정용.
-        // 직접 회사 종목뿐 아니라 그 회사를 기초로 한 커버드콜·레버리지 파생도
-        // 같은 캐릭터에 합산한다.
-        const byCharacter = new Map<string, number>();
-        for (const h of s.holdings) {
-          const stock = s.stocks.find((x) => x.id === h.stockId);
-          if (!stock) continue;
-          let ceoId = stock.ceoId;
-          if (!ceoId) {
-            // 인버스·곱버스(음수 레버리지)는 그 캐릭터에 반대 베팅이므로 제외한다.
-            const underlyingId =
-              stock.coveredCallUnderlyingId ??
-              ((stock.leverage ?? 0) > 0
-                ? stock.leverageUnderlyingId
-                : undefined);
-            ceoId = underlyingId
-              ? s.stocks.find((x) => x.id === underlyingId)?.ceoId
-              : undefined;
-          }
-          if (!ceoId) continue;
-          byCharacter.set(
-            ceoId,
-            (byCharacter.get(ceoId) ?? 0) + h.quantity * stock.currentPrice,
-          );
-        }
-        const shares =
-          equity > 0
-            ? [...byCharacter.values()]
-                .map((v) => v / equity)
-                .sort((a, b) => b - a)
-            : [];
+        // 캐릭터별 보유 집중도 — 원 앤 온리·트윈 스타·트리플 하르모니아 판정용.
+        const concentration = computeCharacterConcentration(
+          s.holdings,
+          s.stocks,
+          equity,
+        );
         const ctx = {
           netWorth: equity,
-          topCharacterShare: shares[0] ?? 0,
-          topTwoCharacterShare: shares.length >= 2 ? shares[0] + shares[1] : 0,
+          topCharacterShare: concentration.topCharacterShare,
+          topTwoCharacterShare: concentration.topTwoCharacterShare,
+          topThreeCharacterShare: concentration.topThreeCharacterShare,
+          heldCharacterCount: concentration.heldCount,
           initialCash: s.initialCash,
           tradeCount: s.trades.length,
           hasShorted: s.trades.some((t) => t.type === "short"),
@@ -2905,15 +2893,10 @@ export const useMarketStore = create<MarketStore>()(
               ]),
             )
           : normalizedProgress;
-        // 저장된 우선주 복원 + 동맹 도달분 멱등 발행 (오프라인 누적 대응)
-        const preferredShares = reconcilePreferredShares(
-          characterProgress,
-          normalizePreferredShares(
-            (walletSource as Partial<MarketStore>).preferredShares,
-          ),
-          nowSession,
-          Date.now(),
-        ).shares;
+        // 저장된 우선주만 복원 — 발행(집중도 판정 필요)은 직후 tick 정산이 담당.
+        const preferredShares = normalizePreferredShares(
+          (walletSource as Partial<MarketStore>).preferredShares,
+        );
 
         return {
           ...walletSource,

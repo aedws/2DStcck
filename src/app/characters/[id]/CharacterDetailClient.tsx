@@ -127,14 +127,23 @@ export function CharacterDetailClient({ id }: { id: string }) {
             <div className="h-full rounded-full bg-blue-400" style={{ width: `${progress.trust}%` }} />
           </div>
         </div>
-        <div className="rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4">
-          <p className="text-xs text-pink-400">개인 호감도</p>
+        <div className={`rounded-2xl border p-4 ${progress.affinity < 0 ? "border-red-500/30 bg-red-500/5" : "border-pink-500/20 bg-pink-500/5"}`}>
+          <p className={`text-xs ${progress.affinity < 0 ? "text-red-400" : "text-pink-400"}`}>
+            개인 호감도{progress.affinity < 0 ? " · ⚔️ 적대" : ""}
+          </p>
           <p className="mt-1 text-xl font-bold tabular-nums">{progress.affinity}<span className="text-xs font-normal text-[var(--muted)]"> / 120</span></p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
-            <div className="h-full rounded-full bg-pink-400" style={{ width: `${(progress.affinity / 120) * 100}%` }} />
+            <div className="h-full rounded-full bg-pink-400" style={{ width: `${Math.max(0, (progress.affinity / 120) * 100)}%` }} />
           </div>
         </div>
       </div>
+
+      {progress.affinity < 0 && (
+        <p className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-xs leading-relaxed text-red-300">
+          ⚔️ 인버스·곱버스로 이 캐릭터에 반대 베팅 중입니다. 호감도가 음수로 내려가
+          주주 권리가 약해져 우선주 배당이 감소하고, 우선주 발행도 막힙니다.
+        </p>
+      )}
 
       {preferredShare ? (
         <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4">
@@ -142,7 +151,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
             🎖️ 동맹 보상 우선주 {preferredShare.shares}좌 보유 중
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            {company.name}이(가) 발행한 매매불가 특별주. 액면{" "}
+            {company.name}이(가) 발행한 매매불가 특별주(액면 = 발행 시 본주×1.15). 액면{" "}
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}으로
             총자산과 랭킹에 반영됩니다.
@@ -152,8 +161,9 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <div className="mt-4 rounded-2xl border border-dashed border-[var(--border)] p-4">
           <p className="text-sm font-semibold">🎖️ 동맹 보상 우선주</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 시 {company.name}이(가)
-            고배당 우선주 1좌를 발행해 선물합니다. 앞으로 호감{" "}
+            호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 + 집중 투자(원 앤 온리·트윈
+            스타·트리플 하르모니아) 상태일 때 {company.name}이(가) 고배당 우선주
+            1좌를 발행합니다. 앞으로 호감{" "}
             <span className="font-semibold text-pink-400">{untilAlly}</span> 더 필요.
           </p>
         </div>

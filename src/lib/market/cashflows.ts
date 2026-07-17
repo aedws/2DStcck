@@ -1,9 +1,14 @@
 import type {
   CashPayment,
+  CharacterProgressMap,
   Holding,
   PreferredShare,
   StockState,
 } from "@/lib/types/market";
+import {
+  getCharacterProgress,
+  shareholderRightFactor,
+} from "@/lib/market/characterProgress";
 import { applyCashDistributionToStock } from "@/lib/market/engine";
 import {
   calculateCoveredCallDistribution,
@@ -30,6 +35,7 @@ export interface LocalCashflowInput {
   stocks: StockState[];
   cashPayments: CashPayment[];
   preferredShares?: PreferredShare[];
+  characterProgress?: CharacterProgressMap;
 }
 
 export interface LocalCashflowSettlement {
@@ -217,11 +223,18 @@ export function settleLocalCashflows(
     }
   }
 
-  // 관계 보상 우선주 배당 — 분기 배당과 같은 그리드로 지급 (시세와 무관한 고정액)
+  // 관계 보상 우선주 배당 — 분기 배당과 같은 그리드로 지급 (시세와 무관한 고정액).
+  // 인버스·곱버스 보유로 호감이 음수(적대)면 주주권리 계수만큼 배당이 감소한다.
   const preferredShares = input.preferredShares ?? [];
   for (const dueSession of quarterly.dueSessions) {
     for (const share of preferredShares) {
-      const amount = Math.round(share.dividendPerShare * share.shares);
+      const affinity = getCharacterProgress(
+        input.characterProgress ?? {},
+        share.characterId,
+      ).affinity;
+      const amount = Math.round(
+        share.dividendPerShare * share.shares * shareholderRightFactor(affinity),
+      );
       if (amount <= 0) continue;
       creditOnce({
         id: `preferred-dividend-${share.characterId}-${dueSession}`,

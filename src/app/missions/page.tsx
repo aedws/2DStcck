@@ -17,6 +17,7 @@ import {
   missionProgressPercent,
   resolveMissionIssuer,
 } from "@/lib/market/missions";
+import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import {
   STORY_DECISION_OFFERS,
   STORY_BOND_DECISION_OFFER,
@@ -67,12 +68,18 @@ export default function MissionsPage() {
   const benchmarkPrice = benchmark?.currentPrice ?? 0;
   const relationship = getCharacterProgress(characterProgressMap, arc.character?.id);
   const bondChoiceAvailable = canUseBondChoice(relationship, arc.windowStart);
-  // 의뢰 발행자는 '보유 중인 캐릭터'로 한정 (수집→의뢰 연결)
+  // 의뢰 발행자: 집중(원앤온리·트윈스타·트리플하르모니아)이면 지정, 아니면 보유 랜덤
+  const issuerConcentration = computeCharacterConcentration(
+    holdings,
+    stocks,
+    equity,
+  );
   const issuer = resolveMissionIssuer(
     holdings,
     getCompanyDefinitions(),
-    Object.fromEntries(stocks.map((stock) => [stock.id, stock.currentPrice])),
+    issuerConcentration,
     arc.character?.id,
+    session,
   );
   const issuerCharacter = getCharacterById(issuer?.characterId);
   const issuerRelationship = getCharacterProgress(
@@ -253,7 +260,9 @@ export default function MissionsPage() {
             <p className="col-span-full -mb-1 text-xs text-[var(--muted)]">
               발행 · {issuerCharacter?.emoji} {issuerCharacter?.name}
               <span className="text-[var(--border)]"> · </span>
-              보유 캐릭터가 맡기는 의뢰입니다.
+              {issuer.targeted
+                ? "🎯 집중 투자 지정 의뢰"
+                : "보유 캐릭터가 맡기는 의뢰"}
             </p>
             {missionOffers.map((offer) => (
               <div key={offer.kind} className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">

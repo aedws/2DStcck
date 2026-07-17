@@ -4,15 +4,20 @@ import {
   getCharacterProgress,
   PREFERRED_SHARE_AFFINITY,
 } from "@/lib/market/characterProgress";
+import type { CharacterConcentration } from "@/lib/market/characterConcentration";
+import { isPreferredEligible } from "@/lib/market/characterConcentration";
 import type {
   CharacterProgressMap,
   PreferredShare,
+  StockState,
 } from "@/lib/types/market";
 
-/** 우선주 1좌 액면가 (총자산 반영, 시세와 무관한 고정값). */
-export const PREFERRED_FACE_VALUE = 80_000;
-/** 우선주 1좌 분기 배당액 (고배당). */
-export const PREFERRED_QUARTERLY_DIVIDEND = 4_000;
+/** 우선주 액면가 = 발행 시점 본주 가격 × 1.15 (15% 상향, 이후 고정). */
+export const PREFERRED_FACE_PREMIUM = 1.15;
+/** 우선주 분기 배당률 = 본주 분기 배당률 + 2.5%p. */
+export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.025;
+/** 시세를 못 구할 때 쓰는 액면 하한 (초기 발행 안전장치). */
+const PREFERRED_FACE_FALLBACK = 80_000;
 
 /** 보유 우선주의 총 액면가치. */
 export function getPreferredShareValue(shares: PreferredShare[]): number {
@@ -29,23 +34,47 @@ export function getPreferredQuarterlyDividend(shares: PreferredShare[]): number 
 }
 
 /**
- * 동맹(호감 100) 이상인 캐릭터에게 아직 발행하지 않은 우선주를 발행한다.
- * 멱등: 이미 보유한 캐릭터는 건너뛰므로 오프라인 누적분도 로드 시 한 번만 정산된다.
- * 새로 발행된 우선주 목록을 함께 돌려줘 발행 축하 토스트에 쓴다.
+ * 우선주를 발행한다. 조건: ① 호감 100(동맹) 이상, ② 원 앤 온리·트윈 스타·
+ * 트리플 하르모니아 중 하나를 만족하는 '지정(집중) 캐릭터', ③ 아직 미발행.
+ * 액면 = 발행 시점 본주 × 1.15, 분기 배당 = 액면 × (본주 분기배당률 + 2.5%p).
+ * 멱등: 이미 보유한 캐릭터는 건너뛰어 오프라인 누적분도 한 번만 정산된다.
+ * 새로 발행된 목록을 함께 돌려줘 발행 축하 토스트에 쓴다.
  */
 export function reconcilePreferredShares(
   progress: CharacterProgressMap,
   existing: PreferredShare[],
   session: number,
   now: number,
+  context?: { stocks: StockState[]; concentration: CharacterConcentration },
 ): { shares: PreferredShare[]; issued: PreferredShare[] } {
+  // 컨텍스트가 없으면(보유 데이터 미확보) 발행하지 않고 기존 목록 유지.
+  if (!context || !isPreferredEligible(context.concentration)) {
+    return { shares: existing, issued: [] };
+  }
+  const focused = new Set(context.concentration.focusedCharacterIds);
+  const stockByCharacter = new Map<string, StockState>();
+  for (const stock of context.stocks) {
+    if (stock.ceoId && stock.leverage === undefined && !stock.coveredCallUnderlyingId) {
+      stockByCharacter.set(stock.ceoId, stock);
+    }
+  }
+
   const owned = new Set(existing.map((share) => share.characterId));
   const issued: PreferredShare[] = [];
   for (const company of getCompanyDefinitions()) {
     const characterId = company.ceoId;
-    if (!characterId || owned.has(characterId)) continue;
+    if (!characterId || owned.has(characterId) || !focused.has(characterId)) continue;
     const affinity = getCharacterProgress(progress, characterId).affinity;
     if (affinity < PREFERRED_SHARE_AFFINITY) continue;
+    const stock = stockByCharacter.get(characterId);
+    const price = stock?.currentPrice ?? 0;
+    const faceValue =
+      price > 0 ? Math.round(price * PREFERRED_FACE_PREMIUM) : PREFERRED_FACE_FALLBACK;
+    const commonYield =
+      price > 0 ? (stock?.quarterlyDividend ?? 0) / price : 0;
+    const dividendPerShare = Math.round(
+      faceValue * (commonYield + PREFERRED_DIVIDEND_YIELD_BONUS),
+    );
     const ceo = getCharacterById(characterId);
     issued.push({
       characterId,
@@ -54,8 +83,8 @@ export function reconcilePreferredShares(
       companyName: company.name,
       emoji: ceo?.emoji ?? "🎖️",
       shares: 1,
-      faceValue: PREFERRED_FACE_VALUE,
-      dividendPerShare: PREFERRED_QUARTERLY_DIVIDEND,
+      faceValue,
+      dividendPerShare,
       issuedSession: session,
       issuedAt: now,
     });
@@ -85,11 +114,8 @@ export function normalizePreferredShares(value: unknown): PreferredShare[] {
       companyName: typeof item.companyName === "string" ? item.companyName : "",
       emoji: typeof item.emoji === "string" ? item.emoji : "🎖️",
       shares: Math.max(1, Math.floor(Number(item.shares) || 1)),
-      faceValue: Math.max(0, Number(item.faceValue) || PREFERRED_FACE_VALUE),
-      dividendPerShare: Math.max(
-        0,
-        Number(item.dividendPerShare) || PREFERRED_QUARTERLY_DIVIDEND,
-      ),
+      faceValue: Math.max(0, Number(item.faceValue) || PREFERRED_FACE_FALLBACK),
+      dividendPerShare: Math.max(0, Number(item.dividendPerShare) || 0),
       issuedSession: Math.max(0, Math.floor(Number(item.issuedSession) || 0)),
       issuedAt: Number(item.issuedAt) || 0,
     });

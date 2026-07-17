@@ -7,32 +7,55 @@ import type {
 export const MISSION_WINDOW_SESSIONS = 5;
 const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 
+export interface MissionIssuer {
+  characterId: string;
+  companyId: string;
+  /** 원 앤 온리·트윈 스타·트리플 하르모니아 집중 상태에서 '지정'으로 뜬 의뢰인지 */
+  targeted: boolean;
+}
+
 /**
- * 의뢰를 발행하는 캐릭터는 '보유 중인 캐릭터 기업'으로 한정한다. 현재 진행 사건의
- * 캐릭터를 보유 중이면 그 캐릭터가, 아니면 보유 비중이 가장 큰 캐릭터 기업이 발행한다.
+ * 의뢰 발행자 선정. 원 앤 온리·트윈 스타·트리플 하르모니아 집중 상태이면 지정
+ * 캐릭터(집중 대상, 진행 사건 캐릭터를 그 안에 보유했다면 우선)가 '지정'으로 발행하고,
+ * 그 외에는 보유 캐릭터 중에서 회차 시드로 결정론적으로 랜덤 발행한다.
  * 보유한 캐릭터 종목이 하나도 없으면 null (의뢰를 받을 수 없음).
  */
 export function resolveMissionIssuer(
   holdings: { stockId: string; quantity: number }[],
   companies: { id: string; ceoId?: string }[],
-  prices: Record<string, number>,
-  arcCharacterId?: string,
-): { characterId: string; companyId: string } | null {
+  concentration: { focusedCharacterIds: string[]; oneAndOnly: boolean; twinStar: boolean; tripleHarmonia: boolean },
+  arcCharacterId: string | undefined,
+  seed: number,
+): MissionIssuer | null {
   const quantityById = new Map(holdings.map((h) => [h.stockId, h.quantity]));
   const held = companies.filter(
     (company) => company.ceoId && (quantityById.get(company.id) ?? 0) > 0,
   );
   if (held.length === 0) return null;
-  const arcHeld = held.find((company) => company.ceoId === arcCharacterId);
-  const chosen =
-    arcHeld ??
-    held
-      .map((company) => ({
-        company,
-        value: (quantityById.get(company.id) ?? 0) * (prices[company.id] ?? 0),
-      }))
-      .sort((a, b) => b.value - a.value)[0].company;
-  return { characterId: chosen.ceoId!, companyId: chosen.id };
+
+  const eligible =
+    concentration.oneAndOnly || concentration.twinStar || concentration.tripleHarmonia;
+  if (eligible) {
+    const focused = new Set(concentration.focusedCharacterIds);
+    const focusedHeld = held.filter((company) => focused.has(company.ceoId!));
+    if (focusedHeld.length > 0) {
+      const arcFocused = focusedHeld.find((c) => c.ceoId === arcCharacterId);
+      // 집중 대상 중 진행 사건 캐릭터 우선, 없으면 집중 순위(배열 앞)를 따른다.
+      const chosen =
+        arcFocused ??
+        focusedHeld.sort(
+          (a, b) =>
+            concentration.focusedCharacterIds.indexOf(a.ceoId!) -
+            concentration.focusedCharacterIds.indexOf(b.ceoId!),
+        )[0];
+      return { characterId: chosen.ceoId!, companyId: chosen.id, targeted: true };
+    }
+  }
+
+  // 비집중: 보유 캐릭터 중 회차 시드로 결정론적 랜덤
+  const index = Math.abs(Math.floor(seed)) % held.length;
+  const chosen = held[index];
+  return { characterId: chosen.ceoId!, companyId: chosen.id, targeted: false };
 }
 
 export interface InvestmentMissionOffer {
