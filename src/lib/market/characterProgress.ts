@@ -24,12 +24,12 @@ function clampAffinity(value: number): number {
 
 /**
  * 주주 권리 계수 — 호감도가 음수(인버스·곱버스로 적대)면 배당 권리가 약해진다.
- * 스펙: 약한 권리 = 호감도/10000. 양수(우호)면 온전한 1.0, 음수면 1 + 호감/10000
- * 로 완만히 감소해 0에서 멈춘다. (호감 하한 -120 기준 최대 약 1.2% 감소)
+ * 우호(≥0)면 온전한 1.0, 적대면 하한(−120)까지 선형으로 감소해 0%(배당 전무)에
+ * 이른다. 예: 호감 −60 → 0.5(배당 절반), −120 → 0(배당 없음).
  */
 export function shareholderRightFactor(affinity: number): number {
   if (affinity >= 0) return 1;
-  return Math.max(0, 1 + affinity / 10000);
+  return Math.max(0, 1 + affinity / Math.abs(MIN_CHARACTER_AFFINITY));
 }
 
 export interface RelationshipTier {
