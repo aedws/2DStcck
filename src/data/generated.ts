@@ -1195,4 +1195,785 @@ export const CSV_CHARACTERS: Character[] = [
   }
 ];
 
-export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = [];
+export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
+  {
+    "characterId": "chr_baridc",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "태스크 목록에 한 줄 추가해 두죠. '성공'.",
+      "예상 범위 안입니다. 굳이 나설 일은 아니네요.",
+      "좋은 결과군요. 다음 지시는 화면으로 내리겠습니다."
+    ]
+  },
+  {
+    "characterId": "chr_baridc",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "오차는 계산에 넣어 뒀습니다. 소란 떨 필요 없어요.",
+      "…처리하겠습니다. 얼굴을 비출 만한 일은 아니고요.",
+      "변수는 회수합니다. 목록 맨 위로 올려두죠."
+    ]
+  },
+  {
+    "characterId": "chr_baqqq",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "지표가 전부 우상향이에요. 숫자는 거짓말을 안 하니까요.",
+      "미소 지을 이유가 하나 늘었네요. 데이터로 확인됐습니다.",
+      "이 흐름"
+    ]
+  },
+  {
+    "characterId": "chr_baqqq",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "수치가 흔들렸네요. 원인 지표부터 다시 외워 두겠습니다.",
+      "웃고는 있지만",
+      "뒤로는 전량 재검산 중입니다."
+    ]
+  },
+  {
+    "characterId": "chr_bamlb",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "1원 단위까지 맞아떨어졌습니다. 이게 정상이죠.",
+      "장부가 이렇게 예쁠 때가 제일 안심돼요.",
+      "수익도 좋지만"
+    ]
+  },
+  {
+    "characterId": "chr_bamlb",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "어디서 새어나갔는지 소수점까지 추적하겠습니다.",
+      "이 오차",
+      "밤을 새워서라도 오늘 안에 메꿉니다."
+    ]
+  },
+  {
+    "characterId": "chr_bagdi",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "이번 판",
+      "완벽한 클리어네요! 다음 스테이지 갑니다.",
+      "수치가 반짝이고 있어요. 이런 게 개발자의 보람이죠!"
+    ]
+  },
+  {
+    "characterId": "chr_bagdi",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "으윽",
+      "여기서 리스폰이네요. 세이브 포인트부터 다시!",
+      "버그는 잡으라고 있는 거예요. 패치 준비할게요."
+    ]
+  },
+  {
+    "characterId": "chr_bavts",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "방화벽 안쪽은 조용하네요. 그게 최고의 성과죠.",
+      "로그가 깨끗합니다. 이대로만 흘러가면 됩니다.",
+      "화면 밖은 시끄럽겠지만"
+    ]
+  },
+  {
+    "characterId": "chr_bavts",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "침입 흔적이군요. 병상에서도 손은 움직입니다.",
+      "패치는 이미 짜뒀어요. 소란 떨 새에 막는 게 낫죠.",
+      "취약점 하나 찾았다 생각하면 됩니다. 메꾸면 그만."
+    ]
+  },
+  {
+    "characterId": "chr_banru",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋아",
+      "이겼으면 됐어. 말은 그만하고 다음.",
+      "결과로 보여줬잖아. 이런 게 실전이지."
+    ]
+  },
+  {
+    "characterId": "chr_banru",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "맞았으면 되받아치면 돼. 물러설 생각 없어.",
+      "잔소리 말고 현장 나가자. 몸으로 메꾼다.",
+      "넘어졌으면 일어나면 그만이야. 별거 아냐."
+    ]
+  },
+  {
+    "characterId": "chr_bahbk",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "어",
+      "잘 맞았네요… 제원대로라 다행이에요.",
+      "계산이 빗나가지 않아서 정말 다행입니다…."
+    ]
+  },
+  {
+    "characterId": "chr_bahbk",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "조준을 다시 잡을게요. 다음엔 안 빗나가요….",
+      "죄",
+      "죄송해요. 제원을 처음부터 재계산할게요."
+    ]
+  },
+  {
+    "characterId": "chr_basmr",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 소식이네요. 다들 무리하지 않으셨으면 해요.",
+      "결과가 좋아도 건강이 우선이에요. 천천히 가요.",
+      "이럴 때일수록 마음을 잘 돌봐야 해요."
+    ]
+  },
+  {
+    "characterId": "chr_basmr",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "괜찮아요",
+      "다친 곳부터 살펴봐요. 회복이 먼저예요.",
+      "나빠도 당황하지 마세요. 하나씩 치료하면 돼요."
+    ]
+  },
+  {
+    "characterId": "chr_baspy",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "예상대로입니다. 감상은 접고 다음 안건으로.",
+      "좋은 실적이군요. 다만 방심이 가장 비쌉니다.",
+      "성과는 인정합니다. 그럼 목표를 상향하죠."
+    ]
+  },
+  {
+    "characterId": "chr_baspy",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "감정은 사치입니다. 대응안부터 정리하죠.",
+      "이 정도 변수는 계산에 있었습니다. 냉정하게 갑니다.",
+      "책임 소재보다 복구 순서가 먼저입니다."
+    ]
+  },
+  {
+    "characterId": "chr_bakaya",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "후훗",
+      "납기도 실적도 지켰네요. 당연한 결과죠?",
+      "웃으면서 말하지만"
+    ]
+  },
+  {
+    "characterId": "chr_bakaya",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "어머",
+      "이런. 그래도 납기는 지켜야겠죠? 후훗.",
+      "웃는 얼굴로 말하지만"
+    ]
+  },
+  {
+    "characterId": "chr_bakvb",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "서류상 이상 없습니다. 좋은 결과네요.",
+      "차분히 처리했습니다. 이런 날이 제일 좋아요.",
+      "실수 없이 마무리됐습니다. 다행이에요."
+    ]
+  },
+  {
+    "characterId": "chr_bakvb",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "당황하지 않고 서류부터 다시 확인하겠습니다.",
+      "실수는 없었는지 처음부터 짚어 보겠습니다.",
+      "조용히"
+    ]
+  },
+  {
+    "characterId": "chr_baabs",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "오",
+      "잘 풀렸구먼. 이럴 때 낮잠이 꿀맛이지.",
+      "됐고"
+    ]
+  },
+  {
+    "characterId": "chr_baabs",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "걱정 마. 위험할 때 맨 앞에 서는 게 내 일이야.",
+      "넘어졌으면 어때. 뒤는 내가 막을 테니 가.",
+      "별일 아니야. 한숨 자고 나면 방법 나와."
+    ]
+  },
+  {
+    "characterId": "chr_baabb",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "후훗",
+      "오늘은 빚이 조금 줄겠네요. 기쁜 일이에요.",
+      "수익 났다고요? 장부에 웃으면서 적어 둘게요."
+    ]
+  },
+  {
+    "characterId": "chr_baabb",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "괜찮아요",
+      "웃으면서 갚아 나가면 되니까요.",
+      "빚은 늘 있었는걸요. 하나씩 메꾸면 돼요."
+    ]
+  },
+  {
+    "characterId": "chr_ba68",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "흥",
+      "이번 의뢰는 깔끔하게 해결됐군. 하드보일드하게.",
+      "봤지? 이런 게 진짜 해결사의 일이라고."
+    ]
+  },
+  {
+    "characterId": "chr_ba68",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "쳇",
+      "또 일이 꼬였군… 그래도 의뢰는 완수한다.",
+      "이 정도 트러블은 각본에 있었어. 아마도."
+    ]
+  },
+  {
+    "characterId": "chr_bahina",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 결과군요. 하지만 저는 아직 자리를 뜨지 않습니다.",
+      "성과는 확인했습니다. 다음 업무로 넘어가죠.",
+      "만족스럽네요. 잠은 다 끝낸 뒤에 자겠습니다."
+    ]
+  },
+  {
+    "characterId": "chr_bahina",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "질서가 흔들렸군요. 제가 바로 세우겠습니다.",
+      "이 정도 혼란은 제가 밤새워 정리하면 됩니다.",
+      "물러설 이유가 없습니다. 끝까지 책임지죠."
+    ]
+  },
+  {
+    "characterId": "chr_bahrn",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "이 맛이에요. 완벽한 한 접시가 완성됐네요.",
+      "극한의 맛엔 극한의 결과가 따르는 법이죠.",
+      "우아하게 즐기세요. 이건 저의 걸작이니까요."
+    ]
+  },
+  {
+    "characterId": "chr_bahrn",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "미완성이군요. 완벽한 맛을 위해 다시 만들죠.",
+      "실패한 레시피는 버리면 그만. 재료는 얼마든지 있어요.",
+      "이 정도로 물러설 미식가는 없어요. 다시 불을 켜죠."
+    ]
+  },
+  {
+    "characterId": "chr_bafka",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "한정된 재료로 이만하면 기적이죠. 다행이에요.",
+      "다들 맛있게 먹어 준다면 그걸로 충분해요.",
+      "좋은 소식이네요. 오늘 급식은 특별식으로 할까요."
+    ]
+  },
+  {
+    "characterId": "chr_bafka",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "재료가 부족해도 굶기진 않아요. 방법을 찾죠.",
+      "모자란 대로 최선을 다해 한 끼를 지키겠습니다.",
+      "걱정 마세요. 없으면 없는 대로 만들어 내니까요."
+    ]
+  },
+  {
+    "characterId": "chr_basena",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 소식이군요. 하지만 방심은 금물입니다.",
+      "구할 수 있었다면 그걸로 됐습니다. 다음 현장으로.",
+      "결과가 좋아도 저는 대기 태세를 풀지 않습니다."
+    ]
+  },
+  {
+    "characterId": "chr_basena",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "환자가 있는 곳이면 어디든 달려갑니다. 늦지 않아요.",
+      "위급할수록 침착하게. 손이 떨리면 못 구합니다.",
+      "포기라는 선택지는 제 사전에 없습니다."
+    ]
+  },
+  {
+    "characterId": "chr_baksm",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "오",
+      "잘 부쉈… 아니",
+      "잘 지었네! 결과 좋다!"
+    ]
+  },
+  {
+    "characterId": "chr_baksm",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "무너졌으면 다시 세우면 되지! 그게 건설이야!",
+      "어이쿠",
+      "좀 부쉈나? 뭐 새로 지으면 되니까!"
+    ]
+  },
+  {
+    "characterId": "chr_bakrr",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "반짝반짝! 이런 소식은 언제나 환영이에요!",
+      "예뻐요",
+      "이 결과! 트렌드는 우리가 만드는 거죠."
+    ]
+  },
+  {
+    "characterId": "chr_bakrr",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "조금 칙칙해졌네요. 다음 컬렉션으로 덮으면 돼요!",
+      "트렌드는 돌고 도니까요. 곧 다시 반짝일 거예요.",
+      "흠집 났다고 버리나요? 새로 칠하면 그만이죠!"
+    ]
+  },
+  {
+    "characterId": "chr_baghb",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "후하하! 당연한 결과다. 이 몸의 계산이니까!",
+      "게헨나의 지배자에겐 이 정도는 시시하군.",
+      "좋아"
+    ]
+  },
+  {
+    "characterId": "chr_baghb",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "크윽",
+      "이 정도 폭주는 계획의 일부다… 아마도!",
+      "물러설 것 같나? 오히려 판을 뒤엎어 주지!"
+    ]
+  },
+  {
+    "characterId": "chr_bahnk",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "오늘 수업은 잘됐네~ 아",
+      "실적 말이에요 실적!",
+      "이런 날은 딴소리해도 용서되겠죠? 헤헤."
+    ]
+  },
+  {
+    "characterId": "chr_bahnk",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "에이",
+      "이런 날도 있는 거죠~ 다음 시간에 만회!",
+      "망했다~ 싶어도 웃으면 반은 넘긴 거예요."
+    ]
+  },
+  {
+    "characterId": "chr_baszm",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "맡은 구역",
+      "이상 없이 지켜냈습니다. 다행이에요.",
+      "좋은 결과입니다. 하지만 경계는 늦추지 않아요."
+    ]
+  },
+  {
+    "characterId": "chr_baszm",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "흔들려도 제 자리는 지킵니다. 그게 제 원칙이에요.",
+      "물러설 수 없습니다. 이 구역은 제가 맡았으니까요.",
+      "당황하지 않겠습니다. 매뉴얼대로 대응합니다."
+    ]
+  },
+  {
+    "characterId": "chr_baui",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "…좋은 소식이네요. 조용히 기뻐하겠습니다.",
+      "원고를 다듬듯",
+      "이 성과도 차분히 정리해 두죠."
+    ]
+  },
+  {
+    "characterId": "chr_baui",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "…괜찮아요. 밤새워 고치면 되니까요.",
+      "오탈자를 잡듯",
+      "문제도 하나씩 짚어 나가죠."
+    ]
+  },
+  {
+    "characterId": "chr_baair",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 소식이네요. 오늘 오시는 분들께 서비스 드려야겠어요.",
+      "따뜻한 하루예요. 단골분들도 기뻐하시겠죠?",
+      "이런 날은 커피 향이 유난히 좋게 느껴져요."
+    ]
+  },
+  {
+    "characterId": "chr_baair",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "힘든 날이지만",
+      "따뜻한 한 잔이면 견딜 수 있어요.",
+      "괜찮아요. 손님 한 분 한 분 챙기다 보면 지나가요."
+    ]
+  },
+  {
+    "characterId": "chr_bamine",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "임상 데이터가 좋게 나왔어요. 이럴 때 눈빛이 바뀌죠.",
+      "수치가 유의미합니다. 다음 상을 준비하죠.",
+      "데이터가 옳았어요. 연구는 거짓말을 안 하니까요."
+    ]
+  },
+  {
+    "characterId": "chr_bamine",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "실패한 데이터도 데이터예요. 다시 설계하죠.",
+      "파이프라인 하나 접혔다고 멈추진 않아요. 다음 후보로.",
+      "감정보다 근거예요. 원인부터 규명하겠습니다."
+    ]
+  },
+  {
+    "characterId": "chr_batrg",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "정의가 이겼군! 수리비는… 나중에 생각하자!",
+      "좋아",
+      "악을 물리쳤으면 된 거다! 출동 보람 있었어!"
+    ]
+  },
+  {
+    "characterId": "chr_batrg",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "견적? 그런 건 나중이다! 지금은 출동이 먼저야!",
+      "정의 앞에 후퇴는 없다! 부서진 건 나중에 고치지!",
+      "쓰러져도 다시 선다! 그게 정의의 대장이니까!"
+    ]
+  },
+  {
+    "characterId": "chr_bamari",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 소식이네요. 여정이 순탄할 것 같아요.",
+      "여행자분들도 기뻐하시겠죠. 저도 마음이 놓여요.",
+      "이런 날의 풍경은 유난히 아름답게 보여요."
+    ]
+  },
+  {
+    "characterId": "chr_bamari",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "길이 험해도 안내는 계속됩니다. 걱정 마세요.",
+      "흐린 날의 순례도 나름의 의미가 있는 법이죠.",
+      "당황하지 않을게요. 여행자분들 마음부터 살피겠습니다."
+    ]
+  },
+  {
+    "characterId": "chr_batrb",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "어머",
+      "근사한 소식이네요. 오늘 티파티는 축배로 할까요.",
+      "후훗"
+    ]
+  },
+  {
+    "characterId": "chr_batrb",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "어머 이런. 하지만 제 변덕은 이 정도로 안 끝나요.",
+      "흠",
+      "조금 흐려졌네요. 곧 다시 화사하게 만들죠."
+    ]
+  },
+  {
+    "characterId": "chr_wwjin",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 결과군요. 하지만 여기서 결단을 늦추진 않겠습니다.",
+      "온화하게 받아들이되",
+      "다음 수는 이미 두고 있어요."
+    ]
+  },
+  {
+    "characterId": "chr_wwjin",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "흔들림은 잠시입니다. 결단은 누구보다 빠르게 내리죠.",
+      "침착하게",
+      "그러나 단호하게 방향을 잡겠습니다."
+    ]
+  },
+  {
+    "characterId": "chr_wwchl",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "불꽃처럼 번지는 흐름이군. 판은 내가 설계한 대로다.",
+      "좋은 결과다. 하지만 이건 큰 그림의 한 수에 불과해.",
+      "통찰이 맞아떨어졌군. 다음 판도 이미 보인다."
+    ]
+  },
+  {
+    "characterId": "chr_wwchl",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "불이 꺼진 게 아니야. 다시 지피면 그만이지.",
+      "판이 흔들려도 설계도는 내 손에 있다. 침착하게.",
+      "위기는 전략가에겐 재료일 뿐. 판을 다시 짜지."
+    ]
+  },
+  {
+    "characterId": "chr_wwxly",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "실험 성공이에요. 밤을 새운 보람이 있네요.",
+      "데이터가 예쁘게 나왔어요. 이래서 연구를 멈출 수 없죠.",
+      "가설이 맞았어요. 다음 실험도 바로 시작할래요."
+    ]
+  },
+  {
+    "characterId": "chr_wwxly",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "실패도 데이터예요. 변수만 바꿔서 다시 돌리죠.",
+      "밤낮이 무슨 상관인가요. 될 때까지 실험할 뿐이에요.",
+      "이 오류"
+    ]
+  },
+  {
+    "characterId": "chr_wwjyn",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "화물은 무사히 도착했습니다. 그거면 됐죠.",
+      "악천후에도 항로를 지켰습니다. 좋은 결과네요.",
+      "청룡의 이름을 걸었으니"
+    ]
+  },
+  {
+    "characterId": "chr_wwjyn",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "폭풍이 와도 화물은 반드시 도착시킵니다. 걱정 마세요.",
+      "항로가 험해도 기장은 조종간을 놓지 않습니다.",
+      "악천후는 늘 있는 일. 침착하게 고도를 잡죠."
+    ]
+  },
+  {
+    "characterId": "chr_wwskp",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "…네트워크는 조용합니다. 그게 가장 좋은 소식이죠.",
+      "등대처럼",
+      "저는 그저 제자리를 지켰을 뿐입니다."
+    ]
+  },
+  {
+    "characterId": "chr_wwskp",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "…신호가 끊겼군요. 조용히 복구하겠습니다.",
+      "소란 떨 것 없어요. 회선을 다시 이으면 됩니다.",
+      "어둠 속에서도 불빛은 지킵니다. 그게 제 일이에요."
+    ]
+  },
+  {
+    "characterId": "chr_wwcam",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "어머",
+      "예쁘게 피었네요. 이런 결과는 향기롭죠.",
+      "후훗"
+    ]
+  },
+  {
+    "characterId": "chr_wwcam",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "꽃이 졌다고 슬퍼 마세요. 다시 피우면 되니까요.",
+      "어머",
+      "조금 위험해졌네요. 그래서 더 재밌잖아요?"
+    ]
+  },
+  {
+    "characterId": "chr_nkltr",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "좋은 결과네요. 이 기세면 하루 만에 더 올리죠.",
+      "설계대로 완공. 이런 소식이 제일 뿌듯해요.",
+      "다음 현장도 바로 착공할까요. 쉴 틈이 없네요."
+    ]
+  },
+  {
+    "characterId": "chr_nkltr",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "무너졌으면 다시 세우죠. 그게 제 일이니까요.",
+      "잔해부터 정리하고 설계를 다시 그리겠습니다.",
+      "밤을 새워서라도 복구합니다. 도면은 제 손에 있어요."
+    ]
+  },
+  {
+    "characterId": "chr_nkvol",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "시청률 대박이에요! 이런 그림을 원했다고요!",
+      "카메라 잘 돌렸네요. 오늘 방송은 레전드예요!",
+      "반응 폭발! 다음 특집도 기대해 주세요"
+    ]
+  },
+  {
+    "characterId": "chr_nkvol",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "컷! …편집으로 살릴 수 있어요. 걱정 마세요.",
+      "시청률 떨어져도 다음 아이템으로 뒤집으면 되죠.",
+      "방송 사고도 콘텐츠예요! 이걸로 특집 하나 만들죠!"
+    ]
+  },
+  {
+    "characterId": "chr_nkneo",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "매출 좋아요! 이럴 때 신상 좀 들여놔야겠어요.",
+      "대박이에요! …이 김에 저 물건도 사도 될까요?",
+      "잘 팔렸으니 저도 기분 좋게 지갑… 아니"
+    ]
+  },
+  {
+    "characterId": "chr_nkneo",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "좀 안 팔렸네요. 그래도 좋아하는 건 못 놓겠어요.",
+      "매출 부진해도 진열은 예쁘게! 그게 제 원칙이에요.",
+      "괜찮아요"
+    ]
+  },
+  {
+    "characterId": "chr_nkexa",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "랭킹 1위 갱신! 밤새운 보람이 있네요.",
+      "이번 판",
+      "완승이에요. 다음 시즌도 정상 사수합니다."
+    ]
+  },
+  {
+    "characterId": "chr_nkexa",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "한 판 졌다고 접나요? 리트라이하면 되죠.",
+      "패배도 리플레이 분석하면 다음 승리의 재료예요.",
+      "랭킹 떨어졌네요… 오늘 밤도 새우면 되겠어요."
+    ]
+  }
+];
