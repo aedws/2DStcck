@@ -10,7 +10,11 @@ import {
 } from "@/lib/market/characterRelations";
 import type { Character, StockDefinition } from "@/lib/types/market";
 import { useMarketStore } from "@/store/marketStore";
-import { getCharacterProgress } from "@/lib/market/characterProgress";
+import {
+  getCharacterProgress,
+  getRelationshipTier,
+  MAX_CHARACTER_AFFINITY,
+} from "@/lib/market/characterProgress";
 
 const CARD_STYLE: Record<CharacterRelationStatus, string> = {
   leverage: "border-pink-400/60 bg-pink-500/10",
@@ -31,6 +35,11 @@ const BADGE_STYLE: Record<CharacterRelationStatus, string> = {
 export default function CharactersPage() {
   const holdings = useMarketStore((state) => state.holdings);
   const characterProgress = useMarketStore((state) => state.characterProgress);
+  const preferredShares = useMarketStore((state) => state.preferredShares);
+  const preferredByCharacter = useMemo(
+    () => new Set(preferredShares.map((share) => share.characterId)),
+    [preferredShares],
+  );
   const entries = useMemo(
     () =>
       getCompanyDefinitions()
@@ -45,14 +54,24 @@ export default function CharactersPage() {
   const discovered = entries.filter(
     ({ company }) => relations.get(company.id)?.unlocked,
   ).length;
+  const favorites = entries.filter(
+    ({ ceo }) =>
+      getCharacterProgress(characterProgress, ceo.id).affinity >=
+      MAX_CHARACTER_AFFINITY,
+  ).length;
 
   return (
     <div className="mx-auto max-w-4xl pb-20">
-      <div className="mb-5 flex items-baseline justify-between">
+      <div className="mb-4 flex items-baseline justify-between">
         <h1 className="text-2xl font-bold">🎭 캐릭터 도감</h1>
         <span className="text-xs text-[var(--muted)]">
           활성화 {discovered} / {entries.length}
         </span>
+      </div>
+      <div className="mb-5 grid grid-cols-3 gap-2">
+        <SummaryStat label="활성화" value={`${discovered}/${entries.length}`} tone="text-sky-400" />
+        <SummaryStat label="최애 ⭐" value={`${favorites}/${entries.length}`} tone="text-amber-400" />
+        <SummaryStat label="우선주 🎖️" value={`${preferredShares.length}/${entries.length}`} tone="text-emerald-400" />
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         일반 주식·레버리지·커버드콜을 보유하면 도감이 활성화됩니다. 인버스만 보유하면 상세 정보는 잠긴 채 적대 관계로 표시됩니다.
@@ -98,9 +117,24 @@ export default function CharactersPage() {
                   </div>
                 )}
                 {relation.unlocked && (
-                  <p className="mt-1.5 text-[10px] text-[var(--muted)]">
-                    신뢰 <span className="text-blue-400">{progress.trust}</span> · 호감 <span className="text-pink-400">{progress.affinity}</span>
-                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <span className="rounded-full bg-pink-500/15 px-2 py-0.5 font-semibold text-pink-300">
+                      {getRelationshipTier(progress.affinity).emoji}{" "}
+                      {getRelationshipTier(progress.affinity).name}
+                    </span>
+                    <span className="text-[var(--muted)]">
+                      신뢰 <span className="text-blue-400">{progress.trust}</span> · 호감{" "}
+                      <span className="text-pink-400">{progress.affinity}</span>
+                    </span>
+                    {progress.affinity >= MAX_CHARACTER_AFFINITY && (
+                      <span className="font-semibold text-amber-400">관계 완성 ★</span>
+                    )}
+                    {preferredByCharacter.has(ceo.id) && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-300">
+                        🎖️ 우선주
+                      </span>
+                    )}
+                  </div>
                 )}
                 {relation.unlocked && ceo.bio && (
                   <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[var(--muted)]">{ceo.bio}</p>
@@ -121,6 +155,23 @@ export default function CharactersPage() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+      <p className="text-[10px] text-[var(--muted)]">{label}</p>
+      <p className={`mt-0.5 text-lg font-bold tabular-nums ${tone}`}>{value}</p>
     </div>
   );
 }

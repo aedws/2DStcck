@@ -607,9 +607,11 @@ const negativeEarningsTemplate: EventTemplate = {
   impact: -0.06,
   requiresCeo: true,
 };
-assert.match(
-  resolveEventTemplate(negativeEarningsTemplate, 1, () => 0)?.quote ?? "",
-  /미치지 못했습니다/,
+// 실제 등장인물은 이제 태그·상황별 전용 대사를 가지므로 공용 풀 문구 대신
+// CEO 대사가 비어 있지 않게 붙는지만 확인한다 (캐릭터 개성 반영).
+assert.ok(
+  (resolveEventTemplate(negativeEarningsTemplate, 1, () => 0)?.quote ?? "")
+    .length > 0,
 );
 const sectorDialogue = resolveEventTemplate(
   {

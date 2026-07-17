@@ -1,4 +1,9 @@
-import type { CashPayment, Holding, StockState } from "@/lib/types/market";
+import type {
+  CashPayment,
+  Holding,
+  PreferredShare,
+  StockState,
+} from "@/lib/types/market";
 import { applyCashDistributionToStock } from "@/lib/market/engine";
 import {
   calculateCoveredCallDistribution,
@@ -24,6 +29,7 @@ export interface LocalCashflowInput {
   holdings: Holding[];
   stocks: StockState[];
   cashPayments: CashPayment[];
+  preferredShares?: PreferredShare[];
 }
 
 export interface LocalCashflowSettlement {
@@ -208,6 +214,26 @@ export function settleLocalCashflows(
           ? applyCashDistributionToStock(candidate, amountPerShare, now)
           : candidate,
       );
+    }
+  }
+
+  // 관계 보상 우선주 배당 — 분기 배당과 같은 그리드로 지급 (시세와 무관한 고정액)
+  const preferredShares = input.preferredShares ?? [];
+  for (const dueSession of quarterly.dueSessions) {
+    for (const share of preferredShares) {
+      const amount = Math.round(share.dividendPerShare * share.shares);
+      if (amount <= 0) continue;
+      creditOnce({
+        id: `preferred-dividend-${share.characterId}-${dueSession}`,
+        kind: "preferred_dividend",
+        sourceId: share.companyId,
+        ticker: share.ticker,
+        dueSession,
+        quantity: share.shares,
+        amountPerShare: share.dividendPerShare,
+        amount,
+        timestamp: now,
+      });
     }
   }
 

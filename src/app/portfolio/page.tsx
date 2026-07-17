@@ -15,6 +15,7 @@ import {
 import { useMarketStore } from "@/store/marketStore";
 import { LUXURY_BY_ID } from "@/data/luxuries";
 import { getLuxuryValue } from "@/lib/market/luxury";
+import { getPreferredShareValue } from "@/lib/player/preferredShares";
 import {
   computeRealizedPnl,
   computeUnrealizedPnl,
@@ -40,6 +41,7 @@ export default function PortfolioPage() {
   const stocks = useMarketStore((s) => s.stocks);
   const trades = useMarketStore((s) => s.trades);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
+  const preferredShares = useMarketStore((s) => s.preferredShares);
   const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
   const getRateLevel = useMarketStore((s) => s.getRateLevel);
@@ -58,6 +60,7 @@ export default function PortfolioPage() {
 
   const total = getTotalAssets();
   const luxuryValue = getLuxuryValue(ownedLuxuries);
+  const preferredValue = getPreferredShareValue(preferredShares);
   const priceById = Object.fromEntries(
     stocks.map((s) => [s.id, s.currentPrice]),
   );
@@ -254,6 +257,35 @@ export default function PortfolioPage() {
                   {d.name}
                 </span>
               ))}
+          </div>
+        </div>
+      )}
+
+      {preferredShares.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold">
+              🎖️ 관계 보상 우선주{" "}
+              <span className="text-zinc-500">
+                {preferredShares.length}종 · {formatPrice(preferredValue)}
+              </span>
+            </h2>
+            <Link href="/characters" className="text-xs text-amber-400 hover:underline">
+              도감
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {preferredShares.map((share) => (
+              <Link
+                key={share.characterId}
+                href={`/characters/${share.companyId}`}
+                className="flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-500/25"
+                title={`${share.companyName} 우선주 · 분기 배당 ${formatPrice(share.dividendPerShare * share.shares)}`}
+              >
+                <span className="text-base leading-none">{share.emoji}</span>
+                {share.companyName}
+              </Link>
+            ))}
           </div>
         </div>
       )}

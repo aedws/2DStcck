@@ -245,7 +245,8 @@ export type CashPaymentKind =
   | "dividend"
   | "interest"
   | "lottery"
-  | "attendance";
+  | "attendance"
+  | "preferred_dividend";
 
 /** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
 export interface CashPayment {
@@ -281,6 +282,27 @@ export interface MarketEvent {
   storyResolveSession?: number;
   /** 단서 단계에서 표시하는 발언 신뢰도(0~100). */
   storyConfidence?: number;
+}
+
+/**
+ * 관계 보상으로 그 기업이 발행해 선물하는 우선주. 시장에서 매매할 수 없고
+ * 동맹(호감 100) 도달 시 캐릭터당 1좌 발행된다. 고정 액면가로 총자산·랭킹에
+ * 반영되며 분기마다 고배당을 지급한다. (결정론 가격엔진과 무관한 지갑 자산)
+ */
+export interface PreferredShare {
+  characterId: string;
+  companyId: string;
+  ticker: string;
+  companyName: string;
+  emoji: string;
+  /** 발행 좌수 (기본 1좌) */
+  shares: number;
+  /** 좌당 액면가 (총자산 반영용) */
+  faceValue: number;
+  /** 좌당 분기 배당액 */
+  dividendPerShare: number;
+  issuedSession: number;
+  issuedAt: number;
 }
 
 export type StoryDecisionKind = "bullish" | "bearish" | "observe" | "bond";

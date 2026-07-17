@@ -7,7 +7,12 @@ import { getCharacterById } from "@/data/characters";
 import { CharacterGuidelineTag } from "@/components/market/CharacterGuidelineTag";
 import { formatPrice } from "@/lib/market/engine";
 import { getCharacterRelation } from "@/lib/market/characterRelations";
-import { getCharacterProgress } from "@/lib/market/characterProgress";
+import {
+  getCharacterProgress,
+  getRelationshipTier,
+  MAX_CHARACTER_AFFINITY,
+  PREFERRED_SHARE_AFFINITY,
+} from "@/lib/market/characterProgress";
 import { useMarketStore } from "@/store/marketStore";
 
 export function CharacterDetailClient({ id }: { id: string }) {
@@ -20,6 +25,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const holdings = useMarketStore((state) => state.holdings);
   const events = useMarketStore((s) => s.events);
   const characterProgress = useMarketStore((s) => s.characterProgress);
+  const preferredShares = useMarketStore((s) => s.preferredShares);
   const relatedNews = useMemo(
     () =>
       events.filter((e) => e.quoteBy && e.affectedStockIds.includes(id)),
@@ -39,6 +45,9 @@ export function CharacterDetailClient({ id }: { id: string }) {
 
   const relation = getCharacterRelation(id, holdings);
   const progress = getCharacterProgress(characterProgress, ceo.id);
+  const tier = getRelationshipTier(progress.affinity);
+  const preferredShare = preferredShares.find((s) => s.characterId === ceo.id);
+  const untilAlly = Math.max(0, PREFERRED_SHARE_AFFINITY - progress.affinity);
   if (!relation.unlocked) {
     return (
       <div className="mx-auto max-w-2xl pb-20">
@@ -70,11 +79,19 @@ export function CharacterDetailClient({ id }: { id: string }) {
           {ceo.emoji}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold">{ceo.name}</h1>
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${relation.status === "leverage" ? "bg-pink-500/20 text-pink-300" : relation.status === "hostile" ? "bg-red-500/20 text-red-400" : relation.status === "covered-call" ? "bg-amber-500/20 text-amber-300" : "bg-sky-500/20 text-sky-300"}`}>
               {relation.label}
             </span>
+            <span className="rounded-full bg-pink-500/15 px-2 py-0.5 text-[10px] font-semibold text-pink-300">
+              {tier.emoji} {tier.name}
+            </span>
+            {progress.affinity >= MAX_CHARACTER_AFFINITY && (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                관계 완성 ★
+              </span>
+            )}
           </div>
           <p className="text-sm text-[var(--muted)]">
             {ceo.title} · {company.name}
@@ -118,6 +135,29 @@ export function CharacterDetailClient({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {preferredShare ? (
+        <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4">
+          <p className="flex items-center gap-2 text-sm font-bold text-amber-300">
+            🎖️ 동맹 보상 우선주 {preferredShare.shares}좌 보유 중
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            {company.name}이(가) 발행한 매매불가 특별주. 액면{" "}
+            {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
+            {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}으로
+            총자산과 랭킹에 반영됩니다.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-2xl border border-dashed border-[var(--border)] p-4">
+          <p className="text-sm font-semibold">🎖️ 동맹 보상 우선주</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 시 {company.name}이(가)
+            고배당 우선주 1좌를 발행해 선물합니다. 앞으로 호감{" "}
+            <span className="font-semibold text-pink-400">{untilAlly}</span> 더 필요.
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 rounded-2xl border border-[var(--border)] p-4">
         <div className="flex items-center justify-between">

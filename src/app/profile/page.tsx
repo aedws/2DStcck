@@ -15,6 +15,7 @@ import {
   getSeasonReward,
 } from "@/lib/player/seasonRewards";
 import { computePrestige } from "@/lib/player/prestige";
+import { countFavoriteRelationships } from "@/lib/market/characterProgress";
 import { INVESTMENT_SEASON_TIERS } from "@/lib/market/investmentSeasons";
 
 export default function ProfilePage() {
@@ -56,6 +57,7 @@ export default function ProfilePage() {
     initialCash,
     seasonState: investmentSeason,
     mastery: investmentMastery,
+    favoriteCount: countFavoriteRelationships(characterProgress),
   };
   const unlocked = new Set(
     unlockedPlayerTitles(titleContext).map((title) => title.id),

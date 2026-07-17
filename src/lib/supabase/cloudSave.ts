@@ -8,6 +8,7 @@ import type {
   MarginLeverage,
   OpenOrder,
   OptionPosition,
+  PreferredShare,
   RecurringInvestment,
   ShortPosition,
   StoryDecision,
@@ -61,6 +62,7 @@ export interface WalletSave {
   missionHistory?: InvestmentMissionHistory[];
   reputation?: number;
   characterProgress?: CharacterProgressMap;
+  preferredShares?: PreferredShare[];
   readCharacterMessageIds?: string[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;

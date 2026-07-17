@@ -13,6 +13,46 @@ export const SPECIAL_CHOICE_AFFINITY = 100;
 export const LONG_HOLD_SESSIONS = 5;
 export const LONG_HOLD_MIN_EQUITY_RATIO = 0.03;
 
+/** 우선주가 발행되는 관계 임계값 (동맹 등급). */
+export const PREFERRED_SHARE_AFFINITY = SPECIAL_CHOICE_AFFINITY;
+
+export interface RelationshipTier {
+  index: number;
+  id: "acquaintance" | "interest" | "trust" | "ally" | "favorite";
+  name: string;
+  emoji: string;
+  /** 이 등급이 시작되는 최소 호감도 */
+  min: number;
+}
+
+/** 호감도(0~120)를 관계 등급으로 승격. 기존 게이트 값을 그대로 경계로 쓴다. */
+export const RELATIONSHIP_TIERS: RelationshipTier[] = [
+  { index: 0, id: "acquaintance", name: "면식", emoji: "🤝", min: 0 },
+  { index: 1, id: "interest", name: "관심", emoji: "🌱", min: PRIVATE_CLUE_AFFINITY },
+  { index: 2, id: "trust", name: "신뢰", emoji: "🔗", min: CHARACTER_MISSION_AFFINITY },
+  { index: 3, id: "ally", name: "동맹", emoji: "🤍", min: SPECIAL_CHOICE_AFFINITY },
+  { index: 4, id: "favorite", name: "최애", emoji: "⭐", min: MAX_CHARACTER_AFFINITY },
+];
+
+/** 최애(호감 만렙) 관계 수 — 수집 완성 진척도. */
+export function countFavoriteRelationships(
+  progress: CharacterProgressMap,
+): number {
+  let count = 0;
+  for (const entry of Object.values(progress)) {
+    if ((entry?.affinity ?? 0) >= MAX_CHARACTER_AFFINITY) count += 1;
+  }
+  return count;
+}
+
+export function getRelationshipTier(affinity: number): RelationshipTier {
+  let tier = RELATIONSHIP_TIERS[0];
+  for (const candidate of RELATIONSHIP_TIERS) {
+    if (affinity >= candidate.min) tier = candidate;
+  }
+  return tier;
+}
+
 export function emptyCharacterProgress(characterId: string): CharacterProgress {
   return {
     characterId,

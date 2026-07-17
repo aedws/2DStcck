@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCharacterById } from "@/data/characters";
+import { getCompanyDefinitions } from "@/data/stocks";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import {
   MISSION_TUTORIAL_STEPS,
@@ -14,6 +15,7 @@ import {
   getAvailableInvestmentMissionOffers,
   getMissionOffer,
   missionProgressPercent,
+  resolveMissionIssuer,
 } from "@/lib/market/missions";
 import {
   STORY_DECISION_OFFERS,
@@ -38,6 +40,8 @@ export default function MissionsPage() {
   const history = useMarketStore((state) => state.missionHistory);
   const reputation = useMarketStore((state) => state.reputation);
   const characterProgressMap = useMarketStore((state) => state.characterProgress);
+  const holdings = useMarketStore((state) => state.holdings);
+  const stocks = useMarketStore((state) => state.stocks);
   const accept = useMarketStore((state) => state.acceptInvestmentMission);
   const storyDecision = useMarketStore((state) => state.storyDecision);
   const storyDecisionHistory = useMarketStore((state) => state.storyDecisionHistory);
@@ -63,10 +67,22 @@ export default function MissionsPage() {
   const benchmarkPrice = benchmark?.currentPrice ?? 0;
   const relationship = getCharacterProgress(characterProgressMap, arc.character?.id);
   const bondChoiceAvailable = canUseBondChoice(relationship, arc.windowStart);
+  // 의뢰 발행자는 '보유 중인 캐릭터'로 한정 (수집→의뢰 연결)
+  const issuer = resolveMissionIssuer(
+    holdings,
+    getCompanyDefinitions(),
+    Object.fromEntries(stocks.map((stock) => [stock.id, stock.currentPrice])),
+    arc.character?.id,
+  );
+  const issuerCharacter = getCharacterById(issuer?.characterId);
+  const issuerRelationship = getCharacterProgress(
+    characterProgressMap,
+    issuer?.characterId,
+  );
   const missionOffers = getAvailableInvestmentMissionOffers(session).filter(
     (offer) =>
       offer.kind !== "character" ||
-      relationship.affinity >= CHARACTER_MISSION_AFFINITY,
+      issuerRelationship.affinity >= CHARACTER_MISSION_AFFINITY,
   );
 
   return (
@@ -221,8 +237,24 @@ export default function MissionsPage() {
             equity={equity}
             benchmarkPrice={benchmarkPrice}
           />
+        ) : !issuer ? (
+          <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-5 text-center text-sm text-[var(--muted)]">
+            보유 중인 캐릭터 기업 주식이 없습니다. 캐릭터 종목을 보유하면 그 캐릭터가
+            전용 의뢰를 맡깁니다.
+            <Link
+              href="/characters"
+              className="mt-2 block text-xs font-semibold text-[var(--accent)] hover:underline"
+            >
+              🎭 도감에서 캐릭터 보기 →
+            </Link>
+          </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-3">
+            <p className="col-span-full -mb-1 text-xs text-[var(--muted)]">
+              발행 · {issuerCharacter?.emoji} {issuerCharacter?.name}
+              <span className="text-[var(--border)]"> · </span>
+              보유 캐릭터가 맡기는 의뢰입니다.
+            </p>
             {missionOffers.map((offer) => (
               <div key={offer.kind} className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="text-2xl">{offer.emoji}</div>
@@ -231,7 +263,7 @@ export default function MissionsPage() {
                 <p className="mt-3 text-xs font-semibold">목표 · {offer.target}</p>
                 <p className="mt-1 text-xs text-[var(--accent)]">보상 · 평판 +{offer.reward}</p>
                 <p className="mt-1 text-[11px] text-pink-400">
-                  {arc.character?.emoji} {arc.character?.name} 의뢰 · 성공 시 신뢰 +{offer.kind === "character" ? 8 : 5} · 호감 +{offer.kind === "character" ? 6 : 4}
+                  {issuerCharacter?.emoji} {issuerCharacter?.name} 의뢰 · 성공 시 신뢰 +{offer.kind === "character" ? 8 : 5} · 호감 +{offer.kind === "character" ? 6 : 4}
                 </p>
                 <button
                   onClick={() => {

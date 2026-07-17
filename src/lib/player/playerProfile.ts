@@ -30,6 +30,8 @@ export interface PlayerTitleContext {
   initialCash: number;
   seasonState: InvestmentSeasonState;
   mastery: InvestmentMasteryState;
+  /** 최애(호감 만렙) 관계 수 — 수집 메타 진척도. */
+  favoriteCount: number;
 }
 
 export interface PlayerTitleDefinition {
@@ -47,6 +49,8 @@ export const PLAYER_TITLES: PlayerTitleDefinition[] = [
   { id: "outperformer", name: "지수의 추월자", emoji: "🏁", condition: "다이아몬드 이상 시즌 달성", unlocked: (c) => c.seasonState.history.some((s) => s.tierId === "diamond" || s.tierId === "master") },
   { id: "master", name: "투자 스타일 마스터", emoji: "🎓", condition: "숙련도 한 분야 1,200 XP", unlocked: (c) => Object.values(c.mastery.xp).some((xp) => xp >= 1_200) },
   { id: "wealth", name: "자산 설계자", emoji: "💎", condition: "순자산 2배 달성", unlocked: (c) => c.initialCash > 0 && c.netWorth >= c.initialCash * 2 },
+  { id: "collector", name: "캐릭터 수집가", emoji: "🎭", condition: "최애 관계 3명", unlocked: (c) => c.favoriteCount >= 3 },
+  { id: "patron", name: "인망의 오너", emoji: "👑", condition: "최애 관계 10명", unlocked: (c) => c.favoriteCount >= 10 },
 ];
 
 export function koreaDateKey(now = Date.now()): string {

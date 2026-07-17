@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
+import { getCharacterById } from "@/data/characters";
 import {
   clearLegacyMarketStorage,
   safeMarketStorage,
@@ -37,6 +38,7 @@ import type {
   OpenOrder,
   OrderResult,
   OrderType,
+  PreferredShare,
   RecurringInvestment,
   StoryDecision,
   StoryDecisionKind,
@@ -130,6 +132,7 @@ import {
 } from "@/lib/market/lottery";
 import {
   createInvestmentMission,
+  resolveMissionIssuer,
   updateInvestmentMission,
 } from "@/lib/market/missions";
 import {
@@ -153,10 +156,17 @@ import {
   accrueLongHoldingAffinity,
   addStorySupportAffinity,
   canUseBondChoice,
+  countFavoriteRelationships,
   getCharacterProgress,
+  getRelationshipTier,
   normalizeCharacterProgressMap,
   settleMissionRelationship,
 } from "@/lib/market/characterProgress";
+import {
+  getPreferredShareValue,
+  normalizePreferredShares,
+  reconcilePreferredShares,
+} from "@/lib/player/preferredShares";
 import {
   createInitialMastery,
   normalizeInvestmentMastery,
@@ -281,6 +291,8 @@ interface MarketStore extends MarketSnapshot {
   reputation: number;
   /** 캐릭터별 업무 신뢰도·개인 호감도. */
   characterProgress: CharacterProgressMap;
+  /** 동맹 관계 보상으로 발행받은 우선주 (매매불가 지갑 자산). */
+  preferredShares: PreferredShare[];
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
@@ -373,6 +385,7 @@ function createInitialState(): MarketSnapshot & {
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
   characterProgress: CharacterProgressMap;
+  preferredShares: PreferredShare[];
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
@@ -439,6 +452,7 @@ function createInitialState(): MarketSnapshot & {
     missionHistory: [],
     reputation: 0,
     characterProgress: {},
+    preferredShares: [],
     readCharacterMessageIds: [],
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
@@ -1023,6 +1037,7 @@ export const useMarketStore = create<MarketStore>()(
           initialCash: state.initialCash,
           seasonState: state.investmentSeason,
           mastery: state.investmentMastery,
+          favoriteCount: countFavoriteRelationships(state.characterProgress),
         });
         if (!unlocked.some((title) => title.id === titleId)) {
           return { success: false, message: "아직 해금되지 않은 칭호입니다." };
@@ -1351,6 +1366,12 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
           characterProgress: cloudCharacterProgress,
+          preferredShares: reconcilePreferredShares(
+            cloudCharacterProgress,
+            normalizePreferredShares(wallet.preferredShares),
+            nowSession,
+            Date.now(),
+          ).shares,
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
@@ -1418,6 +1439,7 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory: s.missionHistory,
           reputation: s.reputation,
           characterProgress: s.characterProgress,
+          preferredShares: s.preferredShares,
           readCharacterMessageIds: s.readCharacterMessageIds,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
@@ -1983,6 +2005,38 @@ export const useMarketStore = create<MarketStore>()(
         }
         nextEvents = nextEvents.map(ensureEventDialogue);
 
+        // 관계 등급 상승 축하 + 동맹(호감 100) 도달 시 우선주 발행 (멱등)
+        const relationshipToasts: string[] = [];
+        for (const cid of Object.keys(characterProgress)) {
+          const beforeTier = getRelationshipTier(
+            state.characterProgress[cid]?.affinity ?? 0,
+          );
+          const afterTier = getRelationshipTier(characterProgress[cid].affinity);
+          if (afterTier.index > beforeTier.index) {
+            const ceo = getCharacterById(cid);
+            relationshipToasts.push(
+              `${afterTier.emoji} ${ceo?.name ?? "관계"} · ${afterTier.name} 관계로 발전!`,
+            );
+          }
+        }
+        const preferredReconcile = reconcilePreferredShares(
+          characterProgress,
+          state.preferredShares,
+          currentSession,
+          now,
+        );
+        const preferredShares = preferredReconcile.shares;
+        for (const toast of relationshipToasts.slice(0, 3)) {
+          useToastStore.getState().push(toast, "success");
+        }
+        for (const share of preferredReconcile.issued) {
+          useToastStore.getState().push(
+            `🎖️ ${share.emoji} ${share.companyName} 우선주 1좌 발행 — 동맹 보상!`,
+            "success",
+          );
+        }
+        if (preferredReconcile.issued.length > 0) playSound("cash");
+
         set({
           tick: nextTick,
           events: nextEvents,
@@ -2001,6 +2055,7 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory,
           reputation,
           characterProgress,
+          preferredShares,
           investmentMastery,
           investmentSeason,
           unlockedSeasonRewardIds,
@@ -2080,14 +2135,27 @@ export const useMarketStore = create<MarketStore>()(
           return { success: false, message: "벤치마크 정보를 불러오지 못했습니다." };
         }
         const arc = getStoryArcAtSession(session);
+        const issuer = resolveMissionIssuer(
+          state.holdings,
+          STOCK_DEFINITIONS,
+          Object.fromEntries(state.stocks.map((x) => [x.id, x.currentPrice])),
+          arc.character?.id,
+        );
+        if (!issuer) {
+          return {
+            success: false,
+            message:
+              "보유 중인 캐릭터 기업 주식이 없어 의뢰를 받을 수 없습니다. 먼저 캐릭터 종목을 보유하세요.",
+          };
+        }
         const relationship = getCharacterProgress(
           state.characterProgress,
-          arc.character?.id,
+          issuer.characterId,
         );
         if (kind === "character" && relationship.affinity < 50) {
           return {
             success: false,
-            message: "이 캐릭터의 전용 의뢰는 호감도 50부터 열립니다.",
+            message: "전용 의뢰는 보유 캐릭터의 호감도 50부터 열립니다.",
           };
         }
         set({
@@ -2098,8 +2166,8 @@ export const useMarketStore = create<MarketStore>()(
             benchmark.currentPrice,
             now,
             {
-              characterId: arc.character?.id,
-              companyId: arc.company.id,
+              characterId: issuer.characterId,
+              companyId: issuer.companyId,
             },
           ),
         });
@@ -2608,7 +2676,8 @@ export const useMarketStore = create<MarketStore>()(
 
       reset: () => set(createInitialState()),
 
-      getTotalAssets: () => fullEquityOf(get()),
+      getTotalAssets: () =>
+        fullEquityOf(get()) + getPreferredShareValue(get().preferredShares),
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
@@ -2648,6 +2717,7 @@ export const useMarketStore = create<MarketStore>()(
         missionHistory: state.missionHistory.slice(0, 30),
         reputation: state.reputation,
         characterProgress: state.characterProgress,
+        preferredShares: state.preferredShares,
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
@@ -2835,6 +2905,15 @@ export const useMarketStore = create<MarketStore>()(
               ]),
             )
           : normalizedProgress;
+        // 저장된 우선주 복원 + 동맹 도달분 멱등 발행 (오프라인 누적 대응)
+        const preferredShares = reconcilePreferredShares(
+          characterProgress,
+          normalizePreferredShares(
+            (walletSource as Partial<MarketStore>).preferredShares,
+          ),
+          nowSession,
+          Date.now(),
+        ).shares;
 
         return {
           ...walletSource,
@@ -2928,6 +3007,7 @@ export const useMarketStore = create<MarketStore>()(
             ? Math.max(0, (walletSource as Partial<MarketStore>).reputation ?? 0)
             : 0,
           characterProgress,
+          preferredShares,
           readCharacterMessageIds: Array.isArray(
             (walletSource as Partial<MarketStore>).readCharacterMessageIds,
           )

@@ -7,6 +7,34 @@ import type {
 export const MISSION_WINDOW_SESSIONS = 5;
 const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 
+/**
+ * 의뢰를 발행하는 캐릭터는 '보유 중인 캐릭터 기업'으로 한정한다. 현재 진행 사건의
+ * 캐릭터를 보유 중이면 그 캐릭터가, 아니면 보유 비중이 가장 큰 캐릭터 기업이 발행한다.
+ * 보유한 캐릭터 종목이 하나도 없으면 null (의뢰를 받을 수 없음).
+ */
+export function resolveMissionIssuer(
+  holdings: { stockId: string; quantity: number }[],
+  companies: { id: string; ceoId?: string }[],
+  prices: Record<string, number>,
+  arcCharacterId?: string,
+): { characterId: string; companyId: string } | null {
+  const quantityById = new Map(holdings.map((h) => [h.stockId, h.quantity]));
+  const held = companies.filter(
+    (company) => company.ceoId && (quantityById.get(company.id) ?? 0) > 0,
+  );
+  if (held.length === 0) return null;
+  const arcHeld = held.find((company) => company.ceoId === arcCharacterId);
+  const chosen =
+    arcHeld ??
+    held
+      .map((company) => ({
+        company,
+        value: (quantityById.get(company.id) ?? 0) * (prices[company.id] ?? 0),
+      }))
+      .sort((a, b) => b.value - a.value)[0].company;
+  return { characterId: chosen.ceoId!, companyId: chosen.id };
+}
+
 export interface InvestmentMissionOffer {
   id: string;
   kind: InvestmentMissionKind;

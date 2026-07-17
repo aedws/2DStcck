@@ -7,6 +7,7 @@ import { MarketOverview } from "@/components/home/MarketOverview";
 import { StockDetailPanel } from "@/components/home/StockDetailPanel";
 import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
+import { AttendanceBanner } from "@/components/home/AttendanceBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
@@ -52,6 +53,7 @@ export default function MarketPage() {
       <div className="px-4 pt-3 md:px-5">
         <MarketEraBanner />
       </div>
+      <AttendanceBanner />
       <OperationBriefing />
       <PumpBanner pumps={pumpStocks} />
       {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해
