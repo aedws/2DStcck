@@ -12,10 +12,10 @@ import type {
   StockState,
 } from "@/lib/types/market";
 
-/** 우선주 액면가 = 발행 시점 본주 가격 × 1.15 (15% 상향, 이후 고정). */
-export const PREFERRED_FACE_PREMIUM = 1.15;
-/** 우선주 분기 배당률 = 본주 분기 배당률 + 2.5%p. */
-export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.025;
+/** 우선주 액면가 = 발행 시점 본주 가격 × 1.30 (30% 상향, 이후 고정). */
+export const PREFERRED_FACE_PREMIUM = 1.3;
+/** 우선주 분기 배당률 = 본주 분기 배당률 + 5.0%p. */
+export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.05;
 /** 시세를 못 구할 때 쓰는 액면 하한 (초기 발행 안전장치). */
 const PREFERRED_FACE_FALLBACK = 80_000;
 
@@ -57,66 +57,102 @@ export function getPreferredQuarterlyDividend(shares: PreferredShare[]): number 
   return total;
 }
 
+export interface PreferredReconcileResult {
+  shares: PreferredShare[];
+  issued: PreferredShare[];
+  /** 집중 해제로 매각된 우선주 */
+  sold: PreferredShare[];
+  /** 매각 대금 (액면 합계) — 현금으로 지급된다 */
+  proceeds: number;
+  /** 지금까지 한 번이라도 발행된 캐릭터 id (매각 후 재발행 방지) */
+  issuedCharacterIds: string[];
+}
+
 /**
- * 우선주를 발행한다. 조건: ① 호감 100(동맹) 이상, ② 원 앤 온리·트윈 스타·
- * 트리플 하르모니아 중 하나를 만족하는 '지정(집중) 캐릭터', ③ 아직 미발행.
- * 액면 = 발행 시점 본주 × 1.15, 분기 배당 = 액면 × (본주 분기배당률 + 2.5%p).
- * 멱등: 이미 보유한 캐릭터는 건너뛰어 오프라인 누적분도 한 번만 정산된다.
- * 새로 발행된 목록을 함께 돌려줘 발행 축하 토스트에 쓴다.
+ * 우선주를 정산한다.
+ * - 발행: 호감 100(동맹) + 원 앤 온리·트윈 스타·트리플 하르모니아 지정 캐릭터 +
+ *   과거 미발행. 액면 = 발행 시 본주 × 1.30, 분기배당 = 액면 ×(본주배당률 + 5%p).
+ * - 매각: 집중이 풀려 더는 지정이 아닌 우선주는 액면가로 매각(현금화)되고 사라진다.
+ * - 재발행 방지: 한 번 발행된 캐릭터는 매각 후에도 다시 발행되지 않는다(무한 현금화 차단).
+ * 컨텍스트(보유·집중 데이터)가 없으면 그대로 둔다(로드 시엔 직후 tick 이 정산).
  */
 export function reconcilePreferredShares(
   progress: CharacterProgressMap,
   existing: PreferredShare[],
+  issuedCharacterIds: string[],
   session: number,
   now: number,
   context?: { stocks: StockState[]; concentration: CharacterConcentration },
-): { shares: PreferredShare[]; issued: PreferredShare[] } {
-  // 컨텍스트가 없으면(보유 데이터 미확보) 발행하지 않고 기존 목록 유지.
-  if (!context || !isPreferredEligible(context.concentration)) {
-    return { shares: existing, issued: [] };
+): PreferredReconcileResult {
+  if (!context) {
+    return { shares: existing, issued: [], sold: [], proceeds: 0, issuedCharacterIds };
   }
+  const eligible = isPreferredEligible(context.concentration);
   const focused = new Set(context.concentration.focusedCharacterIds);
+  const isActive = (characterId: string) => eligible && focused.has(characterId);
+
+  // 1) 집중 해제된 우선주 매각 (액면가 현금화 후 제거)
+  const kept: PreferredShare[] = [];
+  const sold: PreferredShare[] = [];
+  let proceeds = 0;
+  for (const share of existing) {
+    if (isActive(share.characterId)) {
+      kept.push(share);
+    } else {
+      sold.push(share);
+      proceeds += share.faceValue * share.shares;
+    }
+  }
+
+  // 2) 신규 발행 (지정·동맹·과거 미발행)
+  const everIssued = new Set(issuedCharacterIds);
+  const ownedNow = new Set(kept.map((share) => share.characterId));
   const stockByCharacter = new Map<string, StockState>();
   for (const stock of context.stocks) {
     if (stock.ceoId && stock.leverage === undefined && !stock.coveredCallUnderlyingId) {
       stockByCharacter.set(stock.ceoId, stock);
     }
   }
-
-  const owned = new Set(existing.map((share) => share.characterId));
   const issued: PreferredShare[] = [];
-  for (const company of getCompanyDefinitions()) {
-    const characterId = company.ceoId;
-    if (!characterId || owned.has(characterId) || !focused.has(characterId)) continue;
-    const affinity = getCharacterProgress(progress, characterId).affinity;
-    if (affinity < PREFERRED_SHARE_AFFINITY) continue;
-    const stock = stockByCharacter.get(characterId);
-    const price = stock?.currentPrice ?? 0;
-    const faceValue =
-      price > 0 ? Math.round(price * PREFERRED_FACE_PREMIUM) : PREFERRED_FACE_FALLBACK;
-    const commonYield =
-      price > 0 ? (stock?.quarterlyDividend ?? 0) / price : 0;
-    const dividendPerShare = Math.round(
-      faceValue * (commonYield + PREFERRED_DIVIDEND_YIELD_BONUS),
-    );
-    const ceo = getCharacterById(characterId);
-    issued.push({
-      characterId,
-      companyId: company.id,
-      ticker: company.ticker,
-      companyName: company.name,
-      emoji: ceo?.emoji ?? "🎖️",
-      shares: 1,
-      faceValue,
-      dividendPerShare,
-      issuedSession: session,
-      issuedAt: now,
-    });
-    owned.add(characterId);
+  if (eligible) {
+    for (const company of getCompanyDefinitions()) {
+      const characterId = company.ceoId;
+      if (!characterId || !focused.has(characterId)) continue;
+      if (ownedNow.has(characterId) || everIssued.has(characterId)) continue;
+      if (getCharacterProgress(progress, characterId).affinity < PREFERRED_SHARE_AFFINITY) {
+        continue;
+      }
+      const stock = stockByCharacter.get(characterId);
+      const price = stock?.currentPrice ?? 0;
+      const faceValue =
+        price > 0 ? Math.round(price * PREFERRED_FACE_PREMIUM) : PREFERRED_FACE_FALLBACK;
+      const commonYield = price > 0 ? (stock?.quarterlyDividend ?? 0) / price : 0;
+      const dividendPerShare = Math.round(
+        faceValue * (commonYield + PREFERRED_DIVIDEND_YIELD_BONUS),
+      );
+      const ceo = getCharacterById(characterId);
+      issued.push({
+        characterId,
+        companyId: company.id,
+        ticker: company.ticker,
+        companyName: company.name,
+        emoji: ceo?.emoji ?? "🎖️",
+        shares: 1,
+        faceValue,
+        dividendPerShare,
+        issuedSession: session,
+        issuedAt: now,
+      });
+      everIssued.add(characterId);
+    }
   }
+
   return {
-    shares: issued.length > 0 ? [...existing, ...issued] : existing,
+    shares: [...kept, ...issued],
     issued,
+    sold,
+    proceeds,
+    issuedCharacterIds: [...everIssued],
   };
 }
 

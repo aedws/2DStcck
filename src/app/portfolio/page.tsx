@@ -295,7 +295,7 @@ export default function PortfolioPage() {
           </div>
           <p className="mb-2 text-[11px] text-zinc-500">
             집중(원 앤 온리·트윈 스타·트리플 하르모니아) 유지 중인 우선주만 자산·배당에
-            반영됩니다. 휴면분은 집중을 되살리면 부활합니다.
+            반영됩니다. 집중이 풀리면 액면가로 매각(현금화)되며 재발행되지 않습니다.
           </p>
           <div className="flex flex-wrap gap-2">
             {preferredShares.map((share) => {
@@ -305,11 +305,11 @@ export default function PortfolioPage() {
                   key={share.characterId}
                   href={`/characters/${share.companyId}`}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs ${active ? "bg-amber-500/15 text-amber-200 hover:bg-amber-500/25" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"}`}
-                  title={`${share.companyName} 우선주 · 분기 배당 ${formatPrice(share.dividendPerShare * share.shares)}${active ? "" : " · 💤 휴면"}`}
+                  title={`${share.companyName} 우선주 · 분기 배당 ${formatPrice(share.dividendPerShare * share.shares)}${active ? "" : " · 💸 매각 대기"}`}
                 >
                   <span className="text-base leading-none">{share.emoji}</span>
                   {share.companyName}
-                  {!active && <span className="text-[10px]">💤</span>}
+                  {!active && <span className="text-[10px]">💸</span>}
                 </Link>
               );
             })}

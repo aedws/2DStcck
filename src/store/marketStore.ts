@@ -295,6 +295,8 @@ interface MarketStore extends MarketSnapshot {
   characterProgress: CharacterProgressMap;
   /** 동맹 관계 보상으로 발행받은 우선주 (매매불가 지갑 자산). */
   preferredShares: PreferredShare[];
+  /** 한 번이라도 우선주가 발행된 캐릭터 id (매각 후 재발행 방지). */
+  preferredIssuedCharacterIds: string[];
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
@@ -388,6 +390,7 @@ function createInitialState(): MarketSnapshot & {
   reputation: number;
   characterProgress: CharacterProgressMap;
   preferredShares: PreferredShare[];
+  preferredIssuedCharacterIds: string[];
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
@@ -455,6 +458,7 @@ function createInitialState(): MarketSnapshot & {
     reputation: 0,
     characterProgress: {},
     preferredShares: [],
+    preferredIssuedCharacterIds: [],
     readCharacterMessageIds: [],
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
@@ -1368,8 +1372,11 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
           characterProgress: cloudCharacterProgress,
-          // 발행은 직후 tick 정산에서 처리 — 여기선 기존 우선주만 보존한다.
+          // 발행·매각은 직후 tick 정산에서 처리 — 여기선 기존 우선주만 보존한다.
           preferredShares: normalizePreferredShares(wallet.preferredShares),
+          preferredIssuedCharacterIds: Array.isArray(wallet.preferredIssuedCharacterIds)
+            ? wallet.preferredIssuedCharacterIds.filter((id): id is string => typeof id === "string")
+            : [],
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
@@ -1438,6 +1445,7 @@ export const useMarketStore = create<MarketStore>()(
           reputation: s.reputation,
           characterProgress: s.characterProgress,
           preferredShares: s.preferredShares,
+          preferredIssuedCharacterIds: s.preferredIssuedCharacterIds,
           readCharacterMessageIds: s.readCharacterMessageIds,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
@@ -2020,6 +2028,7 @@ export const useMarketStore = create<MarketStore>()(
         const preferredReconcile = reconcilePreferredShares(
           characterProgress,
           state.preferredShares,
+          state.preferredIssuedCharacterIds,
           currentSession,
           now,
           {
@@ -2032,6 +2041,20 @@ export const useMarketStore = create<MarketStore>()(
           },
         );
         const preferredShares = preferredReconcile.shares;
+        const preferredIssuedCharacterIds = preferredReconcile.issuedCharacterIds;
+        // 집중 해제로 매각된 우선주는 액면가를 현금으로 지급한다.
+        if (preferredReconcile.proceeds > 0) {
+          cash += preferredReconcile.proceeds;
+          const salePayment: CashPayment = {
+            id: `preferred-sale-${currentSession}-${preferredReconcile.sold[0]?.characterId ?? "x"}`,
+            kind: "preferred_dividend",
+            sourceId: "preferred-sale",
+            dueSession: currentSession,
+            amount: preferredReconcile.proceeds,
+            timestamp: now,
+          };
+          cashPayments = [salePayment, ...cashPayments].slice(0, 200);
+        }
         for (const toast of relationshipToasts.slice(0, 3)) {
           useToastStore.getState().push(toast, "success");
         }
@@ -2041,7 +2064,15 @@ export const useMarketStore = create<MarketStore>()(
             "success",
           );
         }
-        if (preferredReconcile.issued.length > 0) playSound("cash");
+        for (const share of preferredReconcile.sold) {
+          useToastStore.getState().push(
+            `💸 ${share.emoji} ${share.companyName} 우선주 매각 — 집중 해제 (+${formatPrice(share.faceValue * share.shares)})`,
+            "info",
+          );
+        }
+        if (preferredReconcile.issued.length > 0 || preferredReconcile.proceeds > 0) {
+          playSound("cash");
+        }
 
         set({
           tick: nextTick,
@@ -2062,6 +2093,7 @@ export const useMarketStore = create<MarketStore>()(
           reputation,
           characterProgress,
           preferredShares,
+          preferredIssuedCharacterIds,
           investmentMastery,
           investmentSeason,
           unlockedSeasonRewardIds,
@@ -2728,6 +2760,7 @@ export const useMarketStore = create<MarketStore>()(
         reputation: state.reputation,
         characterProgress: state.characterProgress,
         preferredShares: state.preferredShares,
+        preferredIssuedCharacterIds: state.preferredIssuedCharacterIds,
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
@@ -3013,6 +3046,13 @@ export const useMarketStore = create<MarketStore>()(
             : 0,
           characterProgress,
           preferredShares,
+          preferredIssuedCharacterIds: Array.isArray(
+            (walletSource as Partial<MarketStore>).preferredIssuedCharacterIds,
+          )
+            ? (walletSource as Partial<MarketStore>).preferredIssuedCharacterIds!.filter(
+                (id): id is string => typeof id === "string",
+              )
+            : [],
           readCharacterMessageIds: Array.isArray(
             (walletSource as Partial<MarketStore>).readCharacterMessageIds,
           )

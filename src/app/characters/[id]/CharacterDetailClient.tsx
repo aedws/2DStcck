@@ -28,6 +28,9 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const events = useMarketStore((s) => s.events);
   const characterProgress = useMarketStore((s) => s.characterProgress);
   const preferredShares = useMarketStore((s) => s.preferredShares);
+  const preferredIssuedCharacterIds = useMarketStore(
+    (s) => s.preferredIssuedCharacterIds,
+  );
   const allStocks = useMarketStore((s) => s.stocks);
   const getEquity = useMarketStore((s) => s.getEquity);
   const relatedNews = useMemo(
@@ -60,6 +63,9 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const preferredActive = preferredShare
     ? isPreferredActive(preferredShare, concentration)
     : false;
+  // 발행됐다가 집중 해제로 매각되어 사라진 상태(재발행 불가)
+  const preferredSoldGone =
+    !preferredShare && preferredIssuedCharacterIds.includes(ceo.id);
   if (!relation.unlocked) {
     return (
       <div className="mx-auto max-w-2xl pb-20">
@@ -158,18 +164,26 @@ export function CharacterDetailClient({ id }: { id: string }) {
       )}
 
       {preferredShare ? (
-        <div className={`mt-4 rounded-2xl border p-4 ${preferredActive ? "border-amber-400/40 bg-amber-400/10" : "border-[var(--border)] bg-[var(--surface)]"}`}>
-          <p className={`flex items-center gap-2 text-sm font-bold ${preferredActive ? "text-amber-300" : "text-[var(--muted)]"}`}>
+        <div className={`mt-4 rounded-2xl border p-4 ${preferredActive ? "border-amber-400/40 bg-amber-400/10" : "border-orange-400/40 bg-orange-400/10"}`}>
+          <p className={`flex items-center gap-2 text-sm font-bold ${preferredActive ? "text-amber-300" : "text-orange-300"}`}>
             🎖️ 동맹 보상 우선주 {preferredShare.shares}좌{" "}
-            {preferredActive ? "· 활성" : "· 💤 휴면(집중 해제)"}
+            {preferredActive ? "· 활성" : "· 💸 매각 대기(집중 해제)"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            {company.name}이(가) 발행한 매매불가 특별주(액면 = 발행 시 본주×1.15). 액면{" "}
+            {company.name}이(가) 발행한 매매불가 특별주(액면 = 발행 시 본주×1.30). 액면{" "}
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
             {preferredActive
-              ? "집중 유지 중이라 총자산·랭킹·배당에 반영됩니다."
-              : "집중(원 앤 온리·트윈 스타·트리플 하르모니아)을 다시 만들면 자산·배당이 되살아납니다. 지금은 휴면입니다."}
+              ? "집중을 유지하는 동안 총자산·랭킹·배당에 반영됩니다. 분산하면 액면가로 매각(현금화)되고 재발행되지 않으니 주의하세요."
+              : "집중이 풀려 곧 액면가로 매각(현금화)됩니다. 매각되면 재발행되지 않습니다."}
+          </p>
+        </div>
+      ) : preferredSoldGone ? (
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <p className="text-sm font-semibold text-[var(--muted)]">🎖️ 동맹 보상 우선주 · 매각 완료</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            이미 발행되었다가 집중 해제로 매각되었습니다. 우선주는 캐릭터당 1회만
+            발행되어 다시 발행되지 않습니다.
           </p>
         </div>
       ) : (
@@ -178,7 +192,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <p className="mt-1 text-xs text-[var(--muted)]">
             호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 + 집중 투자(원 앤 온리·트윈
             스타·트리플 하르모니아) 상태일 때 {company.name}이(가) 고배당 우선주
-            1좌를 발행합니다. 앞으로 호감{" "}
+            1좌를 발행합니다(캐릭터당 1회). 앞으로 호감{" "}
             <span className="font-semibold text-pink-400">{untilAlly}</span> 더 필요.
           </p>
         </div>

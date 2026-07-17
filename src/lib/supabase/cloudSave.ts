@@ -63,6 +63,7 @@ export interface WalletSave {
   reputation?: number;
   characterProgress?: CharacterProgressMap;
   preferredShares?: PreferredShare[];
+  preferredIssuedCharacterIds?: string[];
   readCharacterMessageIds?: string[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
