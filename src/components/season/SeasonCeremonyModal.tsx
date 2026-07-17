@@ -172,7 +172,7 @@ function MarketReviewStep({
 
       <div className="grid grid-cols-3 gap-2 px-5 py-4 text-center">
         <ResultStat
-          label="국면 방향 효과"
+          label="시황 방향 효과"
           value={signedPercent(review.benchmarkStateReturn)}
         />
         <ResultStat
@@ -225,7 +225,7 @@ function MarketReviewStep({
       </div>
 
       <p className="mx-5 mt-3 text-[10px] leading-relaxed text-[var(--muted)]">
-        기계적 복기: 시장 국면·200거래일 사이클·대형 위기 업종 민감도와 파생상품
+        기계적 복기: 주간 시황·경기 사이클·위기 경보 업종 민감도와 파생상품
         배율만 재계산했습니다. 개별 기업 뉴스, 무작위 가격 노이즈와 실제 매매 시점은
         제외되므로 다음 시즌의 예측값이 아닙니다.
       </p>

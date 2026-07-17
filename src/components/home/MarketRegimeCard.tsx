@@ -70,8 +70,8 @@ export function MarketRegimeCard() {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold">
               {crisis
-                ? `대형 시장 위기 · ${crisis.theme.name}`
-                : `시장 사이클 · ${cycle.name}`}
+                ? `위기 경보 · ${crisis.theme.name}`
+                : `경기 사이클 · ${cycle.name}`}
             </p>
             <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
               {crisis
@@ -88,7 +88,7 @@ export function MarketRegimeCard() {
             <p className="font-semibold">
               {crisis
                 ? `${crisis.theme.emoji} 위기 전체 종료까지 ${crisis.sessionsLeft}일`
-                : `5일 카드 · ${regime.name} · ${sessionsLeft}일 남음`}
+                : `이번 주 시황 · ${regime.name} · ${sessionsLeft}일 남음`}
             </p>
             <p className="text-[10px] text-[var(--muted)]">
               {crisis

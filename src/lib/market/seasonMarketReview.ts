@@ -77,7 +77,7 @@ function stockReason(
   if ((stock.leverage ?? 0) < 0) {
     return favorable
       ? "시장 하락 압력을 역방향으로 추종"
-      : "상승 국면을 역방향으로 추종해 불리";
+      : "상승 시황을 역방향으로 추종해 불리";
   }
   if ((stock.leverage ?? 0) > 1) {
     return favorable
@@ -97,7 +97,7 @@ function stockReason(
   if (crisisLabel) {
     return `${crisisLabel}의 ${stock.sector} 업종 민감도 반영`;
   }
-  return `${dominantRegime?.name ?? "혼합 국면"}·${dominantCycle?.name ?? "순환 장세"} 노출 반영`;
+  return `${dominantRegime?.name ?? "혼합 시황"}·${dominantCycle?.name ?? "순환 장세"} 노출 반영`;
 }
 
 function selectDistinct(
@@ -287,7 +287,7 @@ export function buildSeasonMarketReview(
       : bias === "bearish"
         ? "하락·방어 우위 시장"
         : "방향성 혼합 시장";
-  const summary = `${dominantRegimes[0]?.name ?? "혼합 국면"}이 ${dominantRegimes[0]?.sessions ?? 0}일로 가장 길었고, ${dominantCycles[0]?.name ?? "순환 장세"} 구간이 중심이었습니다.${crisisSessions > 0 ? ` 대형 위기 영향은 ${crisisSessions}일이었습니다.` : " 대형 위기 구간은 없었습니다."}`;
+  const summary = `${dominantRegimes[0]?.name ?? "혼합 시황"}이 ${dominantRegimes[0]?.sessions ?? 0}일로 가장 길었고, ${dominantCycles[0]?.name ?? "순환 장세"} 구간이 중심이었습니다.${crisisSessions > 0 ? ` 대형 위기 영향은 ${crisisSessions}일이었습니다.` : " 대형 위기 구간은 없었습니다."}`;
 
   return {
     sessions,

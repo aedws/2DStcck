@@ -73,6 +73,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-17",
+    tag: "개선",
+    title: "시장 상태 이름 정리 — 국면·시황·사이클·위기 구분",
+    detail:
+      "성격이 다른 네 가지 시장 상태가 모두 ‘국면’처럼 불려 헷갈리던 것을 이름으로 구분했습니다. 60거래일 장기 배경은 ‘시장 국면’, 5거래일 단기 흐름은 ‘이번 주 시황’, 장기 순환은 ‘경기 사이클’, 대형 폭락 이벤트는 ‘위기 경보’입니다. 홈 작전 브리핑에서 국면 배너 바로 밑에 있던 카드가 실제로는 5거래일 단기 흐름이라 ‘이번 주 시황’으로 바로잡았고, 시즌 복기 문구도 같은 기준으로 정리했습니다.",
+  },
+  {
+    date: "2026-07-17",
     tag: "신규",
     title: "39개 기업 경영진 전용 대사",
     detail:

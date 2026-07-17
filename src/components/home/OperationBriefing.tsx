@@ -158,7 +158,7 @@ export function OperationBriefing() {
 
         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <BriefingCard
-            label="시장 국면"
+            label="이번 주 시황"
             title={`${regime.emoji} ${regime.name}`}
             detail={`${Math.max(1, regime.windowEnd - session)}일 남음 · ${regime.strategy}`}
             href={`/stock/${regime.instrumentId}`}
