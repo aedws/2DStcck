@@ -15,6 +15,8 @@ import {
   getRelationshipTier,
   MAX_CHARACTER_AFFINITY,
 } from "@/lib/market/characterProgress";
+import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import { getActivePreferredShares } from "@/lib/player/preferredShares";
 
 const CARD_STYLE: Record<CharacterRelationStatus, string> = {
   leverage: "border-pink-400/60 bg-pink-500/10",
@@ -34,11 +36,21 @@ const BADGE_STYLE: Record<CharacterRelationStatus, string> = {
 
 export default function CharactersPage() {
   const holdings = useMarketStore((state) => state.holdings);
+  const stocks = useMarketStore((state) => state.stocks);
+  const getEquity = useMarketStore((state) => state.getEquity);
   const characterProgress = useMarketStore((state) => state.characterProgress);
   const preferredShares = useMarketStore((state) => state.preferredShares);
   const preferredByCharacter = useMemo(
     () => new Set(preferredShares.map((share) => share.characterId)),
     [preferredShares],
+  );
+  const activePreferred = useMemo(
+    () =>
+      getActivePreferredShares(
+        preferredShares,
+        computeCharacterConcentration(holdings, stocks, getEquity()),
+      ),
+    [preferredShares, holdings, stocks, getEquity],
   );
   const entries = useMemo(
     () =>
@@ -71,7 +83,7 @@ export default function CharactersPage() {
       <div className="mb-5 grid grid-cols-3 gap-2">
         <SummaryStat label="활성화" value={`${discovered}/${entries.length}`} tone="text-sky-400" />
         <SummaryStat label="최애 ⭐" value={`${favorites}/${entries.length}`} tone="text-amber-400" />
-        <SummaryStat label="우선주 🎖️" value={`${preferredShares.length}/${entries.length}`} tone="text-emerald-400" />
+        <SummaryStat label="활성 우선주 🎖️" value={`${activePreferred.length}좌`} tone="text-emerald-400" />
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         일반 주식·레버리지·커버드콜을 보유하면 도감이 활성화됩니다. 인버스만 보유하면 상세 정보는 잠긴 채 적대 관계로 표시됩니다.

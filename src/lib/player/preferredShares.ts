@@ -18,6 +18,10 @@ export const PREFERRED_FACE_PREMIUM = 1.3;
 export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.05;
 /** 시세를 못 구할 때 쓰는 액면 하한 (초기 발행 안전장치). */
 const PREFERRED_FACE_FALLBACK = 80_000;
+/** 매각이 발동하는 '유의미한 분산' 기준 — 보유 캐릭터 수. */
+export const PREFERRED_DIVERSIFY_CHARACTERS = 5;
+/** 분산 지속 후 휴면 우선주가 매각되기까지의 거래일 유예. */
+export const PREFERRED_SALE_GRACE_SESSIONS = 5;
 
 /**
  * 활성 우선주 — 지금 집중(focused) 상태인 캐릭터의 우선주만 혜택이 살아있다.
@@ -82,7 +86,12 @@ export function reconcilePreferredShares(
   issuedCharacterIds: string[],
   session: number,
   now: number,
-  context?: { stocks: StockState[]; concentration: CharacterConcentration },
+  context?: {
+    stocks: StockState[];
+    concentration: CharacterConcentration;
+    /** 유의미 분산(5캐릭터↑)이 유예(5거래일)를 넘겨 휴면분 매각이 확정됐는지 */
+    sellDormant: boolean;
+  },
 ): PreferredReconcileResult {
   if (!context) {
     return { shares: existing, issued: [], sold: [], proceeds: 0, issuedCharacterIds };
@@ -91,12 +100,13 @@ export function reconcilePreferredShares(
   const focused = new Set(context.concentration.focusedCharacterIds);
   const isActive = (characterId: string) => eligible && focused.has(characterId);
 
-  // 1) 집중 해제된 우선주 매각 (액면가 현금화 후 제거)
+  // 1) 휴면(집중 이탈) 우선주 처리: 매각 확정 시에만 액면가로 현금화하고 제거,
+  //    아니면 그대로 보유(재집중 시 부활). 시세 드리프트로 인한 강제 매각을 막는다.
   const kept: PreferredShare[] = [];
   const sold: PreferredShare[] = [];
   let proceeds = 0;
   for (const share of existing) {
-    if (isActive(share.characterId)) {
+    if (isActive(share.characterId) || !context.sellDormant) {
       kept.push(share);
     } else {
       sold.push(share);

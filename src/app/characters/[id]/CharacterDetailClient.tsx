@@ -167,15 +167,15 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <div className={`mt-4 rounded-2xl border p-4 ${preferredActive ? "border-amber-400/40 bg-amber-400/10" : "border-orange-400/40 bg-orange-400/10"}`}>
           <p className={`flex items-center gap-2 text-sm font-bold ${preferredActive ? "text-amber-300" : "text-orange-300"}`}>
             🎖️ 동맹 보상 우선주 {preferredShare.shares}좌{" "}
-            {preferredActive ? "· 활성" : "· 💸 매각 대기(집중 해제)"}
+            {preferredActive ? "· 활성" : "· 💤 휴면(집중 해제)"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             {company.name}이(가) 발행한 매매불가 특별주(액면 = 발행 시 본주×1.30). 액면{" "}
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
             {preferredActive
-              ? "집중을 유지하는 동안 총자산·랭킹·배당에 반영됩니다. 분산하면 액면가로 매각(현금화)되고 재발행되지 않으니 주의하세요."
-              : "집중이 풀려 곧 액면가로 매각(현금화)됩니다. 매각되면 재발행되지 않습니다."}
+              ? "집중을 유지하는 동안 총자산·랭킹·배당에 반영됩니다."
+              : "지금은 휴면(자산·배당 0)입니다. 다시 집중하면 부활하지만, 5캐릭터 이상으로 5거래일 넘게 분산하면 액면가로 매각(현금화)되고 재발행되지 않습니다."}
           </p>
         </div>
       ) : preferredSoldGone ? (

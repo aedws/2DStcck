@@ -166,6 +166,8 @@ import {
   getActivePreferredShares,
   getPreferredShareValue,
   normalizePreferredShares,
+  PREFERRED_DIVERSIFY_CHARACTERS,
+  PREFERRED_SALE_GRACE_SESSIONS,
   reconcilePreferredShares,
 } from "@/lib/player/preferredShares";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
@@ -297,6 +299,8 @@ interface MarketStore extends MarketSnapshot {
   preferredShares: PreferredShare[];
   /** 한 번이라도 우선주가 발행된 캐릭터 id (매각 후 재발행 방지). */
   preferredIssuedCharacterIds: string[];
+  /** 유의미 분산(5캐릭터↑)이 시작된 거래일 — 5거래일 유예 후 휴면분 매각. null이면 미분산. */
+  preferredDiversifiedSince: number | null;
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
@@ -391,6 +395,7 @@ function createInitialState(): MarketSnapshot & {
   characterProgress: CharacterProgressMap;
   preferredShares: PreferredShare[];
   preferredIssuedCharacterIds: string[];
+  preferredDiversifiedSince: number | null;
   readCharacterMessageIds: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
@@ -459,6 +464,7 @@ function createInitialState(): MarketSnapshot & {
     characterProgress: {},
     preferredShares: [],
     preferredIssuedCharacterIds: [],
+    preferredDiversifiedSince: null,
     readCharacterMessageIds: [],
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
@@ -1377,6 +1383,10 @@ export const useMarketStore = create<MarketStore>()(
           preferredIssuedCharacterIds: Array.isArray(wallet.preferredIssuedCharacterIds)
             ? wallet.preferredIssuedCharacterIds.filter((id): id is string => typeof id === "string")
             : [],
+          preferredDiversifiedSince:
+            typeof wallet.preferredDiversifiedSince === "number"
+              ? wallet.preferredDiversifiedSince
+              : null,
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
@@ -1446,6 +1456,7 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress: s.characterProgress,
           preferredShares: s.preferredShares,
           preferredIssuedCharacterIds: s.preferredIssuedCharacterIds,
+          preferredDiversifiedSince: s.preferredDiversifiedSince,
           readCharacterMessageIds: s.readCharacterMessageIds,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
@@ -2025,6 +2036,21 @@ export const useMarketStore = create<MarketStore>()(
             );
           }
         }
+        const preferredConcentration = computeCharacterConcentration(
+          holdings,
+          combinedStocks,
+          netWorth,
+        );
+        // 유의미 분산(5캐릭터↑) 지속 시각을 추적해 5거래일 유예 후에만 휴면분 매각.
+        const diversified =
+          preferredConcentration.heldCount >= PREFERRED_DIVERSIFY_CHARACTERS;
+        let preferredDiversifiedSince = diversified
+          ? state.preferredDiversifiedSince ?? currentSession
+          : null;
+        const sellDormant =
+          diversified &&
+          preferredDiversifiedSince !== null &&
+          currentSession - preferredDiversifiedSince >= PREFERRED_SALE_GRACE_SESSIONS;
         const preferredReconcile = reconcilePreferredShares(
           characterProgress,
           state.preferredShares,
@@ -2033,13 +2059,14 @@ export const useMarketStore = create<MarketStore>()(
           now,
           {
             stocks: combinedStocks,
-            concentration: computeCharacterConcentration(
-              holdings,
-              combinedStocks,
-              netWorth,
-            ),
+            concentration: preferredConcentration,
+            sellDormant,
           },
         );
+        // 매각이 확정돼 처분했으면 분산 타이머를 초기화한다.
+        if (sellDormant && preferredReconcile.sold.length > 0) {
+          preferredDiversifiedSince = null;
+        }
         const preferredShares = preferredReconcile.shares;
         const preferredIssuedCharacterIds = preferredReconcile.issuedCharacterIds;
         // 집중 해제로 매각된 우선주는 액면가를 현금으로 지급한다.
@@ -2094,6 +2121,7 @@ export const useMarketStore = create<MarketStore>()(
           characterProgress,
           preferredShares,
           preferredIssuedCharacterIds,
+          preferredDiversifiedSince,
           investmentMastery,
           investmentSeason,
           unlockedSeasonRewardIds,
@@ -2761,6 +2789,7 @@ export const useMarketStore = create<MarketStore>()(
         characterProgress: state.characterProgress,
         preferredShares: state.preferredShares,
         preferredIssuedCharacterIds: state.preferredIssuedCharacterIds,
+        preferredDiversifiedSince: state.preferredDiversifiedSince,
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
@@ -3053,6 +3082,10 @@ export const useMarketStore = create<MarketStore>()(
                 (id): id is string => typeof id === "string",
               )
             : [],
+          preferredDiversifiedSince:
+            typeof (walletSource as Partial<MarketStore>).preferredDiversifiedSince === "number"
+              ? (walletSource as Partial<MarketStore>).preferredDiversifiedSince!
+              : null,
           readCharacterMessageIds: Array.isArray(
             (walletSource as Partial<MarketStore>).readCharacterMessageIds,
           )
