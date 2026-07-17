@@ -918,6 +918,39 @@ export const CSV_COMPANIES: StockDefinition[] = [
       "신제품": 2
     },
     "ceoId": "chr_nkccl"
+  },
+  {
+    "id": "semix",
+    "ticker": "SEMIX",
+    "name": "Semiconductor Sector ETF",
+    "sector": "ETF",
+    "initialPrice": 20000,
+    "volatility": 0.032,
+    "drift": 0.0007,
+    "beta": 1.3,
+    "description": "반도체 밸류체인 5개사(팹리스·파운드리·메모리·시스템·장비)에 분산 투자하는 섹터 ETF.",
+    "etfHoldings": [
+      {
+        "stockId": "aeyvn",
+        "weight": 0.3
+      },
+      {
+        "stockId": "nkmna",
+        "weight": 0.22
+      },
+      {
+        "stockId": "wwmne",
+        "weight": 0.18
+      },
+      {
+        "stockId": "wwlcl",
+        "weight": 0.15
+      },
+      {
+        "stockId": "nkccl",
+        "weight": 0.15
+      }
+    ]
   }
 ];
 
