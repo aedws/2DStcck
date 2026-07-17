@@ -73,6 +73,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-17",
+    tag: "수정",
+    title: "캐릭터 이름 표기 정정 (나무위키 기준)",
+    detail:
+      "일부 캐릭터 이름 표기를 나무위키 기준으로 바로잡았습니다 — 수안인→파수인, 카멜리야→카멜리아, 리터→리타. 나머지 캐릭터 이름은 기존 표기가 이미 기준과 일치합니다.",
+  },
+  {
+    date: "2026-07-17",
     tag: "신규",
     title: "관계 등급 · 동맹 보상 우선주 · 집중 투자 연계",
     detail:

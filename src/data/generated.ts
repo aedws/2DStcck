@@ -1129,7 +1129,7 @@ export const CSV_CHARACTERS: Character[] = [
   },
   {
     "id": "chr_wwskp",
-    "name": "수안인",
+    "name": "파수인",
     "title": "관리자",
     "traits": [
       "은둔형",
@@ -1141,7 +1141,7 @@ export const CSV_CHARACTERS: Character[] = [
   },
   {
     "id": "chr_wwcam",
-    "name": "카멜리야",
+    "name": "카멜리아",
     "title": "대표",
     "traits": [
       "사고뭉치",
@@ -1152,7 +1152,7 @@ export const CSV_CHARACTERS: Character[] = [
   },
   {
     "id": "chr_nkltr",
-    "name": "리터",
+    "name": "리타",
     "title": "소장",
     "traits": [
       "천재",
