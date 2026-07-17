@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMarketStore } from "@/store/marketStore";
 import type { StockState } from "@/lib/types/market";
 import { formatPrice, getChangePercent } from "@/lib/market/engine";
@@ -63,20 +64,26 @@ export function PumpBanner({ pumps }: { pumps: StockState[] }) {
                   </span>
                 )}
               </p>
+              <Link
+                href="/pump"
+                className="mt-1 inline-block text-xs font-semibold text-amber-500 hover:underline"
+              >
+                📊 차트·정밀주문 (수량·지정가·공매도) →
+              </Link>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => trade("buy")}
                 className="rounded-xl bg-[var(--up)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
               >
-                매수
+                1주 매수
               </button>
               <button
                 onClick={() => trade("sell")}
                 disabled={!held || held.quantity < 1}
                 className="rounded-xl bg-[var(--down)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
               >
-                매도
+                1주 매도
               </button>
             </div>
           </div>
