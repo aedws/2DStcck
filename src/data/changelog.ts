@@ -50,6 +50,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "수정",
+    title: "급등주 차트가 점으로만 찍히던 문제",
+    detail:
+      "급등주 캔들을 30초봉과 같은 간격으로 샘플링해 봉마다 표본이 하나뿐이라 시가=고가=저가=종가(점)로만 보이던 문제를 고쳤습니다. 상장 시점부터 더 촘촘히 샘플링해 봉 안의 실제 움직임이 반영되도록 했습니다.",
+  },
+  {
+    date: "2026-07-14",
     tag: "개선",
     title: "급등주 튜토리얼 · 빠른 버튼 수량 선택",
     detail:

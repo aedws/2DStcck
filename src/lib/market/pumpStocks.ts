@@ -1,10 +1,11 @@
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import {
   BASE_CANDLE_INTERVAL_MS,
+  MAX_PRICE_HISTORY,
   SESSION_DURATION_MS,
   SIM_TICK_MS,
 } from "@/lib/market/constants";
-import { seededRand } from "@/lib/market/engine";
+import { MAX_CANDLES, MAX_DAILY_CANDLES, seededRand } from "@/lib/market/engine";
 import { generateOrderBook } from "@/lib/market/orderBook";
 
 /**
@@ -117,35 +118,59 @@ export function pumpFinalPrice(spec: PumpSpec): number {
   return pumpPriceAt(spec, end);
 }
 
+type OHLC = { o: number; h: number; l: number; c: number };
+function accOhlc(map: Map<number, OHLC>, key: number, p: number) {
+  const c = map.get(key);
+  if (c) {
+    if (p > c.h) c.h = p;
+    if (p < c.l) c.l = p;
+    c.c = p;
+  } else {
+    map.set(key, { o: p, h: p, l: p, c: p });
+  }
+}
+const ohlcToCandle = ([timestamp, v]: [number, OHLC]) => ({
+  timestamp,
+  open: v.o,
+  high: v.h,
+  low: v.l,
+  close: v.c,
+});
+
 function buildPumpState(spec: PumpSpec, now: number): StockState {
   const price = pumpPriceAt(spec, now);
   const start = spec.spawnSession * SESSION_DURATION_MS;
   const session = Math.floor(now / SESSION_DURATION_MS);
-  // 최근 구간의 결정론 히스토리·분봉 (스파크라인·차트용)
-  const history = [];
-  const candlesMap = new Map<number, { o: number; h: number; l: number; c: number }>();
-  const step = SIM_TICK_MS * 30; // 30초 간격 샘플
-  for (let t = Math.max(start, now - 90 * step); t <= now; t += step) {
+
+  // 상장 시점부터 촘촘히(3초 간격) 샘플링한다. 30초봉과 같은 간격으로 뽑으면
+  // 봉당 표본이 하나뿐이라 시가=고가=저가=종가(점)로만 찍히므로, 봉 안에서
+  // 실제 움직임이 생기도록 봉 간격보다 잘게 나눠 집계한다.
+  const sampleStep = SIM_TICK_MS * 3;
+  const history: { timestamp: number; price: number }[] = [];
+  const candlesMap = new Map<number, OHLC>();
+  const dailyMap = new Map<number, OHLC>();
+  let lastHistoryBucket = -1;
+  for (let t = start; t <= now; t += sampleStep) {
     const p = pumpPriceAt(spec, t);
-    history.push({ timestamp: t, price: p });
-    const m =
+    const candleBucket =
       Math.floor(t / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS;
-    const c = candlesMap.get(m);
-    if (c) {
-      c.h = Math.max(c.h, p);
-      c.l = Math.min(c.l, p);
-      c.c = p;
-    } else {
-      candlesMap.set(m, { o: p, h: p, l: p, c: p });
+    accOhlc(candlesMap, candleBucket, p);
+    accOhlc(dailyMap, Math.floor(t / SESSION_DURATION_MS) * SESSION_DURATION_MS, p);
+    if (candleBucket !== lastHistoryBucket) {
+      history.push({ timestamp: candleBucket, price: p });
+      lastHistoryBucket = candleBucket;
     }
   }
-  const candles = [...candlesMap.entries()].map(([timestamp, v]) => ({
-    timestamp,
-    open: v.o,
-    high: v.h,
-    low: v.l,
-    close: v.c,
-  }));
+  // 현재가를 마지막(진행 중) 봉에 반영해 종가가 표시가와 일치하게 한다.
+  accOhlc(candlesMap, Math.floor(now / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS, price);
+  accOhlc(dailyMap, Math.floor(now / SESSION_DURATION_MS) * SESSION_DURATION_MS, price);
+
+  const candles = [...candlesMap.entries()].map(ohlcToCandle).slice(-MAX_CANDLES);
+  const dailyCandles = [...dailyMap.entries()]
+    .map(ohlcToCandle)
+    .slice(-MAX_DAILY_CANDLES);
+  const priceHistory = history.slice(-MAX_PRICE_HISTORY);
+
   const dayOpen = pumpPriceAt(spec, Math.max(start, session * SESSION_DURATION_MS));
   const prevDayClose =
     session > spec.spawnSession
@@ -165,19 +190,9 @@ function buildPumpState(spec: PumpSpec, now: number): StockState {
     prevDayClose,
     dayOpen,
     daySessionId: session,
-    priceHistory: history,
+    priceHistory,
     candles,
-    dailyCandles: candles.length
-      ? [
-          {
-            timestamp: session * SESSION_DURATION_MS,
-            open: dayOpen,
-            high: Math.max(...candles.map((c) => c.high)),
-            low: Math.min(...candles.map((c) => c.low)),
-            close: price,
-          },
-        ]
-      : [],
+    dailyCandles,
     orderBook: generateOrderBook(price),
   };
 }
