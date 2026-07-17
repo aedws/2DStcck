@@ -142,11 +142,20 @@ export function addStorySupportAffinity(
   return addCharacterProgress(progress, characterId, 0, 3, session);
 }
 
+/** 보유 유형별 호감 상승 가중치 (5거래일당 상승 = 가중치 × 2). */
+export const AFFINITY_WEIGHT_PREFERRED = 5;
+export const AFFINITY_WEIGHT_LEVERAGE = 2;
+export const AFFINITY_WEIGHT_COMMON = 1;
+export const AFFINITY_WEIGHT_COVERED_CALL = 0.5;
+/** 가중치를 정수 상승폭으로 바꾸는 단위(×2). 보통주=+2로 기존과 동일. */
+const AFFINITY_RATE_UNIT = 2;
+
 /**
- * 캐릭터 종목 보유 기간을 거래일 단위로 누적해 5거래일마다 호감도를 조정한다.
- * 직접 회사 주식을 순자산 3% 이상 보유하면 +2(우호), 그 캐릭터의 인버스를 보유하면
- * −2, 곱버스(레버리지 ≤ −2)면 −4(적대)로 호감이 깎여 음수까지 내려갈 수 있다.
- * 직접 보유(우호)가 인버스보다 우선한다. 오프라인 동안에도 포지션이 유지됐다고 본다.
+ * 캐릭터 보유 기간을 거래일 단위로 누적해 5거래일마다 호감도를 조정한다.
+ * 우호 상승폭은 보유 유형별 가중을 따른다(5거래일당): 우선주 +10 / 레버리지 +4 /
+ * 보통주 +2 / 커버드콜 +1. 한 캐릭터를 여러 유형으로 보유하면 가장 높은 가중을 쓴다.
+ * 직접·레버리지·커버드콜·우선주는 모두 그 캐릭터 보유로 인정(순자산 3% 이상 시).
+ * 인버스는 −2, 곱버스는 −4로 적대(음수까지). 우호가 적대보다 우선한다.
  */
 export function accrueLongHoldingAffinity(
   progress: CharacterProgressMap,
@@ -154,40 +163,76 @@ export function accrueLongHoldingAffinity(
   stocks: StockState[],
   equity: number,
   currentSession: number,
+  activePreferred: { characterId: string; faceValue: number; shares: number }[] = [],
 ): CharacterProgressMap {
   if (equity <= 0) return progress;
   const holdingsById = new Map(holdings.map((holding) => [holding.stockId, holding]));
   const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
 
-  // 캐릭터별 스탠스 rate 산출: 우호(+2)가 적대(−2/−4)보다 우선한다.
-  const rateByCharacter = new Map<string, number>();
-  for (const stock of stocks) {
-    const holding = holdingsById.get(stock.id);
-    const quantity = holding?.quantity ?? 0;
-    if (quantity <= 0) continue;
+  // 캐릭터별 우호 가중치(max)·보유가치 합계·적대 rate 를 모은다.
+  const posWeight = new Map<string, number>();
+  const posValue = new Map<string, number>();
+  const hostile = new Map<string, number>();
+  const bump = (map: Map<string, number>, key: string, value: number) => {
+    map.set(key, (map.get(key) ?? 0) + value);
+  };
+  const raiseWeight = (key: string, weight: number) => {
+    posWeight.set(key, Math.max(posWeight.get(key) ?? 0, weight));
+  };
 
-    // 직접 캐릭터 종목 (파생 제외) — 우호
+  for (const share of activePreferred) {
+    raiseWeight(share.characterId, AFFINITY_WEIGHT_PREFERRED);
+    bump(posValue, share.characterId, share.faceValue * share.shares);
+  }
+  for (const stock of stocks) {
+    const quantity = holdingsById.get(stock.id)?.quantity ?? 0;
+    if (quantity <= 0) continue;
+    const value = quantity * stock.currentPrice;
+
     if (
       stock.ceoId &&
       stock.leverage === undefined &&
       !stock.coveredCallUnderlyingId &&
       !stock.universalDerivative
     ) {
-      if ((quantity * stock.currentPrice) / equity >= LONG_HOLD_MIN_EQUITY_RATIO) {
-        rateByCharacter.set(stock.ceoId, 2);
+      raiseWeight(stock.ceoId, AFFINITY_WEIGHT_COMMON);
+      bump(posValue, stock.ceoId, value);
+      continue;
+    }
+    if (stock.coveredCallUnderlyingId) {
+      const ceoId = stockById.get(stock.coveredCallUnderlyingId)?.ceoId;
+      if (ceoId) {
+        raiseWeight(ceoId, AFFINITY_WEIGHT_COVERED_CALL);
+        bump(posValue, ceoId, value);
       }
       continue;
     }
-    // 인버스·곱버스 (음수 레버리지) — 적대. 기초자산의 캐릭터에 반대 베팅.
+    if ((stock.leverage ?? 0) > 0 && stock.leverageUnderlyingId) {
+      const ceoId = stockById.get(stock.leverageUnderlyingId)?.ceoId;
+      if (ceoId) {
+        raiseWeight(ceoId, AFFINITY_WEIGHT_LEVERAGE);
+        bump(posValue, ceoId, value);
+      }
+      continue;
+    }
     if ((stock.leverage ?? 0) < 0 && stock.leverageUnderlyingId) {
       const ceoId = stockById.get(stock.leverageUnderlyingId)?.ceoId;
       if (!ceoId) continue;
       const hostileRate = (stock.leverage ?? 0) <= -2 ? -4 : -2;
-      const existing = rateByCharacter.get(ceoId);
-      if (existing === undefined || (existing < 0 && hostileRate < existing)) {
-        rateByCharacter.set(ceoId, hostileRate);
-      }
+      const existing = hostile.get(ceoId);
+      if (existing === undefined || hostileRate < existing) hostile.set(ceoId, hostileRate);
     }
+  }
+
+  // 캐릭터별 최종 rate: 우호(가중×2, 3% 이상)가 적대보다 우선.
+  const rateByCharacter = new Map<string, number>();
+  for (const [ceoId, weight] of posWeight) {
+    if ((posValue.get(ceoId) ?? 0) / equity >= LONG_HOLD_MIN_EQUITY_RATIO) {
+      rateByCharacter.set(ceoId, weight * AFFINITY_RATE_UNIT);
+    }
+  }
+  for (const [ceoId, hostileRate] of hostile) {
+    if (!rateByCharacter.has(ceoId)) rateByCharacter.set(ceoId, hostileRate);
   }
 
   let next = progress;

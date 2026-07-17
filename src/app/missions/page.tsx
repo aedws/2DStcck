@@ -75,7 +75,6 @@ export default function MissionsPage() {
     equity,
   );
   const issuer = resolveMissionIssuer(
-    holdings,
     getCompanyDefinitions(),
     issuerConcentration,
     arc.character?.id,

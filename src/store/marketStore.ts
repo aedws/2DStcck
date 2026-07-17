@@ -1862,12 +1862,22 @@ export const useMarketStore = create<MarketStore>()(
         }
         let investmentMission = state.investmentMission;
         let missionHistory = state.missionHistory;
+        const preferredConcentration = computeCharacterConcentration(
+          holdings,
+          combinedStocks,
+          netWorth,
+        );
+        const activePreferred = getActivePreferredShares(
+          state.preferredShares,
+          preferredConcentration,
+        );
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
           holdings,
           combinedStocks,
           netWorth,
           currentSession,
+          activePreferred,
         );
         if (investmentMission?.status === "active") {
           const benchmarkPrice = getBenchmark(combinedStocks)?.currentPrice ?? 0;
@@ -2036,11 +2046,6 @@ export const useMarketStore = create<MarketStore>()(
             );
           }
         }
-        const preferredConcentration = computeCharacterConcentration(
-          holdings,
-          combinedStocks,
-          netWorth,
-        );
         // 유의미 분산(5캐릭터↑) 지속 시각을 추적해 5거래일 유예 후에만 휴면분 매각.
         const diversified =
           preferredConcentration.heldCount >= PREFERRED_DIVERSIFY_CHARACTERS;
@@ -2220,7 +2225,6 @@ export const useMarketStore = create<MarketStore>()(
           equity,
         );
         const issuer = resolveMissionIssuer(
-          state.holdings,
           STOCK_DEFINITIONS,
           concentration,
           arc.character?.id,

@@ -21,15 +21,23 @@ export interface MissionIssuer {
  * 보유한 캐릭터 종목이 하나도 없으면 null (의뢰를 받을 수 없음).
  */
 export function resolveMissionIssuer(
-  holdings: { stockId: string; quantity: number }[],
   companies: { id: string; ceoId?: string }[],
-  concentration: { focusedCharacterIds: string[]; oneAndOnly: boolean; twinStar: boolean; tripleHarmonia: boolean },
+  concentration: {
+    focusedCharacterIds: string[];
+    ranked: { characterId: string; share: number }[];
+    oneAndOnly: boolean;
+    twinStar: boolean;
+    tripleHarmonia: boolean;
+  },
   arcCharacterId: string | undefined,
   seed: number,
 ): MissionIssuer | null {
-  const quantityById = new Map(holdings.map((h) => [h.stockId, h.quantity]));
+  // 보유 판정에 직접 종목뿐 아니라 레버리지·커버드콜도 포함(집중도 집계 기준).
+  const heldCharacterIds = new Set(
+    concentration.ranked.filter((r) => r.share > 0).map((r) => r.characterId),
+  );
   const held = companies.filter(
-    (company) => company.ceoId && (quantityById.get(company.id) ?? 0) > 0,
+    (company) => company.ceoId && heldCharacterIds.has(company.ceoId),
   );
   if (held.length === 0) return null;
 
