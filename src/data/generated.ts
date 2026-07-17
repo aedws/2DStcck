@@ -774,12 +774,13 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "aeyvn",
     "ticker": "AEYVN",
     "name": "Yvonne Microsystems",
-    "sector": "반도체",
+    "sector": "팹리스",
+    "subsector": "반도체",
     "initialPrice": 72000,
     "volatility": 0.05,
     "drift": 0.0009,
     "beta": 1.5,
-    "description": "미세공정 반도체와 연산 칩을 설계·양산하는 첨단 반도체 기업.",
+    "description": "AI 가속기와 GPU를 설계하는 팹리스 반도체 기업. 생산은 위탁하고 설계에 집중한다.",
     "eventBias": {
       "신제품": 3,
       "스캔들": 1.5
@@ -848,6 +849,75 @@ export const CSV_COMPANIES: StockDefinition[] = [
     },
     "quarterlyDividend": 320,
     "ceoId": "chr_ersua"
+  },
+  {
+    "id": "nkmna",
+    "ticker": "NKMNA",
+    "name": "Mana Foundry",
+    "sector": "파운드리",
+    "subsector": "반도체",
+    "initialPrice": 85000,
+    "volatility": 0.032,
+    "drift": 0.0007,
+    "beta": 1.25,
+    "description": "팹리스 기업의 칩을 위탁 생산하는 첨단 파운드리 기업.",
+    "eventBias": {
+      "수주": 3,
+      "행보": 1
+    },
+    "ceoId": "chr_nkmna"
+  },
+  {
+    "id": "wwmne",
+    "ticker": "WWMNE",
+    "name": "Monie Memory",
+    "sector": "메모리",
+    "subsector": "반도체",
+    "initialPrice": 48000,
+    "volatility": 0.048,
+    "drift": 0.0007,
+    "beta": 1.4,
+    "description": "DRAM·낸드 메모리를 양산하는 반도체 기업. 업황 사이클이 극심하다.",
+    "eventBias": {
+      "실적": 3,
+      "스캔들": 1
+    },
+    "ceoId": "chr_wwmne"
+  },
+  {
+    "id": "wwlcl",
+    "ticker": "WWLCL",
+    "name": "Lucila Systems",
+    "sector": "시스템반도체",
+    "subsector": "반도체",
+    "initialPrice": 66000,
+    "volatility": 0.028,
+    "drift": 0.0005,
+    "beta": 1.05,
+    "description": "CPU와 시스템 반도체를 설계·생산하는 종합반도체(IDM) 기업.",
+    "eventBias": {
+      "실적": 2,
+      "신제품": 2
+    },
+    "quarterlyDividend": 260,
+    "ceoId": "chr_wwlcl"
+  },
+  {
+    "id": "nkccl",
+    "ticker": "NKCCL",
+    "name": "Cecil Lithography",
+    "sector": "반도체장비",
+    "subsector": "반도체",
+    "initialPrice": 110000,
+    "volatility": 0.04,
+    "drift": 0.0008,
+    "beta": 1.3,
+    "description": "극자외선(EUV) 노광 장비를 독점 공급하는 반도체 장비 기업.",
+    "eventBias": {
+      "수주": 3,
+      "신제품": 2
+    },
+    "ceoId": "chr_nkccl"
   }
 ];
 
@@ -1280,7 +1350,7 @@ export const CSV_CHARACTERS: Character[] = [
       "천재",
       "워커홀릭"
     ],
-    "bio": "미세공정의 한계를 매번 갱신하는 반도체 설계의 귀재.",
+    "bio": "생산 라인 없이 설계만으로 시장을 지배하는 팹리스의 귀재.",
     "emoji": "💠"
   },
   {
@@ -1324,6 +1394,50 @@ export const CSV_CHARACTERS: Character[] = [
     ],
     "bio": "최악을 미리 계산해 사람들의 내일을 지키는 보험 설계자.",
     "emoji": "☂️"
+  },
+  {
+    "id": "chr_nkmna",
+    "name": "마나",
+    "title": "CEO",
+    "traits": [
+      "성실",
+      "카리스마"
+    ],
+    "bio": "고객사 설계를 완벽한 수율로 찍어내는 위탁생산의 강자.",
+    "emoji": "🏭"
+  },
+  {
+    "id": "chr_wwmne",
+    "name": "모니에",
+    "title": "CEO",
+    "traits": [
+      "천재",
+      "사고뭉치"
+    ],
+    "bio": "메모리 슈퍼사이클의 파도를 온몸으로 타는 승부사.",
+    "emoji": "💾"
+  },
+  {
+    "id": "chr_wwlcl",
+    "name": "루실라",
+    "title": "CEO",
+    "traits": [
+      "천재",
+      "성실"
+    ],
+    "bio": "설계부터 생산까지 직접 쥔 종합반도체의 노련한 경영자.",
+    "emoji": "🧠"
+  },
+  {
+    "id": "chr_nkccl",
+    "name": "세실",
+    "title": "CEO",
+    "traits": [
+      "천재",
+      "워커홀릭"
+    ],
+    "bio": "EUV 노광 장비를 홀로 만들어내는 정밀공학의 정점.",
+    "emoji": "🔬"
   }
 ];
 
@@ -2206,6 +2320,86 @@ export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "대형 청구가 들어왔지만 준비금으로 감당합니다.",
       "최악을 가정해 둔 게 이럴 때 빛나죠.",
       "약속은 지킵니다. 그게 보험이니까요."
+    ]
+  },
+  {
+    "characterId": "chr_nkmna",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "고객사 칩을 완벽한 수율로 뽑았어요. 신뢰가 곧 수주죠.",
+      "증설이 제때 돌아갔네요. 물량은 저희가 책임집니다.",
+      "설계는 그쪽이"
+    ]
+  },
+  {
+    "characterId": "chr_nkmna",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "수율이 흔들렸지만 라인을 다시 잡습니다.",
+      "증설이 늦어도 납기는 지켜냅니다.",
+      "고객 신뢰가 생명이에요. 원인부터 바로잡죠."
+    ]
+  },
+  {
+    "characterId": "chr_wwmne",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "슈퍼사이클이 왔어요! 지금이 메모리의 계절이죠.",
+      "가격이 치솟네요. 이 파도",
+      "제대로 타봅시다."
+    ]
+  },
+  {
+    "characterId": "chr_wwmne",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "치킨게임이네요. 버티는 놈이 이깁니다.",
+      "가격 폭락? 사이클은 돌아요. 다음 상승을 준비하죠.",
+      "적자 구간이지만 감산으로 버팁니다."
+    ]
+  },
+  {
+    "characterId": "chr_wwlcl",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "설계부터 생산까지 다 쥐고 있으니 흔들림이 없죠.",
+      "신형 코어가 벤치를 갈아치웠어요.",
+      "종합반도체의 저력을 실적으로 보였네요."
+    ]
+  },
+  {
+    "characterId": "chr_wwlcl",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "공정 전환이 늦었네요. 로드맵을 다시 짭니다.",
+      "경쟁사에 밀렸지만 다음 세대로 뒤집죠.",
+      "성숙한 회사는 이런 걸로 안 흔들려요. 차분히."
+    ]
+  },
+  {
+    "characterId": "chr_nkccl",
+    "tag": "*",
+    "direction": "positive",
+    "quotes": [
+      "EUV 주문이 밀렸어요. 저희 없인 미세공정도 없죠.",
+      "장비 한 대에 팹 하나가 걸려 있으니까요.",
+      "누가 이기든"
+    ]
+  },
+  {
+    "characterId": "chr_nkccl",
+    "tag": "*",
+    "direction": "negative",
+    "quotes": [
+      "납기가 밀렸네요. 정밀 조정에 시간이 필요해요.",
+      "수출 규제요? 그래도 기술 우위는 저희 겁니다.",
+      "한 대 한 대가 예술이라 서두를 순 없어요."
     ]
   }
 ];
