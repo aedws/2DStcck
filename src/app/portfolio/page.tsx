@@ -15,7 +15,11 @@ import {
 import { useMarketStore } from "@/store/marketStore";
 import { LUXURY_BY_ID } from "@/data/luxuries";
 import { getLuxuryValue } from "@/lib/market/luxury";
-import { getPreferredShareValue } from "@/lib/player/preferredShares";
+import {
+  getActivePreferredShares,
+  getPreferredShareValue,
+} from "@/lib/player/preferredShares";
+import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import {
   computeRealizedPnl,
   computeUnrealizedPnl,
@@ -44,6 +48,7 @@ export default function PortfolioPage() {
   const preferredShares = useMarketStore((s) => s.preferredShares);
   const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
+  const getEquity = useMarketStore((s) => s.getEquity);
   const getRateLevel = useMarketStore((s) => s.getRateLevel);
   const marginCallAt = useMarketStore((s) => s.marginCallAt);
   const initialCash = useMarketStore((s) => s.initialCash);
@@ -60,7 +65,20 @@ export default function PortfolioPage() {
 
   const total = getTotalAssets();
   const luxuryValue = getLuxuryValue(ownedLuxuries);
-  const preferredValue = getPreferredShareValue(preferredShares);
+  // 우선주는 집중 유지 중인 활성분만 자산 반영 — 총자산과 일치시킨다.
+  const preferredConcentration = computeCharacterConcentration(
+    holdings,
+    stocks,
+    getEquity(),
+  );
+  const activePreferredShares = getActivePreferredShares(
+    preferredShares,
+    preferredConcentration,
+  );
+  const activePreferredIds = new Set(
+    activePreferredShares.map((share) => share.characterId),
+  );
+  const preferredValue = getPreferredShareValue(activePreferredShares);
   const priceById = Object.fromEntries(
     stocks.map((s) => [s.id, s.currentPrice]),
   );
@@ -267,25 +285,34 @@ export default function PortfolioPage() {
             <h2 className="text-sm font-semibold">
               🎖️ 관계 보상 우선주{" "}
               <span className="text-zinc-500">
-                {preferredShares.length}종 · {formatPrice(preferredValue)}
+                활성 {activePreferredShares.length}/{preferredShares.length}종 ·{" "}
+                {formatPrice(preferredValue)}
               </span>
             </h2>
             <Link href="/characters" className="text-xs text-amber-400 hover:underline">
               도감
             </Link>
           </div>
+          <p className="mb-2 text-[11px] text-zinc-500">
+            집중(원 앤 온리·트윈 스타·트리플 하르모니아) 유지 중인 우선주만 자산·배당에
+            반영됩니다. 휴면분은 집중을 되살리면 부활합니다.
+          </p>
           <div className="flex flex-wrap gap-2">
-            {preferredShares.map((share) => (
-              <Link
-                key={share.characterId}
-                href={`/characters/${share.companyId}`}
-                className="flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-500/25"
-                title={`${share.companyName} 우선주 · 분기 배당 ${formatPrice(share.dividendPerShare * share.shares)}`}
-              >
-                <span className="text-base leading-none">{share.emoji}</span>
-                {share.companyName}
-              </Link>
-            ))}
+            {preferredShares.map((share) => {
+              const active = activePreferredIds.has(share.characterId);
+              return (
+                <Link
+                  key={share.characterId}
+                  href={`/characters/${share.companyId}`}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs ${active ? "bg-amber-500/15 text-amber-200 hover:bg-amber-500/25" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"}`}
+                  title={`${share.companyName} 우선주 · 분기 배당 ${formatPrice(share.dividendPerShare * share.shares)}${active ? "" : " · 💤 휴면"}`}
+                >
+                  <span className="text-base leading-none">{share.emoji}</span>
+                  {share.companyName}
+                  {!active && <span className="text-[10px]">💤</span>}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

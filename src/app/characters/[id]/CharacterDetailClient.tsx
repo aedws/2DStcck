@@ -13,6 +13,8 @@ import {
   MAX_CHARACTER_AFFINITY,
   PREFERRED_SHARE_AFFINITY,
 } from "@/lib/market/characterProgress";
+import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import { isPreferredActive } from "@/lib/player/preferredShares";
 import { useMarketStore } from "@/store/marketStore";
 
 export function CharacterDetailClient({ id }: { id: string }) {
@@ -26,6 +28,8 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const events = useMarketStore((s) => s.events);
   const characterProgress = useMarketStore((s) => s.characterProgress);
   const preferredShares = useMarketStore((s) => s.preferredShares);
+  const allStocks = useMarketStore((s) => s.stocks);
+  const getEquity = useMarketStore((s) => s.getEquity);
   const relatedNews = useMemo(
     () =>
       events.filter((e) => e.quoteBy && e.affectedStockIds.includes(id)),
@@ -48,6 +52,14 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const tier = getRelationshipTier(progress.affinity);
   const preferredShare = preferredShares.find((s) => s.characterId === ceo.id);
   const untilAlly = Math.max(0, PREFERRED_SHARE_AFFINITY - progress.affinity);
+  const concentration = computeCharacterConcentration(
+    holdings,
+    allStocks,
+    getEquity(),
+  );
+  const preferredActive = preferredShare
+    ? isPreferredActive(preferredShare, concentration)
+    : false;
   if (!relation.unlocked) {
     return (
       <div className="mx-auto max-w-2xl pb-20">
@@ -146,15 +158,18 @@ export function CharacterDetailClient({ id }: { id: string }) {
       )}
 
       {preferredShare ? (
-        <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4">
-          <p className="flex items-center gap-2 text-sm font-bold text-amber-300">
-            🎖️ 동맹 보상 우선주 {preferredShare.shares}좌 보유 중
+        <div className={`mt-4 rounded-2xl border p-4 ${preferredActive ? "border-amber-400/40 bg-amber-400/10" : "border-[var(--border)] bg-[var(--surface)]"}`}>
+          <p className={`flex items-center gap-2 text-sm font-bold ${preferredActive ? "text-amber-300" : "text-[var(--muted)]"}`}>
+            🎖️ 동맹 보상 우선주 {preferredShare.shares}좌{" "}
+            {preferredActive ? "· 활성" : "· 💤 휴면(집중 해제)"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             {company.name}이(가) 발행한 매매불가 특별주(액면 = 발행 시 본주×1.15). 액면{" "}
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
-            {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}으로
-            총자산과 랭킹에 반영됩니다.
+            {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
+            {preferredActive
+              ? "집중 유지 중이라 총자산·랭킹·배당에 반영됩니다."
+              : "집중(원 앤 온리·트윈 스타·트리플 하르모니아)을 다시 만들면 자산·배당이 되살아납니다. 지금은 휴면입니다."}
           </p>
         </div>
       ) : (

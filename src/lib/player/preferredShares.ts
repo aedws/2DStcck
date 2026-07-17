@@ -19,6 +19,30 @@ export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.025;
 /** 시세를 못 구할 때 쓰는 액면 하한 (초기 발행 안전장치). */
 const PREFERRED_FACE_FALLBACK = 80_000;
 
+/**
+ * 활성 우선주 — 지금 집중(focused) 상태인 캐릭터의 우선주만 혜택이 살아있다.
+ * 집중을 풀면 기록은 남되 휴면(자산·배당 0)이 되고, 재집중하면 부활한다.
+ */
+export function getActivePreferredShares(
+  shares: PreferredShare[],
+  concentration: CharacterConcentration,
+): PreferredShare[] {
+  if (!isPreferredEligible(concentration)) return [];
+  const focused = new Set(concentration.focusedCharacterIds);
+  return shares.filter((share) => focused.has(share.characterId));
+}
+
+/** 우선주가 지금 활성(집중 유지)인지 판정. */
+export function isPreferredActive(
+  share: PreferredShare,
+  concentration: CharacterConcentration,
+): boolean {
+  return (
+    isPreferredEligible(concentration) &&
+    concentration.focusedCharacterIds.includes(share.characterId)
+  );
+}
+
 /** 보유 우선주의 총 액면가치. */
 export function getPreferredShareValue(shares: PreferredShare[]): number {
   let total = 0;

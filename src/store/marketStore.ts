@@ -163,6 +163,7 @@ import {
   settleMissionRelationship,
 } from "@/lib/market/characterProgress";
 import {
+  getActivePreferredShares,
   getPreferredShareValue,
   normalizePreferredShares,
   reconcilePreferredShares,
@@ -2088,7 +2089,20 @@ export const useMarketStore = create<MarketStore>()(
         const state = get();
         const now = Date.now();
         const currentSession = Math.floor(now / SESSION_DURATION_MS);
-        const settled = settleLocalCashflows(state, currentSession, now);
+        // 우선주 배당은 집중 유지 중인 활성분에만 지급한다.
+        const activePreferred = getActivePreferredShares(
+          state.preferredShares,
+          computeCharacterConcentration(
+            state.holdings,
+            state.stocks,
+            fullEquityOf(state),
+          ),
+        );
+        const settled = settleLocalCashflows(
+          { ...state, preferredShares: activePreferred },
+          currentSession,
+          now,
+        );
         const baseCash = settled.changed ? settled.cash : state.cash;
         const baseCashPayments = settled.changed
           ? settled.cashPayments
@@ -2664,8 +2678,16 @@ export const useMarketStore = create<MarketStore>()(
 
       reset: () => set(createInitialState()),
 
-      getTotalAssets: () =>
-        fullEquityOf(get()) + getPreferredShareValue(get().preferredShares),
+      getTotalAssets: () => {
+        const s = get();
+        const equity = fullEquityOf(s);
+        // 우선주는 집중(focused) 유지 중인 활성분만 자산에 반영한다.
+        const active = getActivePreferredShares(
+          s.preferredShares,
+          computeCharacterConcentration(s.holdings, s.stocks, equity),
+        );
+        return equity + getPreferredShareValue(active);
+      },
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
