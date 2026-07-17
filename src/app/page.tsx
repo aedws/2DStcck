@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { MarketOverview } from "@/components/home/MarketOverview";
@@ -9,13 +9,21 @@ import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { MARKET_ERA_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 export default function MarketPage() {
   const stocks = useMarketStore((s) => s.stocks);
   const events = useMarketStore((s) => s.events);
+  const [mounted, setMounted] = useState(false);
+  const onboarded = useSettingsStore((s) => s.onboarded);
+  const eraTutorialSeen = useSettingsStore((s) => s.marketEraTutorialSeen);
+  const setEraTutorialSeen = useSettingsStore((s) => s.setMarketEraTutorialSeen);
+  useEffect(() => setMounted(true), []);
 
   // 급등주는 정적 상세 페이지가 없으므로 목록에서 분리해 인라인 배너로 노출한다
   const pumpStocks = useMemo(() => stocks.filter(isPumpStock), [stocks]);
@@ -34,6 +42,12 @@ export default function MarketPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+      {mounted && onboarded && !eraTutorialSeen && (
+        <FeatureTutorialModal
+          steps={MARKET_ERA_TUTORIAL_STEPS}
+          onFinish={() => setEraTutorialSeen(true)}
+        />
+      )}
       <MarketOverview stocks={marketStocks} events={events} />
       <div className="px-4 pt-3 md:px-5">
         <MarketEraBanner />

@@ -50,6 +50,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-14",
+    tag: "개선",
+    title: "시장 국면·운영 지침 튜토리얼",
+    detail:
+      "국면 시스템 안내를 추가했습니다. 홈 첫 진입 시(온보딩 이후) 국면이 60거래일마다 바뀌는 점, 모두가 같은 국면을 보는 공정성, 시즌이 국면에 정렬되고 중도 참가 첫 시즌은 연습이라는 점, 캐릭터가 국면에 따라 운영 지침을 취한다는 점을 순서대로 안내합니다. 설정의 ‘튜토리얼 다시 보기’에서 언제든 다시 열 수 있습니다.",
+  },
+  {
+    date: "2026-07-14",
     tag: "신규",
     title: "시장 국면별 캐릭터 운영 지침",
     detail:

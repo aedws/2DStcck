@@ -26,6 +26,8 @@ interface SettingsState {
   setOptionsTutorialSeen: (value: boolean) => void;
   strategyTutorialSeen: boolean;
   setStrategyTutorialSeen: (value: boolean) => void;
+  marketEraTutorialSeen: boolean;
+  setMarketEraTutorialSeen: (value: boolean) => void;
   stressTestTutorialSeen: boolean;
   setStressTestTutorialSeen: (value: boolean) => void;
   seasonTutorialSeen: boolean;
@@ -68,6 +70,9 @@ export const useSettingsStore = create<SettingsState>()(
       strategyTutorialSeen: false,
       setStrategyTutorialSeen: (strategyTutorialSeen) =>
         set({ strategyTutorialSeen }),
+      marketEraTutorialSeen: false,
+      setMarketEraTutorialSeen: (marketEraTutorialSeen) =>
+        set({ marketEraTutorialSeen }),
       stressTestTutorialSeen: false,
       setStressTestTutorialSeen: (stressTestTutorialSeen) =>
         set({ stressTestTutorialSeen }),

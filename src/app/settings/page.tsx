@@ -12,10 +12,17 @@ import {
   SEASON_TUTORIAL_VERSION,
   STRATEGY_TUTORIAL_STEPS,
   STRESS_TEST_TUTORIAL_STEPS,
+  MARKET_ERA_TUTORIAL_STEPS,
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 
-type TutorialKind = "mission" | "options" | "season" | "strategy" | "stress";
+type TutorialKind =
+  | "mission"
+  | "options"
+  | "season"
+  | "strategy"
+  | "stress"
+  | "market_era";
 
 export default function SettingsPage() {
   const [openTutorial, setOpenTutorial] = useState<TutorialKind | null>(null);
@@ -45,6 +52,9 @@ export default function SettingsPage() {
   const setStressTestTutorialSeen = useSettingsStore(
     (state) => state.setStressTestTutorialSeen,
   );
+  const setMarketEraTutorialSeen = useSettingsStore(
+    (state) => state.setMarketEraTutorialSeen,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -59,7 +69,9 @@ export default function SettingsPage() {
             ? STRATEGY_TUTORIAL_STEPS
             : openTutorial === "stress"
               ? STRESS_TEST_TUTORIAL_STEPS
-              : null;
+              : openTutorial === "market_era"
+                ? MARKET_ERA_TUTORIAL_STEPS
+                : null;
 
   function showTutorial(kind: TutorialKind) {
     if (kind === "mission") {
@@ -72,8 +84,10 @@ export default function SettingsPage() {
       setSeasonTutorialVersion(0);
     } else if (kind === "strategy") {
       setStrategyTutorialSeen(false);
-    } else {
+    } else if (kind === "stress") {
       setStressTestTutorialSeen(false);
+    } else {
+      setMarketEraTutorialSeen(false);
     }
     setOpenTutorial(kind);
   }
@@ -91,6 +105,8 @@ export default function SettingsPage() {
       setStrategyTutorialSeen(true);
     } else if (openTutorial === "stress") {
       setStressTestTutorialSeen(true);
+    } else if (openTutorial === "market_era") {
+      setMarketEraTutorialSeen(true);
     }
     setOpenTutorial(null);
   }
@@ -250,7 +266,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => showTutorial("stress")}
-          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
             <span className="text-xl" aria-hidden>🚨</span>
@@ -258,6 +274,22 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">대형 위기 조기 체험 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               메인 계좌와 분리된 20거래일 위기 세션 활용법을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("market_era")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🌐</span>
+            <span>
+            <span className="block text-sm font-medium">시장 국면·운영 지침 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              국면 순환, 시즌 정렬, 캐릭터 운영 지침을 다시 안내합니다.
             </span>
             </span>
           </span>
