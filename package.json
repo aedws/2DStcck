@@ -14,6 +14,7 @@
     "test:learning": "tsx scripts/test-learning-journey.ts",
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
     "test:minigame": "tsx scripts/test-minigame.ts",
+    "test:tetris": "tsx scripts/test-tetris-logic.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },
   "dependencies": {
