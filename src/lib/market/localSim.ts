@@ -13,6 +13,8 @@ import {
   computeCoveredCallTick,
   computeEtfNav,
   computeLeveragedPrice,
+  computeLeveragedRawPrice,
+  leverageDisplayPrice,
   createInitialStockState,
   maybeGenerateEvent,
   randomNormal,
@@ -438,9 +440,8 @@ export function replayMarket(
     const uDaily = dailyMap.get(underlyingId) ?? [];
     if (u0 > 0 && uDaily.length > 0) {
       const map = (p: number) =>
-        Math.max(
-          Math.round(stock.initialPrice * Math.pow(Math.max(p, 1) / u0, leverage)),
-          100,
+        leverageDisplayPrice(
+          computeLeveragedRawPrice(stock.initialPrice, p, u0, leverage),
         );
       const derivDaily: Candle[] = uDaily.map((c) => {
         const o = map(c.open);

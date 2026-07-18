@@ -162,6 +162,12 @@ export interface Holding {
   /** 현물은 최대 소수점 6자리까지 보유할 수 있다. */
   quantity: number;
   averagePrice: number;
+  /**
+   * 레버리지·인버스 ETF 보유분에 마지막으로 적용된 액면분할·병합 배수.
+   * 시세가 밴드를 벗어나 배수가 바뀌면 좌수 ×(신/구)·평단 ÷(신/구)로 정산한다.
+   * 없으면 1(분할 전)로 간주한다. 일반 종목에는 쓰이지 않는다.
+   */
+  splitMultiplier?: number;
 }
 
 export type MarginLeverage = 2 | 3 | 4 | 5;

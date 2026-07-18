@@ -192,6 +192,20 @@ function StockInfoTab({ stock }: { stock: StockState }) {
               <dd className="tabular-nums">×{stock.leverage}</dd>
             </div>
           )}
+          {stock.leverage !== undefined && (
+            <div className="col-span-2 flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">
+                액면분할·병합
+              </dt>
+              <dd className="text-[11px] leading-relaxed text-[var(--muted)]">
+                가격이 <b className="text-[var(--foreground)]">$500</b>을 넘으면
+                5:1 분할(가격 ÷5·보유 좌수 ×5), <b className="text-[var(--foreground)]">$50</b>
+                {" "}밑으로 내리면 2:1 병합(가격 ×2·보유 좌수 ÷2)됩니다. 표시가는
+                다루기 쉬운 범위($50~$500)로 유지되고, <b className="text-[var(--foreground)]">
+                포지션 가치는 그대로</b>입니다 — 오른 만큼은 좌수로 쌓입니다.
+              </dd>
+            </div>
+          )}
           {stock.coveredCallAnnualYield !== undefined && (
             <div className="flex flex-col gap-0.5">
               <dt className="text-[11px] text-[var(--muted)]">커버드콜 분배</dt>

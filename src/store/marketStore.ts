@@ -8,10 +8,13 @@ import {
 } from "@/lib/storage/safeLocalStorage";
 import {
   computeLeveragedPrice,
+  computeLeveragedRawPrice,
   createInitialStockState,
   formatPrice,
   getMarketBuyPrice,
   getMarketSellPrice,
+  leverageDisplayPrice,
+  leverageMultiplierFor,
   seededRand,
 } from "@/lib/market/engine";
 import { withCharacterQuote } from "@/data/eventQuotes";
@@ -779,11 +782,10 @@ function reconstructDerivativeSeries(
     return { ...etf, currentPrice: computeLeveragedPrice(etf, underlying) };
   }
 
-  // power-law 매핑(경로 독립): deriv = 초기가 × (기초/기초초기가)^leverage
+  // power-law 매핑(경로 독립) 후 분할·병합을 적용해 표시가 밴드로 변환한다.
   const mapPrice = (uPrice: number) =>
-    Math.max(
-      Math.round(etfInitial * Math.pow(Math.max(uPrice, 1) / u0, lev)),
-      100,
+    leverageDisplayPrice(
+      computeLeveragedRawPrice(etfInitial, uPrice, u0, lev),
     );
 
   const candles = uCandles.map((candle) => {
@@ -812,6 +814,77 @@ function reconstructDerivativeSeries(
     candles,
     priceHistory: priceHistory.length > 0 ? priceHistory : etf.priceHistory,
   };
+}
+
+interface SplitEvent {
+  ticker: string;
+  ratio: number;
+}
+
+/**
+ * 레버리지·인버스 ETF 보유분을 현재 분할·병합 배수에 맞춰 정산한다.
+ * 표시가는 매 틱 밴드로 재계산되므로(computeLeveragedPrice), 좌수도 같은 배수로
+ * 함께 움직여야 포지션 가치가 연속된다. 배수는 기초자산 현재가만의 순함수라
+ * 접속 공백 동안 몇 번을 분할·병합했든 한 번에 목표 배수로 점프 정산하면 된다.
+ * (좌수 × 신/구, 평단 ÷ 신/구 → 손익·가치 불변)
+ */
+function reconcileLeverageSplits(
+  holdings: Holding[],
+  stocks: StockState[],
+): { holdings: Holding[]; changed: boolean; events: SplitEvent[] } {
+  const byId = new Map(stocks.map((s) => [s.id, s]));
+  const targetById = new Map<string, number>();
+  for (const s of stocks) {
+    if (s.leverage === undefined || !s.leverageUnderlyingId) continue;
+    const underlying = byId.get(s.leverageUnderlyingId);
+    if (!underlying) continue;
+    targetById.set(s.id, leverageMultiplierFor(s, underlying));
+  }
+  let changed = false;
+  const events: SplitEvent[] = [];
+  const next = holdings.map((h) => {
+    const target = targetById.get(h.stockId);
+    if (target === undefined) return h;
+    const applied = h.splitMultiplier ?? 1;
+    if (!(target > 0) || !(applied > 0) || target === applied) {
+      return h.splitMultiplier === target ? h : { ...h, splitMultiplier: target };
+    }
+    const ratio = target / applied;
+    changed = true;
+    events.push({ ticker: byId.get(h.stockId)?.ticker ?? h.stockId, ratio });
+    return {
+      ...h,
+      quantity: h.quantity * ratio,
+      averagePrice: h.averagePrice / ratio,
+      splitMultiplier: target,
+    };
+  });
+  // splitMultiplier만 채워진(값 정산 없는) 변경은 changed로 치지 않아 불필요한
+  // 저장·리렌더를 막는다. 하지만 좌수가 바뀌면 반드시 반영해야 한다.
+  return { holdings: changed ? next : holdings, changed, events };
+}
+
+/**
+ * 갓 체결된 레버리지 ETF 보유분에 '현재 분할·병합 배수'를 각인한다.
+ * 매수는 이미 표시가(밴드) 기준 좌수로 들어오므로, splitMultiplier를 현재 배수로
+ * 세팅해 두어야 다음 tick 정산이 이 좌수를 다시 배수만큼 잘못 늘리지 않는다.
+ * (구버전 undefined 보유분은 로드 시 1→현재 배수로 한 번 환산된다.)
+ */
+function stampLeverageMultiplier(
+  holdings: Holding[],
+  stockId: string,
+  stocks: StockState[],
+): Holding[] {
+  const stock = stocks.find((s) => s.id === stockId);
+  if (!stock || stock.leverage === undefined || !stock.leverageUnderlyingId) {
+    return holdings;
+  }
+  const underlying = stocks.find((s) => s.id === stock.leverageUnderlyingId);
+  if (!underlying) return holdings;
+  const m = leverageMultiplierFor(stock, underlying);
+  return holdings.map((h) =>
+    h.stockId === stockId ? { ...h, splitMultiplier: m } : h,
+  );
 }
 
 function applyLocalBuySell(
@@ -881,7 +954,7 @@ function applyLocalBuySell(
     if (!isOrderSuccess(merged)) return merged;
     set({
       cash: state.cash - total,
-      holdings: merged.holdings,
+      holdings: stampLeverageMultiplier(merged.holdings, stockId, state.stocks),
       trades: [merged.trade, ...state.trades],
     });
     get().checkAchievements();
@@ -1330,7 +1403,10 @@ export const useMarketStore = create<MarketStore>()(
           walletEpoch: WALLET_EPOCH,
           cash: wallet.cash,
           initialCash: wallet.initialCash,
-          holdings: wallet.holdings ?? [],
+          holdings: reconcileLeverageSplits(
+            wallet.holdings ?? [],
+            get().stocks,
+          ).holdings,
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
           cashPayments: wallet.cashPayments ?? [],
@@ -1678,7 +1754,14 @@ export const useMarketStore = create<MarketStore>()(
             }
             if (isOrderSuccess(result)) {
               cash = result.cash;
-              holdings = result.holdings;
+              holdings =
+                order.side === "buy"
+                  ? stampLeverageMultiplier(
+                      result.holdings,
+                      order.stockId,
+                      combinedStocks,
+                    )
+                  : result.holdings;
               trades = [result.trade, ...trades];
             }
             // 실패(잔고·수량 부족)한 주문은 서버 모드와 동일하게 자동 취소
@@ -1754,6 +1837,13 @@ export const useMarketStore = create<MarketStore>()(
         );
         cash = recurring.cash;
         holdings = recurring.holdings;
+        for (const plan of recurring.filledPlans) {
+          holdings = stampLeverageMultiplier(
+            holdings,
+            plan.stockId,
+            combinedStocks,
+          );
+        }
         trades = recurring.trades;
         const recurringInvestments = recurring.plans;
         if (recurring.filledPlans.length > 0) {
@@ -1767,6 +1857,25 @@ export const useMarketStore = create<MarketStore>()(
             "주식 모으기 일부를 현금 부족으로 건너뛰었습니다.",
             "info",
           );
+        }
+
+        // 레버리지·인버스 ETF 액면분할·병합: 표시가가 밴드를 벗어나면 보유 좌수를
+        // 반대로 정산한다(포지션 가치 불변). 배수는 기초자산 현재가만의 순함수라
+        // 미접속 공백 동안의 다중 분할·병합도 한 번에 따라잡는다.
+        const splitResult = reconcileLeverageSplits(holdings, combinedStocks);
+        holdings = splitResult.holdings;
+        if (splitResult.changed) {
+          for (const ev of splitResult.events) {
+            const isSplit = ev.ratio > 1;
+            useToastStore
+              .getState()
+              .push(
+                isSplit
+                  ? `📈 ${ev.ticker} ${Math.round(ev.ratio)}:1 액면분할 — 보유 좌수 ${Math.round(ev.ratio)}배`
+                  : `📉 ${ev.ticker} ${Math.round(1 / ev.ratio)}:1 병합 — 보유 좌수 ${Math.round(1 / ev.ratio)}분의 1`,
+                "info",
+              );
+          }
         }
 
         // 금리 단계 변경 뉴스 (결정론 — 세션당 1회, 전 클라이언트 동일)
@@ -3110,6 +3219,11 @@ export const useMarketStore = create<MarketStore>()(
         const preferredShares = normalizePreferredShares(
           (walletSource as Partial<MarketStore>).preferredShares,
         );
+        // 복원 직후 레버리지 ETF 보유 좌수를 현재 분할·병합 배수로 정산한다.
+        const reconciledHoldings = reconcileLeverageSplits(
+          Array.isArray(walletSource.holdings) ? walletSource.holdings : [],
+          stocksWithDerived,
+        ).holdings;
 
         return {
           ...walletSource,
@@ -3119,6 +3233,7 @@ export const useMarketStore = create<MarketStore>()(
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
           stocks: stocksWithDerived,
+          holdings: reconciledHoldings,
           events:
             marketValid && Array.isArray(merged.events)
               ? merged.events.map(ensureEventDialogue)

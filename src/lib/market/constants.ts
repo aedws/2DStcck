@@ -21,8 +21,11 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  리플레이를 강제한다.
  *  v16: 레버리지·인버스 ETF를 '로그수익률 배수(power-law)' 모델로 교체 —
  *  prevDayClose 미갱신으로 복리가 소실돼 레버리지가 평평하던 버그 수정. 우상향이
- *  지속되면 배수만큼 본주를 앞지른다. 가격 규칙 변경으로 전체 리플레이를 강제한다. */
-export const MARKET_SIM_VERSION = 16;
+ *  지속되면 배수만큼 본주를 앞지른다. 가격 규칙 변경으로 전체 리플레이를 강제한다.
+ *  v17: 레버리지·인버스 ETF 액면분할·병합 도입 — 가격이 $500을 넘으면 5:1 분할,
+ *  $50 밑으로 내리면 2:1 병합해 표시가를 [$50, $500) 밴드로 유지한다(보유 좌수는
+ *  반대로 증감). 표시가 규칙이 바뀌어 전체 리플레이를 강제한다. */
+export const MARKET_SIM_VERSION = 17;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.
@@ -63,6 +66,20 @@ export const MEAN_REVERSION_UP_PER_SESSION = 0.07;
 export const MEAN_REVERSION_DOWN_PER_SESSION = 0.05;
 /** 이벤트 임팩트: impact × 이 값 × dt초 × 감쇠 (impact 0.04면 총 ~0.6% 반영) */
 export const EVENT_IMPACT_TIME_SCALE = 0.0035;
+
+// ── 레버리지·인버스 ETF 액면분할·병합 (센트 단위) ──
+// power-law 레버리지가는 우상향이 길어지면 무한히 커지고 인버스는 0에 수렴한다.
+// 표시가를 사람이 다루기 쉬운 밴드에 묶기 위해, 상단을 넘으면 분할(좌수↑·가격↓),
+// 하단을 밑돌면 병합(좌수↓·가격↑)한다. 배수는 '현재가만의 순함수'라 결정론
+// 리플레이에서 상태 없이 재구성된다. 밴드 = [MERGE_AT, SPLIT_AT) = [$50, $500).
+/** 이 가격 이상이면 분할한다 — $500 */
+export const LEVERAGE_SPLIT_AT = 50_000;
+/** 이 가격 미만이면 병합한다 — $50 */
+export const LEVERAGE_MERGE_AT = 5_000;
+/** 분할 비율 5:1 (가격 ÷5, 좌수 ×5) */
+export const LEVERAGE_SPLIT_RATIO = 5;
+/** 병합 비율 2:1 (가격 ×2, 좌수 ÷2) */
+export const LEVERAGE_MERGE_RATIO = 2;
 export const MAX_PRICE_HISTORY = 120;
 export const ORDER_BOOK_LEVELS = 5;
 /** 가상 1거래일 = 실시간 1시간. 정시마다 새 거래일이 시작된다. */

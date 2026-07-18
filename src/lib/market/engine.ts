@@ -13,6 +13,10 @@ import {
   EVENT_CHANCE_PER_TICK,
   EVENT_IMPACT_TIME_SCALE,
   EVENT_MIN_GAP_MS,
+  LEVERAGE_SPLIT_AT,
+  LEVERAGE_MERGE_AT,
+  LEVERAGE_SPLIT_RATIO,
+  LEVERAGE_MERGE_RATIO,
   MARKET_ORDER_SLIPPAGE,
   MARKET_EPOCH_MS,
   MARKET_SECULAR_GROWTH_PER_SESSION,
@@ -524,6 +528,63 @@ export function tickStock(
  * 매 틱 복리 계산하지 않고도 정확히 재구성할 수 있다. (기존 '당일 등락 추종'은
  * prevDayClose 미갱신으로 복리가 소실돼 레버리지가 평평해지던 버그를 대체)
  */
+export function computeLeveragedRawPrice(
+  etfInitial: number,
+  underlyingCurrent: number,
+  underlyingInitial: number,
+  leverage: number,
+): number {
+  if (underlyingInitial <= 0) return etfInitial;
+  const ratio = Math.max(underlyingCurrent, 1) / underlyingInitial;
+  return Math.max(etfInitial * Math.pow(ratio, leverage), 1);
+}
+
+/**
+ * 액면분할·병합 배수 — '현재 원가격만'의 순함수(경로 독립).
+ * 반환값 m으로 표시가 = raw / m, 보유 좌수 = 원좌수 × m 이 되도록 밴드에 맞춘다.
+ * 분할(가격 상단 초과): m ×= 5. 병합(가격 하단 미만): m ÷= 2. 두 조건은 배타적이라
+ * (5:1 분할이면 $500→$100, 2:1 병합이면 $50→$100, 모두 [$50,$500) 안) 진동하지 않는다.
+ */
+export function leverageSplitMultiplier(rawPrice: number): number {
+  let price = Math.max(rawPrice, 1);
+  let m = 1;
+  let guard = 0;
+  while (price >= LEVERAGE_SPLIT_AT && guard++ < 48) {
+    price /= LEVERAGE_SPLIT_RATIO;
+    m *= LEVERAGE_SPLIT_RATIO;
+  }
+  while (price < LEVERAGE_MERGE_AT && guard++ < 96) {
+    price *= LEVERAGE_MERGE_RATIO;
+    m /= LEVERAGE_MERGE_RATIO;
+  }
+  return m;
+}
+
+/** 원가격을 분할·병합 적용한 표시가([$50,$500) 밴드)로 변환한다. */
+export function leverageDisplayPrice(rawPrice: number): number {
+  const m = leverageSplitMultiplier(rawPrice);
+  return Math.max(Math.round(rawPrice / m), 1);
+}
+
+/** ETF+기초자산의 현재 분할·병합 배수(보유 좌수 정산용). */
+export function leverageMultiplierFor(
+  etf: StockState,
+  underlying: StockState,
+): number {
+  const underlyingInitial =
+    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ??
+    underlying.initialPrice ??
+    0;
+  if (underlyingInitial <= 0) return 1;
+  const raw = computeLeveragedRawPrice(
+    etf.initialPrice,
+    underlying.currentPrice,
+    underlyingInitial,
+    etf.leverage ?? 1,
+  );
+  return leverageSplitMultiplier(raw);
+}
+
 export function computeLeveragedPrice(
   etf: StockState,
   underlying: StockState,
@@ -533,9 +594,13 @@ export function computeLeveragedPrice(
     underlying.initialPrice ??
     0;
   if (underlyingInitial <= 0) return etf.currentPrice;
-  const ratio = Math.max(underlying.currentPrice, 1) / underlyingInitial;
-  const price = etf.initialPrice * Math.pow(ratio, etf.leverage ?? 1);
-  return Math.max(Math.round(price), 100);
+  const raw = computeLeveragedRawPrice(
+    etf.initialPrice,
+    underlying.currentPrice,
+    underlyingInitial,
+    etf.leverage ?? 1,
+  );
+  return leverageDisplayPrice(raw);
 }
 
 /**
