@@ -84,6 +84,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "개선",
+    title: "미니게임 연출 강화 — 벽돌깨기 이펙트·2048 슬라이드 애니메이션",
+    detail:
+      "밋밋하던 미니게임에 손맛을 더했습니다. 벽돌깨기는 벽돌이 깨질 때 파편 파티클이 튀고 ‘+코인’ 팝업이 떠오르며, 공에 잔상 꼬리가 붙고 맞은 벽돌이 번쩍입니다. 2048은 타일이 실제로 미끄러지는 이동 애니메이션과 병합·생성 시 팝 효과가 들어가 조작이 훨씬 또렷해졌습니다. 규칙·보상은 그대로입니다.",
+  },
+  {
+    date: "2026-07-18",
     tag: "신규",
     title: "미니게임에 2048 추가",
     detail:

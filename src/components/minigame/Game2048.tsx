@@ -3,13 +3,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * 2048 — 4×4 슬라이드 퍼즐. 스와이프(또는 방향키)로 타일을 밀어, 같은 수가 만나면
- * 합쳐지며 2배가 된다. 매 이동마다 빈 칸에 2(또는 4)가 생기고, 더 움직일 수 없으면
- * 게임오버. 점수 = 합쳐진 값의 누적. 게임오버 시 점수를 넘겨준다.
+ * 2048 — 4×4 슬라이드 퍼즐 (애니메이션판). 타일은 id로 추적돼 이동 시 left/top이
+ * CSS 트랜지션으로 슬라이드하고, 병합·생성은 팝 애니메이션이 붙는다. 스와이프
+ * (또는 방향키)로 조작하며, 더 움직일 수 없으면 게임오버 시 점수를 넘겨준다.
  */
 
 const SIZE = 4;
-type Grid = number[]; // length 16, 0 = 빈 칸
+const PAD = 2; // %
+const TILE = 22.5; // %
+const STEP = TILE + PAD; // 24.5%
+
+type Dir = "left" | "right" | "up" | "down";
+interface Tile {
+  id: number;
+  value: number;
+  row: number;
+  col: number;
+  isNew?: boolean;
+  merged?: boolean;
+}
 
 const TILE_STYLE: Record<number, string> = {
   2: "bg-[#eee4da] text-[#776e65]",
@@ -25,77 +37,37 @@ const TILE_STYLE: Record<number, string> = {
   2048: "bg-[#edc22e] text-white",
 };
 
-function emptyGrid(): Grid {
-  return Array<number>(SIZE * SIZE).fill(0);
+const vector: Record<Dir, [number, number]> = {
+  left: [0, -1],
+  right: [0, 1],
+  up: [-1, 0],
+  down: [1, 0],
+};
+
+function traversal(dir: Dir): { r: number; c: number }[] {
+  const rOrder = dir === "down" ? [3, 2, 1, 0] : [0, 1, 2, 3];
+  const cOrder = dir === "right" ? [3, 2, 1, 0] : [0, 1, 2, 3];
+  const out: { r: number; c: number }[] = [];
+  for (const r of rOrder) for (const c of cOrder) out.push({ r, c });
+  return out;
 }
 
-function spawn(grid: Grid): Grid {
-  const empties: number[] = [];
-  for (let i = 0; i < grid.length; i++) if (grid[i] === 0) empties.push(i);
-  if (empties.length === 0) return grid;
-  const idx = empties[Math.floor(Math.random() * empties.length)];
-  const next = grid.slice();
-  next[idx] = Math.random() < 0.9 ? 2 : 4;
-  return next;
+function toGrid(tiles: Tile[]): (Tile | null)[][] {
+  const g: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
+    Array<Tile | null>(SIZE).fill(null),
+  );
+  for (const t of tiles) g[t.row][t.col] = t;
+  return g;
 }
 
-/** 한 줄(4칸)을 왼쪽으로 밀어 합친다. 결과 줄과 얻은 점수를 반환. */
-function slideRow(row: number[]): { row: number[]; gained: number } {
-  const nums = row.filter((v) => v !== 0);
-  const out: number[] = [];
-  let gained = 0;
-  for (let i = 0; i < nums.length; i++) {
-    if (i + 1 < nums.length && nums[i] === nums[i + 1]) {
-      const merged = nums[i] * 2;
-      out.push(merged);
-      gained += merged;
-      i++;
-    } else {
-      out.push(nums[i]);
-    }
-  }
-  while (out.length < SIZE) out.push(0);
-  return { row: out, gained };
-}
-
-type Dir = "left" | "right" | "up" | "down";
-
-function move(grid: Grid, dir: Dir): { grid: Grid; gained: number; changed: boolean } {
-  const next = emptyGrid();
-  let gained = 0;
-  for (let i = 0; i < SIZE; i++) {
-    // 방향별로 한 줄(4칸)을 뽑아 왼쪽 밀기 형태로 정규화한다.
-    const line: number[] = [];
-    for (let j = 0; j < SIZE; j++) {
-      let r: number, c: number;
-      if (dir === "left") { r = i; c = j; }
-      else if (dir === "right") { r = i; c = SIZE - 1 - j; }
-      else if (dir === "up") { r = j; c = i; }
-      else { r = SIZE - 1 - j; c = i; }
-      line.push(grid[r * SIZE + c]);
-    }
-    const { row, gained: g } = slideRow(line);
-    gained += g;
-    for (let j = 0; j < SIZE; j++) {
-      let r: number, c: number;
-      if (dir === "left") { r = i; c = j; }
-      else if (dir === "right") { r = i; c = SIZE - 1 - j; }
-      else if (dir === "up") { r = j; c = i; }
-      else { r = SIZE - 1 - j; c = i; }
-      next[r * SIZE + c] = row[j];
-    }
-  }
-  const changed = next.some((v, i) => v !== grid[i]);
-  return { grid: next, gained, changed };
-}
-
-function hasMoves(grid: Grid): boolean {
-  if (grid.some((v) => v === 0)) return true;
+function hasMoves(tiles: Tile[]): boolean {
+  if (tiles.length < SIZE * SIZE) return true;
+  const g = toGrid(tiles);
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
-      const v = grid[r * SIZE + c];
-      if (c + 1 < SIZE && grid[r * SIZE + c + 1] === v) return true;
-      if (r + 1 < SIZE && grid[(r + 1) * SIZE + c] === v) return true;
+      const v = g[r][c]?.value;
+      if (c + 1 < SIZE && g[r][c + 1]?.value === v) return true;
+      if (r + 1 < SIZE && g[r + 1][c]?.value === v) return true;
     }
   }
   return false;
@@ -106,30 +78,106 @@ export function Game2048({
 }: {
   onGameOver: (result: { score: number; best: number }) => void;
 }) {
-  const [grid, setGrid] = useState<Grid>(() => spawn(spawn(emptyGrid())));
-  const [score, setScore] = useState(0);
+  const idRef = useRef(1);
   const overRef = useRef(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
+
+  const mkTile = useCallback(
+    (value: number, row: number, col: number, flags?: Partial<Tile>): Tile => ({
+      id: idRef.current++,
+      value,
+      row,
+      col,
+      ...flags,
+    }),
+    [],
+  );
+
+  const spawnInto = useCallback(
+    (tiles: Tile[]): Tile[] => {
+      const occupied = new Set(tiles.map((t) => t.row * SIZE + t.col));
+      const empties: number[] = [];
+      for (let i = 0; i < SIZE * SIZE; i++) if (!occupied.has(i)) empties.push(i);
+      if (empties.length === 0) return tiles;
+      const idx = empties[Math.floor(Math.random() * empties.length)];
+      const value = Math.random() < 0.9 ? 2 : 4;
+      return [...tiles, mkTile(value, Math.floor(idx / SIZE), idx % SIZE, { isNew: true })];
+    },
+    [mkTile],
+  );
+
+  const [tiles, setTiles] = useState<Tile[]>(() =>
+    spawnInto(spawnInto([])),
+  );
+  const [score, setScore] = useState(0);
 
   const doMove = useCallback(
     (dir: Dir) => {
       if (overRef.current) return;
-      setGrid((prev) => {
-        const { grid: moved, gained, changed } = move(prev, dir);
-        if (!changed) return prev;
-        const withSpawn = spawn(moved);
-        if (gained > 0) setScore((s) => s + gained);
-        if (!hasMoves(withSpawn)) {
-          overRef.current = true;
-          const best = Math.max(...withSpawn);
-          // 점수 상태 갱신 뒤 콜백이 최신 점수를 받도록 다음 틱에 넘긴다.
-          const finalScore = score + gained;
-          setTimeout(() => onGameOver({ score: finalScore, best }), 0);
+      setTiles((prev) => {
+        const grid = toGrid(prev);
+        const occ: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
+          Array<Tile | null>(SIZE).fill(null),
+        );
+        const merged: boolean[][] = Array.from({ length: SIZE }, () =>
+          Array<boolean>(SIZE).fill(false),
+        );
+        const [dr, dc] = vector[dir];
+        let gained = 0;
+        let changed = false;
+
+        for (const { r, c } of traversal(dir)) {
+          const tile = grid[r][c];
+          if (!tile) continue;
+          let nr = r;
+          let nc = c;
+          while (true) {
+            const tr = nr + dr;
+            const tc = nc + dc;
+            if (tr < 0 || tr >= SIZE || tc < 0 || tc >= SIZE) break;
+            if (occ[tr][tc]) break;
+            nr = tr;
+            nc = tc;
+          }
+          const br = nr + dr;
+          const bc = nc + dc;
+          const target =
+            br >= 0 && br < SIZE && bc >= 0 && bc < SIZE ? occ[br][bc] : null;
+          if (target && target.value === tile.value && !merged[br][bc]) {
+            occ[br][bc] = {
+              id: tile.id,
+              value: tile.value * 2,
+              row: br,
+              col: bc,
+              merged: true,
+            };
+            merged[br][bc] = true;
+            gained += tile.value * 2;
+            changed = true;
+          } else {
+            occ[nr][nc] = { id: tile.id, value: tile.value, row: nr, col: nc };
+            if (nr !== r || nc !== c) changed = true;
+          }
         }
-        return withSpawn;
+
+        if (!changed) return prev;
+
+        let result: Tile[] = [];
+        for (let r = 0; r < SIZE; r++)
+          for (let c = 0; c < SIZE; c++) if (occ[r][c]) result.push(occ[r][c]!);
+        result = spawnInto(result);
+
+        if (gained > 0) setScore((s) => s + gained);
+        if (!hasMoves(result)) {
+          overRef.current = true;
+          const best = Math.max(...result.map((t) => t.value));
+          const finalScore = score + gained;
+          setTimeout(() => onGameOver({ score: finalScore, best }), 250);
+        }
+        return result;
       });
     },
-    [onGameOver, score],
+    [onGameOver, score, spawnInto],
   );
 
   useEffect(() => {
@@ -150,19 +198,14 @@ export function Game2048({
     return () => window.removeEventListener("keydown", onKey);
   }, [doMove]);
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    startRef.current = { x: e.clientX, y: e.clientY };
-  };
   const onPointerUp = (e: React.PointerEvent) => {
     const s = startRef.current;
     startRef.current = null;
     if (!s) return;
     const dx = e.clientX - s.x;
     const dy = e.clientY - s.y;
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-    if (Math.max(absX, absY) < 24) return; // 탭은 무시
-    if (absX > absY) doMove(dx > 0 ? "right" : "left");
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) doMove(dx > 0 ? "right" : "left");
     else doMove(dy > 0 ? "down" : "up");
   };
 
@@ -172,26 +215,43 @@ export function Game2048({
         <span className="rounded-lg bg-[var(--surface)] px-3 py-1 font-semibold">
           점수 {score.toLocaleString()}
         </span>
-        <span className="text-xs text-[var(--muted)]">
-          스와이프 · 방향키로 이동
-        </span>
+        <span className="text-xs text-[var(--muted)]">스와이프 · 방향키</span>
       </div>
       <div
-        onPointerDown={onPointerDown}
+        onPointerDown={(e) => (startRef.current = { x: e.clientX, y: e.clientY })}
         onPointerUp={onPointerUp}
-        className="grid aspect-square w-full max-w-[360px] touch-none grid-cols-4 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2"
+        className="relative aspect-square w-full max-w-[360px] touch-none rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
       >
-        {grid.map((v, i) => (
+        {/* 배경 격자 */}
+        {Array.from({ length: SIZE * SIZE }).map((_, i) => (
           <div
             key={i}
-            className={`flex items-center justify-center rounded-lg text-lg font-bold tabular-nums ${
-              v === 0
-                ? "bg-[var(--background)]"
-                : TILE_STYLE[v] ?? "bg-[#3c3a32] text-white"
-            }`}
-            style={{ fontSize: v >= 1024 ? "1rem" : undefined }}
+            className="absolute rounded-lg bg-[var(--background)]"
+            style={{
+              width: `${TILE}%`,
+              height: `${TILE}%`,
+              left: `${PAD + (i % SIZE) * STEP}%`,
+              top: `${PAD + Math.floor(i / SIZE) * STEP}%`,
+            }}
+          />
+        ))}
+        {/* 타일 */}
+        {tiles.map((t) => (
+          <div
+            key={t.id}
+            className={`absolute flex items-center justify-center rounded-lg font-bold tabular-nums ${
+              TILE_STYLE[t.value] ?? "bg-[#3c3a32] text-white"
+            } ${t.merged ? "mg-tile-merged" : ""} ${t.isNew ? "mg-tile-new" : ""}`}
+            style={{
+              width: `${TILE}%`,
+              height: `${TILE}%`,
+              left: `${PAD + t.col * STEP}%`,
+              top: `${PAD + t.row * STEP}%`,
+              fontSize: t.value >= 1024 ? "1rem" : t.value >= 128 ? "1.25rem" : "1.4rem",
+              transition: "left 0.11s ease, top 0.11s ease",
+            }}
           >
-            {v !== 0 ? v : ""}
+            {t.value}
           </div>
         ))}
       </div>

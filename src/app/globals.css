@@ -81,3 +81,17 @@ input[type="number"] {
 }
 .flash-up { animation: flashUp 0.5s ease-out; }
 .flash-down { animation: flashDown 0.5s ease-out; }
+
+/* 2048 타일 애니메이션 */
+@keyframes mgTileAppear {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@keyframes mgTilePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.mg-tile-new { animation: mgTileAppear 0.14s ease-out; }
+.mg-tile-merged { animation: mgTilePop 0.16s ease-out; }

@@ -34,11 +34,30 @@ interface Ball {
   vx: number;
   vy: number;
   grade: BallGrade;
+  trail: { x: number; y: number }[];
 }
 interface Brick {
   col: number;
   row: number;
   hp: number;
+  flash: number;
+}
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  max: number;
+  color: string;
+  size: number;
+}
+interface Floater {
+  x: number;
+  y: number;
+  life: number;
+  text: string;
+  color: string;
 }
 
 interface GameState {
@@ -57,6 +76,8 @@ interface GameState {
   phase: "aim" | "fire" | "over";
   balls: Ball[];
   bricks: Brick[];
+  particles: Particle[];
+  floaters: Floater[];
   toFire: BallGrade[];
   fireTimer: number;
   aimDir: { x: number; y: number } | null;
@@ -71,7 +92,15 @@ interface Hud {
   phase: GameState["phase"];
 }
 
-function damageBrick(gs: GameState, br: Brick) {
+function brickCenter(gs: GameState, br: Brick) {
+  return {
+    x: br.col * gs.cell + gs.cell / 2,
+    y: br.row * gs.cell + gs.cell / 2,
+  };
+}
+
+function damageBrick(gs: GameState, br: Brick, color: string) {
+  br.flash = 6;
   br.hp -= 1;
   if (br.hp <= 0) {
     const idx = gs.bricks.indexOf(br);
@@ -79,10 +108,35 @@ function damageBrick(gs: GameState, br: Brick) {
     gs.bricksBroken += 1;
     gs.coins += COIN_PER_BRICK;
     gs.score += COIN_PER_BRICK;
+    // 파편 파티클 + 코인 팝업
+    const { x, y } = brickCenter(gs, br);
+    const n = 7;
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n + Math.random();
+      const sp = gs.cell * (0.06 + Math.random() * 0.1);
+      gs.particles.push({
+        x,
+        y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 26,
+        max: 26,
+        color,
+        size: gs.cell * (0.08 + Math.random() * 0.08),
+      });
+    }
+    gs.floaters.push({
+      x,
+      y,
+      life: 34,
+      text: `+${COIN_PER_BRICK.toLocaleString()}`,
+      color,
+    });
   }
 }
 
 function applyGradeDamage(gs: GameState, grade: BallGrade, hit: Brick) {
+  const color = GRADE_COLOR[grade];
   const targets = new Set<Brick>([hit]);
   if (grade === "S") {
     for (const b of gs.bricks) {
@@ -95,7 +149,25 @@ function applyGradeDamage(gs: GameState, grade: BallGrade, hit: Brick) {
       if (b.col === hit.col || b.row === hit.row) targets.add(b);
     }
   }
-  for (const t of targets) damageBrick(gs, t);
+  for (const t of targets) damageBrick(gs, t, color);
+}
+
+function updateEffects(gs: GameState) {
+  for (let i = gs.particles.length - 1; i >= 0; i--) {
+    const p = gs.particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += gs.cell * 0.006; // 약한 중력
+    p.life -= 1;
+    if (p.life <= 0) gs.particles.splice(i, 1);
+  }
+  for (let i = gs.floaters.length - 1; i >= 0; i--) {
+    const f = gs.floaters[i];
+    f.y -= gs.cell * 0.02;
+    f.life -= 1;
+    if (f.life <= 0) gs.floaters.splice(i, 1);
+  }
+  for (const b of gs.bricks) if (b.flash > 0) b.flash -= 1;
 }
 
 export function SwipeBrickBreaker({
@@ -125,7 +197,7 @@ export function SwipeBrickBreaker({
     const cols = [...Array(COLS).keys()].sort(() => Math.random() - 0.5);
     for (const col of cols) {
       if (Math.random() < 0.62) {
-        gs.bricks.push({ col, row: 0, hp: brickHpForRound(gs.rounds) });
+        gs.bricks.push({ col, row: 0, hp: brickHpForRound(gs.rounds), flash: 0 });
         placed++;
       }
     }
@@ -134,6 +206,7 @@ export function SwipeBrickBreaker({
         col: Math.floor(Math.random() * COLS),
         row: 0,
         hp: brickHpForRound(gs.rounds),
+        flash: 0,
       });
     }
   }, []);
@@ -177,6 +250,8 @@ export function SwipeBrickBreaker({
         phase: "aim",
         balls: [],
         bricks: [],
+        particles: [],
+        floaters: [],
         toFire: [],
         fireTimer: 0,
         aimDir: null,
@@ -217,12 +292,18 @@ export function SwipeBrickBreaker({
             vx: gs.aimDir.x * gs.cell * BALL_SPEED,
             vy: gs.aimDir.y * gs.cell * BALL_SPEED,
             grade,
+            trail: [],
           });
           gs.fireTimer = FIRE_INTERVAL_FRAMES;
         }
       }
 
       const r = gs.ballR;
+      // 프레임당 잔상 기록
+      for (const ball of gs.balls) {
+        ball.trail.push({ x: ball.x, y: ball.y });
+        if (ball.trail.length > 6) ball.trail.shift();
+      }
       for (let s = 0; s < SUBSTEPS; s++) {
         for (let i = gs.balls.length - 1; i >= 0; i--) {
           const ball = gs.balls[i];
@@ -292,6 +373,10 @@ export function SwipeBrickBreaker({
       ctx.beginPath();
       ctx.roundRect(x, y, sz, sz, gs.cell * 0.12);
       ctx.fill();
+      if (br.flash > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${(br.flash / 6) * 0.6})`;
+        ctx.fill();
+      }
       ctx.fillStyle = "#fff";
       ctx.font = `bold ${Math.floor(gs.cell * 0.32)}px system-ui`;
       ctx.textAlign = "center";
@@ -299,12 +384,44 @@ export function SwipeBrickBreaker({
       ctx.fillText(String(br.hp), x + sz / 2, y + sz / 2);
     }
 
+    // 공 잔상
+    for (const ball of gs.balls) {
+      for (let i = 0; i < ball.trail.length; i++) {
+        const p = ball.trail[i];
+        ctx.globalAlpha = ((i + 1) / (ball.trail.length + 1)) * 0.35;
+        ctx.fillStyle = GRADE_COLOR[ball.grade];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, gs.ballR * (0.5 + (i / ball.trail.length) * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // 파편 파티클
+    for (const p of gs.particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+
     for (const ball of gs.balls) {
       ctx.fillStyle = GRADE_COLOR[ball.grade];
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, gs.ballR, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // 코인 팝업
+    for (const f of gs.floaters) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, f.life / 20));
+      ctx.fillStyle = f.color;
+      ctx.font = `bold ${Math.floor(gs.cell * 0.22)}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
 
     if (gs.phase === "aim" && gs.aimDir) {
       ctx.strokeStyle = GRADE_COLOR.N;
@@ -348,6 +465,7 @@ export function SwipeBrickBreaker({
 
     const loop = () => {
       if (gs.phase === "fire") stepPhysics(gs);
+      updateEffects(gs);
       draw(gs, ctx);
       syncHud(gs);
       if (gs.phase === "over" && !overRef.current) {
