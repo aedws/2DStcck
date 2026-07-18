@@ -67,7 +67,11 @@ export default function HistoryPage() {
                           ? "마진 이자"
                           : payment.kind === "lottery"
                             ? "복권"
-                            : "분기 배당"}
+                            : payment.kind === "minigame"
+                              ? "미니게임"
+                              : payment.kind === "attendance"
+                                ? "출석"
+                                : "분기 배당"}
                   </td>
                   <td className="px-4 py-3">
                     {payment.ticker ?? "계정"}

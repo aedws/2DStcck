@@ -333,6 +333,8 @@ interface MarketStore extends MarketSnapshot {
   buyPensionTicket: () => LottoResult;
   /** 이번 회차 남은 복권 장수 */
   getLotteryTicketsLeft: () => number;
+  /** 미니게임(노동 소득) 현금 지급. 시즌·투자 성과에서 제외되는 외생 소득. */
+  awardMinigameCash: (amount: number, label: string) => void;
   /** 마지막 종목 추가 요청 거래일 (쿨다운용). 없으면 미요청. */
   lastStockRequestSession?: number;
   /** 종목 추가 요청 가능 여부(현금·쿨다운) */
@@ -2849,6 +2851,27 @@ export const useMarketStore = create<MarketStore>()(
         const bought =
           s.lotteryWindowStart === window ? s.lotteryTicketsBought : 0;
         return Math.max(0, LOTTERY_MAX_PER_WINDOW - bought);
+      },
+
+      awardMinigameCash: (amount, label) => {
+        const value = Math.max(0, Math.floor(amount));
+        if (value <= 0) return;
+        const state = get();
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const payment: CashPayment = {
+          id: `minigame-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          kind: "minigame",
+          sourceId: label,
+          dueSession: currentSession,
+          amount: value,
+          timestamp: now,
+        };
+        set({
+          cash: state.cash + value,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        playSound("cash");
       },
 
       canRequestStock: () => {

@@ -13,6 +13,7 @@
     "test:splits": "tsx scripts/test-leverage-splits.ts",
     "test:learning": "tsx scripts/test-learning-journey.ts",
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
+    "test:minigame": "tsx scripts/test-minigame.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },
   "dependencies": {

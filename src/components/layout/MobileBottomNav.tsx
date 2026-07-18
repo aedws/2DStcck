@@ -10,6 +10,7 @@ const items = [
   { href: "/characters", label: "도감", icon: "🎭" },
   { href: "/missions", label: "의뢰", icon: "📋" },
   { href: "/shop", label: "상점", icon: "🛍" },
+  { href: "/minigame", label: "게임", icon: "🎮" },
   { href: "/portfolio", label: "계좌", icon: "○" },
   { href: "/settings", label: "설정", icon: "⚙" },
 ];

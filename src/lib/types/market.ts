@@ -252,7 +252,9 @@ export type CashPaymentKind =
   | "interest"
   | "lottery"
   | "attendance"
-  | "preferred_dividend";
+  | "preferred_dividend"
+  // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
+  | "minigame";
 
 /** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
 export interface CashPayment {
