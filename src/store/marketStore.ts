@@ -38,6 +38,7 @@ import type {
   OpenOrder,
   OrderResult,
   OrderType,
+  PensionAnnuity,
   PreferredShare,
   RecurringInvestment,
   StoryDecision,
@@ -124,11 +125,13 @@ import { ACHIEVEMENTS } from "@/data/achievements";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
-  drawLotteryPrize,
+  drawLotto,
+  drawPension,
   LOTTERY_INTERVAL_DAYS,
   LOTTERY_MAX_PER_WINDOW,
   LOTTERY_TICKET_PRICE,
-  type LotteryResult,
+  PENSION_TICKET_PRICE,
+  type LottoResult,
 } from "@/lib/market/lottery";
 import {
   createInvestmentMission,
@@ -285,10 +288,12 @@ interface MarketStore extends MarketSnapshot {
   checkAchievements: () => void;
   /** 현재 복권 회차 시작 거래일 */
   lotteryWindowStart: number;
-  /** 현재 회차에 구매한 복권 장수 */
+  /** 현재 회차에 구매한 복권 장수 (일반+연금 합산) */
   lotteryTicketsBought: number;
   /** 잭팟 당첨 이력 (업적용) */
   wonJackpot: boolean;
+  /** 연금 복권 당첨으로 받는 정기 연금 목록 */
+  pensionAnnuities: PensionAnnuity[];
   /** 5거래일 투자 의뢰·평판 진행 상태 */
   investmentMission: InvestmentMission | null;
   missionHistory: InvestmentMissionHistory[];
@@ -315,8 +320,10 @@ interface MarketStore extends MarketSnapshot {
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
   chooseStoryDecision: (kind: StoryDecisionKind) => OrderResult;
-  /** 즉석 복권 1장 구매 (현금 전용). 결과 즉시 반환 */
-  buyLottery: () => LotteryResult;
+  /** 숫자 복권 1장 구매 (1~45 중 5개 픽). 즉석 추첨 결과 반환 */
+  buyLottoTicket: (picks: number[]) => LottoResult;
+  /** 연금 복권 1장 구매. 당첨 시 정기 연금 지급 */
+  buyPensionTicket: () => LottoResult;
   /** 이번 회차 남은 복권 장수 */
   getLotteryTicketsLeft: () => number;
   /** 옵션 매수 (프리미엄 지불) */
@@ -389,6 +396,7 @@ function createInitialState(): MarketSnapshot & {
   lotteryWindowStart: number;
   lotteryTicketsBought: number;
   wonJackpot: boolean;
+  pensionAnnuities: PensionAnnuity[];
   investmentMission: InvestmentMission | null;
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
@@ -458,6 +466,7 @@ function createInitialState(): MarketSnapshot & {
     ),
     lotteryTicketsBought: 0,
     wonJackpot: false,
+    pensionAnnuities: [],
     investmentMission: null,
     missionHistory: [],
     reputation: 0,
@@ -1365,6 +1374,7 @@ export const useMarketStore = create<MarketStore>()(
             ? 0
             : wallet.lotteryTicketsBought ?? 0,
           wonJackpot: wallet.wonJackpot ?? false,
+          pensionAnnuities: wallet.pensionAnnuities ?? [],
           investmentMission: cloudMission,
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
@@ -1441,6 +1451,7 @@ export const useMarketStore = create<MarketStore>()(
           lotteryWindowStart: s.lotteryWindowStart,
           lotteryTicketsBought: s.lotteryTicketsBought,
           wonJackpot: s.wonJackpot,
+          pensionAnnuities: s.pensionAnnuities,
           investmentMission: s.investmentMission,
           missionHistory: s.missionHistory,
           reputation: s.reputation,
@@ -2168,9 +2179,40 @@ export const useMarketStore = create<MarketStore>()(
           currentSession,
           now,
         );
-        if (!settled.changed && !interest) return;
+        // 연금 복권 정기 지급: startSession + intervalDays마다 정액, 총 totalPeriods회.
+        let annuityCash = 0;
+        let annuitiesChanged = false;
+        const annuityPayments: CashPayment[] = [];
+        const nextAnnuities = state.pensionAnnuities
+          .map((a) => {
+            const duePeriods = Math.min(
+              a.totalPeriods,
+              Math.max(
+                0,
+                Math.floor((currentSession - a.startSession) / a.intervalDays),
+              ),
+            );
+            const newlyPaid = Math.max(0, duePeriods - a.paidPeriods);
+            if (newlyPaid <= 0) return a;
+            annuitiesChanged = true;
+            const amount = newlyPaid * a.amountPerPeriod;
+            annuityCash += amount;
+            annuityPayments.push({
+              id: `pension-pay-${a.id}-${a.paidPeriods + newlyPaid}`,
+              kind: "lottery",
+              sourceId: "pension-annuity",
+              dueSession: currentSession,
+              amount,
+              timestamp: now,
+            });
+            return { ...a, paidPeriods: a.paidPeriods + newlyPaid };
+          })
+          .filter((a) => a.paidPeriods < a.totalPeriods);
+
+        if (!settled.changed && !interest && !annuitiesChanged) return;
+        const mergedPayments = interest?.cashPayments ?? baseCashPayments;
         set({
-          cash: interest?.cash ?? baseCash,
+          cash: (interest?.cash ?? baseCash) + annuityCash,
           // 주가 조정은 결정론 리플레이 담당 — 현금·카운터만 반영
           lastSalarySession: settled.lastSalarySession,
           lastMonthlyDistributionSession:
@@ -2179,7 +2221,10 @@ export const useMarketStore = create<MarketStore>()(
             settled.lastSingleCoveredCallDistributionSession,
           lastQuarterlyDividendSession:
             settled.lastQuarterlyDividendSession,
-          cashPayments: interest?.cashPayments ?? baseCashPayments,
+          cashPayments: annuitiesChanged
+            ? [...annuityPayments, ...mergedPayments].slice(0, 200)
+            : mergedPayments,
+          pensionAnnuities: annuitiesChanged ? nextAnnuities : state.pensionAnnuities,
           lastInterestSession:
             interest?.lastInterestSession ?? state.lastInterestSession,
         });
@@ -2683,31 +2728,35 @@ export const useMarketStore = create<MarketStore>()(
         return Math.max(0, LOTTERY_MAX_PER_WINDOW - bought);
       },
 
-      buyLottery: () => {
+      buyLottoTicket: (picks) => {
         const state = get();
         const now = Date.now();
-        const window = alignSessionToGrid(
-          Math.floor(now / SESSION_DURATION_MS),
-          LOTTERY_INTERVAL_DAYS,
-        );
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const window = alignSessionToGrid(currentSession, LOTTERY_INTERVAL_DAYS);
         const bought =
           state.lotteryWindowStart === window ? state.lotteryTicketsBought : 0;
         if (bought >= LOTTERY_MAX_PER_WINDOW) {
-          return {
-            success: false,
-            message: "이번 회차 복권을 모두 구매했습니다.",
-          };
+          return { success: false, message: "이번 회차 복권을 모두 구매했습니다." };
+        }
+        const valid =
+          Array.isArray(picks) &&
+          picks.length === 5 &&
+          new Set(picks).size === 5 &&
+          picks.every((n) => Number.isInteger(n) && n >= 1 && n <= 45);
+        if (!valid) {
+          return { success: false, message: "1~45 중 서로 다른 5개를 골라주세요." };
         }
         if (state.cash < LOTTERY_TICKET_PRICE) {
           return { success: false, message: "보유 현금이 부족합니다." };
         }
-        const prize = drawLotteryPrize();
+        const nonce = Math.floor(now ^ (Math.random() * 0x7fffffff));
+        const { winning, matches, prize } = drawLotto(picks, nonce);
         const net = prize.amount - LOTTERY_TICKET_PRICE;
         const payment: CashPayment = {
           id: `lottery-${now}-${Math.random().toString(36).slice(2, 6)}`,
           kind: "lottery",
           sourceId: "lottery",
-          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          dueSession: currentSession,
           amount: net,
           timestamp: now,
         };
@@ -2722,13 +2771,97 @@ export const useMarketStore = create<MarketStore>()(
           .getState()
           .push(
             prize.tier === "lose"
-              ? "복권 꽝… 다음 기회에!"
-              : `🎉 복권 당첨 · ${prize.label}`,
+              ? `낙첨 (${matches}개 일치)… 다음 기회에!`
+              : `🎉 ${prize.label} (${matches}개 일치)`,
             prize.tier === "lose" ? "info" : "success",
           );
         playSound(prize.tier === "lose" ? "error" : "cash");
         get().checkAchievements();
-        return { success: true, message: prize.label, prize };
+        return {
+          success: true,
+          message: prize.label,
+          picks,
+          winning,
+          matches,
+          prize,
+        };
+      },
+
+      buyPensionTicket: () => {
+        const state = get();
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const window = alignSessionToGrid(currentSession, LOTTERY_INTERVAL_DAYS);
+        const bought =
+          state.lotteryWindowStart === window ? state.lotteryTicketsBought : 0;
+        if (bought >= LOTTERY_MAX_PER_WINDOW) {
+          return { success: false, message: "이번 회차 복권을 모두 구매했습니다." };
+        }
+        if (state.cash < PENSION_TICKET_PRICE) {
+          return { success: false, message: "보유 현금이 부족합니다." };
+        }
+        const nonce = Math.floor(now ^ (Math.random() * 0x7fffffff));
+        const outcome = drawPension(nonce);
+        const isAnnuity = outcome.totalPeriods > 1;
+        const lump = outcome.totalPeriods === 1 ? outcome.amountPerPeriod : 0;
+        const net = lump - PENSION_TICKET_PRICE;
+        const payment: CashPayment = {
+          id: `pension-buy-${now}-${Math.random().toString(36).slice(2, 6)}`,
+          kind: "lottery",
+          sourceId: "pension-lottery",
+          dueSession: currentSession,
+          amount: net,
+          timestamp: now,
+        };
+        const pensionAnnuities = isAnnuity
+          ? [
+              {
+                id: `pension-${now}-${Math.random().toString(36).slice(2, 6)}`,
+                amountPerPeriod: outcome.amountPerPeriod,
+                totalPeriods: outcome.totalPeriods,
+                paidPeriods: 0,
+                startSession: alignSessionToGrid(
+                  currentSession,
+                  LOTTERY_INTERVAL_DAYS,
+                ),
+                intervalDays: LOTTERY_INTERVAL_DAYS,
+                label: outcome.label,
+              },
+              ...state.pensionAnnuities,
+            ].slice(0, 20)
+          : state.pensionAnnuities;
+        set({
+          cash: state.cash + net,
+          lotteryWindowStart: window,
+          lotteryTicketsBought: bought + 1,
+          pensionAnnuities,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore
+          .getState()
+          .push(
+            outcome.tier === "lose"
+              ? "연금 복권 낙첨… 다음 기회에!"
+              : `🎉 ${outcome.label}`,
+            outcome.tier === "lose" ? "info" : "success",
+          );
+        playSound(outcome.tier === "lose" ? "error" : "cash");
+        return {
+          success: true,
+          message: outcome.label,
+          prize: {
+            amount: outcome.amountPerPeriod,
+            tier:
+              outcome.tier === "first"
+                ? "jackpot"
+                : outcome.tier === "second"
+                  ? "big"
+                  : outcome.tier === "third"
+                    ? "small"
+                    : "lose",
+            label: outcome.label,
+          },
+        };
       },
 
       reset: () => set(createInitialState()),
@@ -2778,6 +2911,7 @@ export const useMarketStore = create<MarketStore>()(
         lotteryWindowStart: state.lotteryWindowStart,
         lotteryTicketsBought: state.lotteryTicketsBought,
         wonJackpot: state.wonJackpot,
+        pensionAnnuities: state.pensionAnnuities,
         investmentMission: state.investmentMission,
         missionHistory: state.missionHistory.slice(0, 30),
         reputation: state.reputation,
@@ -3057,6 +3191,11 @@ export const useMarketStore = create<MarketStore>()(
             ? (walletSource as Partial<MarketStore>).lotteryTicketsBought!
             : 0,
           wonJackpot: Boolean((walletSource as Partial<MarketStore>).wonJackpot),
+          pensionAnnuities: Array.isArray(
+            (walletSource as Partial<MarketStore>).pensionAnnuities,
+          )
+            ? (walletSource as Partial<MarketStore>).pensionAnnuities!
+            : [],
           investmentMission,
           missionHistory: Array.isArray(
             (walletSource as Partial<MarketStore>).missionHistory,

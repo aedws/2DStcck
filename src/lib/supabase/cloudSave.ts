@@ -8,6 +8,7 @@ import type {
   MarginLeverage,
   OpenOrder,
   OptionPosition,
+  PensionAnnuity,
   PreferredShare,
   RecurringInvestment,
   ShortPosition,
@@ -58,6 +59,8 @@ export interface WalletSave {
   lotteryWindowStart?: number;
   lotteryTicketsBought?: number;
   wonJackpot?: boolean;
+  /** 연금 복권 당첨 잔여 지급분. 구버전 호환을 위해 선택형. */
+  pensionAnnuities?: PensionAnnuity[];
   investmentMission?: InvestmentMission | null;
   missionHistory?: InvestmentMissionHistory[];
   reputation?: number;

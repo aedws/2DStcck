@@ -305,6 +305,22 @@ export interface PreferredShare {
   issuedAt: number;
 }
 
+/** 연금 복권 당첨으로 받는 정기 연금. 5거래일마다 정액을 지급한다. */
+export interface PensionAnnuity {
+  id: string;
+  /** 회차당 지급액 (센트) */
+  amountPerPeriod: number;
+  /** 총 지급 회차 */
+  totalPeriods: number;
+  /** 이미 지급된 회차 */
+  paidPeriods: number;
+  /** 지급 그리드 기준 시작 거래일 (정렬됨) */
+  startSession: number;
+  /** 지급 간격 (거래일) */
+  intervalDays: number;
+  label: string;
+}
+
 export type StoryDecisionKind = "bullish" | "bearish" | "observe" | "bond";
 export type StoryDecisionStatus = "active" | "resolved";
 
