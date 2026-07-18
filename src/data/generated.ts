@@ -30,32 +30,52 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "initialPrice": 32000,
     "volatility": 0.012,
     "drift": 0.001,
-    "beta": 1.1,
-    "description": "키보토스 테크 기업에 집중 투자하는 기술주 ETF.",
+    "beta": 1.3,
+    "description": "반도체·기술·게임 등 성장주에 집중 투자하는 기술주 ETF.",
     "etfHoldings": [
       {
-        "stockId": "wwxly",
-        "weight": 0.25
-      },
-      {
-        "stockId": "bagdi",
-        "weight": 0.2
-      },
-      {
-        "stockId": "bavts",
-        "weight": 0.2
-      },
-      {
-        "stockId": "nkexa",
+        "stockId": "aeyvn",
         "weight": 0.15
       },
       {
-        "stockId": "baui",
+        "stockId": "nkmna",
+        "weight": 0.12
+      },
+      {
+        "stockId": "nkccl",
         "weight": 0.1
       },
       {
-        "stockId": "nkvol",
+        "stockId": "wwmne",
         "weight": 0.1
+      },
+      {
+        "stockId": "wwlcl",
+        "weight": 0.08
+      },
+      {
+        "stockId": "wwxly",
+        "weight": 0.12
+      },
+      {
+        "stockId": "bagdi",
+        "weight": 0.08
+      },
+      {
+        "stockId": "nkexa",
+        "weight": 0.08
+      },
+      {
+        "stockId": "bavts",
+        "weight": 0.07
+      },
+      {
+        "stockId": "baui",
+        "weight": 0.05
+      },
+      {
+        "stockId": "nkvol",
+        "weight": 0.05
       }
     ],
     "ceoId": "chr_baqqq"
@@ -165,60 +185,100 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "initialPrice": 54000,
     "volatility": 0.01,
     "drift": 0.0008,
-    "beta": 1,
-    "description": "시장 대표 13종목에 분산 투자하는 종합 지수 ETF.",
+    "beta": 1.05,
+    "description": "전 섹터 대표 23종목에 분산 투자하는 종합 지수 ETF.",
     "etfHoldings": [
       {
+        "stockId": "nkccl",
+        "weight": 0.07
+      },
+      {
+        "stockId": "nkmna",
+        "weight": 0.07
+      },
+      {
+        "stockId": "aeyvn",
+        "weight": 0.07
+      },
+      {
+        "stockId": "wwlcl",
+        "weight": 0.05
+      },
+      {
+        "stockId": "wwmne",
+        "weight": 0.04
+      },
+      {
         "stockId": "bahina",
-        "weight": 0.1
-      },
-      {
-        "stockId": "baridc",
-        "weight": 0.09
-      },
-      {
-        "stockId": "wwjin",
-        "weight": 0.09
-      },
-      {
-        "stockId": "wwchl",
-        "weight": 0.09
+        "weight": 0.06
       },
       {
         "stockId": "bahbk",
-        "weight": 0.08
+        "weight": 0.05
       },
       {
-        "stockId": "wwxly",
-        "weight": 0.08
+        "stockId": "baridc",
+        "weight": 0.04
       },
       {
         "stockId": "bavts",
-        "weight": 0.07
+        "weight": 0.03
       },
       {
-        "stockId": "wwjyn",
-        "weight": 0.07
+        "stockId": "wwjin",
+        "weight": 0.04
       },
       {
-        "stockId": "bagdi",
-        "weight": 0.07
+        "stockId": "ersua",
+        "weight": 0.04
+      },
+      {
+        "stockId": "basena",
+        "weight": 0.05
       },
       {
         "stockId": "basmr",
-        "weight": 0.07
+        "weight": 0.04
       },
       {
-        "stockId": "nkneo",
-        "weight": 0.07
+        "stockId": "aegil",
+        "weight": 0.04
+      },
+      {
+        "stockId": "wwchl",
+        "weight": 0.04
+      },
+      {
+        "stockId": "nkilg",
+        "weight": 0.04
+      },
+      {
+        "stockId": "wwxly",
+        "weight": 0.04
+      },
+      {
+        "stockId": "bagdi",
+        "weight": 0.03
+      },
+      {
+        "stockId": "nkvol",
+        "weight": 0.03
+      },
+      {
+        "stockId": "wwlne",
+        "weight": 0.04
       },
       {
         "stockId": "bahrn",
-        "weight": 0.06
+        "weight": 0.03
       },
       {
-        "stockId": "nkltr",
-        "weight": 0.06
+        "stockId": "bakrr",
+        "weight": 0.03
+      },
+      {
+        "stockId": "nkneo",
+        "weight": 0.03
       }
     ],
     "quarterlyDividend": 540,

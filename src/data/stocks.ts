@@ -116,7 +116,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     volatility: 0.012,
     drift: 0.001,
     trendStrength: 0.00004,
-    description: "가상 시장 대표 100개 종목으로 구성된 기술주 중심 지수.",
+    description:
+      "가상 시장 전 섹터를 아우르는 종합 벤치마크 지수. 반도체·금융·방어주까지 상장 종목 전체의 평균 흐름을 나타내며, 모든 시즌·의뢰의 초과수익(알파) 기준이 된다.",
     beta: 1,
   },
   {

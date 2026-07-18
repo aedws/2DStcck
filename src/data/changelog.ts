@@ -78,6 +78,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "개선",
+    title: "지수·벤치마크 개편 — 종합지수·V-나스닥·테크 ETF",
+    detail:
+      "늘어난 종목을 반영해 지수를 전면 개편했습니다. ① 종합지수(BASPY) — 옛 13종목에서 전 섹터 대표 23종목으로 확장하고 반도체를 최대 블록(30%)으로 재편해 시장 대표성을 회복했습니다. ② V-나스닥 — 기술주 중심에서 ‘전 섹터를 아우르는 종합 벤치마크’로 재정의했습니다(모든 시즌·의뢰 알파의 기준). ③ 테크 ETF(BAQQQ) — 분할된 반도체 5종을 편입해 반도체·기술·게임 성장주 중심으로 재구성했습니다. ETF 구성 변경으로 시장이 전체 리플레이됩니다(진행·지갑 유지).",
+  },
+  {
+    date: "2026-07-18",
     tag: "신규",
     title: "반도체 섹터 ETF(SEMIX) 상장",
     detail:

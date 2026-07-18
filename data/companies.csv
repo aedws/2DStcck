@@ -1,13 +1,13 @@
 ticker,name,sector,initialPrice,volatility,drift,beta,description,logo,eventBias,ceoName,ceoTitle,ceoTraits,ceoBio,ceoEmoji,etfHoldings,quarterlyDividend,subsector
 BARIDC,RIO Defense Corporation,방산,98000,0.03,0.0005,0.7,궤도 방위 시스템과 전술 AI를 개발하는 방산 기업.,,수주:4;스캔들:0.5,츠카츠키 리오,CEO,천재;은둔형;회피형,모습을 드러내지 않고 태스크 목록만으로 회사 전체를 지휘하는 은둔형 천재.,🛰️,
-BAQQQ,Millennium Tech 100,ETF,32000,0.012,0.001,1.1,키보토스 테크 기업에 집중 투자하는 기술주 ETF.,,,우시오 노아,운용책임자,성실;천재,모든 지표를 외우고 다니는 세미나의 서기. 미소 뒤에 데이터가 있다.,📘,WWXLY:0.25;BAGDI:0.2;BAVTS:0.2;NKEXA:0.15;BAUI:0.1;NKVOL:0.1
+BAQQQ,Millennium Tech 100,ETF,32000,0.012,0.001,1.3,반도체·기술·게임 등 성장주에 집중 투자하는 기술주 ETF.,,,우시오 노아,운용책임자,성실;천재,모든 지표를 외우고 다니는 세미나의 서기. 미소 뒤에 데이터가 있다.,📘,AEYVN:0.15;NKMNA:0.12;NKCCL:0.1;WWMNE:0.1;WWLCL:0.08;WWXLY:0.12;BAGDI:0.08;NKEXA:0.08;BAVTS:0.07;BAUI:0.05;NKVOL:0.05
 BAMLB,Millennium Academy Bond,채권,10200,0.006,0.0004,0.15,밀레니엄 사이언스 스쿨이 발행한 우량 학원채.,,수주:0;신제품:0;실적:0.3,하야세 유우카,회계책임자,천재;성실;워커홀릭,1원 단위 오차도 용납하지 않는 밀레니엄의 회계 담당.,🧮,,130
 BAGDI,GameDev Interactive,게임,45000,0.042,0.0007,1.3,화제작을 연달아 내놓는 소규모 게임 스튜디오.,,신제품:3;실적:1.5,텐도 아리스,CEO,천재;사고뭉치,게임에서 배운 말투로 회사를 이끄는 신비한 개발자. 빛이 되어라!,🎮,
 BAVTS,Veritas Security,보안,88000,0.03,0.0008,1.2,해킹 방어와 침투 테스트를 수행하는 보안 기업.,,수주:2;신제품:2,아케보시 히마리,CTO,천재;은둔형,병상에서도 키보드는 놓지 않는 전설의 화이트 해커.,💻,
 BANRU,NERU Tactical Group,PMC,52000,0.045,0.0006,1.1,물불 가리지 않는 실전파 경호·경비 회사.,,수주:3;스캔들:2,미카모 네루,대표,사고뭉치;카리스마,말보다 주먹이 먼저 나가는 현장주의 대표.,🥊,
 BAHBK,Hibiki Ordnance Systems,방산,120000,0.032,0.0006,0.8,자주포 드론과 지원 화기를 설계하는 방산 기업.,,수주:4;신제품:2,네코즈카 히비키,수석엔지니어,천재;은둔형,수줍음이 많지만 포격 제원 계산은 키보토스 최고.,🐱,
 BASMR,Millennium Medical,헬스케어,63000,0.022,0.0005,0.7,학생 건강관리와 원격 진료 서비스를 제공하는 의료 기업.,,실적:2,오토하나 스미레,원장,성실,어떤 환자도 정성으로 돌보는 온화한 보건의.,💉,
-BASPY,Kivotos Composite Index,ETF,54000,0.01,0.0008,1,시장 대표 13종목에 분산 투자하는 종합 지수 ETF.,,,나나가미 린,운용책임자,워커홀릭;카리스마,연방학생회를 실질적으로 움직이는 냉철한 실무 최강자.,🏛️,BAHINA:0.1;BARIDC:0.09;WWJIN:0.09;WWCHL:0.09;BAHBK:0.08;WWXLY:0.08;BAVTS:0.07;WWJYN:0.07;BAGDI:0.07;BASMR:0.07;NKNEO:0.07;BAHRN:0.06;NKLTR:0.06,540
+BASPY,Kivotos Composite Index,ETF,54000,0.01,0.0008,1.05,전 섹터 대표 23종목에 분산 투자하는 종합 지수 ETF.,,,나나가미 린,운용책임자,워커홀릭;카리스마,연방학생회를 실질적으로 움직이는 냉철한 실무 최강자.,🏛️,NKCCL:0.07;NKMNA:0.07;AEYVN:0.07;WWLCL:0.05;WWMNE:0.04;BAHINA:0.06;BAHBK:0.05;BARIDC:0.04;BAVTS:0.03;WWJIN:0.04;ERSUA:0.04;BASENA:0.05;BASMR:0.04;AEGIL:0.04;WWCHL:0.04;NKILG:0.04;WWXLY:0.04;BAGDI:0.03;NKVOL:0.03;WWLNE:0.04;BAHRN:0.03;BAKRR:0.03;NKNEO:0.03,540
 BAKAYA,Shiranui Heavy Industries,방산,97000,0.03,0.0005,0.75,장갑 차량과 중화기를 양산하는 중공업 방산사.,,수주:3,시라누이 카야,CEO,카리스마,웃는 얼굴로 납기를 지키게 만드는 무서운 경영자.,⚙️,
 BAKVB,Kivotos Municipal Bond,채권,10100,0.005,0.0003,0.1,연방학생회가 발행한 키보토스 지역 채권.,,수주:0;신제품:0;실적:0.3,오키 아오이,발행담당,성실,서류 더미 속에서도 절대 실수하지 않는 총무.,📋,,125
 BAABS,Abydos Security,PMC,38000,0.05,0.0008,1.2,인원은 적지만 실전에서 가장 믿을 수 있는 경비회사.,,수주:3;스캔들:1.5,타카나시 호시노,부장,카리스마;은둔형,평소엔 낮잠이 일과인 아저씨 말투의 부장. 위기엔 맨 앞에 선다.,🦈,
