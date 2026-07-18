@@ -59,9 +59,9 @@ export default function MinigamePage() {
   const onBrickOver = useCallback(
     ({ rounds, bricks, score }: { rounds: number; bricks: number; score: number }) => {
       const reward = computeBrickBreakerCash(score);
-      award(reward, "벽돌깨기");
+      award(reward, "코인 브레이커");
       setResult({
-        emoji: "🧱",
+        emoji: "🪙",
         stats: [
           { name: "라운드", value: String(rounds) },
           { name: "깬 벽돌", value: String(bricks) },
@@ -77,9 +77,9 @@ export default function MinigamePage() {
   const on2048Over = useCallback(
     ({ score, best }: { score: number; best: number }) => {
       const reward = compute2048Cash(score);
-      award(reward, "2048");
+      award(reward, "골드 2048");
       setResult({
-        emoji: "🔢",
+        emoji: "💰",
         stats: [
           { name: "점수", value: score.toLocaleString() },
           { name: "최고 타일", value: best.toLocaleString() },
@@ -110,7 +110,7 @@ export default function MinigamePage() {
       )}
       <div className="mb-4">
         <div className="flex items-start justify-between gap-2">
-          <h1 className="text-2xl font-bold">🎮 미니게임</h1>
+          <h1 className="text-2xl font-bold">⛏️ 현금 채굴</h1>
           <button
             type="button"
             onClick={() => setManualTutorial(true)}
@@ -142,7 +142,7 @@ export default function MinigamePage() {
             className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition hover:border-[var(--accent)]"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg font-bold">🧱 스와이프 벽돌깨기</span>
+              <span className="text-lg font-bold">🪙 코인 브레이커</span>
               <span className="text-[var(--accent)]">▶</span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
@@ -159,7 +159,7 @@ export default function MinigamePage() {
             className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition hover:border-[var(--accent)]"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg font-bold">🔢 2048</span>
+              <span className="text-lg font-bold">💰 골드 2048</span>
               <span className="text-[var(--accent)]">▶</span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
@@ -169,7 +169,7 @@ export default function MinigamePage() {
           </button>
 
           <div className="rounded-2xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted)]">
-            더 많은 미니게임이 곧 추가됩니다.
+            더 많은 채굴 게임이 곧 추가됩니다.
           </div>
         </div>
       )}

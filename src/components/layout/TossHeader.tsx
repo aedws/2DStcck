@@ -26,7 +26,7 @@ const navItems = [
   { href: "/calendar", label: "실적" },
   { href: "/strategy", label: "전략" },
   { href: "/lottery", label: "복권" },
-  { href: "/minigame", label: "미니게임" },
+  { href: "/minigame", label: "현금 채굴" },
   { href: "/ipo", label: "IPO" },
   { href: "/history", label: "주문내역" },
   { href: "/updates", label: "업데이트" },

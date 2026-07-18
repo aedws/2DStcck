@@ -68,7 +68,7 @@ export default function HistoryPage() {
                           : payment.kind === "lottery"
                             ? "복권"
                             : payment.kind === "minigame"
-                              ? "미니게임"
+                              ? "현금 채굴"
                               : payment.kind === "attendance"
                                 ? "출석"
                                 : "분기 배당"}

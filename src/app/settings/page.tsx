@@ -286,9 +286,9 @@ export default function SettingsPage() {
           className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
         >
           <span className="flex items-center gap-3">
-            <span className="text-xl" aria-hidden>🎮</span>
+            <span className="text-xl" aria-hidden>⛏️</span>
             <span>
-            <span className="block text-sm font-medium">미니게임 튜토리얼</span>
+            <span className="block text-sm font-medium">현금 채굴 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               게임으로 현금($)을 버는 법과 노동 소득 개념을 다시 안내합니다.
             </span>
