@@ -61,6 +61,8 @@ export interface WalletSave {
   wonJackpot?: boolean;
   /** 연금 복권 당첨 잔여 지급분. 구버전 호환을 위해 선택형. */
   pensionAnnuities?: PensionAnnuity[];
+  /** 마지막 종목 추가 요청 거래일 (쿨다운). 구버전 호환을 위해 선택형. */
+  lastStockRequestSession?: number;
   investmentMission?: InvestmentMission | null;
   missionHistory?: InvestmentMissionHistory[];
   reputation?: number;

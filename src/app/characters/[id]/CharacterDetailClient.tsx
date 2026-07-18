@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import { CharacterGuidelineTag } from "@/components/market/CharacterGuidelineTag";
+import { StockRequestForm } from "@/components/market/StockRequestForm";
 import { formatPrice } from "@/lib/market/engine";
 import { getCharacterRelation } from "@/lib/market/characterRelations";
 import {
@@ -78,6 +79,12 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <p className="mt-2 text-sm text-[var(--muted)]">
             일반 주식·레버리지·커버드콜을 보유하면 캐릭터 상세 정보가 활성화됩니다.
           </p>
+        </div>
+        <div className="mt-4">
+          <StockRequestForm
+            defaultSector={company.sector}
+            contextLabel={ceo.name}
+          />
         </div>
       </div>
     );
@@ -254,6 +261,13 @@ export function CharacterDetailClient({ id }: { id: string }) {
           </ul>
         </div>
       )}
+
+      <div className="mt-4">
+        <StockRequestForm
+          defaultSector={company.sector}
+          contextLabel={ceo.name}
+        />
+      </div>
     </div>
   );
 }

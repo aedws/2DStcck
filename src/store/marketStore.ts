@@ -125,6 +125,10 @@ import {
   syncLeaderboard,
 } from "@/lib/supabase/cloudSave";
 import { ACHIEVEMENTS } from "@/data/achievements";
+import {
+  STOCK_REQUEST_COST,
+  STOCK_REQUEST_COOLDOWN_DAYS,
+} from "@/lib/supabase/stockRequests";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -329,6 +333,12 @@ interface MarketStore extends MarketSnapshot {
   buyPensionTicket: () => LottoResult;
   /** 이번 회차 남은 복권 장수 */
   getLotteryTicketsLeft: () => number;
+  /** 마지막 종목 추가 요청 거래일 (쿨다운용). 없으면 미요청. */
+  lastStockRequestSession?: number;
+  /** 종목 추가 요청 가능 여부(현금·쿨다운) */
+  canRequestStock: () => { ok: boolean; reason?: string; daysLeft?: number };
+  /** 종목 추가 요청 비용 차감·쿨다운 기록 (Supabase 저장 성공 후 호출) */
+  chargeStockRequest: () => void;
   /** 옵션 매수 (프리미엄 지불) */
   buyOption: (
     stockId: string,
@@ -400,6 +410,7 @@ function createInitialState(): MarketSnapshot & {
   lotteryTicketsBought: number;
   wonJackpot: boolean;
   pensionAnnuities: PensionAnnuity[];
+  lastStockRequestSession?: number;
   investmentMission: InvestmentMission | null;
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
@@ -1453,6 +1464,7 @@ export const useMarketStore = create<MarketStore>()(
             : wallet.lotteryTicketsBought ?? 0,
           wonJackpot: wallet.wonJackpot ?? false,
           pensionAnnuities: wallet.pensionAnnuities ?? [],
+          lastStockRequestSession: wallet.lastStockRequestSession,
           investmentMission: cloudMission,
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
@@ -1530,6 +1542,7 @@ export const useMarketStore = create<MarketStore>()(
           lotteryTicketsBought: s.lotteryTicketsBought,
           wonJackpot: s.wonJackpot,
           pensionAnnuities: s.pensionAnnuities,
+          lastStockRequestSession: s.lastStockRequestSession,
           investmentMission: s.investmentMission,
           missionHistory: s.missionHistory,
           reputation: s.reputation,
@@ -2838,6 +2851,33 @@ export const useMarketStore = create<MarketStore>()(
         return Math.max(0, LOTTERY_MAX_PER_WINDOW - bought);
       },
 
+      canRequestStock: () => {
+        const s = get();
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const last = s.lastStockRequestSession ?? Number.NEGATIVE_INFINITY;
+        const elapsed = currentSession - last;
+        if (elapsed < STOCK_REQUEST_COOLDOWN_DAYS) {
+          return {
+            ok: false,
+            reason: "cooldown",
+            daysLeft: STOCK_REQUEST_COOLDOWN_DAYS - elapsed,
+          };
+        }
+        if (s.cash < STOCK_REQUEST_COST) {
+          return { ok: false, reason: "insufficient_cash" };
+        }
+        return { ok: true };
+      },
+
+      chargeStockRequest: () => {
+        const s = get();
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        set({
+          cash: s.cash - STOCK_REQUEST_COST,
+          lastStockRequestSession: currentSession,
+        });
+      },
+
       buyLottoTicket: (picks) => {
         const state = get();
         const now = Date.now();
@@ -3022,6 +3062,7 @@ export const useMarketStore = create<MarketStore>()(
         lotteryTicketsBought: state.lotteryTicketsBought,
         wonJackpot: state.wonJackpot,
         pensionAnnuities: state.pensionAnnuities,
+        lastStockRequestSession: state.lastStockRequestSession,
         investmentMission: state.investmentMission,
         missionHistory: state.missionHistory.slice(0, 30),
         reputation: state.reputation,
@@ -3312,6 +3353,11 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (walletSource as Partial<MarketStore>).pensionAnnuities!
             : [],
+          lastStockRequestSession: Number.isFinite(
+            (walletSource as Partial<MarketStore>).lastStockRequestSession,
+          )
+            ? (walletSource as Partial<MarketStore>).lastStockRequestSession
+            : undefined,
           investmentMission,
           missionHistory: Array.isArray(
             (walletSource as Partial<MarketStore>).missionHistory,
