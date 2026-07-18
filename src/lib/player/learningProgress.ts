@@ -106,7 +106,10 @@ export function isLayerGoalMet(
     case 3:
       return s.hasEtfHolding || s.distinctSectors >= 2;
     case 4:
-      return s.hasCharacterHolding && s.maxAffinityTierIndex >= 1;
+      // 캐릭터 회사 주식을 보유하기 시작하면(원앤온리·트윈스타·트리플하르모니아 등
+      // 어떤 집중 형태든) 수집을 시작한 것으로 보고 다음 레이어를 연다. 관계 '관심'
+      // 도달은 시간이 오래 걸려 온보딩 진행이 막히므로 조건에서 제외한다.
+      return s.hasCharacterHolding;
     case 5:
       return (
         s.missionsDone >= 1 || s.seasonsDone >= 1 || s.reputation > 0

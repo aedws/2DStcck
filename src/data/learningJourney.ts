@@ -90,7 +90,7 @@ export const LEARNING_LAYERS: LearningLayer[] = [
     emoji: "🤍",
     title: "캐릭터 수집",
     tagline: "이게 진짜 목표 — 관계를 쌓기",
-    goal: "캐릭터 회사 주식을 보유해 관계를 ‘관심’까지 키워보세요.",
+    goal: "캐릭터 회사 주식을 보유해 수집을 시작하세요(원앤온리·트윈스타·트리플하르모니아).",
     cta: { label: "도감 열기", href: "/characters" },
     steps: [
       {

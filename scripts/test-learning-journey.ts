@@ -42,19 +42,7 @@ assert.equal(
   2,
 );
 
-// 캐릭터 보유 + 관심(tier1) → 레이어 5.
-assert.equal(
-  reachedLearningLayer({
-    ...base(),
-    trades: 3,
-    hasEtfHolding: true,
-    hasCharacterHolding: true,
-    maxAffinityTierIndex: 1,
-  }),
-  5,
-);
-
-// 캐릭터는 보유했으나 아직 면식(tier0)이면 레이어 4에서 멈춘다.
+// 캐릭터 보유만 해도(집중 형태 무관) 레이어 5가 열린다 — 관심 도달 불필요.
 assert.equal(
   reachedLearningLayer({
     ...base(),
@@ -62,6 +50,17 @@ assert.equal(
     hasEtfHolding: true,
     hasCharacterHolding: true,
     maxAffinityTierIndex: 0,
+  }),
+  5,
+);
+
+// 아직 캐릭터 주식을 보유하지 않았으면 레이어 4에서 멈춘다.
+assert.equal(
+  reachedLearningLayer({
+    ...base(),
+    trades: 3,
+    hasEtfHolding: true,
+    hasCharacterHolding: false,
   }),
   4,
 );

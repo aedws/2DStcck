@@ -41,6 +41,7 @@ interface Brick {
   row: number;
   hp: number;
   flash: number;
+  flashColor: string;
 }
 interface Particle {
   x: number;
@@ -57,6 +58,23 @@ interface Floater {
   y: number;
   life: number;
   text: string;
+  color: string;
+}
+interface Shockwave {
+  x: number;
+  y: number;
+  r: number;
+  maxR: number;
+  life: number;
+  max: number;
+  color: string;
+}
+interface Beam {
+  kind: "h" | "v";
+  pos: number; // 중심 좌표(가로 빔=y, 세로 빔=x)
+  half: number; // 반두께
+  life: number;
+  max: number;
   color: string;
 }
 
@@ -78,6 +96,8 @@ interface GameState {
   bricks: Brick[];
   particles: Particle[];
   floaters: Floater[];
+  shockwaves: Shockwave[];
+  beams: Beam[];
   toFire: BallGrade[];
   fireTimer: number;
   aimDir: { x: number; y: number } | null;
@@ -100,7 +120,8 @@ function brickCenter(gs: GameState, br: Brick) {
 }
 
 function damageBrick(gs: GameState, br: Brick, color: string) {
-  br.flash = 6;
+  br.flash = 8;
+  br.flashColor = color;
   br.hp -= 1;
   if (br.hp <= 0) {
     const idx = gs.bricks.indexOf(br);
@@ -137,6 +158,7 @@ function damageBrick(gs: GameState, br: Brick, color: string) {
 
 function applyGradeDamage(gs: GameState, grade: BallGrade, hit: Brick) {
   const color = GRADE_COLOR[grade];
+  const { x: hx, y: hy } = brickCenter(gs, hit);
   const targets = new Set<Brick>([hit]);
   if (grade === "S") {
     for (const b of gs.bricks) {
@@ -144,10 +166,23 @@ function applyGradeDamage(gs: GameState, grade: BallGrade, hit: Brick) {
         targets.add(b);
       }
     }
+    // 광역 충격파(3×3 범위를 덮는 링)
+    gs.shockwaves.push({
+      x: hx,
+      y: hy,
+      r: gs.cell * 0.4,
+      maxR: gs.cell * 1.6,
+      life: 16,
+      max: 16,
+      color,
+    });
   } else if (grade === "SS") {
     for (const b of gs.bricks) {
       if (b.col === hit.col || b.row === hit.row) targets.add(b);
     }
+    // 십자 빔(가로 행 + 세로 열 전체)
+    gs.beams.push({ kind: "h", pos: hy, half: gs.cell * 0.5, life: 16, max: 16, color });
+    gs.beams.push({ kind: "v", pos: hx, half: gs.cell * 0.5, life: 16, max: 16, color });
   }
   for (const t of targets) damageBrick(gs, t, color);
 }
@@ -166,6 +201,16 @@ function updateEffects(gs: GameState) {
     f.y -= gs.cell * 0.02;
     f.life -= 1;
     if (f.life <= 0) gs.floaters.splice(i, 1);
+  }
+  for (let i = gs.shockwaves.length - 1; i >= 0; i--) {
+    const w = gs.shockwaves[i];
+    w.r += (w.maxR - w.r) * 0.25;
+    w.life -= 1;
+    if (w.life <= 0) gs.shockwaves.splice(i, 1);
+  }
+  for (let i = gs.beams.length - 1; i >= 0; i--) {
+    gs.beams[i].life -= 1;
+    if (gs.beams[i].life <= 0) gs.beams.splice(i, 1);
   }
   for (const b of gs.bricks) if (b.flash > 0) b.flash -= 1;
 }
@@ -197,7 +242,7 @@ export function SwipeBrickBreaker({
     const cols = [...Array(COLS).keys()].sort(() => Math.random() - 0.5);
     for (const col of cols) {
       if (Math.random() < 0.62) {
-        gs.bricks.push({ col, row: 0, hp: brickHpForRound(gs.rounds), flash: 0 });
+        gs.bricks.push({ col, row: 0, hp: brickHpForRound(gs.rounds), flash: 0, flashColor: "#fff" });
         placed++;
       }
     }
@@ -207,6 +252,7 @@ export function SwipeBrickBreaker({
         row: 0,
         hp: brickHpForRound(gs.rounds),
         flash: 0,
+        flashColor: "#fff",
       });
     }
   }, []);
@@ -252,6 +298,8 @@ export function SwipeBrickBreaker({
         bricks: [],
         particles: [],
         floaters: [],
+        shockwaves: [],
+        beams: [],
         toFire: [],
         fireTimer: 0,
         aimDir: null,
@@ -374,8 +422,10 @@ export function SwipeBrickBreaker({
       ctx.roundRect(x, y, sz, sz, gs.cell * 0.12);
       ctx.fill();
       if (br.flash > 0) {
-        ctx.fillStyle = `rgba(255,255,255,${(br.flash / 6) * 0.6})`;
+        ctx.globalAlpha = (br.flash / 8) * 0.75;
+        ctx.fillStyle = br.flashColor;
         ctx.fill();
+        ctx.globalAlpha = 1;
       }
       ctx.fillStyle = "#fff";
       ctx.font = `bold ${Math.floor(gs.cell * 0.32)}px system-ui`;
@@ -383,6 +433,27 @@ export function SwipeBrickBreaker({
       ctx.textBaseline = "middle";
       ctx.fillText(String(br.hp), x + sz / 2, y + sz / 2);
     }
+
+    // 십자 빔(SS)
+    for (const bm of gs.beams) {
+      ctx.globalAlpha = Math.max(0, (bm.life / bm.max) * 0.5);
+      ctx.fillStyle = bm.color;
+      if (bm.kind === "h") {
+        ctx.fillRect(0, bm.pos - bm.half, gs.W, bm.half * 2);
+      } else {
+        ctx.fillRect(bm.pos - bm.half, 0, bm.half * 2, gs.H);
+      }
+    }
+    // 광역 충격파(S)
+    for (const w of gs.shockwaves) {
+      ctx.globalAlpha = Math.max(0, (w.life / w.max) * 0.8);
+      ctx.strokeStyle = w.color;
+      ctx.lineWidth = gs.cell * 0.1;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
 
     // 공 잔상
     for (const ball of gs.balls) {
