@@ -14,8 +14,9 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  종목 4종 추가로 다시 전체 리플레이를 강제한다.
  *  v12: 반도체 섹터 ETF(SEMIX) 상장 — 종목 추가로 전체 리플레이를 강제한다.
  *  v13: 종합지수(BASPY 23종)·테크(BAQQQ) ETF 구성 개편 — 구성 종목이 바뀌어
- *  ETF 가격 경로가 달라지므로 전체 리플레이를 강제한다. */
-export const MARKET_SIM_VERSION = 13;
+ *  ETF 가격 경로가 달라지므로 전체 리플레이를 강제한다.
+ *  v14: 배당 방어 ETF(DIVX) 상장 — 종목 추가로 전체 리플레이를 강제한다. */
+export const MARKET_SIM_VERSION = 14;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

@@ -78,6 +78,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "신규",
+    title: "배당 방어 ETF(DIVX) 상장",
+    detail:
+      "저변동 배당주와 우량 채권을 함께 담은 ‘배당 방어 ETF(DIVX)’를 상장했습니다. 구성은 방어 배당주 65%(유틸리티 18%·보험 15%·헬스케어 13%·통신 10%·방산 9%)와 우량 채권 35%(트리니티·밀레니엄 학원채·지역채)로, 베타 0.45의 저변동에 큰 분배금을 지급합니다. 하락장 방어와 꾸준한 인컴을 함께 노리는 안전 지향 상품입니다. 종목 추가로 시장이 전체 리플레이됩니다(진행·지갑 유지).",
+  },
+  {
+    date: "2026-07-18",
     tag: "개선",
     title: "지수·벤치마크 개편 — 종합지수·V-나스닥·테크 ETF",
     detail:

@@ -1011,6 +1011,52 @@ export const CSV_COMPANIES: StockDefinition[] = [
         "weight": 0.15
       }
     ]
+  },
+  {
+    "id": "divx",
+    "ticker": "DIVX",
+    "name": "Guardian Dividend Income ETF",
+    "sector": "ETF",
+    "initialPrice": 15000,
+    "volatility": 0.012,
+    "drift": 0.0004,
+    "beta": 0.45,
+    "description": "저변동 배당주(유틸리티·보험·헬스케어·통신·방산)와 우량 채권을 함께 담아 방어와 인컴을 노리는 배당 방어 ETF. 하락장에 강하고 분배금이 크다.",
+    "etfHoldings": [
+      {
+        "stockId": "nkilg",
+        "weight": 0.18
+      },
+      {
+        "stockId": "ersua",
+        "weight": 0.15
+      },
+      {
+        "stockId": "basmr",
+        "weight": 0.13
+      },
+      {
+        "stockId": "wwskp",
+        "weight": 0.1
+      },
+      {
+        "stockId": "baridc",
+        "weight": 0.09
+      },
+      {
+        "stockId": "batrb",
+        "weight": 0.13
+      },
+      {
+        "stockId": "bamlb",
+        "weight": 0.12
+      },
+      {
+        "stockId": "bakvb",
+        "weight": 0.1
+      }
+    ],
+    "quarterlyDividend": 350
   }
 ];
 
