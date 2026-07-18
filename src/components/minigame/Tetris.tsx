@@ -4,15 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * 테트리스 — 10×20 보드. 스와이프/버튼/방향키로 조각을 옮기고 회전해 가로줄을
- * 꽉 채우면 지워지며 점수가 오른다. 새 조각을 놓을 수 없으면 게임오버 시 점수를
- * 넘겨준다. 상태는 리렌더 편의상 ref + 버전 카운터로 관리한다.
+ * 꽉 채우면 지워지며 점수가 오른다. T-스핀 인식(회전으로 T를 끼워 넣기), 줄 삭제
+ * 플래시, 조각 착지 플래시 이펙트 포함. 상태는 ref + 버전 카운터로 관리한다.
  */
 
 const COLS = 10;
 const ROWS = 20;
 const LINE_SCORE = [0, 100, 300, 500, 800];
+const TSPIN_SCORE = [400, 800, 1200, 1600]; // 라인 0~3
+const CLEAR_ANIM_MS = 220;
 
-// 색 팔레트 (index 1..7)
 const COLORS = [
   "",
   "#22d3ee", // I
@@ -23,29 +24,29 @@ const COLORS = [
   "#3b82f6", // J
   "#f97316", // L
 ];
+const T_COLOR = 3;
 
 type Cell = number; // 0 빈칸, 1..7 색, -1 고스트
 interface Piece {
-  cells: number[][]; // 0/1
+  cells: number[][];
   color: number;
   x: number;
   y: number;
 }
 
 const SHAPES: { color: number; cells: number[][] }[] = [
-  { color: 1, cells: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]] }, // I
-  { color: 2, cells: [[1, 1], [1, 1]] }, // O
-  { color: 3, cells: [[0, 1, 0], [1, 1, 1], [0, 0, 0]] }, // T
-  { color: 4, cells: [[0, 1, 1], [1, 1, 0], [0, 0, 0]] }, // S
-  { color: 5, cells: [[1, 1, 0], [0, 1, 1], [0, 0, 0]] }, // Z
-  { color: 6, cells: [[1, 0, 0], [1, 1, 1], [0, 0, 0]] }, // J
-  { color: 7, cells: [[0, 0, 1], [1, 1, 1], [0, 0, 0]] }, // L
+  { color: 1, cells: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]] },
+  { color: 2, cells: [[1, 1], [1, 1]] },
+  { color: 3, cells: [[0, 1, 0], [1, 1, 1], [0, 0, 0]] },
+  { color: 4, cells: [[0, 1, 1], [1, 1, 0], [0, 0, 0]] },
+  { color: 5, cells: [[1, 1, 0], [0, 1, 1], [0, 0, 0]] },
+  { color: 6, cells: [[1, 0, 0], [1, 1, 1], [0, 0, 0]] },
+  { color: 7, cells: [[0, 0, 1], [1, 1, 1], [0, 0, 0]] },
 ];
 
 function emptyBoard(): Cell[][] {
   return Array.from({ length: ROWS }, () => Array<Cell>(COLS).fill(0));
 }
-
 function rotateCW(m: number[][]): number[][] {
   const n = m.length;
   const out = Array.from({ length: n }, () => Array<number>(n).fill(0));
@@ -53,9 +54,8 @@ function rotateCW(m: number[][]): number[][] {
     for (let c = 0; c < n; c++) out[c][n - 1 - r] = m[r][c];
   return out;
 }
-
 function collides(board: Cell[][], p: Piece, nx = p.x, ny = p.y, cells = p.cells): boolean {
-  for (let r = 0; r < cells.length; r++) {
+  for (let r = 0; r < cells.length; r++)
     for (let c = 0; c < cells[r].length; c++) {
       if (!cells[r][c]) continue;
       const x = nx + c;
@@ -63,10 +63,8 @@ function collides(board: Cell[][], p: Piece, nx = p.x, ny = p.y, cells = p.cells
       if (x < 0 || x >= COLS || y >= ROWS) return true;
       if (y >= 0 && board[y][x] !== 0) return true;
     }
-  }
   return false;
 }
-
 function spawn(): Piece {
   const s = SHAPES[Math.floor(Math.random() * SHAPES.length)];
   const cells = s.cells.map((r) => r.slice());
@@ -80,6 +78,11 @@ interface Game {
   score: number;
   lines: number;
   over: boolean;
+  paused: boolean;
+  clearing: number[];
+  lockFlash: Set<string>;
+  lastRotate: boolean;
+  tspin: { id: number; text: string } | null;
 }
 
 function initGame(): Game {
@@ -90,31 +93,12 @@ function initGame(): Game {
     score: 0,
     lines: 0,
     over: false,
+    paused: false,
+    clearing: [],
+    lockFlash: new Set(),
+    lastRotate: false,
+    tspin: null,
   };
-}
-
-function lockAndNext(g: Game) {
-  // 보드에 고정
-  const { piece: p } = g;
-  for (let r = 0; r < p.cells.length; r++)
-    for (let c = 0; c < p.cells[r].length; c++)
-      if (p.cells[r][c] && p.y + r >= 0) g.board[p.y + r][p.x + c] = p.color;
-  // 줄 제거
-  let cleared = 0;
-  g.board = g.board.filter((row) => {
-    const full = row.every((v) => v !== 0);
-    if (full) cleared++;
-    return !full;
-  });
-  while (g.board.length < ROWS) g.board.unshift(Array<Cell>(COLS).fill(0));
-  if (cleared > 0) {
-    g.score += LINE_SCORE[cleared];
-    g.lines += cleared;
-  }
-  // 다음 조각
-  g.piece = g.next;
-  g.next = spawn();
-  if (collides(g.board, g.piece)) g.over = true;
 }
 
 export function Tetris({
@@ -125,7 +109,8 @@ export function Tetris({
   const gRef = useRef<Game>(initGame());
   const [, setV] = useState(0);
   const overRef = useRef(false);
-  const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const idRef = useRef(1);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
   const rerender = useCallback(() => setV((v) => v + 1), []);
 
   const finishIfOver = useCallback(() => {
@@ -136,78 +121,154 @@ export function Tetris({
     }
   }, [onGameOver]);
 
+  const spawnNext = useCallback(
+    (g: Game) => {
+      g.piece = g.next;
+      g.next = spawn();
+      g.lastRotate = false;
+      if (collides(g.board, g.piece)) g.over = true;
+    },
+    [],
+  );
+
+  const doLock = useCallback(
+    (g: Game) => {
+      const p = g.piece;
+      const locked: string[] = [];
+      for (let r = 0; r < p.cells.length; r++)
+        for (let c = 0; c < p.cells[r].length; c++)
+          if (p.cells[r][c] && p.y + r >= 0) {
+            g.board[p.y + r][p.x + c] = p.color;
+            locked.push(`${p.y + r},${p.x + c}`);
+          }
+
+      // T-스핀 판정: T + 마지막 동작이 회전 + 중심 대각 코너 3개 이상 채워짐
+      let tspin = false;
+      if (p.color === T_COLOR && g.lastRotate) {
+        const cy = p.y + 1;
+        const cx = p.x + 1;
+        let filled = 0;
+        for (const [yy, xx] of [
+          [cy - 1, cx - 1],
+          [cy - 1, cx + 1],
+          [cy + 1, cx - 1],
+          [cy + 1, cx + 1],
+        ]) {
+          if (xx < 0 || xx >= COLS || yy < 0 || yy >= ROWS) filled++;
+          else if (g.board[yy][xx] !== 0) filled++;
+        }
+        if (filled >= 3) tspin = true;
+      }
+
+      const fullRows: number[] = [];
+      for (let r = 0; r < ROWS; r++)
+        if (g.board[r].every((v) => v !== 0)) fullRows.push(r);
+      const n = fullRows.length;
+      const gained = tspin ? TSPIN_SCORE[Math.min(n, 3)] : LINE_SCORE[n];
+
+      // 착지 플래시
+      g.lockFlash = new Set(locked);
+      setTimeout(() => {
+        gRef.current.lockFlash = new Set();
+        rerender();
+      }, 170);
+
+      // T-스핀 팝업
+      if (tspin) {
+        const suffix = ["", " SINGLE", " DOUBLE", " TRIPLE"][Math.min(n, 3)];
+        g.tspin = { id: idRef.current++, text: `T-SPIN${suffix}` };
+        setTimeout(() => {
+          gRef.current.tspin = null;
+          rerender();
+        }, 850);
+      }
+
+      if (n > 0) {
+        // 두 단계: 줄 플래시 → 제거
+        g.paused = true;
+        g.clearing = fullRows;
+        rerender();
+        setTimeout(() => {
+          const gg = gRef.current;
+          gg.board = gg.board.filter((_, idx) => !fullRows.includes(idx));
+          while (gg.board.length < ROWS)
+            gg.board.unshift(Array<Cell>(COLS).fill(0));
+          gg.score += gained;
+          gg.lines += n;
+          gg.clearing = [];
+          gg.paused = false;
+          spawnNext(gg);
+          finishIfOver();
+          rerender();
+        }, CLEAR_ANIM_MS);
+      } else {
+        g.score += gained; // T-스핀(0줄) 보너스 포함
+        spawnNext(g);
+        finishIfOver();
+        rerender();
+      }
+    },
+    [rerender, spawnNext, finishIfOver],
+  );
+
   const move = useCallback(
     (dx: number) => {
       const g = gRef.current;
-      if (g.over) return;
+      if (g.over || g.paused) return;
       if (!collides(g.board, g.piece, g.piece.x + dx, g.piece.y)) {
         g.piece.x += dx;
+        g.lastRotate = false;
         rerender();
       }
     },
     [rerender],
   );
-
   const rotate = useCallback(() => {
     const g = gRef.current;
-    if (g.over) return;
+    if (g.over || g.paused) return;
     const rotated = rotateCW(g.piece.cells);
     for (const kick of [0, -1, 1, -2, 2]) {
       if (!collides(g.board, g.piece, g.piece.x + kick, g.piece.y, rotated)) {
         g.piece.cells = rotated;
         g.piece.x += kick;
+        g.lastRotate = true;
         rerender();
         return;
       }
     }
   }, [rerender]);
-
   const softDrop = useCallback(() => {
     const g = gRef.current;
-    if (g.over) return;
+    if (g.over || g.paused) return;
     if (!collides(g.board, g.piece, g.piece.x, g.piece.y + 1)) {
       g.piece.y += 1;
-    } else {
-      lockAndNext(g);
-      finishIfOver();
-    }
-    rerender();
-  }, [rerender, finishIfOver]);
-
+      rerender();
+    } else doLock(g);
+  }, [rerender, doLock]);
   const hardDrop = useCallback(() => {
     const g = gRef.current;
-    if (g.over) return;
+    if (g.over || g.paused) return;
     while (!collides(g.board, g.piece, g.piece.x, g.piece.y + 1)) g.piece.y += 1;
-    lockAndNext(g);
-    finishIfOver();
-    rerender();
-  }, [rerender, finishIfOver]);
+    doLock(g);
+  }, [doLock]);
 
-  // 중력
   useEffect(() => {
     const id = setInterval(() => {
       const g = gRef.current;
-      if (g.over) return;
-      const speed = Math.max(120, 700 - Math.floor(g.lines / 10) * 70);
-      void speed;
+      if (g.over || g.paused) return;
       if (!collides(g.board, g.piece, g.piece.x, g.piece.y + 1)) {
         g.piece.y += 1;
-      } else {
-        lockAndNext(g);
-        finishIfOver();
-      }
-      rerender();
+        rerender();
+      } else doLock(g);
     }, 550);
     return () => clearInterval(id);
-  }, [rerender, finishIfOver]);
+  }, [rerender, doLock]);
 
-  // 키보드
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = e.key;
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(k)) {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(k))
         e.preventDefault();
-      }
       if (k === "ArrowLeft") move(-1);
       else if (k === "ArrowRight") move(1);
       else if (k === "ArrowUp") rotate();
@@ -226,23 +287,14 @@ export function Tetris({
     const dy = e.clientY - s.y;
     const adx = Math.abs(dx);
     const ady = Math.abs(dy);
-    if (adx < 16 && ady < 16) {
-      rotate(); // 탭 = 회전
-      return;
-    }
+    if (adx < 16 && ady < 16) return rotate();
     if (adx > ady) move(dx > 0 ? 1 : -1);
-    else if (dy > 0) {
-      if (ady > 80) hardDrop();
-      else softDrop();
-    }
+    else if (dy > 0) (ady > 80 ? hardDrop : softDrop)();
   };
 
   const g = gRef.current;
-
-  // 표시용 그리드 (보드 + 고스트 + 현재 조각)
   const disp = g.board.map((row) => row.slice());
-  if (!g.over) {
-    // 고스트
+  if (!g.over && !g.paused) {
     let gy = g.piece.y;
     while (!collides(g.board, g.piece, g.piece.x, gy + 1)) gy++;
     for (let r = 0; r < g.piece.cells.length; r++)
@@ -252,7 +304,6 @@ export function Tetris({
           const x = g.piece.x + c;
           if (y >= 0 && disp[y][x] === 0) disp[y][x] = -1;
         }
-    // 현재 조각
     for (let r = 0; r < g.piece.cells.length; r++)
       for (let c = 0; c < g.piece.cells[r].length; c++)
         if (g.piece.cells[r][c]) {
@@ -261,6 +312,7 @@ export function Tetris({
           if (y >= 0) disp[y][x] = g.piece.color;
         }
   }
+  const clearingSet = new Set(g.clearing);
 
   return (
     <div className="flex flex-col items-center">
@@ -273,37 +325,54 @@ export function Tetris({
         </span>
       </div>
 
-      <div
-        onPointerDown={(e) =>
-          (startRef.current = { x: e.clientX, y: e.clientY, t: Date.now() })
-        }
-        onPointerUp={onPointerUp}
-        className="grid touch-none rounded-2xl border border-[var(--border)] bg-[var(--background)] p-1.5"
-        style={{
-          width: "min(300px, 86vw)",
-          gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-          gap: "2px",
-          aspectRatio: `${COLS} / ${ROWS}`,
-        }}
-      >
-        {disp.flat().map((v, i) => (
+      <div className="relative" style={{ width: "min(300px, 86vw)" }}>
+        <div
+          onPointerDown={(e) =>
+            (startRef.current = { x: e.clientX, y: e.clientY })
+          }
+          onPointerUp={onPointerUp}
+          className="grid w-full touch-none rounded-2xl border border-[var(--border)] bg-[var(--background)] p-1.5"
+          style={{
+            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+            gap: "2px",
+            aspectRatio: `${COLS} / ${ROWS}`,
+          }}
+        >
+          {disp.flat().map((v, i) => {
+            const y = Math.floor(i / COLS);
+            const x = i % COLS;
+            const fx = clearingSet.has(y)
+              ? "mg-tetris-clear"
+              : g.lockFlash.has(`${y},${x}`)
+                ? "mg-tetris-lock"
+                : "";
+            return (
+              <div
+                key={i}
+                className={`rounded-[3px] ${fx}`}
+                style={{
+                  background:
+                    v === -1
+                      ? "transparent"
+                      : v === 0
+                        ? "var(--surface)"
+                        : COLORS[v],
+                  border: v === -1 ? "1.5px solid var(--border)" : undefined,
+                }}
+              />
+            );
+          })}
+        </div>
+        {g.tspin && (
           <div
-            key={i}
-            className="rounded-[3px]"
-            style={{
-              background:
-                v === -1
-                  ? "transparent"
-                  : v === 0
-                    ? "var(--surface)"
-                    : COLORS[v],
-              border: v === -1 ? "1.5px solid var(--border)" : undefined,
-            }}
-          />
-        ))}
+            key={g.tspin.id}
+            className="mg-tspin-pop rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-extrabold tracking-wide text-white shadow-lg"
+          >
+            {g.tspin.text}
+          </div>
+        )}
       </div>
 
-      {/* 조작 버튼 */}
       <div className="mt-3 grid w-full max-w-[300px] grid-cols-5 gap-1.5">
         <CtrlBtn label="◀" onClick={() => move(-1)} />
         <CtrlBtn label="⟳" onClick={rotate} />
@@ -312,7 +381,8 @@ export function Tetris({
         <CtrlBtn label="⤓" onClick={hardDrop} accent />
       </div>
       <p className="mt-2 text-center text-[11px] text-[var(--muted)]">
-        스와이프(좌우 이동·탭 회전·아래 드롭) 또는 버튼·방향키로 조작하세요.
+        스와이프(좌우 이동·탭 회전·아래 드롭) 또는 버튼·방향키. 회전으로 T를 끼워
+        넣으면 T-스핀 보너스!
       </p>
     </div>
   );

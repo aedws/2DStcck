@@ -95,3 +95,29 @@ input[type="number"] {
 }
 .mg-tile-new { animation: mgTileAppear 0.14s ease-out; }
 .mg-tile-merged { animation: mgTilePop 0.16s ease-out; }
+
+/* 테트리스 이펙트 */
+@keyframes mgTetrisClear {
+  0% { filter: brightness(3) saturate(0); transform: scale(1); }
+  35% { filter: brightness(3.5) saturate(0); }
+  100% { filter: brightness(1); opacity: 0; transform: scaleY(0.1); }
+}
+@keyframes mgTetrisLock {
+  0% { filter: brightness(2.4); }
+  100% { filter: brightness(1); }
+}
+@keyframes mgTspinPop {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  25% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  70% { transform: translate(-50%, -70%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -110%) scale(1); opacity: 0; }
+}
+.mg-tetris-clear { animation: mgTetrisClear 0.22s ease-out forwards; }
+.mg-tetris-lock { animation: mgTetrisLock 0.16s ease-out; }
+.mg-tspin-pop {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  animation: mgTspinPop 0.85s ease-out forwards;
+  pointer-events: none;
+}

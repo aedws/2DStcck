@@ -84,6 +84,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "개선",
+    title: "골드 테트리스 손맛 강화 — T-스핀·줄삭제·착지 이펙트",
+    detail:
+      "회전으로 T 조각을 빈틈에 끼워 넣으면 ‘T-스핀’으로 인식해 큰 보너스 점수와 팝업이 뜹니다(0줄 400, 싱글 800, 더블 1200, 트리플 1600점). 줄이 지워질 때 하얗게 번쩍이며 사라지는 삭제 이펙트, 조각이 바닥에 놓일 때 번쩍이는 착지 이펙트를 넣어 조작이 훨씬 찰지게 느껴집니다.",
+  },
+  {
+    date: "2026-07-18",
     tag: "신규",
     title: "현금 채굴에 ‘골드 테트리스’ 추가",
     detail:
