@@ -1,29 +1,28 @@
 import assert from "node:assert";
 import {
-  computeBrickBreakerReward,
-  BRICK_REWARD_PER_ROUND,
-  BRICK_REWARD_PER_BRICK,
+  computeBrickBreakerCash,
+  MINIGAME_CASH_DIVISOR,
   MINIGAME_REWARD_HARD_CAP,
+  COIN_PER_BRICK,
+  BALL_PRICE,
 } from "../src/lib/market/minigame";
 import { seasonExternalCashTotal } from "../src/lib/market/investmentSeasons";
 import type { CashPayment } from "../src/lib/types/market";
 
-// 보상 공식
-assert.equal(computeBrickBreakerReward(0, 0), 0);
-assert.equal(
-  computeBrickBreakerReward(3, 10),
-  3 * BRICK_REWARD_PER_ROUND + 10 * BRICK_REWARD_PER_BRICK,
-);
-// 음수·소수 방어
-assert.equal(computeBrickBreakerReward(-5, -3), 0);
-assert.equal(
-  computeBrickBreakerReward(2.9, 4.9),
-  2 * BRICK_REWARD_PER_ROUND + 4 * BRICK_REWARD_PER_BRICK,
-);
+// 점수 → 현금 (점수 / N)
+assert.equal(computeBrickBreakerCash(0), 0);
+assert.equal(computeBrickBreakerCash(-100), 0);
+assert.equal(computeBrickBreakerCash(100_000), Math.floor(100_000 / MINIGAME_CASH_DIVISOR));
+assert.equal(computeBrickBreakerCash(999), Math.floor(999 / MINIGAME_CASH_DIVISOR));
 // 하드캡
-assert.equal(computeBrickBreakerReward(1e9, 1e9), MINIGAME_REWARD_HARD_CAP);
+assert.equal(computeBrickBreakerCash(1e12), MINIGAME_REWARD_HARD_CAP);
 
-// 미니게임 소득은 '외생(노동) 소득'으로 시즌 성과에서 제외돼야 한다.
+// 등급 가격은 N < S < SS
+assert.ok(BALL_PRICE.N < BALL_PRICE.S && BALL_PRICE.S < BALL_PRICE.SS);
+// 코인/벽돌 양수
+assert.ok(COIN_PER_BRICK > 0);
+
+// 미니게임 소득은 외생(노동) 소득 — 시즌 성과에서 제외
 const pay = (kind: CashPayment["kind"], amount: number): CashPayment => ({
   id: `${kind}-${amount}`,
   kind,
@@ -35,13 +34,9 @@ const pay = (kind: CashPayment["kind"], amount: number): CashPayment => ({
 const payments: CashPayment[] = [
   pay("minigame", 100_000),
   pay("salary", 1_000_000),
-  pay("dividend", 50_000), // 투자 소득 — 제외 안 됨
+  pay("dividend", 50_000),
   pay("lottery", 30_000),
 ];
-// 외생 소득 = minigame + salary + lottery (dividend 제외)
-assert.equal(
-  seasonExternalCashTotal(payments),
-  100_000 + 1_000_000 + 30_000,
-);
+assert.equal(seasonExternalCashTotal(payments), 100_000 + 1_000_000 + 30_000);
 
 console.log("minigame reward & income-classification scenarios passed");

@@ -4,9 +4,10 @@ import { useCallback, useState } from "react";
 import { SwipeBrickBreaker } from "@/components/minigame/SwipeBrickBreaker";
 import { formatPrice } from "@/lib/market/engine";
 import {
-  computeBrickBreakerReward,
-  BRICK_REWARD_PER_ROUND,
-  BRICK_REWARD_PER_BRICK,
+  computeBrickBreakerCash,
+  COIN_PER_ROUND,
+  COIN_PER_BRICK,
+  MINIGAME_CASH_DIVISOR,
 } from "@/lib/market/minigame";
 import { useMarketStore } from "@/store/marketStore";
 
@@ -15,6 +16,7 @@ type Phase = "menu" | "playing" | "result";
 interface Result {
   rounds: number;
   bricks: number;
+  score: number;
   reward: number;
 }
 
@@ -28,12 +30,12 @@ export default function MinigamePage() {
   const [earnedTotal, setEarnedTotal] = useState(0);
 
   const handleGameOver = useCallback(
-    ({ rounds, bricks }: { rounds: number; bricks: number }) => {
-      const reward = computeBrickBreakerReward(rounds, bricks);
+    ({ rounds, bricks, score }: { rounds: number; bricks: number; score: number }) => {
+      const reward = computeBrickBreakerCash(score);
       awardMinigameCash(reward, "벽돌깨기");
       void saveCloud();
       setEarnedTotal((t) => t + reward);
-      setResult({ rounds, bricks, reward });
+      setResult({ rounds, bricks, score, reward });
       setPhase("result");
     },
     [awardMinigameCash, saveCloud],
@@ -73,9 +75,11 @@ export default function MinigamePage() {
               <span className="text-[var(--accent)]">▶</span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-              스와이프로 각도를 조준해 공을 발사, 벽돌을 깨며 오래 버티세요.
-              라운드당 {formatPrice(BRICK_REWARD_PER_ROUND)} · 벽돌당{" "}
-              {formatPrice(BRICK_REWARD_PER_BRICK)}.
+              스와이프로 조준해 공을 발사, 벽돌을 깨서 코인을 모으고 그 코인으로
+              N(단일)·S(광역)·SS(십자) 공을 사서 화력을 키우세요. 벽돌당{" "}
+              {COIN_PER_BRICK.toLocaleString()}·라운드당{" "}
+              {COIN_PER_ROUND.toLocaleString()} 점수 → 게임오버 시 최종 점수의 1/
+              {MINIGAME_CASH_DIVISOR}이 현금으로.
             </p>
           </button>
 
@@ -93,7 +97,7 @@ export default function MinigamePage() {
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
           <p className="text-4xl">🧱</p>
           <h2 className="mt-2 text-lg font-bold">게임 종료!</h2>
-          <div className="mt-3 flex justify-center gap-6 text-sm">
+          <div className="mt-3 flex justify-center gap-5 text-sm">
             <div>
               <p className="text-[var(--muted)]">라운드</p>
               <p className="text-xl font-bold tabular-nums">{result.rounds}</p>
@@ -102,11 +106,20 @@ export default function MinigamePage() {
               <p className="text-[var(--muted)]">깬 벽돌</p>
               <p className="text-xl font-bold tabular-nums">{result.bricks}</p>
             </div>
+            <div>
+              <p className="text-[var(--muted)]">점수</p>
+              <p className="text-xl font-bold tabular-nums">
+                {result.score.toLocaleString()}
+              </p>
+            </div>
           </div>
           <p className="mt-4 text-2xl font-bold text-[var(--up)]">
             +{formatPrice(result.reward)}
           </p>
-          <p className="mt-1 text-xs text-[var(--muted)]">노동 소득으로 지급됨</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            최종 점수 {result.score.toLocaleString()}의 1/{MINIGAME_CASH_DIVISOR} ·
+            노동 소득으로 지급됨
+          </p>
           <div className="mt-5 flex gap-2">
             <button
               type="button"
