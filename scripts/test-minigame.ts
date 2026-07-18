@@ -1,8 +1,10 @@
 import assert from "node:assert";
 import {
   computeBrickBreakerCash,
+  compute2048Cash,
   MINIGAME_CASH_DIVISOR,
   MINIGAME_REWARD_HARD_CAP,
+  G2048_CENTS_PER_POINT,
   COIN_PER_BRICK,
   BALL_PRICE,
 } from "../src/lib/market/minigame";
@@ -16,6 +18,12 @@ assert.equal(computeBrickBreakerCash(100_000), Math.floor(100_000 / MINIGAME_CAS
 assert.equal(computeBrickBreakerCash(999), Math.floor(999 / MINIGAME_CASH_DIVISOR));
 // 하드캡
 assert.equal(computeBrickBreakerCash(1e12), MINIGAME_REWARD_HARD_CAP);
+
+// 2048: 점수 × 계수, 음수 방어, 하드캡
+assert.equal(compute2048Cash(0), 0);
+assert.equal(compute2048Cash(-10), 0);
+assert.equal(compute2048Cash(4000), 4000 * G2048_CENTS_PER_POINT);
+assert.equal(compute2048Cash(1e12), MINIGAME_REWARD_HARD_CAP);
 
 // 등급 가격은 N < S < SS
 assert.ok(BALL_PRICE.N < BALL_PRICE.S && BALL_PRICE.S < BALL_PRICE.SS);

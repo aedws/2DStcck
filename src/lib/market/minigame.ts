@@ -46,3 +46,13 @@ export function computeBrickBreakerCash(score: number): number {
   const cash = Math.floor(Math.max(0, score) / MINIGAME_CASH_DIVISOR);
   return Math.min(MINIGAME_REWARD_HARD_CAP, cash);
 }
+
+// ── 2048 ──
+/** 2048 점수 1점당 현금(센트). 값이 클수록 후하다. */
+export const G2048_CENTS_PER_POINT = 2;
+
+/** 2048 최종 점수를 현금(센트)으로 환산한다. */
+export function compute2048Cash(score: number): number {
+  const cash = Math.floor(Math.max(0, score) * G2048_CENTS_PER_POINT);
+  return Math.min(MINIGAME_REWARD_HARD_CAP, cash);
+}
