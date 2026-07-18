@@ -11,6 +11,7 @@
     "test:cashflows": "node --experimental-strip-types scripts/test-cashflows.mjs",
     "test:gameplay": "tsx scripts/test-gameplay.ts",
     "test:splits": "tsx scripts/test-leverage-splits.ts",
+    "test:learning": "tsx scripts/test-learning-journey.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },
   "dependencies": {

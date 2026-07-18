@@ -18,6 +18,12 @@ interface SettingsState {
   /** 온보딩(첫 안내)을 마쳤는지 여부 */
   onboarded: boolean;
   setOnboarded: (value: boolean) => void;
+  /** 학습 여정에서 교육 모달을 확인한 최고 레이어(1~6). 기본 1(첫 안내가 담당). */
+  learningLayerSeen: number;
+  setLearningLayerSeen: (value: number) => void;
+  /** 여정 완주 카드를 접었는지 여부 */
+  learningJourneyDismissed: boolean;
+  setLearningJourneyDismissed: (value: boolean) => void;
   missionTutorialSeen: boolean;
   setMissionTutorialSeen: (value: boolean) => void;
   missionTutorialVersion: number;
@@ -60,6 +66,11 @@ export const useSettingsStore = create<SettingsState>()(
       setGroupDerivatives: (groupDerivatives) => set({ groupDerivatives }),
       onboarded: false,
       setOnboarded: (onboarded) => set({ onboarded }),
+      learningLayerSeen: 1,
+      setLearningLayerSeen: (learningLayerSeen) => set({ learningLayerSeen }),
+      learningJourneyDismissed: false,
+      setLearningJourneyDismissed: (learningJourneyDismissed) =>
+        set({ learningJourneyDismissed }),
       missionTutorialSeen: false,
       setMissionTutorialSeen: (missionTutorialSeen) =>
         set({ missionTutorialSeen }),
