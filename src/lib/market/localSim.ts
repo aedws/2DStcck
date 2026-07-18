@@ -428,15 +428,34 @@ export function replayMarket(
   for (const stock of universalDerivatives) {
     const underlyingId = stock.leverageUnderlyingId;
     const underlying = underlyingId ? byId.get(underlyingId) : undefined;
-    if (!underlying) continue;
+    if (!underlying || !underlyingId) continue;
     stock.currentPrice = computeLeveragedPrice(stock, underlying);
 
-    const dailyCandles = dailyMap.get(stock.id) ?? [];
-    const lastDaily = dailyCandles[dailyCandles.length - 1];
-    if (lastDaily) {
-      lastDaily.high = Math.max(lastDaily.high, stock.currentPrice);
-      lastDaily.low = Math.min(lastDaily.low, stock.currentPrice);
-      lastDaily.close = stock.currentPrice;
+    // 자동생성 파생은 일봉을 따로 쌓지 않으므로, 기초자산 일봉을 power-law로 매핑해
+    // 정확한 일봉 시계열을 재구성한다(경로 독립이라 종가별 직접 변환 가능).
+    const leverage = stock.leverage ?? 1;
+    const u0 = defById.get(underlyingId)?.initialPrice ?? underlying.initialPrice ?? 0;
+    const uDaily = dailyMap.get(underlyingId) ?? [];
+    if (u0 > 0 && uDaily.length > 0) {
+      const map = (p: number) =>
+        Math.max(
+          Math.round(stock.initialPrice * Math.pow(Math.max(p, 1) / u0, leverage)),
+          100,
+        );
+      const derivDaily: Candle[] = uDaily.map((c) => {
+        const o = map(c.open);
+        const cl = map(c.close);
+        const a = map(c.high);
+        const b = map(c.low);
+        return {
+          timestamp: c.timestamp,
+          open: o,
+          high: Math.max(o, cl, a, b),
+          low: Math.min(o, cl, a, b),
+          close: cl,
+        };
+      });
+      dailyMap.set(stock.id, derivDaily);
     }
   }
 

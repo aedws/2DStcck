@@ -760,35 +760,29 @@ function reconstructDerivativeSeries(
   underlying: StockState,
 ): StockState {
   const lev = etf.leverage ?? 1;
-  const base = etf.prevDayClose; // 고정 기준가 (상장가)
+  const etfInitial = etf.initialPrice ?? etf.prevDayClose;
+  const u0 =
+    underlying.initialPrice ||
+    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ||
+    0;
   const uCandles = underlying.candles ?? [];
-  if (uCandles.length === 0) {
+  if (u0 <= 0 || uCandles.length === 0) {
     return { ...etf, currentPrice: computeLeveragedPrice(etf, underlying) };
   }
 
-  // 세션별 기초자산 전일종가(직전 세션 마지막 종가) 추정
-  const sessionClose = new Map<number, number>();
-  for (const candle of uCandles) {
-    sessionClose.set(
-      Math.floor(candle.timestamp / SESSION_DURATION_MS),
-      candle.close,
+  // power-law 매핑(경로 독립): deriv = 초기가 × (기초/기초초기가)^leverage
+  const mapPrice = (uPrice: number) =>
+    Math.max(
+      Math.round(etfInitial * Math.pow(Math.max(uPrice, 1) / u0, lev)),
+      100,
     );
-  }
-  const prevCloseFor = (session: number) =>
-    sessionClose.get(session - 1) ?? underlying.prevDayClose ?? base;
-
-  const mapPrice = (uPrice: number, session: number) => {
-    const prev = prevCloseFor(session) || 1;
-    return Math.max(Math.round(base * (1 + lev * (uPrice / prev - 1))), 100);
-  };
 
   const candles = uCandles.map((candle) => {
-    const session = Math.floor(candle.timestamp / SESSION_DURATION_MS);
-    const open = mapPrice(candle.open, session);
-    const close = mapPrice(candle.close, session);
+    const open = mapPrice(candle.open);
+    const close = mapPrice(candle.close);
     // 인버스(음수 레버리지)는 고·저가가 뒤집히므로 매핑 후 다시 max/min을 취한다.
-    const a = mapPrice(candle.high, session);
-    const b = mapPrice(candle.low, session);
+    const a = mapPrice(candle.high);
+    const b = mapPrice(candle.low);
     return {
       timestamp: candle.timestamp,
       open,
@@ -800,10 +794,7 @@ function reconstructDerivativeSeries(
 
   const priceHistory = (underlying.priceHistory ?? []).map((point) => ({
     timestamp: point.timestamp,
-    price: mapPrice(
-      point.price,
-      Math.floor(point.timestamp / SESSION_DURATION_MS),
-    ),
+    price: mapPrice(point.price),
   }));
 
   return {

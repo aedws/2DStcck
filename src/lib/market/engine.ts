@@ -516,18 +516,26 @@ export function tickStock(
   return applyTickPrice(stock, nextPrice, now);
 }
 
-/** 레버리지·인버스 ETF: 기초종목의 당일 등락률을 지정 배수로 단순 추종한다. */
+/**
+ * 레버리지·인버스 ETF 가격: 기초종목의 '로그수익률'을 지정 배수로 추종한다.
+ *   deriv / 초기가 = (기초 / 기초초기가)^leverage
+ * 이 연속형 레버리지는 우상향이 지속되면 배수만큼 복리로 본주 총수익을 앞지르고,
+ * 하락장·인버스는 반대로 움직인다. 경로 독립이라(현재가만으로 결정) 자동생성 파생을
+ * 매 틱 복리 계산하지 않고도 정확히 재구성할 수 있다. (기존 '당일 등락 추종'은
+ * prevDayClose 미갱신으로 복리가 소실돼 레버리지가 평평해지던 버그를 대체)
+ */
 export function computeLeveragedPrice(
   etf: StockState,
   underlying: StockState,
 ): number {
-  const underlyingDayReturn =
-    underlying.prevDayClose > 0
-      ? underlying.currentPrice / underlying.prevDayClose - 1
-      : 0;
-  const nextPrice =
-    etf.prevDayClose * (1 + (etf.leverage ?? 1) * underlyingDayReturn);
-  return Math.max(Math.round(nextPrice), 100);
+  const underlyingInitial =
+    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ??
+    underlying.initialPrice ??
+    0;
+  if (underlyingInitial <= 0) return etf.currentPrice;
+  const ratio = Math.max(underlying.currentPrice, 1) / underlyingInitial;
+  const price = etf.initialPrice * Math.pow(ratio, etf.leverage ?? 1);
+  return Math.max(Math.round(price), 100);
 }
 
 /**
