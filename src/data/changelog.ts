@@ -84,6 +84,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "신규",
+    title: "현금 채굴에 ‘골드 테트리스’ 추가",
+    detail:
+      "세 번째 채굴 게임으로 테트리스를 추가했습니다. 스와이프(좌우 이동·탭 회전·아래 드롭)·화면 버튼·방향키로 조각을 옮겨 가로줄을 채워 지우세요. 한 번에 여러 줄(최대 4줄)을 지울수록 점수가 커지고, 게임오버 시 점수에 비례한 현금을 노동 소득으로 지급합니다(무제한·시즌 미반영).",
+  },
+  {
+    date: "2026-07-18",
     tag: "개선",
     title: "‘미니게임’ → ‘현금 채굴’로 개명",
     detail:

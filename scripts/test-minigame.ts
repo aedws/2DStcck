@@ -2,9 +2,11 @@ import assert from "node:assert";
 import {
   computeBrickBreakerCash,
   compute2048Cash,
+  computeTetrisCash,
   MINIGAME_CASH_DIVISOR,
   MINIGAME_REWARD_HARD_CAP,
   G2048_CENTS_PER_POINT,
+  TETRIS_CENTS_PER_POINT,
   COIN_PER_BRICK,
   BALL_PRICE,
 } from "../src/lib/market/minigame";
@@ -24,6 +26,12 @@ assert.equal(compute2048Cash(0), 0);
 assert.equal(compute2048Cash(-10), 0);
 assert.equal(compute2048Cash(4000), 4000 * G2048_CENTS_PER_POINT);
 assert.equal(compute2048Cash(1e12), MINIGAME_REWARD_HARD_CAP);
+
+// 테트리스
+assert.equal(computeTetrisCash(0), 0);
+assert.equal(computeTetrisCash(-10), 0);
+assert.equal(computeTetrisCash(5000), 5000 * TETRIS_CENTS_PER_POINT);
+assert.equal(computeTetrisCash(1e12), MINIGAME_REWARD_HARD_CAP);
 
 // 등급 가격은 N < S < SS
 assert.ok(BALL_PRICE.N < BALL_PRICE.S && BALL_PRICE.S < BALL_PRICE.SS);

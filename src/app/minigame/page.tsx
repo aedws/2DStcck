@@ -3,19 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { SwipeBrickBreaker } from "@/components/minigame/SwipeBrickBreaker";
 import { Game2048 } from "@/components/minigame/Game2048";
+import { Tetris } from "@/components/minigame/Tetris";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { MINIGAME_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { formatPrice } from "@/lib/market/engine";
 import {
   computeBrickBreakerCash,
   compute2048Cash,
+  computeTetrisCash,
   COIN_PER_ROUND,
   COIN_PER_BRICK,
 } from "@/lib/market/minigame";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
-type GameId = "brick" | "g2048";
+type GameId = "brick" | "g2048" | "tetris";
 type Phase = "menu" | "playing" | "result";
 
 interface ResultStat {
@@ -83,6 +85,23 @@ export default function MinigamePage() {
         stats: [
           { name: "점수", value: score.toLocaleString() },
           { name: "최고 타일", value: best.toLocaleString() },
+        ],
+        reward,
+      });
+      setPhase("result");
+    },
+    [award],
+  );
+
+  const onTetrisOver = useCallback(
+    ({ score, lines }: { score: number; lines: number }) => {
+      const reward = computeTetrisCash(score);
+      award(reward, "골드 테트리스");
+      setResult({
+        emoji: "🧊",
+        stats: [
+          { name: "점수", value: score.toLocaleString() },
+          { name: "지운 줄", value: String(lines) },
         ],
         reward,
       });
@@ -168,6 +187,21 @@ export default function MinigamePage() {
             </p>
           </button>
 
+          <button
+            type="button"
+            onClick={() => play("tetris")}
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition hover:border-[var(--accent)]"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-bold">🧊 골드 테트리스</span>
+              <span className="text-[var(--accent)]">▶</span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+              떨어지는 조각을 옮기고 회전해 가로줄을 꽉 채워 지우세요. 한 번에
+              여러 줄을 지울수록 점수가 크고, 그만큼 더 많은 현금을 캡니다.
+            </p>
+          </button>
+
           <div className="rounded-2xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted)]">
             더 많은 채굴 게임이 곧 추가됩니다.
           </div>
@@ -179,6 +213,9 @@ export default function MinigamePage() {
       )}
       {phase === "playing" && game === "g2048" && (
         <Game2048 onGameOver={on2048Over} />
+      )}
+      {phase === "playing" && game === "tetris" && (
+        <Tetris onGameOver={onTetrisOver} />
       )}
 
       {phase === "result" && result && (
