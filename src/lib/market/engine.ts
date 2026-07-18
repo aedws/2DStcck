@@ -14,9 +14,10 @@ import {
   EVENT_IMPACT_TIME_SCALE,
   EVENT_MIN_GAP_MS,
   MARKET_ORDER_SLIPPAGE,
-  MARKET_DOWNSIDE_REVERSION_PER_SESSION,
   MARKET_EPOCH_MS,
   MARKET_SECULAR_GROWTH_PER_SESSION,
+  MEAN_REVERSION_UP_PER_SESSION,
+  MEAN_REVERSION_DOWN_PER_SESSION,
   MARKET_SHOCK_TIME_SCALE,
   MARKET_TREND_BASE_PER_SEC,
   MAX_PRICE_HISTORY,
@@ -54,7 +55,6 @@ import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
 const MARKET_TREND_PERIOD_MS = 900_000;
 /** 선물의 추세 선행 시간 */
 const FUTURES_LEAD_MS = 90_000;
-const SECULAR_GROWTH_BENCHMARK_IDS = new Set(["vnasdaq", "vnasfut"]);
 
 export function randomNormal(rand: () => number = Math.random): number {
   const u1 = Math.max(rand(), 1e-12);
@@ -175,26 +175,25 @@ export function calculateSecularGrowthSupport(
   now: number,
   dtSeconds: number,
 ): number {
-  if (!SECULAR_GROWTH_BENCHMARK_IDS.has(stock.id)) return 0;
-
+  const sessionSeconds = SESSION_DURATION_MS / 1_000;
   const elapsedSessions = Math.max(
     0,
     (now - MARKET_EPOCH_MS) / SESSION_DURATION_MS,
   );
-  const targetPrice =
+  // 드리프트 함축 성장 앵커: 종목의 장기 기대 경로 + 완만한 전역 우상향(현실적 시장).
+  const driftGrowthPerSession = (stock.drift ?? 0) * DRIFT_TIME_SCALE * sessionSeconds;
+  const secular = MARKET_SECULAR_GROWTH_PER_SESSION;
+  const anchor =
     stock.initialPrice *
-    Math.exp(MARKET_SECULAR_GROWTH_PER_SESSION * elapsedSessions);
-  if (stock.currentPrice >= targetPrice) return 0;
-
-  const downsideGap = Math.log(
-    targetPrice / Math.max(stock.currentPrice, 100),
-  );
-  const sessionFraction = dtSeconds / (SESSION_DURATION_MS / 1_000);
-  return (
-    downsideGap *
-    MARKET_DOWNSIDE_REVERSION_PER_SESSION *
-    sessionFraction
-  );
+    Math.exp((driftGrowthPerSession + secular) * elapsedSessions);
+  // 로그 편차: 양수면 앵커보다 과열(끌어내림), 음수면 과매도(끌어올림).
+  const deviation = Math.log(Math.max(stock.currentPrice, 100) / anchor);
+  const sessionFraction = dtSeconds / sessionSeconds;
+  const kappa =
+    deviation > 0
+      ? MEAN_REVERSION_UP_PER_SESSION
+      : MEAN_REVERSION_DOWN_PER_SESSION;
+  return -deviation * kappa * sessionFraction;
 }
 
 /** 명시 베타가 없는 기업도 시장 공통 충격에 현실적인 수준으로 함께 반응한다. */

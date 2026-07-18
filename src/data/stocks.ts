@@ -114,7 +114,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     sector: "지수",
     initialPrice: 21000,
     volatility: 0.012,
-    drift: 0.001,
+    drift: 0.0007,
     trendStrength: 0.00004,
     description:
       "가상 시장 전 섹터를 아우르는 종합 벤치마크 지수. 반도체·금융·방어주까지 상장 종목 전체의 평균 흐름을 나타내며, 모든 시즌·의뢰의 초과수익(알파) 기준이 된다.",
@@ -127,7 +127,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     sector: "선물",
     initialPrice: 21200,
     volatility: 0.02,
-    drift: 0.001,
+    drift: 0.0007,
     trendStrength: 0.00007,
     description: "V-NASDAQ 지수 선물. 지수보다 90초 먼저 움직이는 선행지표.",
     beta: 1,
