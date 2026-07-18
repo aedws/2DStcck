@@ -34,8 +34,10 @@ export const BALL_GRADE_DESC: Record<BallGrade, string> = {
   SS: "부딪힌 벽돌의 가로·세로 전체(십자)에 데미지",
 };
 
-/** 최종 점수 → 현금 환산 계수 (현금 = 점수 / 이 값). '1/N'의 N. */
-export const MINIGAME_CASH_DIVISOR = 2;
+/** 최종 점수 → 현금 환산 계수 (현금 = 점수 / 이 값). '1/N'의 N.
+ *  값이 클수록 현금 지급이 적다. 코인(상점) 경제는 그대로 두고 이 값만으로
+ *  현금 산출을 조절한다. */
+export const MINIGAME_CASH_DIVISOR = 40;
 /** 1회 지급 상한 (버그 방어용 안전장치) — $5,000,000 */
 export const MINIGAME_REWARD_HARD_CAP = 500_000_000;
 
