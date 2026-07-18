@@ -82,6 +82,12 @@ export interface StockDefinition {
   coveredCallDistributionIntervalDays?: number;
   /** 일반 주식·ETF의 분기 주당 배당금(센트). 60거래일마다 지급한다. */
   quarterlyDividend?: number;
+  /**
+   * IPO 상장 예정 시각(ms). 설정 시 이 시각 전에는 상장 전(비거래·비노출)이며
+   * IPO 탭에 카운트다운으로만 보인다. 이 시각부터 공모가(initialPrice)로 개장해
+   * 결정론 시뮬레이션에 참여한다. 비우면 기원점부터 상장된 것으로 본다.
+   */
+  listingEpochMs?: number;
 }
 
 export interface EtfConstituent {

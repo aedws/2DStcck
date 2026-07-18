@@ -21,7 +21,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="모바일 주요 메뉴"
-      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-8 border-t border-[var(--border)] bg-[var(--background)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-9 border-t border-[var(--border)] bg-[var(--background)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >
       {items.map((item) => {
         const active =

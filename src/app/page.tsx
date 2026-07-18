@@ -15,6 +15,7 @@ import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { MARKET_ERA_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
+import { isListed } from "@/lib/market/ipo";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -30,7 +31,7 @@ export default function MarketPage() {
   // 급등주는 정적 상세 페이지가 없으므로 목록에서 분리해 인라인 배너로 노출한다
   const pumpStocks = useMemo(() => stocks.filter(isPumpStock), [stocks]);
   const marketStocks = useMemo(
-    () => stocks.filter((s) => !isPumpStock(s)),
+    () => stocks.filter((s) => !isPumpStock(s) && isListed(s)),
     [stocks],
   );
 

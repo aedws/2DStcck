@@ -27,6 +27,7 @@ import {
   calculateCoveredCallDistribution,
 } from "@/lib/market/distributions";
 import { generateOrderBook } from "@/lib/market/orderBook";
+import { listingTickOf } from "@/lib/market/ipo";
 import { getStoryEventForSession } from "@/lib/market/storyArcs";
 import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
@@ -230,6 +231,8 @@ export function replayMarket(
 
     // 1차: 일반 종목
     for (const s of normals) {
+      // IPO 예정: 상장 틱 전에는 공모가로 동결(시뮬 미참여).
+      if (tick < listingTickOf(s)) continue;
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
       if (isNewSession) s.prevDayClose = s.currentPrice;
@@ -397,6 +400,7 @@ export function replayMarket(
     // 차트 데이터는 표시 구간에서만 축적
     if (tick > historyWindowStart) {
       for (const s of stocks) {
+        if (tick < listingTickOf(s)) continue; // IPO 예정: 상장 전 기록 없음
         historyMap.get(s.id)!.push({ timestamp: now, price: s.currentPrice });
       }
     }
@@ -404,6 +408,7 @@ export function replayMarket(
       const candleStart =
         Math.floor(now / BASE_CANDLE_INTERVAL_MS) * BASE_CANDLE_INTERVAL_MS;
       for (const s of stocks) {
+        if (tick < listingTickOf(s)) continue; // IPO 예정: 상장 전 봉 없음
         const candles = candleMap.get(s.id)!;
         const last = candles[candles.length - 1];
         const price = s.currentPrice;

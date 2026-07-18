@@ -84,6 +84,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "신규",
+    title: "IPO 탭 — 신규 종목 상장 예고·카운트다운·자동 개장",
+    detail:
+      "새 ‘IPO’ 탭을 열었습니다. 종목 추가 신청을 여기로 옮겼고, 승인돼 상장이 예정된 신규 종목은 ‘상장까지 N시간’ 카운트다운으로 미리 보입니다. 상장 시각이 되면 공모가로 자동 개장돼 그때부터 거래·차트가 시작됩니다(그 전에는 목록·거래에서 숨김). 신규 상장 종목은 IPO 탭 ‘최근 상장’에서 바로 거래로 이동할 수 있습니다. 기존 종목에는 영향이 없습니다.",
+  },
+  {
+    date: "2026-07-18",
     tag: "개선",
     title: "미니게임 연출 강화 — 벽돌깨기 이펙트·2048 슬라이드 애니메이션",
     detail:

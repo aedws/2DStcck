@@ -85,6 +85,7 @@ import {
   isPumpStock,
   replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
+import { isListed } from "@/lib/market/ipo";
 import type {
   ShortPosition,
   RateLevel,
@@ -918,6 +919,12 @@ function applyLocalBuySell(
     return {
       success: false,
       message: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요.",
+    };
+  }
+  if (!isListed(stock)) {
+    return {
+      success: false,
+      message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
     };
   }
 

@@ -180,9 +180,11 @@ export function calculateSecularGrowthSupport(
   dtSeconds: number,
 ): number {
   const sessionSeconds = SESSION_DURATION_MS / 1_000;
+  // IPO 종목은 상장 시각을 기점으로 앵커가 공모가에서 자라야 한다(그 전엔 동결).
+  const epochBase = stock.listingEpochMs ?? MARKET_EPOCH_MS;
   const elapsedSessions = Math.max(
     0,
-    (now - MARKET_EPOCH_MS) / SESSION_DURATION_MS,
+    (now - epochBase) / SESSION_DURATION_MS,
   );
   // 드리프트 함축 성장 앵커: 종목의 장기 기대 경로 + 완만한 전역 우상향(현실적 시장).
   const driftGrowthPerSession = (stock.drift ?? 0) * DRIFT_TIME_SCALE * sessionSeconds;

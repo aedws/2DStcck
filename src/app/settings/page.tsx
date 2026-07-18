@@ -416,6 +416,30 @@ export default function SettingsPage() {
           <span className="text-[var(--muted)]">›</span>
         </Link>
         <Link
+          href="/ipo"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">📈 IPO · 종목 신청</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              상장 예정 신규 종목을 보고, 원하는 종목을 신청합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
+          href="/lottery"
+          className="flex min-h-16 w-full items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">🎟️ 복권</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              숫자 복권·연금 복권을 구매합니다.
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </Link>
+        <Link
           href="/updates"
           className="flex min-h-16 w-full items-center justify-between px-4 py-3 text-left"
         >
