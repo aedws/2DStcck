@@ -96,6 +96,29 @@ export const ZERO_DTE_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
+export const MINIGAME_TUTORIAL_STEPS: FeatureTutorialStep[] = [
+  {
+    emoji: "💵",
+    title: "여기서 진짜 ‘달러’를 법니다",
+    body: "미니게임은 단순한 심심풀이가 아니라 실제로 현금을 버는 곳입니다. 게임 점수만큼 달러가 지갑에 바로 들어와요. 밑천이 부족하거나 더 굴릴 돈이 필요할 때 여기서 벌면 됩니다.",
+  },
+  {
+    emoji: "🎮",
+    title: "두 가지 게임 — 실력이 곧 수입",
+    body: "스와이프 벽돌깨기(공을 쏘아 벽돌을 깨고 코인으로 N·S·SS 공을 사서 화력을 키움)와 2048(타일을 밀어 합치기). 오래 버티고 점수를 많이 낼수록 더 많은 현금을 받습니다.",
+  },
+  {
+    emoji: "♾️",
+    title: "횟수 제한 없이 벌 수 있어요",
+    body: "고정급이나 복권과 달리 미니게임은 플레이 횟수·총액 제한이 없습니다. 원하는 만큼 플레이해서 원하는 만큼 벌 수 있어요.",
+  },
+  {
+    emoji: "⚖️",
+    title: "단, ‘노동 소득’이라 랭킹엔 안 잡혀요",
+    body: "미니게임 수입은 노동 소득으로 분류돼 시즌·프레스티지 랭킹(투자 실력, 초과수익)에는 반영되지 않습니다. 그러니 여기서 번 돈은 순위를 위해서가 아니라 ‘투자 밑천(연료)’으로 쓰세요 — 진짜 경쟁은 그 돈을 얼마나 잘 굴리느냐입니다.",
+  },
+];
+
 export const PUMP_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🚀",

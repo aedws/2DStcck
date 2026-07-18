@@ -84,6 +84,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-18",
+    tag: "개선",
+    title: "미니게임 안내 강화 — ‘달러 버는 곳’임을 명확히",
+    detail:
+      "미니게임이 실제로 현금($)을 버는 수입원이라는 걸 놓치기 쉬워, 첫 방문 시 안내 튜토리얼을 추가했습니다(설정 ‘튜토리얼 다시 보기’·화면 우상단 ⓘ에서 재열람). 게임 점수만큼 현금이 지갑에 들어오고, 횟수 제한이 없으며, 다만 ‘노동 소득’이라 시즌·랭킹엔 반영되지 않고 투자 밑천으로 쓰는 개념임을 설명합니다.",
+  },
+  {
+    date: "2026-07-18",
     tag: "신규",
     title: "IPO 탭 — 신규 종목 상장 예고·카운트다운·자동 개장",
     detail:

@@ -1,5 +1,6 @@
 import type { EventTemplate, StockDefinition } from "@/lib/types/market";
 import { CSV_COMPANIES } from "@/data/generated";
+import { IPO_SCHEDULE } from "@/data/ipoSchedule";
 
 export const INITIAL_CASH = 10_000_000;
 
@@ -233,6 +234,8 @@ const DISPLAY_BASE_STOCK_DEFINITIONS: StockDefinition[] =
     ...definition,
     name: KOREAN_STOCK_NAMES[definition.id] ?? definition.name,
     subsector: definition.subsector ?? DEFAULT_SUBSECTORS[definition.id],
+    // IPO 예약이 있으면 상장 시각을 얹는다(그 전에는 비거래·비노출·시뮬 동결).
+    listingEpochMs: IPO_SCHEDULE[definition.id] ?? definition.listingEpochMs,
   }));
 
 const DERIVATIVE_FACTORS = [

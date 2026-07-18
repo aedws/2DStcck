@@ -9,6 +9,7 @@ import {
   MISSION_TUTORIAL_VERSION,
   OPTIONS_TUTORIAL_STEPS,
   ZERO_DTE_TUTORIAL_STEPS,
+  MINIGAME_TUTORIAL_STEPS,
   SEASON_TUTORIAL_STEPS,
   SEASON_TUTORIAL_VERSION,
   STRATEGY_TUTORIAL_STEPS,
@@ -22,6 +23,7 @@ type TutorialKind =
   | "mission"
   | "options"
   | "zerodte"
+  | "minigame"
   | "season"
   | "strategy"
   | "stress"
@@ -46,6 +48,9 @@ export default function SettingsPage() {
   );
   const setZeroDteTutorialSeen = useSettingsStore(
     (state) => state.setZeroDteTutorialSeen,
+  );
+  const setMinigameTutorialSeen = useSettingsStore(
+    (state) => state.setMinigameTutorialSeen,
   );
   const setSeasonTutorialSeen = useSettingsStore(
     (state) => state.setSeasonTutorialSeen,
@@ -75,6 +80,8 @@ export default function SettingsPage() {
         ? OPTIONS_TUTORIAL_STEPS
         : openTutorial === "zerodte"
           ? ZERO_DTE_TUTORIAL_STEPS
+        : openTutorial === "minigame"
+          ? MINIGAME_TUTORIAL_STEPS
         : openTutorial === "season"
           ? SEASON_TUTORIAL_STEPS
           : openTutorial === "strategy"
@@ -95,6 +102,8 @@ export default function SettingsPage() {
       setOptionsTutorialSeen(false);
     } else if (kind === "zerodte") {
       setZeroDteTutorialSeen(false);
+    } else if (kind === "minigame") {
+      setMinigameTutorialSeen(false);
     } else if (kind === "season") {
       setSeasonTutorialSeen(false);
       setSeasonTutorialVersion(0);
@@ -118,6 +127,8 @@ export default function SettingsPage() {
       setOptionsTutorialSeen(true);
     } else if (openTutorial === "zerodte") {
       setZeroDteTutorialSeen(true);
+    } else if (openTutorial === "minigame") {
+      setMinigameTutorialSeen(true);
     } else if (openTutorial === "season") {
       setSeasonTutorialSeen(true);
       setSeasonTutorialVersion(SEASON_TUTORIAL_VERSION);
@@ -264,6 +275,22 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">제로데이(0DTE) 옵션 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               오늘 마감·세타·감마·자동정산 등 초단기 옵션을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("minigame")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🎮</span>
+            <span>
+            <span className="block text-sm font-medium">미니게임 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              게임으로 현금($)을 버는 법과 노동 소득 개념을 다시 안내합니다.
             </span>
             </span>
           </span>

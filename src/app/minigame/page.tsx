@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SwipeBrickBreaker } from "@/components/minigame/SwipeBrickBreaker";
 import { Game2048 } from "@/components/minigame/Game2048";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { MINIGAME_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { formatPrice } from "@/lib/market/engine";
 import {
   computeBrickBreakerCash,
@@ -11,6 +13,7 @@ import {
   COIN_PER_BRICK,
 } from "@/lib/market/minigame";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 type GameId = "brick" | "g2048";
 type Phase = "menu" | "playing" | "result";
@@ -30,10 +33,19 @@ export default function MinigamePage() {
   const awardMinigameCash = useMarketStore((s) => s.awardMinigameCash);
   const saveCloud = useMarketStore((s) => s.saveCloud);
 
+  const onboarded = useSettingsStore((s) => s.onboarded);
+  const tutorialSeen = useSettingsStore((s) => s.minigameTutorialSeen);
+  const setTutorialSeen = useSettingsStore((s) => s.setMinigameTutorialSeen);
+  const [mounted, setMounted] = useState(false);
+  const [manualTutorial, setManualTutorial] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [phase, setPhase] = useState<Phase>("menu");
   const [game, setGame] = useState<GameId>("brick");
   const [result, setResult] = useState<Result | null>(null);
   const [earnedTotal, setEarnedTotal] = useState(0);
+
+  const showTutorial = manualTutorial || (mounted && onboarded && !tutorialSeen);
 
   const award = useCallback(
     (reward: number, label: string) => {
@@ -87,12 +99,30 @@ export default function MinigamePage() {
 
   return (
     <div className="mx-auto max-w-md pb-20">
+      {showTutorial && (
+        <FeatureTutorialModal
+          steps={MINIGAME_TUTORIAL_STEPS}
+          onFinish={() => {
+            setTutorialSeen(true);
+            setManualTutorial(false);
+          }}
+        />
+      )}
       <div className="mb-4">
-        <h1 className="text-2xl font-bold">🎮 미니게임</h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-2xl font-bold">🎮 미니게임</h1>
+          <button
+            type="button"
+            onClick={() => setManualTutorial(true)}
+            className="shrink-0 rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            ⓘ 안내
+          </button>
+        </div>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          게임으로 <b>노동 소득</b>을 법니다. 횟수 제한 없이 실력만큼 벌 수 있고,
-          이 소득은 시즌·랭킹(투자 실력)에는 반영되지 않아요 — 번 돈은 투자
-          ‘연료’로 쓰세요.
+          게임으로 <b className="text-[var(--foreground)]">실제 현금($)</b>을 법니다.
+          횟수 제한 없이 실력만큼 벌 수 있어요. 단, 이 <b>노동 소득</b>은
+          시즌·랭킹(투자 실력)에는 반영되지 않으니 번 돈은 투자 ‘연료’로 쓰세요.
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
           보유 현금 {formatPrice(cash)}
