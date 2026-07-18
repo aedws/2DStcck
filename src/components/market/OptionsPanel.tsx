@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
-import { OPTIONS_TUTORIAL_STEPS } from "@/data/featureTutorials";
+import {
+  OPTIONS_TUTORIAL_STEPS,
+  ZERO_DTE_TUTORIAL_STEPS,
+} from "@/data/featureTutorials";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import type { StockState } from "@/lib/types/market";
@@ -13,18 +16,34 @@ import { getAnnualRatePercent } from "@/lib/market/interestRate";
 import { toastResult } from "@/store/toastStore";
 import { playResultSound } from "@/lib/ui/sound";
 import {
-  listExpiries,
+  listExpiriesWithZeroDte,
+  isZeroDteExpiry,
   listStrikes,
   optionPremium,
   positionMark,
   optionLabel,
 } from "@/lib/market/options";
 
+/** 0DTE 남은 시간을 사람이 읽는 문자열로 (분 단위). */
+function zeroDteRemainingLabel(now: number): string {
+  const remainingMs = SESSION_DURATION_MS - (now % SESSION_DURATION_MS);
+  const mins = Math.max(0, Math.floor(remainingMs / 60000));
+  return mins >= 1 ? `약 ${mins}분 남음` : "곧 마감";
+}
+
 export function OptionsPanel({ stock }: { stock: StockState }) {
   const [mounted, setMounted] = useState(false);
   const onboarded = useSettingsStore((s) => s.onboarded);
   const tutorialSeen = useSettingsStore((s) => s.optionsTutorialSeen);
   const setTutorialSeen = useSettingsStore((s) => s.setOptionsTutorialSeen);
+  const zeroDteTutorialSeen = useSettingsStore((s) => s.zeroDteTutorialSeen);
+  const setZeroDteTutorialSeen = useSettingsStore(
+    (s) => s.setZeroDteTutorialSeen,
+  );
+  // 수동 다시 보기: null | "options" | "zerodte"
+  const [manualTutorial, setManualTutorial] = useState<
+    "options" | "zerodte" | null
+  >(null);
   useEffect(() => setMounted(true), []);
   const live = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
   const allOptions = useMarketStore((s) => s.options);
@@ -40,11 +59,15 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
   const [qty, setQty] = useState(1);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+  const now = Date.now();
+  const session = Math.floor(now / SESSION_DURATION_MS);
+  // 옵션 가격/마크는 장중 잔존만기(소수 거래일)로 평가 — 0DTE 세타를 실시간 반영.
+  const sessionExact = now / SESSION_DURATION_MS;
   const rate = getAnnualRatePercent(getRateLevel()) / 100;
-  const expiries = useMemo(() => listExpiries(session), [session]);
+  const expiries = useMemo(() => listExpiriesWithZeroDte(session), [session]);
   const [expiry, setExpiry] = useState(expiries[0]);
   const activeExpiry = expiries.includes(expiry) ? expiry : expiries[0];
+  const activeIsZeroDte = isZeroDteExpiry(activeExpiry, session);
   const strikes = useMemo(
     () => listStrikes(live.currentPrice),
     [live.currentPrice],
@@ -59,37 +82,74 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
 
   const daysToExpiry = activeExpiry - session;
 
+  // 표시할 튜토리얼 결정: 수동 > 옵션 최초 > 0DTE 최초.
+  const activeTutorial: "options" | "zerodte" | null = manualTutorial
+    ? manualTutorial
+    : mounted && onboarded && !tutorialSeen
+      ? "options"
+      : mounted && onboarded && tutorialSeen && activeIsZeroDte && !zeroDteTutorialSeen
+        ? "zerodte"
+        : null;
+
+  function finishTutorial() {
+    if (manualTutorial) {
+      setManualTutorial(null);
+      return;
+    }
+    if (activeTutorial === "options") setTutorialSeen(true);
+    else if (activeTutorial === "zerodte") setZeroDteTutorialSeen(true);
+  }
+
   return (
     <div className="max-w-2xl space-y-4">
-      {mounted && onboarded && !tutorialSeen && (
+      {activeTutorial && (
         <FeatureTutorialModal
-          steps={OPTIONS_TUTORIAL_STEPS}
-          onFinish={() => setTutorialSeen(true)}
+          key={activeTutorial}
+          steps={
+            activeTutorial === "zerodte"
+              ? ZERO_DTE_TUTORIAL_STEPS
+              : OPTIONS_TUTORIAL_STEPS
+          }
+          onFinish={finishTutorial}
         />
       )}
       <div className="rounded-2xl bg-[var(--surface)] p-4">
-        <p className="text-sm leading-relaxed text-[var(--muted)]">
-          유럽식 현금정산 옵션(1계약 = 1주). 매수는 프리미엄만큼 손실이
-          한정되고, 발행은 프리미엄을 받되 증거금과 큰 손실 위험이 있습니다.
-          프리미엄은 변동성·금리·잔존만기로 산정됩니다.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm leading-relaxed text-[var(--muted)]">
+            유럽식 현금정산 옵션(1계약 = 1주). 매수는 프리미엄만큼 손실이
+            한정되고, 발행은 프리미엄을 받되 증거금과 큰 손실 위험이 있습니다.
+            프리미엄은 변동성·금리·잔존만기로 산정됩니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => setManualTutorial("options")}
+            className="shrink-0 rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            ⓘ 안내
+          </button>
+        </div>
       </div>
 
       {/* 만기·수량 */}
       <div className="flex flex-wrap items-center gap-2">
-        {expiries.map((e) => (
-          <button
-            key={e}
-            onClick={() => setExpiry(e)}
-            className={`rounded-lg px-3 py-1.5 text-xs transition ${
-              e === activeExpiry
-                ? "bg-[var(--accent)] text-white"
-                : "bg-[var(--surface)] text-[var(--muted)]"
-            }`}
-          >
-            만기 {e - session}거래일 후
-          </button>
-        ))}
+        {expiries.map((e) => {
+          const zd = isZeroDteExpiry(e, session);
+          return (
+            <button
+              key={e}
+              onClick={() => setExpiry(e)}
+              className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                e === activeExpiry
+                  ? "bg-[var(--accent)] text-white"
+                  : zd
+                    ? "bg-[var(--down)]/15 text-[var(--down)]"
+                    : "bg-[var(--surface)] text-[var(--muted)]"
+              }`}
+            >
+              {zd ? "⚡ 0DTE (오늘 마감)" : `만기 ${e - session}거래일 후`}
+            </button>
+          );
+        })}
         <div className="ml-auto flex items-center gap-1.5">
           <span className="text-xs text-[var(--muted)]">수량</span>
           <input
@@ -103,10 +163,33 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
         </div>
       </div>
 
+      {/* 0DTE 경고 */}
+      {activeIsZeroDte && (
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--down)]/40 bg-[var(--down)]/10 p-3">
+          <p className="text-xs leading-relaxed text-[var(--down)]">
+            ⚡ <b>제로데이(0DTE)</b> — 오늘 거래일 마감({zeroDteRemainingLabel(now)})에
+            자동 정산됩니다. 시간가치가 매우 빠르게 소멸하고 현재가 근처에서 손익이
+            급변하는 초고위험 상품입니다. 잃어도 되는 소액만 쓰세요.
+          </p>
+          <button
+            type="button"
+            onClick={() => setManualTutorial("zerodte")}
+            className="shrink-0 rounded-lg border border-[var(--down)]/40 px-2 py-1 text-[11px] font-semibold text-[var(--down)]"
+          >
+            0DTE란?
+          </button>
+        </div>
+      )}
+
       {/* 옵션 체인 */}
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         <div className="grid grid-cols-[1fr_auto] items-center border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[11px] text-[var(--muted)]">
-          <span>행사가 · 잔존 {daysToExpiry}거래일</span>
+          <span>
+            행사가 ·{" "}
+            {activeIsZeroDte
+              ? `0DTE · ${zeroDteRemainingLabel(now)}`
+              : `잔존 ${daysToExpiry}거래일`}
+          </span>
           <span>콜 / 풋 프리미엄 · 매수/발행</span>
         </div>
         <ul className="divide-y divide-[var(--border)]">
@@ -116,7 +199,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
               strike,
               activeExpiry,
               live,
-              session,
+              sessionExact,
               rate,
             );
             const put = optionPremium(
@@ -124,7 +207,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
               strike,
               activeExpiry,
               live,
-              session,
+              sessionExact,
               rate,
             );
             const atm = Math.abs(strike - live.currentPrice) < live.currentPrice * 0.001;
@@ -183,9 +266,10 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
           </h3>
           <ul className="divide-y divide-[var(--border)]">
             {positions.map((pos) => {
-              const mark = positionMark(pos, live, session, rate);
+              const mark = positionMark(pos, live, sessionExact, rate);
               const value =
                 (pos.side === "long" ? mark : -mark) * pos.quantity;
+              const posZeroDte = isZeroDteExpiry(pos.expirySession, session);
               return (
                 <li
                   key={pos.id}
@@ -194,10 +278,18 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">
                       {optionLabel(pos.kind, pos.side)} · {formatPrice(pos.strike)}
+                      {posZeroDte && (
+                        <span className="ml-1.5 rounded bg-[var(--down)]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--down)]">
+                          ⚡ 0DTE
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-[var(--muted)]">
-                      {pos.quantity}계약 · 만기 {pos.expirySession - session}
-                      거래일 후 · 진입 {formatPrice(pos.openPremium)}
+                      {pos.quantity}계약 ·{" "}
+                      {posZeroDte
+                        ? "오늘 마감"
+                        : `만기 ${pos.expirySession - session}거래일 후`}{" "}
+                      · 진입 {formatPrice(pos.openPremium)}
                     </p>
                   </div>
                   <div className="text-right">

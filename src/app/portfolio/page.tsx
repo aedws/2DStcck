@@ -6,6 +6,7 @@ import {
   getSalaryDaysRemaining,
   SALARY_AMOUNT,
 } from "@/lib/market/salary";
+import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import {
   calculateCoveredCallDistribution,
   COVERED_CALL_INTERVAL_DAYS,
@@ -98,7 +99,8 @@ export default function PortfolioPage() {
     computeOptionUnrealizedPnl(
       options,
       stocks,
-      currentSession,
+      // 옵션은 장중 잔존만기(소수 거래일)로 평가해 0DTE 시간가치 소멸을 반영한다.
+      Date.now() / SESSION_DURATION_MS,
       getAnnualRatePercent(rateLevel) / 100,
     );
   const salaryDays = getSalaryDaysRemaining(

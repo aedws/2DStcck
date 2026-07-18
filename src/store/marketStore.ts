@@ -529,7 +529,9 @@ function marginContext(s: {
 }): MarginContext {
   const prices = Object.fromEntries(s.stocks.map((x) => [x.id, x.currentPrice]));
   const luxuryVal = getLuxuryValue(s.ownedLuxuries);
-  const session = Math.floor(Date.now() / SESSION_DURATION_MS);
+  // 옵션 마크는 장중 잔존만기(소수 거래일)로 평가해 0DTE의 시간가치 소멸을
+  // 실시간 반영한다. 만기 '정산' 판정만 정수 거래일 경계를 쓴다.
+  const session = Date.now() / SESSION_DURATION_MS;
   const rate = currentRateDecimal(s.stocks);
   const stockEquity = computeEquity(
     s.cash,
@@ -707,8 +709,8 @@ function liquidatePositions(
     const ticker = stocks.find((s) => s.id === sh.stockId)?.ticker ?? sh.stockId;
     nextTrades = [mk(sh.stockId, ticker, "cover", sh.quantity, price), ...nextTrades];
   }
-  // 옵션은 현재 마크로 청산 (long=수취, short=지불)
-  const session = Math.floor(now / SESSION_DURATION_MS);
+  // 옵션은 현재 마크로 청산 (long=수취, short=지불). 장중 잔존만기로 평가.
+  const session = now / SESSION_DURATION_MS;
   const rate = currentRateDecimal(stocks);
   for (const pos of options) {
     const stock = stocks.find((s) => s.id === pos.stockId);
@@ -2576,7 +2578,7 @@ export const useMarketStore = create<MarketStore>()(
           strike,
           expirySession,
           stock,
-          session,
+          now / SESSION_DURATION_MS,
           rate,
         );
         if (premium <= 0) {
@@ -2666,7 +2668,7 @@ export const useMarketStore = create<MarketStore>()(
           strike,
           expirySession,
           stock,
-          session,
+          now / SESSION_DURATION_MS,
           rate,
         );
         const id = `opt-${stockId}-${kind}-short-${strike}-${expirySession}`;
@@ -2738,11 +2740,10 @@ export const useMarketStore = create<MarketStore>()(
         }
         const stock = state.stocks.find((s) => s.id === pos.stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-        const session = Math.floor(now / SESSION_DURATION_MS);
         const mark = positionMark(
           pos,
           stock,
-          session,
+          now / SESSION_DURATION_MS,
           currentRateDecimal(state.stocks),
         );
         const remaining = pos.quantity - quantity;

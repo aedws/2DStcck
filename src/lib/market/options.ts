@@ -13,6 +13,26 @@ export const OPTION_EXPIRY_COUNT = 2;
 /** 1계약 = 기초자산 1주 */
 export const OPTION_CONTRACT_MULTIPLIER = 1;
 
+/**
+ * 제로데이(0DTE): 오늘 거래일 마감(= 다음 거래일 경계)에 만기.
+ * 1거래일=1시간이므로 사실상 '한 시간짜리 옵션'. 잔존만기가 극도로 짧아 시간가치가
+ * 빠르게 소멸(세타)하고, 현재가 근처에서 손익이 급격히 뒤집힌다(감마). 정산은 다른
+ * 옵션과 동일하게 거래일 경계에서 내재가치로 자동 현금정산된다.
+ */
+export const ZERO_DTE_EXPIRY_OFFSET = 1;
+
+export function zeroDteExpiry(currentSession: number): number {
+  return Math.floor(currentSession) + ZERO_DTE_EXPIRY_OFFSET;
+}
+
+/** 만기가 오늘 마감(0DTE)인지 여부 */
+export function isZeroDteExpiry(
+  expirySession: number,
+  currentSession: number,
+): boolean {
+  return expirySession - Math.floor(currentSession) <= ZERO_DTE_EXPIRY_OFFSET;
+}
+
 /** 표준정규 누적분포 (Abramowitz–Stegun erf 근사) */
 function normCdf(x: number): number {
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
@@ -85,12 +105,21 @@ export function optionPremium(
 
 /** 제공 만기 목록 (기원점 그리드 정렬 → 전 클라이언트 동일) */
 export function listExpiries(currentSession: number): number[] {
-  const sinceEpoch = currentSession - EPOCH_SESSION;
+  const sinceEpoch = Math.floor(currentSession) - EPOCH_SESSION;
   const nextIndex = Math.floor(sinceEpoch / OPTION_EXPIRY_INTERVAL) + 1;
   return Array.from(
     { length: OPTION_EXPIRY_COUNT },
     (_, i) => EPOCH_SESSION + (nextIndex + i) * OPTION_EXPIRY_INTERVAL,
   );
+}
+
+/** 0DTE(오늘 마감) + 표준 만기 목록 (중복 제거·오름차순). */
+export function listExpiriesWithZeroDte(currentSession: number): number[] {
+  const set = new Set<number>([
+    zeroDteExpiry(currentSession),
+    ...listExpiries(currentSession),
+  ]);
+  return [...set].sort((a, b) => a - b);
 }
 
 /** 현재가 근처 행사가 (±10%, ±5%, ATM) */

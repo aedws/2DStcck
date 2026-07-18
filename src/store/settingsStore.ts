@@ -30,6 +30,8 @@ interface SettingsState {
   setMissionTutorialVersion: (value: number) => void;
   optionsTutorialSeen: boolean;
   setOptionsTutorialSeen: (value: boolean) => void;
+  zeroDteTutorialSeen: boolean;
+  setZeroDteTutorialSeen: (value: boolean) => void;
   strategyTutorialSeen: boolean;
   setStrategyTutorialSeen: (value: boolean) => void;
   marketEraTutorialSeen: boolean;
@@ -80,6 +82,9 @@ export const useSettingsStore = create<SettingsState>()(
       optionsTutorialSeen: false,
       setOptionsTutorialSeen: (optionsTutorialSeen) =>
         set({ optionsTutorialSeen }),
+      zeroDteTutorialSeen: false,
+      setZeroDteTutorialSeen: (zeroDteTutorialSeen) =>
+        set({ zeroDteTutorialSeen }),
       strategyTutorialSeen: false,
       setStrategyTutorialSeen: (strategyTutorialSeen) =>
         set({ strategyTutorialSeen }),

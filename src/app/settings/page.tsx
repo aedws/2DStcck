@@ -8,6 +8,7 @@ import {
   MISSION_TUTORIAL_STEPS,
   MISSION_TUTORIAL_VERSION,
   OPTIONS_TUTORIAL_STEPS,
+  ZERO_DTE_TUTORIAL_STEPS,
   SEASON_TUTORIAL_STEPS,
   SEASON_TUTORIAL_VERSION,
   STRATEGY_TUTORIAL_STEPS,
@@ -20,6 +21,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 type TutorialKind =
   | "mission"
   | "options"
+  | "zerodte"
   | "season"
   | "strategy"
   | "stress"
@@ -41,6 +43,9 @@ export default function SettingsPage() {
   );
   const setOptionsTutorialSeen = useSettingsStore(
     (state) => state.setOptionsTutorialSeen,
+  );
+  const setZeroDteTutorialSeen = useSettingsStore(
+    (state) => state.setZeroDteTutorialSeen,
   );
   const setSeasonTutorialSeen = useSettingsStore(
     (state) => state.setSeasonTutorialSeen,
@@ -68,6 +73,8 @@ export default function SettingsPage() {
       ? MISSION_TUTORIAL_STEPS
       : openTutorial === "options"
         ? OPTIONS_TUTORIAL_STEPS
+        : openTutorial === "zerodte"
+          ? ZERO_DTE_TUTORIAL_STEPS
         : openTutorial === "season"
           ? SEASON_TUTORIAL_STEPS
           : openTutorial === "strategy"
@@ -86,6 +93,8 @@ export default function SettingsPage() {
       setMissionTutorialVersion(0);
     } else if (kind === "options") {
       setOptionsTutorialSeen(false);
+    } else if (kind === "zerodte") {
+      setZeroDteTutorialSeen(false);
     } else if (kind === "season") {
       setSeasonTutorialSeen(false);
       setSeasonTutorialVersion(0);
@@ -107,6 +116,8 @@ export default function SettingsPage() {
       setMissionTutorialVersion(MISSION_TUTORIAL_VERSION);
     } else if (openTutorial === "options") {
       setOptionsTutorialSeen(true);
+    } else if (openTutorial === "zerodte") {
+      setZeroDteTutorialSeen(true);
     } else if (openTutorial === "season") {
       setSeasonTutorialSeen(true);
       setSeasonTutorialVersion(SEASON_TUTORIAL_VERSION);
@@ -237,6 +248,22 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">옵션 거래 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               콜·풋·매수·발행·만기 정산을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("zerodte")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-b border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>⚡</span>
+            <span>
+            <span className="block text-sm font-medium">제로데이(0DTE) 옵션 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              오늘 마감·세타·감마·자동정산 등 초단기 옵션을 다시 안내합니다.
             </span>
             </span>
           </span>
