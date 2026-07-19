@@ -27,6 +27,9 @@ interface SettingsState {
   /** 첫 매수 축하 연출을 이미 봤는지 여부 */
   firstTradeCelebrated: boolean;
   setFirstTradeCelebrated: (value: boolean) => void;
+  /** 확인한 운영 공지 버전(이 값 미만이면 새 공지·보상 모달을 띄운다) */
+  serviceNoticeSeenVersion: number;
+  setServiceNoticeSeenVersion: (value: number) => void;
   missionTutorialSeen: boolean;
   setMissionTutorialSeen: (value: boolean) => void;
   missionTutorialVersion: number;
@@ -81,6 +84,9 @@ export const useSettingsStore = create<SettingsState>()(
       firstTradeCelebrated: false,
       setFirstTradeCelebrated: (firstTradeCelebrated) =>
         set({ firstTradeCelebrated }),
+      serviceNoticeSeenVersion: 0,
+      setServiceNoticeSeenVersion: (serviceNoticeSeenVersion) =>
+        set({ serviceNoticeSeenVersion }),
       missionTutorialSeen: false,
       setMissionTutorialSeen: (missionTutorialSeen) =>
         set({ missionTutorialSeen }),

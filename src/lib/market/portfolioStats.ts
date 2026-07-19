@@ -103,7 +103,7 @@ export function computeOptionUnrealizedPnl(
   return options.reduce((sum, position) => {
     const stock = stocks.find((candidate) => candidate.id === position.stockId);
     if (!stock) return sum;
-    const mark = positionMark(position, stock, currentSession, rateAnnualDecimal);
+    const mark = positionMark(position, stock, currentSession, rateAnnualDecimal, stocks);
     const perContract =
       position.side === "long"
         ? mark - position.openPremium

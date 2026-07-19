@@ -96,6 +96,8 @@ import {
   optionPremium,
   positionMark,
   intrinsic,
+  effectiveOptionUnderlyingPrice,
+  underlyingSplitMultiplier,
   optionsEquityDelta,
   optionsGrossExposure,
   shortMarginPerContract,
@@ -263,6 +265,8 @@ interface MarketStore extends MarketSnapshot {
   attendance: AttendanceState;
   selectedTitleId: string;
   claimDailyAttendance: () => OrderResult;
+  /** 운영 보상(버그 수정 등)을 1회 지급한다. 이미 받은 버전이면 무시(멱등). */
+  claimServiceCompensation: (version: number, amount: number) => boolean;
   selectPlayerTitle: (titleId: string) => OrderResult;
   /** 수락 시점부터 정확히 1거래일 동안 진행하는 단기 작전. */
   dailyOperation: DailyOperation | null;
@@ -654,7 +658,13 @@ function settleExpiredOptions(
       continue;
     }
     const stock = stocks.find((s) => s.id === pos.stockId);
-    const iv = stock ? intrinsic(pos.kind, stock.currentPrice, pos.strike) : 0;
+    const iv = stock
+      ? intrinsic(
+          pos.kind,
+          effectiveOptionUnderlyingPrice(pos, stock, stocks),
+          pos.strike,
+        )
+      : 0;
     nextCash += (pos.side === "long" ? iv : -iv) * pos.quantity;
     trades.push({
       id: `option-expire-${now}-${pos.id}`,
@@ -729,7 +739,7 @@ function liquidatePositions(
   for (const pos of options) {
     const stock = stocks.find((s) => s.id === pos.stockId);
     if (!stock) continue;
-    const mark = positionMark(pos, stock, session, rate);
+    const mark = positionMark(pos, stock, session, rate, stocks);
     nextCash += (pos.side === "long" ? mark : -mark) * pos.quantity;
     nextTrades = [
       {
@@ -1133,6 +1143,32 @@ export const useMarketStore = create<MarketStore>()(
         );
         playSound("cash");
         return { success: true, message: "출석 보상을 받았습니다." };
+      },
+      claimServiceCompensation: (version, amount) => {
+        const state = get();
+        const paymentId = `compensation-v${version}`;
+        // 멱등: 지갑에 이미 이 버전 보상 내역이 있으면 재지급하지 않는다.
+        if (state.cashPayments.some((p) => p.id === paymentId)) return false;
+        if (amount <= 0) return false;
+        const now = Date.now();
+        const payment: CashPayment = {
+          id: paymentId,
+          kind: "compensation",
+          sourceId: "service-compensation",
+          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          amount,
+          timestamp: now,
+        };
+        set({
+          cash: state.cash + amount,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore.getState().push(
+          `🔧 버그 수정 보상 · ${formatPrice(amount)} 지급`,
+          "success",
+        );
+        playSound("cash");
+        return true;
       },
       selectPlayerTitle: (titleId) => {
         const state = get();
@@ -2639,6 +2675,7 @@ export const useMarketStore = create<MarketStore>()(
                 quantity,
                 openPremium: premium,
                 openedAt: now,
+                openSplitMultiplier: underlyingSplitMultiplier(stock, state.stocks),
               },
             ];
         const trade: Trade = {
@@ -2704,6 +2741,7 @@ export const useMarketStore = create<MarketStore>()(
           quantity,
           openPremium: premium,
           openedAt: now,
+          openSplitMultiplier: underlyingSplitMultiplier(stock, state.stocks),
         };
         const margin = shortMarginPerContract(draft, stock) * quantity;
         if (margin > fullBuyingPower(state)) {
@@ -2767,6 +2805,7 @@ export const useMarketStore = create<MarketStore>()(
           stock,
           now / SESSION_DURATION_MS,
           currentRateDecimal(state.stocks),
+          state.stocks,
         );
         const remaining = pos.quantity - quantity;
         const options =

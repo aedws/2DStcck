@@ -555,7 +555,8 @@ export function seasonExternalCashTotal(cashPayments: CashPayment[]): number {
       payment.kind === "salary" ||
       payment.kind === "lottery" ||
       payment.kind === "attendance" ||
-      payment.kind === "minigame"
+      payment.kind === "minigame" ||
+      payment.kind === "compensation"
         ? sum + payment.amount
         : sum,
     0,

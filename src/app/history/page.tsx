@@ -71,7 +71,9 @@ export default function HistoryPage() {
                               ? "현금 채굴"
                               : payment.kind === "attendance"
                                 ? "출석"
-                                : "분기 배당"}
+                                : payment.kind === "compensation"
+                                  ? "버그 보상"
+                                  : "분기 배당"}
                   </td>
                   <td className="px-4 py-3">
                     {payment.ticker ?? "계정"}

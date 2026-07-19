@@ -6,6 +6,7 @@ import type {
 } from "@/lib/types/market";
 import { SESSIONS_PER_YEAR } from "@/lib/market/interestRate";
 import { EPOCH_SESSION } from "@/lib/market/localSim";
+import { leverageMultiplierFor } from "@/lib/market/engine";
 
 /** 만기 간격 (거래일). 다음 2개 만기를 제공한다. */
 export const OPTION_EXPIRY_INTERVAL = 10;
@@ -129,20 +130,51 @@ export function listStrikes(price: number): number[] {
   );
 }
 
-/** 포지션의 계약당 현재 마크 */
+/**
+ * 기초자산의 현재 액면분할 배수(레버리지·인버스 ETF만 ≠1). stocks 미제공이거나
+ * 일반 종목이면 1. 옵션 손익을 분할에 맞춰 보정할 때 쓴다.
+ */
+export function underlyingSplitMultiplier(
+  stock: StockState,
+  stocks?: StockState[],
+): number {
+  if (!stocks || stock.leverage == null || !stock.leverageUnderlyingId) return 1;
+  const underlying = stocks.find((s) => s.id === stock.leverageUnderlyingId);
+  return underlying ? leverageMultiplierFor(stock, underlying) : 1;
+}
+
+/**
+ * 분할 정산을 반영한 옵션 평가용 기초자산가. 개시 배수(m_open) 대비 현재
+ * 배수(m_now) 변화만큼 표시가를 보정한다 — 레버리지 ETF가 분할되며 표시가가
+ * ÷5로 리셋될 때 고정 행사가가 공짜로 深-ITM이 되는 문제를 상쇄한다. 블랙숄즈가
+ * (S,K)에 1차 동차라 S×(m_now/m_open)만 넣으면 계약당 가치가 보존된다.
+ */
+export function effectiveOptionUnderlyingPrice(
+  pos: Pick<OptionPosition, "openSplitMultiplier">,
+  stock: StockState,
+  stocks?: StockState[],
+): number {
+  const mOpen = pos.openSplitMultiplier ?? 1;
+  if (mOpen <= 0) return stock.currentPrice;
+  const mNow = underlyingSplitMultiplier(stock, stocks);
+  return (stock.currentPrice * mNow) / mOpen;
+}
+
+/** 포지션의 계약당 현재 마크 (분할 정산 반영) */
 export function positionMark(
   pos: OptionPosition,
   stock: StockState,
   currentSession: number,
   rateAnnualDecimal: number,
+  stocks?: StockState[],
 ): number {
-  return optionPremium(
-    pos.kind,
+  return blackScholes(
+    effectiveOptionUnderlyingPrice(pos, stock, stocks),
     pos.strike,
-    pos.expirySession,
-    stock,
-    currentSession,
+    yearsToExpiry(pos.expirySession, currentSession),
     rateAnnualDecimal,
+    annualizedVol(stock),
+    pos.kind,
   );
 }
 
@@ -165,7 +197,7 @@ export function optionsEquityDelta(
   for (const pos of options) {
     const stock = stocks.find((s) => s.id === pos.stockId);
     if (!stock) continue;
-    const mark = positionMark(pos, stock, currentSession, rateAnnualDecimal);
+    const mark = positionMark(pos, stock, currentSession, rateAnnualDecimal, stocks);
     delta += (pos.side === "long" ? mark : -mark) * pos.quantity;
   }
   return delta;
@@ -203,7 +235,7 @@ export function optionsGrossExposure(
     if (!stock) continue;
     const perContract =
       pos.side === "long"
-        ? positionMark(pos, stock, currentSession, rateAnnualDecimal)
+        ? positionMark(pos, stock, currentSession, rateAnnualDecimal, stocks)
         : shortMarginPerContract(pos, stock);
     exposure += perContract * pos.quantity;
   }

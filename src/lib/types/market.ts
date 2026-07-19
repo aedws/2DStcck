@@ -222,6 +222,12 @@ export interface OptionPosition {
   /** 개시 시 계약당 프리미엄 (센트) */
   openPremium: number;
   openedAt: number;
+  /**
+   * 개시 시점 기초자산(레버리지·인버스 ETF)의 액면분할 배수. 분할·병합으로 표시가
+   * 밴드가 바뀌어도 옵션 손익이 왜곡되지 않도록, 평가 시 (현재배수/개시배수)로
+   * 기초자산가를 보정한다. 일반 종목은 항상 1. 없으면(구 데이터) 1로 간주한다.
+   */
+  openSplitMultiplier?: number;
 }
 
 export type TradeType =
@@ -260,7 +266,9 @@ export type CashPaymentKind =
   | "attendance"
   | "preferred_dividend"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
-  | "minigame";
+  | "minigame"
+  // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.
+  | "compensation";
 
 /** 급여·커버드콜 분배금·일반 배당의 현금 지급 내역 */
 export interface CashPayment {

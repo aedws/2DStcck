@@ -46,6 +46,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
   >(null);
   useEffect(() => setMounted(true), []);
   const live = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
+  const stocks = useMarketStore((s) => s.stocks);
   const allOptions = useMarketStore((s) => s.options);
   const positions = useMemo(
     () => allOptions.filter((o) => o.stockId === stock.id),
@@ -266,7 +267,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
           </h3>
           <ul className="divide-y divide-[var(--border)]">
             {positions.map((pos) => {
-              const mark = positionMark(pos, live, sessionExact, rate);
+              const mark = positionMark(pos, live, sessionExact, rate, stocks);
               const value =
                 (pos.side === "long" ? mark : -mark) * pos.quantity;
               const posZeroDte = isZeroDteExpiry(pos.expirySession, session);

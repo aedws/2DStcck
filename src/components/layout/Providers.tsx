@@ -8,6 +8,7 @@ import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { OnboardingModal } from "@/components/layout/OnboardingModal";
 import { LearningJourneyController } from "@/components/layout/LearningJourneyController";
 import { FirstTradeCelebration } from "@/components/layout/FirstTradeCelebration";
+import { ServiceNoticeModal } from "@/components/layout/ServiceNoticeModal";
 import { Toaster } from "@/components/layout/Toaster";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -24,6 +25,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <MobileBottomNav />
       </div>
       <OnboardingModal />
+      <ServiceNoticeModal />
       <FirstTradeCelebration />
       <LearningJourneyController />
       <Toaster />
