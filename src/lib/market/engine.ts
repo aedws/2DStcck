@@ -997,6 +997,42 @@ export function formatPrice(cents: number): string {
   );
 }
 
+const COMPACT_UNITS = [
+  { s: "Qi", n: 1e18 },
+  { s: "Qa", n: 1e15 },
+  { s: "T", n: 1e12 },
+  { s: "B", n: 1e9 },
+  { s: "M", n: 1e6 },
+] as const;
+
+/**
+ * 큰 금액을 축약해 보여준다($1.23M·$45.6B·$7.89T…). $1M 미만은 정밀 표기 그대로.
+ * 자금은 상한 없이 무한히 커질 수 있으므로, 순자산·현금 같은 합산 표시에 써서
+ * 자릿수가 화면을 넘치지 않게 한다(주가·주문 금액은 formatPrice로 정밀 유지).
+ */
+export function formatCompactMoney(cents: number): string {
+  const v = cents / 100;
+  const abs = Math.abs(v);
+  if (!Number.isFinite(v)) return "$∞";
+  if (abs < 1e6) return formatPrice(cents);
+  for (const u of COMPACT_UNITS) {
+    if (abs >= u.n) {
+      const scaled = v / u.n;
+      const a = Math.abs(scaled);
+      const digits = a >= 100 ? 0 : a >= 10 ? 1 : 2;
+      return (
+        "$" +
+        scaled.toLocaleString("en-US", {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        }) +
+        u.s
+      );
+    }
+  }
+  return formatPrice(cents);
+}
+
 /** 등락 금액 ($ 부호 포함): +$12.34 / -$0.50 */
 export function formatSignedMoney(cents: number): string {
   const sign = cents >= 0 ? "+" : "-";
@@ -1008,6 +1044,12 @@ export function formatSignedMoney(cents: number): string {
       maximumFractionDigits: 2,
     })
   );
+}
+
+/** 등락 금액 축약판: +$1.23M / -$45.6B. $1M 미만은 정밀 표기. */
+export function formatSignedCompact(cents: number): string {
+  const sign = cents >= 0 ? "+" : "-";
+  return sign + formatCompactMoney(Math.abs(cents));
 }
 
 /** 지수·선물은 포인트(정수) 표기 */

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatPercent, formatPrice } from "@/lib/market/engine";
+import { formatPercent, formatPrice, formatCompactMoney } from "@/lib/market/engine";
 import {
   getSalaryDaysRemaining,
   SALARY_AMOUNT,
@@ -125,8 +125,8 @@ export default function PortfolioPage() {
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="총 자산" value={formatPrice(total)} />
-        <SummaryCard label="주식 평가액" value={formatPrice(stockValue)} />
+        <SummaryCard label="총 자산" value={formatCompactMoney(total)} />
+        <SummaryCard label="주식 평가액" value={formatCompactMoney(stockValue)} />
         <SummaryCard
           label="수익률"
           value={`${returnRate >= 0 ? "+" : ""}${returnRate.toFixed(2)}%`}
@@ -153,15 +153,15 @@ export default function PortfolioPage() {
         />
         <SummaryCard
           label="마진 대출"
-          value={debit > 0 ? formatPrice(debit) : "-"}
+          value={debit > 0 ? formatCompactMoney(debit) : "-"}
           color={debit > 0 ? "text-amber-400" : "text-zinc-100"}
         />
         <SummaryCard
           label="공매도 부채"
-          value={shortLiab > 0 ? formatPrice(shortLiab) : "-"}
+          value={shortLiab > 0 ? formatCompactMoney(shortLiab) : "-"}
           color={shortLiab > 0 ? "text-amber-400" : "text-zinc-100"}
         />
-        <SummaryCard label="현금" value={formatPrice(cash)} />
+        <SummaryCard label="현금" value={formatCompactMoney(cash)} />
       </div>
 
       {shorts.length > 0 && (

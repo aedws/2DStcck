@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatPrice, formatPercent } from "@/lib/market/engine";
+import { formatPercent, formatCompactMoney } from "@/lib/market/engine";
 import {
   LEADERBOARD_REFRESH_MS,
   fetchLeaderboard,
@@ -173,13 +173,13 @@ export default function LeaderboardPage() {
                       ? `✨ ${entry.prestige.toLocaleString()}`
                       : mode === "weekly"
                         ? `${entry.weeklyReturn >= 0 ? "+" : ""}${entry.weeklyReturn.toFixed(2)}%`
-                        : formatPrice(entry.netWorth)}
+                        : formatCompactMoney(entry.netWorth)}
                   </p>
                   <p className={`text-xs tabular-nums ${mode === "prestige" ? "text-[var(--muted)]" : upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
                     {mode === "prestige"
-                      ? `${formatPrice(entry.netWorth)} · ${entry.tradeCount}체결`
+                      ? `${formatCompactMoney(entry.netWorth)} · ${entry.tradeCount}체결`
                       : mode === "weekly"
-                        ? `${formatPrice(entry.netWorth)} · 승률 ${entry.winRate.toFixed(0)}%`
+                        ? `${formatCompactMoney(entry.netWorth)} · 승률 ${entry.winRate.toFixed(0)}%`
                         : `${formatPercent(entry.returnRate)} · ${entry.tradeCount}체결`}
                   </p>
                 </div>

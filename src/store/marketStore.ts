@@ -108,7 +108,6 @@ import {
   MARKET_SIM_VERSION,
   SESSION_DURATION_MS,
   WALLET_EPOCH,
-  MONEY_CAP,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
 import {
@@ -688,7 +687,7 @@ function settleExpiredOptions(
       expirySession: pos.expirySession,
     });
   }
-  return { cash: Math.min(nextCash, MONEY_CAP), options: remaining, trades };
+  return { cash: nextCash, options: remaining, trades };
 }
 
 /** 유지증거금 미달 시 롱·공매도·옵션 전 포지션을 현재가/마크로 강제 청산한다. */
@@ -767,7 +766,7 @@ function liquidatePositions(
     ];
   }
   return {
-    cash: Math.min(nextCash, MONEY_CAP),
+    cash: nextCash,
     holdings: [],
     shorts: [],
     options: [],
@@ -977,15 +976,13 @@ function applyLocalBuySell(
   if (mode.startsWith("buy")) {
     const buyingPower = longBuyingPower(state);
     const total = shareOrderTotal(price, quantity);
-    // 정수 정밀도 상한 초과분은 조용히 '돈 부족'으로 튕기지 않고 명확히 막는다.
-    if (!Number.isSafeInteger(Math.round(total)) || total > MONEY_CAP) {
-      return { success: false, message: "주문 금액이 상한($1조)을 초과했습니다." };
-    }
     if (total > buyingPower) {
       return { success: false, message: "매수여력이 부족합니다." };
     }
+    // 예산 한도는 매수여력으로 이미 판정했으므로 executeBuy 내부 현금 판정은
+    // 무한대로 열어둔다(거액 주문이 정수 상한에 걸려 '돈 부족'으로 오거부되지 않게).
     const merged = executeBuy(
-      Number.MAX_SAFE_INTEGER,
+      Number.POSITIVE_INFINITY,
       state.holdings,
       stockId,
       stock.ticker,
@@ -1020,7 +1017,7 @@ function applyLocalBuySell(
   );
   if (!isOrderSuccess(result)) return result;
   set({
-    cash: Math.min(result.cash, MONEY_CAP),
+    cash: result.cash,
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
   });
@@ -1831,7 +1828,7 @@ export const useMarketStore = create<MarketStore>()(
               result =
                 total <= buyingPower
                   ? executeBuy(
-                      Number.MAX_SAFE_INTEGER,
+                      Number.POSITIVE_INFINITY,
                       holdings,
                       order.stockId,
                       order.ticker,
@@ -2600,12 +2597,7 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
         const price = getMarketSellPrice(stock.currentPrice);
-        const notional = price * quantity;
-        // 정수 정밀도 상한 초과 주문은 명확히 막는다(공매도+미수 오버플로우 방지).
-        if (!Number.isSafeInteger(Math.round(notional)) || notional > MONEY_CAP) {
-          return { success: false, message: "주문 금액이 상한($1조)을 초과했습니다." };
-        }
-        if (notional > fullBuyingPower(state)) {
+        if (price * quantity > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }
         const result = openShort(
@@ -2619,7 +2611,7 @@ export const useMarketStore = create<MarketStore>()(
         );
         if (!isShortSuccess(result)) return result;
         set({
-          cash: Math.min(result.cash, MONEY_CAP),
+          cash: result.cash,
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
         });
@@ -2647,7 +2639,7 @@ export const useMarketStore = create<MarketStore>()(
         );
         if (!isShortSuccess(result)) return result;
         set({
-          cash: Math.min(result.cash, MONEY_CAP),
+          cash: result.cash,
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
         });
@@ -2825,7 +2817,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession,
         };
         set({
-          cash: Math.min(state.cash + premium * quantity, MONEY_CAP),
+          cash: state.cash + premium * quantity,
           options,
           trades: [trade, ...state.trades],
         });
@@ -2880,7 +2872,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession: pos.expirySession,
         };
         set({
-          cash: Math.min(state.cash + delta, MONEY_CAP),
+          cash: state.cash + delta,
           options,
           trades: [trade, ...state.trades],
         });
@@ -2961,7 +2953,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: Math.min(state.cash + value, MONEY_CAP),
+          cash: state.cash + value,
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
         playSound("cash");
@@ -3027,7 +3019,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: Math.min(state.cash + net, MONEY_CAP),
+          cash: state.cash + net,
           lotteryWindowStart: window,
           lotteryTicketsBought: bought + 1,
           wonJackpot: state.wonJackpot || prize.tier === "jackpot",
@@ -3097,7 +3089,7 @@ export const useMarketStore = create<MarketStore>()(
             ].slice(0, 20)
           : state.pensionAnnuities;
         set({
-          cash: Math.min(state.cash + net, MONEY_CAP),
+          cash: state.cash + net,
           lotteryWindowStart: window,
           lotteryTicketsBought: bought + 1,
           pensionAnnuities,
@@ -3140,8 +3132,7 @@ export const useMarketStore = create<MarketStore>()(
           s.preferredShares,
           computeCharacterConcentration(s.holdings, s.stocks, equity),
         );
-        // 정수 정밀도 상한 아래로 순자산을 묶는다(랭킹 갱신 실패·표시 오류 방지).
-        return Math.min(equity + getPreferredShareValue(active), MONEY_CAP);
+        return equity + getPreferredShareValue(active);
       },
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),

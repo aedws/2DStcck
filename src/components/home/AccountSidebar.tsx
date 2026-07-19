@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useMarketStore } from "@/store/marketStore";
 import {
   formatPrice,
-  formatSignedMoney,
+  formatCompactMoney,
+  formatSignedCompact,
   formatTradeTime,
 } from "@/lib/market/engine";
 import {
@@ -88,14 +89,14 @@ export function AccountSidebar() {
             상세 →
           </Link>
         </div>
-        <p className="mt-3 text-2xl font-bold tabular-nums">
-          {formatPrice(total)}
+        <p className="mt-3 text-2xl font-bold tabular-nums" title={formatPrice(total)}>
+          {formatCompactMoney(total)}
         </p>
         <p className={`mt-1 text-sm tabular-nums ${upDownClass(profit)}`}>
-          {formatSignedMoney(profit)} {formatSignedPercent(returnRate)}
+          {formatSignedCompact(profit)} {formatSignedPercent(returnRate)}
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          가용 현금 {formatPrice(cash)}
+          가용 현금 {formatCompactMoney(cash)}
         </p>
         {skillPerf && (
           <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">

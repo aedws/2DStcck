@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { LEADERBOARD_MAX_NET_WORTH } from "@/lib/market/constants";
 import type {
   CashPayment,
   CharacterProgressMap,
@@ -196,12 +197,16 @@ export async function syncLeaderboard(stats: {
     stats.initialCash > 0
       ? ((stats.netWorth - stats.initialCash) / stats.initialCash) * 100
       : Number.NaN;
+  // 순자산은 상한 없이 무한히 커질 수 있으므로 '안전 정수'가 아니라 '유한값'만
+  // 요구한다. 정밀도 검증 오차는 값 크기에 비례해 완화한다(거액에서 float
+  // 반올림으로 오탐 안 나게). DB int8 범위를 넘지 않도록 제출값만 상한으로 막는다.
+  const returnTolerance = Math.max(0.05, Math.abs(expectedReturn) * 1e-4);
   if (
-    !Number.isSafeInteger(Math.round(stats.netWorth)) ||
-    !Number.isSafeInteger(Math.round(stats.initialCash)) ||
+    !Number.isFinite(stats.netWorth) ||
+    !Number.isFinite(stats.initialCash) ||
     stats.initialCash <= 0 ||
     !Number.isFinite(stats.returnRate) ||
-    Math.abs(expectedReturn - stats.returnRate) > 0.05 ||
+    Math.abs(expectedReturn - stats.returnRate) > returnTolerance ||
     !Number.isSafeInteger(stats.marketSession) ||
     stats.luxuryCount < 0 ||
     stats.luxuryCount > 100 ||
@@ -210,9 +215,13 @@ export async function syncLeaderboard(stats: {
     return false;
   }
 
+  const safeNetWorth = Math.min(
+    Math.round(stats.netWorth),
+    LEADERBOARD_MAX_NET_WORTH,
+  );
   const baseParams = {
     p_display_name: displayName,
-    p_net_worth: Math.round(stats.netWorth),
+    p_net_worth: safeNetWorth,
     p_return_rate: Number(stats.returnRate.toFixed(2)),
     p_initial_cash: Math.round(stats.initialCash),
     p_market_session: stats.marketSession,
