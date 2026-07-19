@@ -9,6 +9,7 @@ import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
 import { AttendanceBanner } from "@/components/home/AttendanceBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
+import { HomeIpoBanner } from "@/components/home/HomeIpoBanner";
 import { LearningJourneyCard } from "@/components/home/LearningJourneyCard";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
@@ -57,6 +58,7 @@ export default function MarketPage() {
         <MarketEraBanner />
       </div>
       <AttendanceBanner />
+      <HomeIpoBanner />
       <LearningJourneyCard />
       {/* 새내기(거래 3건 미만)에겐 시즌·연속사건·라이벌까지 담긴 작전 브리핑이
           과부하다. 학습 여정 카드가 '첫 매수' 한 가지에 집중하도록 잠시 감춘다.

@@ -98,6 +98,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-19",
+    tag: "개선",
+    title: "홈에서 IPO 알림 — 상장 예정 카운트다운 + 신규 상장 안내",
+    detail:
+      "종목 신청은 재화가 드는 만큼, 상장을 놓치지 않도록 홈 상단에 IPO 배너를 추가했습니다. 곧 상장할 종목은 카운트다운으로, 방금(24시간 내) 상장한 종목은 '🎉 신규 상장! 지금 거래 가능' 알림으로 눈에 띄게 띄웁니다. 파생상품(인버스·레버리지·커버드콜)은 빼고 대표 종목만 보여줍니다.",
+  },
+  {
+    date: "2026-07-19",
     tag: "신규",
     title: "IPO 상장 예고 — 레이센 제약(우동게), 7/20 15:00 개장",
     detail:
