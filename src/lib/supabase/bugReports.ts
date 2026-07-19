@@ -23,8 +23,8 @@ export const BUG_REPORT_STATUS_LABEL: Record<BugReportStatus, string> = {
   duplicate: "중복",
 };
 
-/** 버그 수정 완료(fixed) 시 제보자에게 지급하는 보상(센트) — $5,000,000. */
-export const BUG_FIX_BOUNTY_CENTS = 500_000_000;
+/** 버그 수정 완료(fixed) 시 제보자에게 지급하는 보상(센트) — $50,000. */
+export const BUG_FIX_BOUNTY_CENTS = 5_000_000;
 
 /** 운영자 회신을 유저에게 전달하기 위한 정규화된 응답. */
 export interface BugResponse {
