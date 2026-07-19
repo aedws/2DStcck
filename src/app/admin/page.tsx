@@ -19,6 +19,13 @@ import {
   type BugReportRow,
   type BugReportStatus,
 } from "@/lib/supabase/bugReports";
+import {
+  listFeedback,
+  updateFeedback,
+  FEEDBACK_STATUS_LABEL,
+  type FeedbackRow,
+  type FeedbackStatus,
+} from "@/lib/supabase/feedback";
 
 const STOCK_STATUSES: StockRequestStatus[] = [
   "pending",
@@ -52,22 +59,41 @@ const BUG_STATUS_STYLE: Record<BugReportStatus, string> = {
   duplicate: "bg-[var(--surface)] text-[var(--muted)]",
 };
 
-type Tab = "stocks" | "bugs";
+const FEEDBACK_STATUSES: FeedbackStatus[] = [
+  "open",
+  "considering",
+  "planned",
+  "done",
+  "declined",
+];
+
+const FEEDBACK_STATUS_STYLE: Record<FeedbackStatus, string> = {
+  open: "bg-[var(--surface)] text-[var(--muted)]",
+  considering: "bg-sky-500/15 text-sky-400",
+  planned: "bg-amber-500/15 text-amber-400",
+  done: "bg-emerald-500/15 text-emerald-400",
+  declined: "bg-rose-500/15 text-rose-400",
+};
+
+type Tab = "stocks" | "bugs" | "feedback";
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<"loading" | "denied" | "ready">("loading");
   const [tab, setTab] = useState<Tab>("stocks");
   const [rows, setRows] = useState<StockRequestRow[]>([]);
   const [bugRows, setBugRows] = useState<BugReportRow[]>([]);
+  const [feedbackRows, setFeedbackRows] = useState<FeedbackRow[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [stocks, bugs] = await Promise.all([
+    const [stocks, bugs, feedback] = await Promise.all([
       listStockRequests(),
       listBugReports(),
+      listFeedback(),
     ]);
     setRows(stocks);
     setBugRows(bugs);
+    setFeedbackRows(feedback);
   }, []);
 
   useEffect(() => {
@@ -98,6 +124,16 @@ export default function AdminPage() {
     setSavingId(null);
   }
 
+  async function setFeedbackStatus(id: string, status: FeedbackStatus) {
+    setSavingId(id);
+    if (await updateFeedback(id, { status })) {
+      setFeedbackRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status } : r)),
+      );
+    }
+    setSavingId(null);
+  }
+
   if (phase === "loading") {
     return (
       <div className="py-20 text-center text-sm text-[var(--muted)]">
@@ -119,6 +155,7 @@ export default function AdminPage() {
 
   const pendingStocks = rows.filter((r) => r.status === "pending").length;
   const openBugs = bugRows.filter((r) => r.status === "open").length;
+  const openFeedback = feedbackRows.filter((r) => r.status === "open").length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -155,6 +192,17 @@ export default function AdminPage() {
           }`}
         >
           🐞 버그 리포트 {openBugs > 0 && `· ${openBugs}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("feedback")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "feedback"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          💡 피드백 {openFeedback > 0 && `· ${openFeedback}`}
         </button>
       </div>
 
@@ -233,7 +281,7 @@ export default function AdminPage() {
             </ul>
           )}
         </>
-      ) : (
+      ) : tab === "bugs" ? (
         <>
           <p className="text-sm text-[var(--muted)]">
             총 {bugRows.length}건 · 접수 {openBugs}건
@@ -289,6 +337,70 @@ export default function AdminPage() {
                         }`}
                       >
                         {BUG_REPORT_STATUS_LABEL[s]}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-[var(--muted)]">
+            총 {feedbackRows.length}건 · 접수 {openFeedback}건
+          </p>
+          {feedbackRows.length === 0 ? (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-sm text-[var(--muted)]">
+              아직 피드백이 없습니다.
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {feedbackRows.map((r) => (
+                <li
+                  key={r.id}
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">
+                        {r.title}
+                        {r.category && (
+                          <span className="ml-2 text-xs font-normal text-[var(--muted)]">
+                            · {r.category}
+                          </span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                        @{r.game_id} ·{" "}
+                        {new Date(r.created_at).toLocaleString("ko-KR")}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold ${FEEDBACK_STATUS_STYLE[r.status]}`}
+                    >
+                      {FEEDBACK_STATUS_LABEL[r.status]}
+                    </span>
+                  </div>
+                  {r.description && (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[var(--foreground)]">
+                      {r.description}
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {FEEDBACK_STATUSES.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        disabled={savingId === r.id || r.status === s}
+                        onClick={() => setFeedbackStatus(r.id, s)}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
+                          r.status === s
+                            ? "bg-[var(--accent)] text-white"
+                            : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                        }`}
+                      >
+                        {FEEDBACK_STATUS_LABEL[s]}
                       </button>
                     ))}
                   </div>

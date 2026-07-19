@@ -18,7 +18,7 @@ import {
   PUMP_TUTORIAL_STEPS,
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
-import { BugReportForm } from "@/components/market/BugReportForm";
+import { SupportForms } from "@/components/market/SupportForms";
 
 type TutorialKind =
   | "mission"
@@ -481,7 +481,7 @@ export default function SettingsPage() {
         </Link>
       </section>
 
-      <BugReportForm />
+      <SupportForms />
 
       <section className="rounded-2xl border border-[var(--border)] px-4 py-4">
         <h2 className="text-sm font-semibold">계정 안내</h2>
