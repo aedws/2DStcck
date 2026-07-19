@@ -108,6 +108,8 @@ import {
   MARKET_SIM_VERSION,
   SESSION_DURATION_MS,
   WALLET_EPOCH,
+  OVERFLOW_RECOVERY_GRANT_CENTS,
+  OVERFLOW_BROKEN_NET_WORTH_FLOOR,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
 import {
@@ -592,6 +594,85 @@ function longBuyingPower(s: MarginAwareState): number {
 
 function fullEquityOf(s: Parameters<typeof marginContext>[0]): number {
   return marginContext(s).equity;
+}
+
+interface OverflowRepair {
+  broken: boolean;
+  cash: number;
+  holdings: Holding[];
+  shorts: ShortPosition[];
+  options: OptionPosition[];
+  marginEnabled: boolean;
+}
+
+/**
+ * 2^53(≈$90.07조) 정수 경계를 넘겨 자산 계산이 깨진 계정을 복구한다. 자금 상한을
+ * 없애기 전, 오버플로우로 순자산이 비정상 마이너스가 되거나 NaN/Infinity로 오염된
+ * 계정에 한해 오염된 파생 부채(공매도·옵션·미수)를 청산하고 $10,000,000 복구
+ * 지원금을 지급한다. 판정 자체가 멱등성 — 복구 뒤엔 유한·양수라 다시 발동하지
+ * 않으며, 정상 플레이의 소소한 마이너스(공매도·마진 손실)는 대상이 아니다. */
+function recoverFromOverflow(state: {
+  cash: number;
+  holdings: Holding[];
+  shorts: ShortPosition[];
+  options: OptionPosition[];
+  stocks: StockState[];
+  ownedLuxuries: OwnedLuxury[];
+  marginEnabled: boolean;
+}): OverflowRepair {
+  const holdingFinite = (h: Holding) =>
+    Number.isFinite(h.quantity) && Number.isFinite(h.averagePrice);
+  const shortFinite = (s: ShortPosition) =>
+    Number.isFinite(s.quantity) && Number.isFinite(s.averagePrice);
+  const optionFinite = (o: OptionPosition) =>
+    Number.isFinite(o.strike) &&
+    Number.isFinite(o.quantity) &&
+    Number.isFinite(o.openPremium);
+
+  const cleanHoldings = state.holdings.filter(holdingFinite);
+  const cleanShorts = state.shorts.filter(shortFinite);
+  const cleanOptions = state.options.filter(optionFinite);
+  const hadCorruptPosition =
+    cleanHoldings.length !== state.holdings.length ||
+    cleanShorts.length !== state.shorts.length ||
+    cleanOptions.length !== state.options.length;
+  const cashFinite = Number.isFinite(state.cash);
+
+  // 오염 포지션을 걷어낸 상태에서 순자산을 다시 평가한다.
+  const equity = fullEquityOf({
+    ...state,
+    cash: cashFinite ? state.cash : 0,
+    holdings: cleanHoldings,
+    shorts: cleanShorts,
+    options: cleanOptions,
+  });
+  const broken =
+    !cashFinite ||
+    hadCorruptPosition ||
+    !Number.isFinite(equity) ||
+    equity < OVERFLOW_BROKEN_NET_WORTH_FLOOR;
+
+  if (!broken) {
+    return {
+      broken: false,
+      cash: state.cash,
+      holdings: state.holdings,
+      shorts: state.shorts,
+      options: state.options,
+      marginEnabled: state.marginEnabled,
+    };
+  }
+
+  // 파손 계정은 오염된 파생 부채를 전부 청산하고 유한한 현물만 남긴 뒤 복구
+  // 지원금으로 재출발시킨다. 결과가 유한·양수라 다시 발동하지 않는다.
+  return {
+    broken: true,
+    cash: OVERFLOW_RECOVERY_GRANT_CENTS,
+    holdings: cleanHoldings,
+    shorts: [],
+    options: [],
+    marginEnabled: false,
+  };
 }
 
 function fullNeedsLiquidation(s: MarginAwareState): boolean {
@@ -1496,14 +1577,24 @@ export const useMarketStore = create<MarketStore>()(
           const cloud = Number.isFinite(cloudValue) ? Math.floor(cloudValue!) : localValue;
           return Math.max(cloud, localValue);
         };
-        set({
-          walletEpoch: WALLET_EPOCH,
-          cash: wallet.cash,
-          initialCash: wallet.initialCash,
+        // 오버플로우로 깨진 클라우드 지갑도 복구 지원금으로 재출발시킨다(멱등).
+        const cloudRepair = recoverFromOverflow({
+          cash: Number(wallet.cash ?? 0),
           holdings: reconcileLeverageSplits(
             wallet.holdings ?? [],
             get().stocks,
           ).holdings,
+          shorts: wallet.shorts ?? [],
+          options: wallet.options ?? [],
+          stocks: get().stocks,
+          ownedLuxuries: wallet.ownedLuxuries ?? [],
+          marginEnabled: wallet.marginEnabled === true,
+        });
+        set({
+          walletEpoch: WALLET_EPOCH,
+          cash: cloudRepair.cash,
+          initialCash: wallet.initialCash,
+          holdings: cloudRepair.holdings,
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
           cashPayments: wallet.cashPayments ?? [],
@@ -1532,8 +1623,8 @@ export const useMarketStore = create<MarketStore>()(
                 local.lastQuarterlyDividendSession,
               ),
           ownedLuxuries: wallet.ownedLuxuries ?? [],
-          shorts: wallet.shorts ?? [],
-          options: wallet.options ?? [],
+          shorts: cloudRepair.shorts,
+          options: cloudRepair.options,
           achievements: wallet.achievements ?? [],
           lotteryWindowStart:
             cloudClockChanged
@@ -1569,7 +1660,7 @@ export const useMarketStore = create<MarketStore>()(
           investmentSeason: cloudSeason,
           storyDecision: cloudClockChanged ? null : wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
-          marginEnabled: wallet.marginEnabled === true,
+          marginEnabled: cloudRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(wallet.marginLeverage),
           recurringInvestments: normalizeRecurringInvestments(
             wallet.recurringInvestments,
@@ -3387,6 +3478,27 @@ export const useMarketStore = create<MarketStore>()(
           stocksWithDerived,
         ).holdings;
 
+        // 자금 상한 제거 이전, 2^53 경계를 넘겨 자산이 오염·마이너스로 깨진 계정을
+        // 복구 지원금($10M)으로 재출발시킨다. 판정이 곧 멱등성이라 정상 계정은 무시.
+        const overflowRepair = recoverFromOverflow({
+          cash: Number((walletSource as Partial<MarketStore>).cash ?? 0),
+          holdings: reconciledHoldings,
+          shorts: Array.isArray((walletSource as Partial<MarketStore>).shorts)
+            ? (walletSource as Partial<MarketStore>).shorts!
+            : [],
+          options: Array.isArray((walletSource as Partial<MarketStore>).options)
+            ? (walletSource as Partial<MarketStore>).options!
+            : [],
+          stocks: stocksWithDerived,
+          ownedLuxuries: Array.isArray(
+            (walletSource as Partial<MarketStore>).ownedLuxuries,
+          )
+            ? (walletSource as Partial<MarketStore>).ownedLuxuries!
+            : [],
+          marginEnabled:
+            (walletSource as Partial<MarketStore>).marginEnabled === true,
+        });
+
         return {
           ...walletSource,
           marketVersion: MARKET_SIM_VERSION,
@@ -3395,7 +3507,8 @@ export const useMarketStore = create<MarketStore>()(
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : 0,
           stocks: stocksWithDerived,
-          holdings: reconciledHoldings,
+          cash: overflowRepair.cash,
+          holdings: overflowRepair.holdings,
           events:
             marketValid && Array.isArray(merged.events)
               ? merged.events.map(ensureEventDialogue)
@@ -3436,12 +3549,8 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (walletSource as Partial<MarketStore>).netWorthHistory!
             : [],
-          shorts: Array.isArray((walletSource as Partial<MarketStore>).shorts)
-            ? (walletSource as Partial<MarketStore>).shorts!
-            : [],
-          options: Array.isArray((walletSource as Partial<MarketStore>).options)
-            ? (walletSource as Partial<MarketStore>).options!
-            : [],
+          shorts: overflowRepair.shorts,
+          options: overflowRepair.options,
           lastInterestSession: sessionBaseline ?? (Number.isSafeInteger(
             (walletSource as Partial<MarketStore>).lastInterestSession,
           )
@@ -3520,7 +3629,7 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (walletSource as Partial<MarketStore>).storyDecisionHistory!
             : [],
-          marginEnabled: (walletSource as Partial<MarketStore>).marginEnabled === true,
+          marginEnabled: overflowRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(
             (walletSource as Partial<MarketStore>).marginLeverage,
           ),

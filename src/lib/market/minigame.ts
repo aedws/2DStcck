@@ -37,9 +37,12 @@ export const BALL_GRADE_DESC: Record<BallGrade, string> = {
 /** 최종 점수 → 현금 환산 계수 (현금 = 점수 / 이 값). '1/N'의 N.
  *  값이 클수록 현금 지급이 적다. 코인(상점) 경제는 그대로 두고 이 값만으로
  *  현금 산출을 조절한다. */
-export const MINIGAME_CASH_DIVISOR = 40;
-/** 1회 지급 상한 (버그 방어용 안전장치) — $5,000,000 */
-export const MINIGAME_REWARD_HARD_CAP = 500_000_000;
+export const MINIGAME_CASH_DIVISOR = 2;
+/** 1회 지급 상한 (버그 방어용 안전장치) — $100,000,000.
+ *  자금 상한을 없앤 뒤 미니게임(노동 소득) 지급량을 20배로 상향했다. 이 값은
+ *  '무제한 성장'을 막는 게 아니라, 점수 계산 버그로 비정상적 1회 지급이 터지는
+ *  걸 막는 안전장치일 뿐이라 한 판 상한선 자체도 20배로 함께 올린다. */
+export const MINIGAME_REWARD_HARD_CAP = 10_000_000_000;
 
 /** 최종 점수(코인 누적)를 현금(센트)으로 환산한다. */
 export function computeBrickBreakerCash(score: number): number {
@@ -49,7 +52,7 @@ export function computeBrickBreakerCash(score: number): number {
 
 // ── 2048 ──
 /** 2048 점수 1점당 현금(센트). 값이 클수록 후하다. */
-export const G2048_CENTS_PER_POINT = 2;
+export const G2048_CENTS_PER_POINT = 40;
 
 /** 2048 최종 점수를 현금(센트)으로 환산한다. */
 export function compute2048Cash(score: number): number {
@@ -59,7 +62,7 @@ export function compute2048Cash(score: number): number {
 
 // ── 테트리스 ──
 /** 테트리스 점수 1점당 현금(센트). */
-export const TETRIS_CENTS_PER_POINT = 2;
+export const TETRIS_CENTS_PER_POINT = 40;
 
 /** 테트리스 최종 점수를 현금(센트)으로 환산한다. */
 export function computeTetrisCash(score: number): number {

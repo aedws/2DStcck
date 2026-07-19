@@ -58,6 +58,17 @@ export const SIM_TICK_MS = 1000;
  */
 export const LEADERBOARD_MAX_NET_WORTH = 9_000_000_000_000_000_000;
 
+/**
+ * 오버플로우 복구 지원금(센트) — $10,000,000.
+ * 자금 상한을 없애기 전, 2^53(≈$90.07조) 정수 경계를 넘겨 자산 계산이 깨진 채
+ * 순자산이 비정상적으로 마이너스가 되거나 NaN/Infinity로 오염된 계정에 한해
+ * 강제로 지급하는 복구 비용이다. 정상 플레이의 소소한 마이너스(공매도·마진)는
+ * 대상이 아니며, 오직 오버플로우 파손(비유한값 또는 -$1조 미만)만 복구한다. */
+export const OVERFLOW_RECOVERY_GRANT_CENTS = 1_000_000_000;
+/** 오버플로우 파손 판정 하한(센트) — 순자산이 -$1조 미만이면 정상 플레이로는
+ *  도달 불가능한 정밀도 붕괴로 간주한다. */
+export const OVERFLOW_BROKEN_NET_WORTH_FLOOR = -100_000_000_000_000;
+
 /** 시장가 슬리피지: 체결가 = 현재가 × (1 ± 0.005%) */
 export const MARKET_ORDER_SLIPPAGE = 0.00005;
 
