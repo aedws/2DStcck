@@ -7,7 +7,13 @@ import {
   isRecentlyListed,
   upcomingIpos,
 } from "../src/lib/market/ipo";
-import { SIM_TICK_MS } from "../src/lib/market/constants";
+import { SIM_TICK_MS, SESSION_DURATION_MS } from "../src/lib/market/constants";
+import {
+  EARNINGS_INTERVAL_SESSIONS,
+  getEarningsCalendar,
+} from "../src/lib/market/earningsCalendar";
+import { getCompanyDefinitions } from "../src/data/stocks";
+import { stockHref } from "../src/lib/ui/stockLink";
 
 const now = 1_000_000_000_000;
 
@@ -44,4 +50,25 @@ const defs = [
 const up = upcomingIpos(defs as never, now).map((d) => d.id);
 assert.deepEqual(up, ["b", "a"]);
 
-console.log("ipo listing scenarios passed");
+// 급등주 링크는 전용 /pump, 일반 종목은 /stock/[id]
+assert.equal(stockHref("pump-495692"), "/pump");
+assert.equal(stockHref({ id: "pump-1" }), "/pump");
+assert.equal(stockHref("vnasdaq"), "/stock/vnasdaq");
+assert.equal(stockHref({ id: "dante" }), "/stock/dante");
+
+// 실적 캘린더: 상장 예정(IPO) 기업은 상장 세션 전에는 노출되지 않는다.
+const upcomingCompany = getCompanyDefinitions().find(
+  (c) => c.listingEpochMs && c.listingEpochMs > Date.now(),
+);
+if (upcomingCompany) {
+  const listSession = Math.floor(upcomingCompany.listingEpochMs! / SESSION_DURATION_MS);
+  // 상장 세션 직전 구간에는 이 기업의 실적이 없어야 한다.
+  const before = getEarningsCalendar(listSession - EARNINGS_INTERVAL_SESSIONS, listSession - 1);
+  assert.equal(
+    before.some((e) => e.company.id === upcomingCompany.id),
+    false,
+    "상장 전 IPO 기업이 실적 캘린더에 노출됨",
+  );
+}
+
+console.log("ipo listing · pump-link · earnings-gate scenarios passed");

@@ -7,6 +7,7 @@ import {
   SALARY_AMOUNT,
 } from "@/lib/market/salary";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { stockHref } from "@/lib/ui/stockLink";
 import {
   calculateCoveredCallDistribution,
   COVERED_CALL_INTERVAL_DAYS,
@@ -462,7 +463,7 @@ export default function PortfolioPage() {
                   >
                     <td className="px-4 py-3">
                       <Link
-                        href={`/stock/${h.stockId}`}
+                        href={stockHref(h.stockId)}
                         className="font-medium hover:text-emerald-400"
                       >
                         {stock.name}

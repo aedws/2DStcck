@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { StockState } from "@/lib/types/market";
 import { formatPercent, formatPrice, getDayChangePercent } from "@/lib/market/engine";
+import { stockHref } from "@/lib/ui/stockLink";
 
 export function StockTable({ stocks }: { stocks: StockState[] }) {
   return (
@@ -27,7 +28,7 @@ export function StockTable({ stocks }: { stocks: StockState[] }) {
                 className="border-b border-zinc-800/50 transition hover:bg-zinc-900/50"
               >
                 <td className="px-4 py-3">
-                  <Link href={`/stock/${stock.id}`} className="block">
+                  <Link href={stockHref(stock)} className="block">
                     <span className="font-medium text-zinc-100">
                       {stock.name}
                     </span>

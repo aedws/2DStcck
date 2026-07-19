@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatTradeTime } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
+import { stockHref } from "@/lib/ui/stockLink";
 import { useMarketStore } from "@/store/marketStore";
 
 /** 시장 뉴스 아카이브: 저장된 이벤트(최근 50건)를 최신순으로 */
@@ -80,7 +81,7 @@ export default function NewsPage() {
                     {affected.slice(0, 8).map((s) => (
                       <Link
                         key={s.id}
-                        href={`/stock/${s.id}`}
+                        href={stockHref(s)}
                         className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[11px] text-[var(--muted)] transition hover:text-[var(--foreground)]"
                       >
                         {s.name}

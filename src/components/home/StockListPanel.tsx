@@ -21,6 +21,7 @@ import {
 } from "@/lib/ui/marketColors";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { StockLogo } from "@/components/ui/StockLogo";
+import { stockHref } from "@/lib/ui/stockLink";
 import { useSettingsStore } from "@/store/settingsStore";
 
 const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별", "관심"];
@@ -294,7 +295,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
               return (
                 <tr
                   key={stock.id}
-                  onClick={() => router.push(`/stock/${stock.id}`)}
+                  onClick={() => router.push(stockHref(stock))}
                   className="cursor-pointer border-b border-[var(--border)]/50 transition hover:bg-[var(--surface)]/60"
                 >
                   <td className="px-3 py-3 tabular-nums text-[var(--muted)]">

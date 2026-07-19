@@ -13,6 +13,7 @@ import {
 } from "@/lib/market/engine";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { dayRange, latestEventFor } from "@/lib/market/stats";
+import { stockHref } from "@/lib/ui/stockLink";
 import {
   formatSignedPercent,
   formatSignedPrice,
@@ -143,7 +144,7 @@ export function MarketOverview({
       <div className="flex items-stretch gap-4">
         {/* 대표 지수 */}
         <div
-          onClick={() => router.push(`/stock/${featured.id}`)}
+          onClick={() => router.push(stockHref(featured))}
           className="-m-1.5 w-full shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-[var(--surface)]/60 md:w-[262px]"
         >
           <p className="text-sm font-semibold">
@@ -178,7 +179,7 @@ export function MarketOverview({
               key={card.id}
               onClick={() => {
                 if (stocks.some((s) => s.id === card.id)) {
-                  router.push(`/stock/${card.id}`);
+                  router.push(stockHref(card));
                 }
               }}
               className={`flex min-w-0 items-center gap-3 rounded-xl px-2 py-1 transition ${

@@ -77,9 +77,23 @@ export function buildEarningsEntry(
   };
 }
 
+/** 해당 거래일에 이미 상장돼 있는가(실적 발표 자격). 상장 예정(IPO)이면 제외. */
+function isListedBySession(
+  def: { listingEpochMs?: number },
+  session: number,
+): boolean {
+  if (!def.listingEpochMs) return true;
+  return session >= Math.floor(def.listingEpochMs / SESSION_DURATION_MS);
+}
+
 export function getEarningsForSession(session: number): EarningsCalendarEntry[] {
   return getCompanyDefinitions()
-    .filter((company) => company.ceoId && isEarningsSession(company.id, session))
+    .filter(
+      (company) =>
+        company.ceoId &&
+        isListedBySession(company, session) &&
+        isEarningsSession(company.id, session),
+    )
     .map((company) => buildEarningsEntry(company, session));
 }
 

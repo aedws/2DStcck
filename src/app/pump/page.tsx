@@ -102,11 +102,18 @@ export default function PumpDetailPage() {
 
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
         <main className="min-w-0 flex-1 space-y-4 px-4 py-4 md:overflow-y-auto md:px-5">
-          <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">
-            ⚠️ 초고위험 펌프-앤-덤프입니다. 정점에서 매도하지 못하면 상장폐지 시
-            폭락가로 강제 정산되어 큰 손실이 납니다. 하락에 베팅하려면 공매도도
-            가능합니다.
-          </p>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">
+            <p className="font-semibold">⚠️ 초고위험 펌프-앤-덤프 · 타이밍 싸움</p>
+            <p className="mt-1">
+              편하게 언제든 돈을 빼는 종목이 아니라, 정점을 노려 사고파는
+              하이리스크·하이리턴 게임입니다. 2거래일 내 상장폐지되며, 정점에서
+              팔지 못하면 폭락가로 강제 정산되어 큰 손실이 납니다.
+            </p>
+            <p className="mt-1 font-medium">
+              🚫 급등주는 공매도(하락 베팅)가 불가합니다 — 매수 후 정점에서
+              매도하는 방향만 열려 있습니다.
+            </p>
+          </div>
           <CandlestickChart
             candles={pump.candles}
             dailyCandles={pump.dailyCandles}

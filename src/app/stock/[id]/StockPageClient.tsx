@@ -34,6 +34,7 @@ import {
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { StockLogo } from "@/components/ui/StockLogo";
+import { isUpcomingIpo, listingCountdownLabel } from "@/lib/market/ipo";
 import { useMarketStore } from "@/store/marketStore";
 
 const SUB_TABS = ["차트 · 호가", "옵션", "종목정보", "뉴스"] as const;
@@ -323,6 +324,76 @@ function StockNewsTab({
   );
 }
 
+/** 상장 예정 종목 화면: 공모가·CEO 소개 + 상장 카운트다운, 주문 불가. */
+function UpcomingIpoView({ stock }: { stock: StockState }) {
+  useMarketStore((s) => s.tick); // 카운트다운 실시간 갱신
+  const ceo = getCharacterById(stock.ceoId);
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      <Link
+        href="/ipo"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] transition hover:text-[var(--foreground)]"
+      >
+        ← IPO 일정
+      </Link>
+      <div className="rounded-3xl border border-[var(--accent)]/30 bg-[var(--accent)]/[0.06] p-6 text-center">
+        <span className="inline-block rounded-full bg-[var(--accent)]/15 px-3 py-1 text-xs font-semibold text-[var(--accent)]">
+          🔔 상장 예정
+        </span>
+        <div className="mt-4 flex justify-center">
+          <StockLogo stock={stock} size={56} />
+        </div>
+        <h1 className="mt-3 text-2xl font-bold">{stock.name}</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          {stock.ticker} · {stock.sector}
+        </p>
+        <p className="mt-5 text-3xl font-black tabular-nums text-[var(--accent)]">
+          {listingCountdownLabel(stock)}
+        </p>
+        <div className="mt-4 inline-flex flex-col gap-1 rounded-2xl bg-[var(--background)]/60 px-5 py-3">
+          <span className="text-[11px] text-[var(--muted)]">공모가</span>
+          <span className="text-lg font-bold tabular-nums">
+            {formatPrice(stock.initialPrice)}
+          </span>
+        </div>
+        <p className="mt-5 text-xs leading-relaxed text-[var(--muted)]">
+          아직 상장 전이라 매수·매도·공매도·옵션 모두 불가합니다. 상장 시각이
+          지나면 공모가로 개장하며, 이 화면이 자동으로 거래 화면으로 바뀝니다.
+        </p>
+      </div>
+
+      {stock.description && (
+        <div className="mt-4 rounded-2xl bg-[var(--surface)] p-4">
+          <h3 className="mb-2 text-sm font-semibold">회사 소개</h3>
+          <p className="text-sm leading-relaxed">{stock.description}</p>
+        </div>
+      )}
+
+      {ceo && (
+        <div className="mt-4 rounded-2xl bg-[var(--surface)] p-4">
+          <h3 className="mb-3 text-sm font-semibold">경영진</h3>
+          <div className="flex items-start gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--background)] text-2xl">
+              {ceo.emoji}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">
+                {ceo.name}{" "}
+                <span className="font-normal text-[var(--muted)]">
+                  {ceo.title}
+                </span>
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                {ceo.bio}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StockPageClient({ id }: { id: string }) {
   const [tab, setTab] = useState(0);
   const stocks = useMarketStore((s) => s.stocks);
@@ -345,6 +416,12 @@ export function StockPageClient({ id }: { id: string }) {
         </Link>
       </div>
     );
+  }
+
+  // 상장 예정(IPO): 아직 거래 불가 — 주문 화면 없이 카운트다운만 노출한다.
+  // (주소로 직행해도 매매·옵션·공매도가 열리지 않게 UI 자체를 막는다.)
+  if (isUpcomingIpo(stock)) {
+    return <UpcomingIpoView stock={stock} />;
   }
 
   // 지수·선물은 직접 거래 불가 — 주문 없이 차트·뉴스 전용 화면

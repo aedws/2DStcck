@@ -88,6 +88,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     : 0;
   const maxSell = holding?.quantity ?? 0;
   const isIndexLike = liveStock.sector === "선물" || liveStock.sector === "지수";
+  const isPump = liveStock.sector === "급등주";
   const stockPlan = recurringPlans.find((plan) => plan.stockId === stock.id);
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
   const presets = fractional ? [0.1, 0.5, 1] : [1, 10, 100];
@@ -345,7 +346,15 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                   />
                 </div>
 
-                {!isIndexLike && (
+                {isPump && (
+                  <div className="border-t border-[var(--border)] pt-3">
+                    <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                      🚫 급등주는 공매도(하락 베팅) 불가 — 매수 후 정점에서
+                      매도만 가능한 타이밍 싸움입니다.
+                    </p>
+                  </div>
+                )}
+                {!isIndexLike && !isPump && (
                   <div className="border-t border-[var(--border)] pt-3">
                     <div className="mb-2 flex items-center justify-between text-xs text-[var(--muted)]">
                       <span>공매도</span>

@@ -18,6 +18,7 @@
     "test:minigame": "tsx scripts/test-minigame.ts",
     "test:tetris": "tsx scripts/test-tetris-logic.ts",
     "test:indicators": "tsx scripts/test-chart-indicators.ts",
+    "test:ipo": "tsx scripts/test-ipo.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },
   "dependencies": {

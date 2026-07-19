@@ -1811,6 +1811,12 @@ export const useMarketStore = create<MarketStore>()(
         if (!stock) {
           return { success: false, message: "종목을 찾을 수 없습니다." };
         }
+        if (!isListed(stock)) {
+          return {
+            success: false,
+            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+          };
+        }
         if (!isValidShareQuantity(quantity)) {
           return {
             success: false,
@@ -2687,6 +2693,12 @@ export const useMarketStore = create<MarketStore>()(
             message: "지수·선물·급등주는 공매도할 수 없습니다.",
           };
         }
+        if (!isListed(stock)) {
+          return {
+            success: false,
+            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+          };
+        }
         const price = getMarketSellPrice(stock.currentPrice);
         if (price * quantity > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
@@ -2755,6 +2767,12 @@ export const useMarketStore = create<MarketStore>()(
           isPumpStock(stock)
         ) {
           return { success: false, message: "지수·선물·급등주는 옵션이 없습니다." };
+        }
+        if (!isListed(stock)) {
+          return {
+            success: false,
+            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+          };
         }
         const session = Math.floor(now / SESSION_DURATION_MS);
         if (expirySession <= session) {
@@ -2846,6 +2864,12 @@ export const useMarketStore = create<MarketStore>()(
           isPumpStock(stock)
         ) {
           return { success: false, message: "지수·선물·급등주는 옵션이 없습니다." };
+        }
+        if (!isListed(stock)) {
+          return {
+            success: false,
+            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+          };
         }
         const session = Math.floor(now / SESSION_DURATION_MS);
         if (expirySession <= session) {
