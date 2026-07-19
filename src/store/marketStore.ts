@@ -688,7 +688,7 @@ function settleExpiredOptions(
       expirySession: pos.expirySession,
     });
   }
-  return { cash: nextCash, options: remaining, trades };
+  return { cash: Math.min(nextCash, MONEY_CAP), options: remaining, trades };
 }
 
 /** 유지증거금 미달 시 롱·공매도·옵션 전 포지션을 현재가/마크로 강제 청산한다. */
@@ -767,7 +767,7 @@ function liquidatePositions(
     ];
   }
   return {
-    cash: nextCash,
+    cash: Math.min(nextCash, MONEY_CAP),
     holdings: [],
     shorts: [],
     options: [],
@@ -2600,7 +2600,12 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
         const price = getMarketSellPrice(stock.currentPrice);
-        if (price * quantity > fullBuyingPower(state)) {
+        const notional = price * quantity;
+        // 정수 정밀도 상한 초과 주문은 명확히 막는다(공매도+미수 오버플로우 방지).
+        if (!Number.isSafeInteger(Math.round(notional)) || notional > MONEY_CAP) {
+          return { success: false, message: "주문 금액이 상한($1조)을 초과했습니다." };
+        }
+        if (notional > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }
         const result = openShort(
@@ -2614,7 +2619,7 @@ export const useMarketStore = create<MarketStore>()(
         );
         if (!isShortSuccess(result)) return result;
         set({
-          cash: result.cash,
+          cash: Math.min(result.cash, MONEY_CAP),
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
         });
@@ -2642,7 +2647,7 @@ export const useMarketStore = create<MarketStore>()(
         );
         if (!isShortSuccess(result)) return result;
         set({
-          cash: result.cash,
+          cash: Math.min(result.cash, MONEY_CAP),
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
         });
@@ -2820,7 +2825,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession,
         };
         set({
-          cash: state.cash + premium * quantity,
+          cash: Math.min(state.cash + premium * quantity, MONEY_CAP),
           options,
           trades: [trade, ...state.trades],
         });
@@ -2875,7 +2880,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession: pos.expirySession,
         };
         set({
-          cash: state.cash + delta,
+          cash: Math.min(state.cash + delta, MONEY_CAP),
           options,
           trades: [trade, ...state.trades],
         });
@@ -2956,7 +2961,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: state.cash + value,
+          cash: Math.min(state.cash + value, MONEY_CAP),
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
         playSound("cash");
@@ -3022,7 +3027,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: state.cash + net,
+          cash: Math.min(state.cash + net, MONEY_CAP),
           lotteryWindowStart: window,
           lotteryTicketsBought: bought + 1,
           wonJackpot: state.wonJackpot || prize.tier === "jackpot",
@@ -3092,7 +3097,7 @@ export const useMarketStore = create<MarketStore>()(
             ].slice(0, 20)
           : state.pensionAnnuities;
         set({
-          cash: state.cash + net,
+          cash: Math.min(state.cash + net, MONEY_CAP),
           lotteryWindowStart: window,
           lotteryTicketsBought: bought + 1,
           pensionAnnuities,

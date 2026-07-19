@@ -98,6 +98,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-19",
+    tag: "수정",
+    title: "공매도·미수 오버플로우 차단 — 자산 상한을 전 현금 경로에 적용",
+    detail:
+      "공매도에 미수를 써서 거액을 벌면 현금이 정수 한계($90조)를 넘어 값이 깨지던 문제를 고쳤습니다. 공매도 개시·청산, 옵션 발행·청산, 각종 정산 등 현금이 늘어나는 모든 경로에 자산 상한($1조)을 적용하고, 상한을 넘는 공매도 주문은 명확한 메시지로 반려합니다. 정상 플레이엔 닿지 않습니다.",
+  },
+  {
+    date: "2026-07-19",
     tag: "신규",
     title: "피드백·요청 사항 — 버그 리포트 옆에 나란히",
     detail:
