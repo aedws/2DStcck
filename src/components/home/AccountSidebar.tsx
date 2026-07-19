@@ -17,6 +17,11 @@ import {
   SALARY_AMOUNT,
 } from "@/lib/market/salary";
 import { computePrestige } from "@/lib/player/prestige";
+import { getBenchmark } from "@/lib/market/interestRate";
+import {
+  calculateSeasonPerformance,
+  seasonExternalCashTotal,
+} from "@/lib/market/investmentSeasons";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
@@ -51,6 +56,18 @@ export function AccountSidebar() {
   const total = getTotalAssets();
   const profit = total - initialCash;
   const returnRate = (profit / initialCash) * 100;
+  // 노동·외부수입(고정급·복권·출석·현금 채굴)을 뺀 순수 투자 성과 — 판단이
+  // 지수를 이겼는지(알파)만 뽑아 보여준다. 시즌 창을 기준 구간으로 재사용한다.
+  const benchmarkPrice = getBenchmark(stocks)?.currentPrice ?? 0;
+  const skillPerf =
+    investmentSeason.current && benchmarkPrice > 0
+      ? calculateSeasonPerformance(
+          investmentSeason.current,
+          total,
+          benchmarkPrice,
+          seasonExternalCashTotal(cashPayments),
+        )
+      : null;
   const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
   const salaryDays = getSalaryDaysRemaining(
     lastSalarySession,
@@ -80,6 +97,37 @@ export function AccountSidebar() {
         <p className="mt-2 text-xs text-[var(--muted)]">
           가용 현금 {formatPrice(cash)}
         </p>
+        {skillPerf && (
+          <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium">지수 대비 (알파)</p>
+              <span
+                className={`text-sm font-bold tabular-nums ${upDownClass(
+                  skillPerf.alpha,
+                )}`}
+              >
+                {formatSignedPercent(skillPerf.alpha * 100)}p
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[10px] text-[var(--muted)]">
+              <span>
+                내 투자{" "}
+                <span className={`tabular-nums ${upDownClass(skillPerf.playerReturn)}`}>
+                  {formatSignedPercent(skillPerf.playerReturn * 100)}
+                </span>
+              </span>
+              <span>
+                지수{" "}
+                <span className={`tabular-nums ${upDownClass(skillPerf.benchmarkReturn)}`}>
+                  {formatSignedPercent(skillPerf.benchmarkReturn * 100)}
+                </span>
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] text-[var(--muted)]">
+              고정급·복권·채굴 수입 제외 · 순수 매매 실력
+            </p>
+          </div>
+        )}
         <Link
           href="/profile"
           className="mt-3 flex items-center justify-between rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-2.5 transition hover:border-violet-400/50"

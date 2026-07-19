@@ -24,8 +24,11 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  지속되면 배수만큼 본주를 앞지른다. 가격 규칙 변경으로 전체 리플레이를 강제한다.
  *  v17: 레버리지·인버스 ETF 액면분할·병합 도입 — 가격이 $500을 넘으면 5:1 분할,
  *  $50 밑으로 내리면 2:1 병합해 표시가를 [$50, $500) 밴드로 유지한다(보유 좌수는
- *  반대로 증감). 표시가 규칙이 바뀌어 전체 리플레이를 강제한다. */
-export const MARKET_SIM_VERSION = 17;
+ *  반대로 증감). 표시가 규칙이 바뀌어 전체 리플레이를 강제한다.
+ *  v18: 기저 시장(이벤트 무관) 분산 축소 — 개별 노이즈(VOLATILITY_TIME_SCALE)를
+ *  낮추고 양방향 평균회귀를 강화해, 아무 판단·이벤트 없이도 종목이 ±50~70%로
+ *  달아나던 '복권 느낌'을 줄인다. 이벤트·판단이 분산을 만들도록 기저를 조인다. */
+export const MARKET_SIM_VERSION = 18;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.
@@ -45,7 +48,7 @@ export const MARKET_ORDER_SLIPPAGE = 0.00005;
 // 1시간 거래일로 압축해도 거래일당 변동폭이 크게 줄지 않도록 시간 계수를 보정한다.
 // 지수 ~1%, 채권 ~0.5%. 실제 시장 수준.
 /** 개별 노이즈: volatility × 이 값 × √dt초 */
-export const VOLATILITY_TIME_SCALE = 0.01;
+export const VOLATILITY_TIME_SCALE = 0.008;
 /** 시장 공통 충격: beta × z × 이 값 × √dt초 (베타1 기준 일변동 ~1.25%) */
 export const MARKET_SHOCK_TIME_SCALE = 0.000208;
 /** 시장 사인파 추세 진폭(초당, 베타 1 기준) — 15분 주기 ±1% 내외 */
@@ -62,8 +65,8 @@ export const MARKET_DOWNSIDE_REVERSION_PER_SESSION = 0.025;
  * 달아나지 못하게 묶는다. 반감기 ≈ ln2/κ. 위(과열)는 조금 더 세게, 아래(지지)는
  * 조금 완만하게 둔다.
  */
-export const MEAN_REVERSION_UP_PER_SESSION = 0.07;
-export const MEAN_REVERSION_DOWN_PER_SESSION = 0.05;
+export const MEAN_REVERSION_UP_PER_SESSION = 0.11;
+export const MEAN_REVERSION_DOWN_PER_SESSION = 0.08;
 /** 이벤트 임팩트: impact × 이 값 × dt초 × 감쇠 (impact 0.04면 총 ~0.6% 반영) */
 export const EVENT_IMPACT_TIME_SCALE = 0.0035;
 
