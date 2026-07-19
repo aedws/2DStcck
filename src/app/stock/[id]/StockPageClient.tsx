@@ -7,6 +7,7 @@ import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { FuturesLeadBadge } from "@/components/market/FuturesLeadBadge";
+import { useChartSeries } from "@/components/market/useChartSeries";
 import { EtfComposition } from "@/components/market/EtfComposition";
 import { OrderBook } from "@/components/market/OrderBook";
 import { OptionsPanel } from "@/components/market/OptionsPanel";
@@ -330,6 +331,7 @@ export function StockPageClient({ id }: { id: string }) {
   const holding = useMarketStore((s) =>
     s.holdings.find((h) => h.stockId === id),
   );
+  const series = useChartSeries(stock);
 
   if (!stock) {
     return (
@@ -382,9 +384,9 @@ export function StockPageClient({ id }: { id: string }) {
             <div className="space-y-4">
               {stock.sector !== "선물" && <FuturesLeadBadge />}
               <CandlestickChart
-                candles={stock.candles}
-                dailyCandles={stock.dailyCandles}
-                history={stock.priceHistory}
+                candles={series.candles}
+                dailyCandles={series.dailyCandles}
+                history={series.history}
                 height={360}
                 mobileHeight={260}
                 averagePrice={holding?.averagePrice}

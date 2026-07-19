@@ -14,6 +14,7 @@ import {
 } from "@/lib/ui/marketColors";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { FuturesLeadBadge } from "@/components/market/FuturesLeadBadge";
+import { useChartSeries } from "@/components/market/useChartSeries";
 import { getCharacterById } from "@/data/characters";
 import { useMarketStore } from "@/store/marketStore";
 
@@ -27,6 +28,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
   const holding = useMarketStore((s) =>
     stock ? s.holdings.find((h) => h.stockId === stock.id) : undefined,
   );
+  const series = useChartSeries(stock);
 
   if (!stock) {
     return (
@@ -73,9 +75,9 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
       <div className="space-y-2 px-4 py-3">
         {stock.sector !== "선물" && <FuturesLeadBadge />}
         <CandlestickChart
-          candles={stock.candles}
-          dailyCandles={stock.dailyCandles}
-          history={stock.priceHistory}
+          candles={series.candles}
+          dailyCandles={series.dailyCandles}
+          history={series.history}
           height={220}
           averagePrice={holding?.averagePrice}
           prevDayClose={stock.prevDayClose}

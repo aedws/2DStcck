@@ -14,6 +14,7 @@
     "test:learning": "tsx scripts/test-learning-journey.ts",
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
     "test:optionsplit": "tsx scripts/test-option-split.ts",
+    "test:levchart": "tsx scripts/test-leverage-chart.ts",
     "test:minigame": "tsx scripts/test-minigame.ts",
     "test:tetris": "tsx scripts/test-tetris-logic.ts",
     "test:indicators": "tsx scripts/test-chart-indicators.ts",

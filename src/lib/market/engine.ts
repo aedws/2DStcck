@@ -606,6 +606,68 @@ export function computeLeveragedPrice(
 }
 
 /**
+ * 레버리지·인버스 ETF 차트용 '분할조정' 캔들. 표시가는 밴드에 묶여 분할·병합 때
+ * ÷5·×2로 튀어 차트에 절벽·스파이크가 생긴다. ETF 가격은 기초자산의 순함수라,
+ * 기초자산의 (분할 없는) 캔들에서 raw 가격을 연속으로 재구성하고 '현재 배수'로
+ * 나눠, 최신 값은 현재 표시가와 같으면서 과거는 매끄럽게 소급 조정한다.
+ * (실제 증권 차트의 액면분할 소급조정과 동일)
+ */
+function leverageChartConverter(
+  etf: StockState,
+  underlying: StockState,
+): ((underlyingPrice: number) => number) | null {
+  const underlyingInitial =
+    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ??
+    underlying.initialPrice ??
+    0;
+  const m = leverageMultiplierFor(etf, underlying);
+  if (underlyingInitial <= 0 || m <= 0) return null;
+  const lev = etf.leverage ?? 1;
+  return (u: number) =>
+    Math.max(
+      computeLeveragedRawPrice(etf.initialPrice, u, underlyingInitial, lev) / m,
+      1,
+    );
+}
+
+/** 기초자산 캔들 → 레버리지 ETF 분할조정 캔들 (타임스탬프 그대로). */
+export function leverageAdjustedCandles(
+  etf: StockState,
+  underlying: StockState,
+  underlyingCandles: Candle[],
+): Candle[] {
+  const conv = leverageChartConverter(etf, underlying);
+  if (!conv) return underlyingCandles;
+  const inverse = (etf.leverage ?? 1) < 0;
+  return underlyingCandles.map((c) => {
+    // 인버스는 기초 상승=ETF 하락이라 고·저가 원본이 뒤바뀐다.
+    const hiSource = inverse ? c.low : c.high;
+    const loSource = inverse ? c.high : c.low;
+    return {
+      timestamp: c.timestamp,
+      open: conv(c.open),
+      high: conv(hiSource),
+      low: conv(loSource),
+      close: conv(c.close),
+    };
+  });
+}
+
+/** 기초자산 가격기록 → 레버리지 ETF 분할조정 가격기록. */
+export function leverageAdjustedHistory(
+  etf: StockState,
+  underlying: StockState,
+  underlyingHistory: PricePoint[],
+): PricePoint[] {
+  const conv = leverageChartConverter(etf, underlying);
+  if (!conv) return underlyingHistory;
+  return underlyingHistory.map((p) => ({
+    timestamp: p.timestamp,
+    price: conv(p.price),
+  }));
+}
+
+/**
  * 커버드콜은 기초자산의 상승·하락에 지정 참여율만큼 반응한다.
  * 옵션 프리미엄은 매 틱 NAV에 누적되고 상품별 분배일에 현금으로 빠져나간다.
  */
