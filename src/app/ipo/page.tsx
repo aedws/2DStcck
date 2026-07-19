@@ -9,7 +9,6 @@ import {
   listingCountdownLabel,
 } from "@/lib/market/ipo";
 import { StockRequestForm } from "@/components/market/StockRequestForm";
-import { BugReportForm } from "@/components/market/BugReportForm";
 import { useMarketStore } from "@/store/marketStore";
 
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24시간
@@ -126,11 +125,6 @@ export default function IpoPage() {
 
       {/* 종목 신청 */}
       <StockRequestForm />
-
-      {/* 버그 리포트 */}
-      <div className="mt-4">
-        <BugReportForm />
-      </div>
     </div>
   );
 }

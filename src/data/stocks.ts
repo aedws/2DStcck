@@ -239,6 +239,25 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_udnge",
   },
+  {
+    id: "dante",
+    ticker: "DNTE",
+    name: "단테 정밀시계",
+    sector: "명품",
+    subsector: "고급 시계",
+    initialPrice: 95000,
+    volatility: 0.03,
+    drift: 0.0006,
+    beta: 0.85,
+    description:
+      "한 치의 오차도 허락하지 않는 하이엔드 기계식 시계 제조사. 초정밀 무브먼트와 극소량 생산으로 수집가들의 성지가 됐다. 시계에 진심인 창업자 단테가 직접 모든 무브먼트를 검수한다.",
+    eventBias: {
+      신제품: 4,
+      행보: 2,
+      실적: 2,
+    },
+    ceoId: "chr_dante",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */

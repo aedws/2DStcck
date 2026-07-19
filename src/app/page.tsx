@@ -10,6 +10,7 @@ import { PumpBanner } from "@/components/home/PumpBanner";
 import { AttendanceBanner } from "@/components/home/AttendanceBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
 import { HomeIpoBanner } from "@/components/home/HomeIpoBanner";
+import { BugReportForm } from "@/components/market/BugReportForm";
 import { LearningJourneyCard } from "@/components/home/LearningJourneyCard";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
@@ -65,6 +66,9 @@ export default function MarketPage() {
           마운트 전엔 렌더하지 않아 새내기 화면에 깜빡임이 남지 않게 한다. */}
       {mounted && trades.length >= 3 && <OperationBriefing />}
       <PumpBanner pumps={pumpStocks} />
+      <div className="px-4 pt-3 md:px-5">
+        <BugReportForm />
+      </div>
       {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해
           페이지 전체가 스크롤되도록 두고, 이 행에만 한 화면 높이를 줘 각 패널이
           내부 스크롤을 유지하게 한다. */}

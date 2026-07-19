@@ -108,6 +108,7 @@ import {
   MARKET_SIM_VERSION,
   SESSION_DURATION_MS,
   WALLET_EPOCH,
+  MONEY_CAP,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
 import {
@@ -976,6 +977,10 @@ function applyLocalBuySell(
   if (mode.startsWith("buy")) {
     const buyingPower = longBuyingPower(state);
     const total = shareOrderTotal(price, quantity);
+    // 정수 정밀도 상한 초과분은 조용히 '돈 부족'으로 튕기지 않고 명확히 막는다.
+    if (!Number.isSafeInteger(Math.round(total)) || total > MONEY_CAP) {
+      return { success: false, message: "주문 금액이 상한($1조)을 초과했습니다." };
+    }
     if (total > buyingPower) {
       return { success: false, message: "매수여력이 부족합니다." };
     }
@@ -1015,7 +1020,7 @@ function applyLocalBuySell(
   );
   if (!isOrderSuccess(result)) return result;
   set({
-    cash: result.cash,
+    cash: Math.min(result.cash, MONEY_CAP),
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
   });
@@ -3130,7 +3135,8 @@ export const useMarketStore = create<MarketStore>()(
           s.preferredShares,
           computeCharacterConcentration(s.holdings, s.stocks, equity),
         );
-        return equity + getPreferredShareValue(active);
+        // 정수 정밀도 상한 아래로 순자산을 묶는다(랭킹 갱신 실패·표시 오류 방지).
+        return Math.min(equity + getPreferredShareValue(active), MONEY_CAP);
       },
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),

@@ -35,6 +35,32 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "새 약이 들어왔습니다. 만든 건 제가 아니지만, 파는 건 제가 제일 잘해요.",
     ],
   },
+  {
+    characterId: "chr_dante",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "똑… 딱… 정확한 타이밍이 최고의 수익을 만듭니다. 똑딱.",
+      "시간은 정직합니다. 이번에도 한 치의 오차 없이. 똑—딱—",
+    ],
+  },
+  {
+    characterId: "chr_dante",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "톱니 하나가 어긋났군요. 똑… 딱… 곧 제자리에 맞춰 넣겠습니다.",
+      "시계는 멈춰도 시간은 흐릅니다. 똑딱. 다시 태엽을 감죠.",
+    ],
+  },
+  {
+    characterId: "chr_dante",
+    tag: "신제품",
+    direction: "positive",
+    quotes: [
+      "새 무브먼트가 완성됐습니다. 심장이… 아니, 초침이 뜁니다. 똑딱!",
+    ],
+  },
 ];
 
 /**
