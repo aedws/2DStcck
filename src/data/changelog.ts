@@ -98,6 +98,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-19",
+    tag: "신규",
+    title: "IPO 상장 예고 — 영원정 제약(우동게), 7/20 15:00 개장",
+    detail:
+      "미혹의 죽림 영원정의 제약사 '영원정 제약'(UDGE)이 7월 20일 오후 3시(KST) 상장합니다. 간판 얼굴은 달토끼 레이센 우동게인 이나바 — 불사의 명약 '봉래약' 소문의 중심이지만, 정작 조제엔 손대지 않고 마을에 행상으로 약을 파는 판매 담당입니다(실제 제조는 따로). IPO 탭에서 카운트다운으로 확인할 수 있고, 상장 시각에 맞춰 자동 개장하며 인버스·레버리지·커버드콜 파생도 함께 열립니다.",
+  },
+  {
+    date: "2026-07-19",
     tag: "수정",
     title: "레버리지 ETF 차트 — 분할·병합 절벽 제거(분할조정)",
     detail:

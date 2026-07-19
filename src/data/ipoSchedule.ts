@@ -12,5 +12,6 @@
  * "N시간 뒤"를 계산해 숫자로 박아 넣는다(재빌드에도 값이 바뀌지 않게).
  */
 export const IPO_SCHEDULE: Record<string, number> = {
-  // 예시) aeyvn: Date.UTC(2026, 6, 18, 15, 0),
+  // 영원정 제약(우동게) — 2026-07-20 15:00 KST 개장 (= 06:00 UTC)
+  udnge: Date.UTC(2026, 6, 20, 6, 0),
 };

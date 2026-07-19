@@ -219,6 +219,26 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     description:
       "실물 금 가격을 추종하는 ETF. 시장이 흔들릴 때 오히려 강세를 보이는 경향이 있어 위기 국면의 헤지·분산 수단으로 쓰인다. 배당은 없다.",
   },
+  // ── IPO 상장 예정 (코드 관리 캐릭터 기업) ──
+  {
+    id: "udnge",
+    ticker: "UDGE",
+    name: "영원정 제약",
+    sector: "바이오",
+    subsector: "제약",
+    initialPrice: 38000,
+    volatility: 0.042,
+    drift: 0.0006,
+    beta: 0.95,
+    description:
+      "미혹의 죽림 깊은 곳 영원정에 자리한 제약사. 불사의 명약 '봉래약'을 개발 중이라는 소문이 돈다. 다만 간판 얼굴인 우동게는 정작 제조엔 손대지 않고, 마을에 행상인 행세로 들어가 약을 파는 판매만 맡는다 — 실제 조제는 따로 있다.",
+    eventBias: {
+      신제품: 4,
+      행보: 2,
+      스캔들: 1.5,
+    },
+    ceoId: "chr_udnge",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -279,6 +299,8 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
       leverage,
       leverageUnderlyingId: underlying.id,
       universalDerivative: true,
+      // 기초자산이 IPO 예정이면 파생상품도 같은 시각까지 비상장으로 묶는다.
+      listingEpochMs: underlying.listingEpochMs,
       description: `${underlying.name}의 틱 수익률을 ${leverage}배로 추종하는 합성 ETF.`,
     })),
   );
@@ -315,6 +337,8 @@ const SINGLE_STOCK_COVERED_CALLS: StockDefinition[] =
     coveredCallUpsideCapture: 0.7,
     coveredCallDistributionIntervalDays: 5,
     universalDerivative: true,
+    // 기초자산이 IPO 예정이면 커버드콜도 같은 시각까지 비상장으로 묶는다.
+    listingEpochMs: underlying.listingEpochMs,
     description: `${underlying.name}의 상승·하락을 0.7배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.`,
   }));
 

@@ -1,7 +1,41 @@
 import { getCharacterById } from "@/data/characters";
 import { CSV_CHARACTER_QUOTES } from "@/data/generated";
 import { STOCK_DEFINITIONS } from "@/data/stocks";
-import type { Character, MarketEvent } from "@/lib/types/market";
+import type {
+  Character,
+  CharacterQuoteEntry,
+  MarketEvent,
+} from "@/lib/types/market";
+
+/** 코드로 직접 관리하는 캐릭터 전용 대사(CSV 외 IPO 추가분). */
+const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
+  {
+    characterId: "chr_udnge",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "오늘도 마을에서 완판이에요. 약효요? 그건 조제하는 쪽에 물어보셔야…",
+      "행상은 발로 뛴 만큼 팔립니다. 저는 파는 건 자신 있어요.",
+    ],
+  },
+  {
+    characterId: "chr_udnge",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "재고가 남았네요… 제가 파는 재주가 부족한 걸까요.",
+      "소문이 너무 앞서가면 곤란해요. 저는 그저 파는 사람일 뿐인데요.",
+    ],
+  },
+  {
+    characterId: "chr_udnge",
+    tag: "신제품",
+    direction: "positive",
+    quotes: [
+      "새 약이 들어왔습니다. 만든 건 제가 아니지만, 파는 건 제가 제일 잘해요.",
+    ],
+  },
+];
 
 /**
  * 회사 이벤트가 터질 때 해당 회사 캐릭터가 남기는 한마디.
@@ -68,10 +102,12 @@ export const NEGATIVE_GENERIC = [
  * data/character-quotes.csv 에서 생성된다(비어 있으면 공용 풀만 사용).
  */
 const CHARACTER_QUOTE_LOOKUP = new Map<string, string[]>(
-  CSV_CHARACTER_QUOTES.filter((entry) => entry.quotes.length > 0).map((entry) => [
-    `${entry.characterId}|${entry.tag}|${entry.direction}`,
-    entry.quotes,
-  ]),
+  [...CSV_CHARACTER_QUOTES, ...CORE_CHARACTER_QUOTES]
+    .filter((entry) => entry.quotes.length > 0)
+    .map((entry) => [
+      `${entry.characterId}|${entry.tag}|${entry.direction}`,
+      entry.quotes,
+    ]),
 );
 
 /**
