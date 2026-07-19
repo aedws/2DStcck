@@ -41,8 +41,10 @@ export const MARKET_SIM_VERSION = 20;
  * v1: 거래내역 미동기화·비정상 자산 시즌을 한 번 리셋해 정상화.
  * v2: 분배 체크포인트 회귀로 현금이 복제되던 시즌을 재리셋.
  * v3: epoch 판정이 초기값에 가려져 로컬 구저장분이 안 지워지던 버그 수정 후 재리셋.
+ * v4: 레버리지 옵션 분할 익스플로잇으로 비정상 자금이 반복 증식돼, 공정성을 위해
+ *     새 시즌 강제 오픈 + 전 계정 초기화. 리셋 보상으로 마스터 프레임을 지급한다.
  */
-export const WALLET_EPOCH = 3;
+export const WALLET_EPOCH = 4;
 /** 결정론 시뮬레이션 tick 간격 (ms) — 로컬 모드 1초 */
 export const SIM_TICK_MS = 1000;
 

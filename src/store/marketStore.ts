@@ -1344,6 +1344,18 @@ export const useMarketStore = create<MarketStore>()(
         if (!wallet || (wallet.walletEpoch ?? 0) < WALLET_EPOCH) {
           // 첫 로그인·구세대 저장분: 현재(이미 epoch 리셋된) 로컬 지갑을 클라우드에 올린다.
           // 구세대 클라우드가 로컬을 다시 오염시키지 않도록 적용하지 않는다.
+          // 실제 이전 클라우드 지갑을 버리는 경우(전체 초기화)엔 리셋 보상으로
+          // 마스터 프레임을 지급한다 — 다른 기기 로컬이 새것이어도 보상이 붙게.
+          if (wallet && wallet.walletEpoch !== undefined) {
+            set((state) => ({
+              unlockedSeasonRewardIds: mergeSeasonRewards(
+                state.unlockedSeasonRewardIds,
+                "master",
+              ),
+              selectedSeasonFrameId:
+                state.selectedSeasonFrameId ?? "season-frame-master",
+            }));
+          }
           await get().saveCloud();
           return;
         }
@@ -3212,9 +3224,21 @@ export const useMarketStore = create<MarketStore>()(
         const walletEpochOk = raw.walletEpoch === WALLET_EPOCH;
         // 구세대 지갑(비정상 자산·거래내역 누락 시즌)은 버리고 초기 자금으로 재시작한다.
         // 시장 체크포인트는 marketVersion으로 따로 판정한다.
+        // WALLET_EPOCH v4 전체 초기화: 실제 이전 지갑이 있던 계정에는 리셋 보상으로
+        // 마스터 프레임을 지급한다(신규 접속자는 제외).
+        const hadPriorWallet = raw.walletEpoch !== undefined;
         const walletSource = walletEpochOk
           ? merged
-          : { ...merged, ...createInitialState() };
+          : {
+              ...merged,
+              ...createInitialState(),
+              ...(hadPriorWallet
+                ? {
+                    unlockedSeasonRewardIds: mergeSeasonRewards([], "master"),
+                    selectedSeasonFrameId: "season-frame-master" as const,
+                  }
+                : {}),
+            };
         const persistedSessionDuration = Number.isFinite(
           (walletSource as Partial<MarketSnapshot>).sessionDurationMs,
         )

@@ -1,35 +1,40 @@
 /**
- * 계정별 운영 조치 — 특정 계정(버그 익스플로잇 등)만 콕 집어 지갑을 초기화하고
- * 안내·보상 팝업을 1회 띄운다. 키는 Supabase auth user id라 게임 핸들이 번들에
- * 노출되지 않는다. 리셋은 로그인 시 클라이언트가 스스로 수행하므로, 로컬 지갑이
- * 클라우드보다 최신이어도(로컬-우선 규칙) 확실히 적용된다.
+ * 운영 공지 & 계정별 조치.
  *
- * resetVersion 을 올리면 해당 계정에 리셋·보상이 다시 1회 적용된다(멱등: 지갑에
- * account-reset-v{n} 지급 내역이 없을 때만).
+ * GLOBAL_SERVICE_NOTICE: 전체 플레이어에게 1회 뜨는 공지(설정 serviceNoticeSeenVersion
+ * 으로 게이트). 버전을 올리면 새 공지가 다시 뜬다.
+ *
+ * TARGETED_ACCOUNT_ACTIONS: 특정 계정만 리셋·보상하는 조치(auth user id 키). 전체
+ * 초기화(WALLET_EPOCH v4)로 대체돼 현재는 비어 있다.
  */
-export interface TargetedAccountAction {
-  /** 올릴 때마다 리셋·보상·안내를 1회 더 적용한다. */
-  resetVersion: number;
-  /** 리셋 후 지급할 보상(센트). 0이면 보상 없이 초기화만. */
-  compensationAmount: number;
+
+export interface ServiceNotice {
+  /** 설정 serviceNoticeSeenVersion 이 이 값 미만이면 공지를 띄운다. */
+  version: number;
   emoji: string;
   title: string;
-  /** 안내 본문 문단 */
   body: string[];
 }
 
-/** 키 = Supabase auth user id (게임 핸들 비노출) */
-export const TARGETED_ACCOUNT_ACTIONS: Record<string, TargetedAccountAction> = {
-  // lakelucid — 레버리지 ETF 옵션 분할 버그로 $10만 → $9.97조 부당 수령.
-  "a073dad3-5731-4a61-a72a-66f25b58242e": {
-    resetVersion: 1,
-    compensationAmount: 5_000_000, // $50,000
-    emoji: "🔧",
-    title: "계정 정상화 안내 & 보상",
-    body: [
-      "레버리지·인버스 ETF 옵션의 액면분할 정산 버그로, 회원님 계정이 실제 매매 실력과 무관하게 막대한 자금을 부당 수령했습니다.",
-      "해당 버그를 수정했고, 회원님 계정을 초기 상태($100,000)로 정상화했습니다. 이제 옵션은 분할·병합에 맞춰 정확히 정산됩니다.",
-      "불편을 드려 죄송합니다. 다시 시작하시는 데 보태시라고 보상 $50,000을 지급했습니다. (보상은 투자 성과가 아니므로 시즌·랭킹에는 반영되지 않습니다.)",
-    ],
-  },
+/** 전체 공지(없으면 null). */
+export const GLOBAL_SERVICE_NOTICE: ServiceNotice | null = {
+  version: 2,
+  emoji: "🔧",
+  title: "긴급 점검 & 전체 초기화 안내",
+  body: [
+    "레버리지·인버스 ETF 옵션의 액면분할 정산 버그를 악용한 비정상 자금 증식이 반복 확인됐습니다. 공정성을 위해 새 시즌을 강제로 열고 모든 계정을 초기화했습니다.",
+    "이번 국면(장세)을 처음부터 다시 플레이하게 되며, 시즌·수익률은 지금부터 새로 측정됩니다 — 앞으로 얼마나 버는지가 곧 실력입니다.",
+    "초기화 보상으로 지난 시즌 최고 등급 '마스터 왕관 프레임' 👑을 지급했습니다. 불편을 드려 진심으로 죄송합니다.",
+  ],
 };
+
+export interface TargetedAccountAction {
+  resetVersion: number;
+  compensationAmount: number;
+  emoji: string;
+  title: string;
+  body: string[];
+}
+
+/** 키 = Supabase auth user id. 전체 초기화로 대체돼 현재 비어 있음. */
+export const TARGETED_ACCOUNT_ACTIONS: Record<string, TargetedAccountAction> = {};
