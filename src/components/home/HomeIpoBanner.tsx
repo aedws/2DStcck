@@ -52,16 +52,18 @@ export function HomeIpoBanner() {
   );
 
   if (!mounted) return null;
-  const listed = recent[0];
-  const next = upcoming[0];
-  if (!listed && !next) return null;
+  // 방금 상장은 모두, 상장 예정은 임박순 최대 4개까지 띄운다.
+  const listedList = recent.slice(0, 3);
+  const upcomingList = upcoming.slice(0, 4);
+  if (listedList.length === 0 && upcomingList.length === 0) return null;
 
   const emojiOf = (ceoId?: string) => getCharacterById(ceoId)?.emoji ?? "📈";
 
   return (
     <div className="mx-4 mt-3 space-y-2 md:mx-5">
-      {listed && (
+      {listedList.map((listed) => (
         <Link
+          key={listed.id}
           href={`/stock/${listed.id}`}
           className="flex items-center gap-3 rounded-2xl border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-3 transition hover:border-[var(--accent)]/70"
         >
@@ -79,9 +81,10 @@ export function HomeIpoBanner() {
             거래하기 →
           </span>
         </Link>
-      )}
-      {next && (
+      ))}
+      {upcomingList.map((next) => (
         <Link
+          key={next.id}
           href="/ipo"
           className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 transition hover:border-[var(--accent)]/50"
         >
@@ -97,7 +100,7 @@ export function HomeIpoBanner() {
           </div>
           <span className="shrink-0 text-xs text-[var(--muted)]">IPO →</span>
         </Link>
-      )}
+      ))}
     </div>
   );
 }

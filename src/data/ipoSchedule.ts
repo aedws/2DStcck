@@ -14,6 +14,6 @@
 export const IPO_SCHEDULE: Record<string, number> = {
   // 레이센 제약(우동게) — 2026-07-20 15:00 KST 개장 (= 06:00 UTC)
   udnge: Date.UTC(2026, 6, 20, 6, 0),
-  // 단테 정밀시계(단테) — 2026-07-21 15:00 KST 개장 (= 06:00 UTC)
-  dante: Date.UTC(2026, 6, 21, 6, 0),
+  // 단테 정밀시계(단테) — 2026-07-21 18:00 KST 개장 (= 09:00 UTC)
+  dante: Date.UTC(2026, 6, 21, 9, 0),
 };
