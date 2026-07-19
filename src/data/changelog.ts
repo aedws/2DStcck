@@ -98,6 +98,20 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-19",
+    tag: "수정",
+    title: "긴급 점검 — 새 시즌 강제 오픈 + 전체 초기화 + 마스터 프레임 보상",
+    detail:
+      "레버리지 옵션 분할 익스플로잇으로 비정상 자금 증식이 반복돼, 공정성을 위해 새 시즌을 강제로 열고 모든 계정을 초기화했습니다. 이번 국면을 처음부터 다시 플레이하며 시즌·수익률은 지금부터 새로 측정됩니다. 초기화 보상으로 지난 시즌 최고 등급 '마스터 왕관 프레임'👑을 전원에게 지급합니다.",
+  },
+  {
+    date: "2026-07-19",
+    tag: "신규",
+    title: "버그 리포트 — IPO 탭에서 무료 제보",
+    detail:
+      "이상 동작을 발견하면 IPO 탭 하단 '🐞 버그 리포트'에서 무료로 제보할 수 있습니다. 접수된 제보는 운영자가 확인해 빠르게 대응합니다.",
+  },
+  {
+    date: "2026-07-19",
     tag: "개선",
     title: "홈에서 IPO 알림 — 상장 예정 카운트다운 + 신규 상장 안내",
     detail:
