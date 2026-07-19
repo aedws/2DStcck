@@ -30,6 +30,9 @@ interface SettingsState {
   /** 확인한 운영 공지 버전(이 값 미만이면 새 공지·보상 모달을 띄운다) */
   serviceNoticeSeenVersion: number;
   setServiceNoticeSeenVersion: (value: number) => void;
+  /** 이미 적용한 대상 계정 리셋 버전(멱등 게이트 — 이 값 미만일 때만 리셋한다) */
+  appliedAccountResetVersion: number;
+  setAppliedAccountResetVersion: (value: number) => void;
   missionTutorialSeen: boolean;
   setMissionTutorialSeen: (value: boolean) => void;
   missionTutorialVersion: number;
@@ -87,6 +90,9 @@ export const useSettingsStore = create<SettingsState>()(
       serviceNoticeSeenVersion: 0,
       setServiceNoticeSeenVersion: (serviceNoticeSeenVersion) =>
         set({ serviceNoticeSeenVersion }),
+      appliedAccountResetVersion: 0,
+      setAppliedAccountResetVersion: (appliedAccountResetVersion) =>
+        set({ appliedAccountResetVersion }),
       missionTutorialSeen: false,
       setMissionTutorialSeen: (missionTutorialSeen) =>
         set({ missionTutorialSeen }),

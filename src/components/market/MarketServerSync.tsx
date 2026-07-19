@@ -15,6 +15,9 @@ import { PriceAlertMonitor } from "@/components/market/PriceAlertMonitor";
 function CloudSaveSync() {
   const setUserId = useMarketStore((s) => s.setUserId);
   const loadCloudSave = useMarketStore((s) => s.loadCloudSave);
+  const applyTargetedAccountReset = useMarketStore(
+    (s) => s.applyTargetedAccountReset,
+  );
   const saveCloud = useMarketStore((s) => s.saveCloud);
 
   // 로그인 상태 추적 + 로그인 시 저장분 로드.
@@ -43,6 +46,9 @@ function CloudSaveSync() {
         setTimeout(() => {
           void (async () => {
             await loadCloudSave();
+            // 대상 계정이면 로컬·클라우드 어느 쪽이 적용됐든 클라이언트가 스스로
+            // 초기화한다(로컬-우선 규칙을 이겨 재로그인해도 리셋이 유지됨).
+            applyTargetedAccountReset();
             await saveCloud();
           })();
         }, 0);
@@ -50,7 +56,7 @@ function CloudSaveSync() {
     );
 
     return () => listener.subscription.unsubscribe();
-  }, [setUserId, loadCloudSave, saveCloud]);
+  }, [setUserId, loadCloudSave, saveCloud, applyTargetedAccountReset]);
 
   // 지갑 변경 시 디바운스 저장 (로그인 상태에서만).
   // 매매 직후 탭을 닫으면 디바운스가 날아가 거래내역이 유실되므로,

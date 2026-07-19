@@ -128,6 +128,8 @@ import {
   syncLeaderboard,
 } from "@/lib/supabase/cloudSave";
 import { ACHIEVEMENTS } from "@/data/achievements";
+import { TARGETED_ACCOUNT_ACTIONS } from "@/data/serviceNotice";
+import { useSettingsStore } from "@/store/settingsStore";
 import {
   STOCK_REQUEST_COST,
   STOCK_REQUEST_COOLDOWN_DAYS,
@@ -265,8 +267,11 @@ interface MarketStore extends MarketSnapshot {
   attendance: AttendanceState;
   selectedTitleId: string;
   claimDailyAttendance: () => OrderResult;
-  /** 운영 보상(버그 수정 등)을 1회 지급한다. 이미 받은 버전이면 무시(멱등). */
-  claimServiceCompensation: (version: number, amount: number) => boolean;
+  /**
+   * 로그인 계정이 대상 조치(TARGETED_ACCOUNT_ACTIONS)에 있으면 지갑을 초기화하고
+   * 보상을 지급한다. 이미 적용한 버전이면 무시(멱등). 리셋이 적용됐으면 true.
+   */
+  applyTargetedAccountReset: () => boolean;
   selectPlayerTitle: (titleId: string) => OrderResult;
   /** 수락 시점부터 정확히 1거래일 동안 진행하는 단기 작전. */
   dailyOperation: DailyOperation | null;
@@ -1144,30 +1149,50 @@ export const useMarketStore = create<MarketStore>()(
         playSound("cash");
         return { success: true, message: "출석 보상을 받았습니다." };
       },
-      claimServiceCompensation: (version, amount) => {
+      applyTargetedAccountReset: () => {
         const state = get();
-        const paymentId = `compensation-v${version}`;
-        // 멱등: 지갑에 이미 이 버전 보상 내역이 있으면 재지급하지 않는다.
-        if (state.cashPayments.some((p) => p.id === paymentId)) return false;
-        if (amount <= 0) return false;
+        const userId = state.userId;
+        if (!userId) return false;
+        const action = TARGETED_ACCOUNT_ACTIONS[userId];
+        if (!action) return false;
+        // 멱등 게이트: 세대가 지나도 만료되지 않는 설정 플래그로 판정한다.
+        const settings = useSettingsStore.getState();
+        if (settings.appliedAccountResetVersion >= action.resetVersion) {
+          return false;
+        }
         const now = Date.now();
-        const payment: CashPayment = {
-          id: paymentId,
-          kind: "compensation",
-          sourceId: "service-compensation",
-          dueSession: Math.floor(now / SESSION_DURATION_MS),
-          amount,
-          timestamp: now,
-        };
+        // 리셋과 보상을 원자적으로 처리한다. 보상 내역은 지급 기록으로 남긴다.
+        const compensation: CashPayment[] =
+          action.compensationAmount > 0
+            ? [
+                {
+                  id: `account-reset-v${action.resetVersion}`,
+                  kind: "compensation",
+                  sourceId: "account-reset",
+                  dueSession: Math.floor(now / SESSION_DURATION_MS),
+                  amount: action.compensationAmount,
+                  timestamp: now,
+                },
+              ]
+            : [];
         set({
-          cash: state.cash + amount,
-          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+          cash: state.initialCash + action.compensationAmount,
+          holdings: [],
+          trades: [],
+          options: [],
+          shorts: [],
+          openOrders: [],
+          ownedLuxuries: [],
+          cashPayments: compensation,
         });
-        useToastStore.getState().push(
-          `🔧 버그 수정 보상 · ${formatPrice(amount)} 지급`,
-          "success",
-        );
-        playSound("cash");
+        settings.setAppliedAccountResetVersion(action.resetVersion);
+        if (action.compensationAmount > 0) {
+          useToastStore.getState().push(
+            `🔧 계정 정상화 · 보상 ${formatPrice(action.compensationAmount)} 지급`,
+            "success",
+          );
+          playSound("cash");
+        }
         return true;
       },
       selectPlayerTitle: (titleId) => {
