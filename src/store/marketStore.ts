@@ -326,6 +326,27 @@ interface MarketStore extends MarketSnapshot {
   /** 유의미 분산(5캐릭터↑)이 시작된 거래일 — 5거래일 유예 후 휴면분 매각. null이면 미분산. */
   preferredDiversifiedSince: number | null;
   readCharacterMessageIds: string[];
+  /** 운영자 회신을 이미 처리(보상 지급·표시)한 버그 리포트 id. 중복 지급 방지. */
+  resolvedBugReportIds: string[];
+  /**
+   * 운영자가 처리한 버그 리포트 회신을 반영한다. 수정 완료(fixed)엔 보상을
+   * 지급하고, 이미 처리한 id 는 건너뛴다(멱등). 새로 처리한 회신 목록을 돌려준다.
+   */
+  resolveBugReports: (
+    responses: {
+      id: string;
+      title: string;
+      status: "fixed" | "wontfix";
+      message: string | null;
+      rewardCents: number;
+    }[],
+  ) => {
+    id: string;
+    title: string;
+    status: "fixed" | "wontfix";
+    message: string | null;
+    rewardCents: number;
+  }[];
   investmentMastery: InvestmentMasteryState;
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
   investmentSeason: InvestmentSeasonState;
@@ -433,6 +454,7 @@ function createInitialState(): MarketSnapshot & {
   preferredIssuedCharacterIds: string[];
   preferredDiversifiedSince: number | null;
   readCharacterMessageIds: string[];
+  resolvedBugReportIds: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
@@ -503,6 +525,7 @@ function createInitialState(): MarketSnapshot & {
     preferredIssuedCharacterIds: [],
     preferredDiversifiedSince: null,
     readCharacterMessageIds: [],
+    resolvedBugReportIds: [],
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
@@ -1374,6 +1397,39 @@ export const useMarketStore = create<MarketStore>()(
             ...new Set([...messageIds, ...state.readCharacterMessageIds]),
           ].slice(0, 300),
         })),
+      resolveBugReports: (responses) => {
+        const state = get();
+        const already = new Set(state.resolvedBugReportIds);
+        const fresh = responses.filter((r) => !already.has(r.id));
+        if (fresh.length === 0) return [];
+        const now = Date.now();
+        const dueSession = Math.floor(now / SESSION_DURATION_MS);
+        // 수정 완료 보상은 운영 지급(compensation) — 시즌·랭킹 성과에서 제외된다.
+        const rewardPayments: CashPayment[] = fresh
+          .filter((r) => r.status === "fixed" && r.rewardCents > 0)
+          .map((r) => ({
+            id: `bug-bounty-${r.id}`,
+            kind: "compensation",
+            sourceId: "bug-report",
+            dueSession,
+            amount: r.rewardCents,
+            timestamp: now,
+          }));
+        const totalReward = rewardPayments.reduce((sum, p) => sum + p.amount, 0);
+        set({
+          cash: state.cash + totalReward,
+          cashPayments: [...rewardPayments, ...state.cashPayments],
+          resolvedBugReportIds: [
+            ...fresh.map((r) => r.id),
+            ...state.resolvedBugReportIds,
+          ].slice(0, 300),
+        });
+        if (totalReward > 0) {
+          playSound("cash");
+        }
+        void get().saveCloud();
+        return fresh;
+      },
       selectInvestmentSeasonGoal: (goalId, targetWeight) => {
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         const next = selectSeasonGoal(
@@ -1654,6 +1710,7 @@ export const useMarketStore = create<MarketStore>()(
               ? wallet.preferredDiversifiedSince
               : null,
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
+          resolvedBugReportIds: wallet.resolvedBugReportIds ?? [],
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
           ),
@@ -1726,6 +1783,7 @@ export const useMarketStore = create<MarketStore>()(
           preferredIssuedCharacterIds: s.preferredIssuedCharacterIds,
           preferredDiversifiedSince: s.preferredDiversifiedSince,
           readCharacterMessageIds: s.readCharacterMessageIds,
+          resolvedBugReportIds: s.resolvedBugReportIds,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
@@ -3294,6 +3352,7 @@ export const useMarketStore = create<MarketStore>()(
         preferredIssuedCharacterIds: state.preferredIssuedCharacterIds,
         preferredDiversifiedSince: state.preferredDiversifiedSince,
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
+        resolvedBugReportIds: state.resolvedBugReportIds.slice(0, 200),
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
@@ -3639,6 +3698,11 @@ export const useMarketStore = create<MarketStore>()(
             (walletSource as Partial<MarketStore>).readCharacterMessageIds,
           )
             ? (walletSource as Partial<MarketStore>).readCharacterMessageIds!.slice(0, 300)
+            : [],
+          resolvedBugReportIds: Array.isArray(
+            (walletSource as Partial<MarketStore>).resolvedBugReportIds,
+          )
+            ? (walletSource as Partial<MarketStore>).resolvedBugReportIds!.slice(0, 300)
             : [],
           investmentMastery: normalizeInvestmentMastery(
             (walletSource as Partial<MarketStore>).investmentMastery,

@@ -9,6 +9,7 @@ import { OnboardingModal } from "@/components/layout/OnboardingModal";
 import { LearningJourneyController } from "@/components/layout/LearningJourneyController";
 import { FirstTradeCelebration } from "@/components/layout/FirstTradeCelebration";
 import { ServiceNoticeModal } from "@/components/layout/ServiceNoticeModal";
+import { BugResponseWatcher } from "@/components/layout/BugResponseWatcher";
 import { Toaster } from "@/components/layout/Toaster";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -26,6 +27,7 @@ export function Providers({ children }: { children: ReactNode }) {
       </div>
       <OnboardingModal />
       <ServiceNoticeModal />
+      <BugResponseWatcher />
       <FirstTradeCelebration />
       <LearningJourneyController />
       <Toaster />

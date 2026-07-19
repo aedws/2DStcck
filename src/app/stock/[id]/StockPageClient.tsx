@@ -351,14 +351,17 @@ function UpcomingIpoView({ stock }: { stock: StockState }) {
           {listingCountdownLabel(stock)}
         </p>
         <div className="mt-4 inline-flex flex-col gap-1 rounded-2xl bg-[var(--background)]/60 px-5 py-3">
-          <span className="text-[11px] text-[var(--muted)]">공모가</span>
+          <span className="text-[11px] text-[var(--muted)]">
+            공모가 · 상장 전까지 고정
+          </span>
           <span className="text-lg font-bold tabular-nums">
             {formatPrice(stock.initialPrice)}
           </span>
         </div>
         <p className="mt-5 text-xs leading-relaxed text-[var(--muted)]">
-          아직 상장 전이라 매수·매도·공매도·옵션 모두 불가합니다. 상장 시각이
-          지나면 공모가로 개장하며, 이 화면이 자동으로 거래 화면으로 바뀝니다.
+          아직 상장 전이라 매수·매도·공매도·옵션 모두 불가하며, 주가는 상장 시각까지
+          시초가(공모가)로 고정됩니다. 상장 시각이 지나면 시초가로 개장하며, 이
+          화면이 자동으로 거래 화면으로 바뀝니다.
         </p>
       </div>
 

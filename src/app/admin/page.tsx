@@ -16,6 +16,7 @@ import {
   listBugReports,
   updateBugReport,
   BUG_REPORT_STATUS_LABEL,
+  BUG_FIX_BOUNTY_CENTS,
   type BugReportRow,
   type BugReportStatus,
 } from "@/lib/supabase/bugReports";
@@ -84,6 +85,7 @@ export default function AdminPage() {
   const [bugRows, setBugRows] = useState<BugReportRow[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<FeedbackRow[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async () => {
     const [stocks, bugs, feedback] = await Promise.all([
@@ -116,10 +118,38 @@ export default function AdminPage() {
     setSavingId(null);
   }
 
+  const draftOf = (r: BugReportRow) =>
+    noteDrafts[r.id] ?? r.admin_note ?? "";
+
   async function setBugStatus(id: string, status: BugReportStatus) {
     setSavingId(id);
-    if (await updateBugReport(id, { status })) {
-      setBugRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    // 수정 완료·보류 처리 시엔 작성 중인 회신 메시지를 함께 저장해 유저에게 전달한다.
+    const withNote = status === "fixed" || status === "wontfix";
+    const note = withNote ? (noteDrafts[id]?.trim() ?? undefined) : undefined;
+    if (
+      await updateBugReport(id, {
+        status,
+        ...(note !== undefined ? { adminNote: note } : {}),
+      })
+    ) {
+      setBugRows((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, status, ...(note !== undefined ? { admin_note: note || null } : {}) }
+            : r,
+        ),
+      );
+    }
+    setSavingId(null);
+  }
+
+  async function saveBugNote(id: string) {
+    setSavingId(id);
+    const note = noteDrafts[id]?.trim() ?? "";
+    if (await updateBugReport(id, { adminNote: note })) {
+      setBugRows((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, admin_note: note || null } : r)),
+      );
     }
     setSavingId(null);
   }
@@ -339,6 +369,59 @@ export default function AdminPage() {
                         {BUG_REPORT_STATUS_LABEL[s]}
                       </button>
                     ))}
+                  </div>
+
+                  {/* 회신 작성: 수정 완료 시 보상 + 회신, 보류 시 회신 메시지 전달 */}
+                  <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--background)]/50 p-3">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <p className="text-[11px] font-semibold text-[var(--muted)]">
+                        유저 회신 메시지
+                      </p>
+                      <span className="text-[10px] text-emerald-400">
+                        수정 완료 시 자동 보상 {formatPrice(BUG_FIX_BOUNTY_CENTS)}
+                      </span>
+                    </div>
+                    <textarea
+                      value={draftOf(r)}
+                      onChange={(e) =>
+                        setNoteDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))
+                      }
+                      rows={2}
+                      maxLength={1000}
+                      placeholder="예) 신고해 주신 90조 오버플로우 이슈를 수정했어요. 감사합니다!"
+                      className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs leading-relaxed outline-none focus:border-[var(--accent)]"
+                    />
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        disabled={savingId === r.id}
+                        onClick={() => setBugStatus(r.id, "fixed")}
+                        className="rounded-lg bg-emerald-500/90 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-40"
+                      >
+                        ✅ 수정 완료 + 보상·회신
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingId === r.id}
+                        onClick={() => setBugStatus(r.id, "wontfix")}
+                        className="rounded-lg bg-rose-500/80 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-rose-500 disabled:opacity-40"
+                      >
+                        📮 보류 + 회신 전송
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingId === r.id}
+                        onClick={() => saveBugNote(r.id)}
+                        className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--muted)] transition hover:text-[var(--foreground)] disabled:opacity-40"
+                      >
+                        메모만 저장
+                      </button>
+                    </div>
+                    {r.admin_note && (
+                      <p className="mt-2 text-[10px] text-[var(--muted)]">
+                        저장된 회신: {r.admin_note}
+                      </p>
+                    )}
                   </div>
                 </li>
               ))}

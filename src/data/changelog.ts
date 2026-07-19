@@ -98,6 +98,20 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-19",
+    tag: "신규",
+    title: "버그 리포트 처리 회신 — 수정 완료 보상 · 보류 회신",
+    detail:
+      "제보한 버그가 처리되면 게임 안에서 회신을 받습니다. 운영자가 ‘수정 완료’로 처리하면 제보 보상 $5,000,000이 자동 지급되고 감사 메시지가, ‘보류’로 처리하면 사유를 정리한 운영자 회신이 팝업으로 전달됩니다. 보상은 노동 소득(운영 지급)이라 시즌·랭킹 성과에는 반영되지 않습니다.",
+  },
+  {
+    date: "2026-07-19",
+    tag: "수정",
+    title: "상장 예정(IPO) 종목은 상장 전까지 시초가 고정",
+    detail:
+      "상장 전 IPO 종목의 주가가 상장 시각까지 시초가(공모가)로 고정됨을 명확히 하고, 상장 예정 종목 페이지에서 이를 안내합니다.",
+  },
+  {
+    date: "2026-07-19",
     tag: "수정",
     title: "상장 예정(IPO) 종목 거래·노출 차단",
     detail:

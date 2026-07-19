@@ -72,6 +72,7 @@ export interface WalletSave {
   preferredIssuedCharacterIds?: string[];
   preferredDiversifiedSince?: number | null;
   readCharacterMessageIds?: string[];
+  resolvedBugReportIds?: string[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;

@@ -23,6 +23,18 @@ export const BUG_REPORT_STATUS_LABEL: Record<BugReportStatus, string> = {
   duplicate: "중복",
 };
 
+/** 버그 수정 완료(fixed) 시 제보자에게 지급하는 보상(센트) — $5,000,000. */
+export const BUG_FIX_BOUNTY_CENTS = 500_000_000;
+
+/** 운영자 회신을 유저에게 전달하기 위한 정규화된 응답. */
+export interface BugResponse {
+  id: string;
+  title: string;
+  status: "fixed" | "wontfix"; // 처리 완료된 두 상태만
+  message: string | null; // 운영자 회신 메시지(admin_note)
+  rewardCents: number; // 수정 완료 보상(센트). 보류면 0.
+}
+
 export interface BugReportInput {
   category?: string;
   title: string;
@@ -103,6 +115,30 @@ export async function listBugReports(): Promise<BugReportRow[]> {
     .limit(500);
   if (error || !data) return [];
   return data as BugReportRow[];
+}
+
+/**
+ * (유저) 내 리포트 중 운영자가 처리(fixed/wontfix)한 건들의 회신을 가져온다.
+ * RLS 로 본인 것만 반환되지만, 관리자 계정 등 예외를 위해 user_id 로 한 번 더 거른다.
+ * 수정 완료(fixed)엔 보상 지급, 보류(wontfix)엔 회신 메시지만 전달한다.
+ */
+export async function listMyBugResponses(): Promise<BugResponse[]> {
+  const auth = await getCurrentAuth();
+  if (!auth) return [];
+  const rows = await listBugReports();
+  return rows
+    .filter(
+      (r) =>
+        r.user_id === auth.userId &&
+        (r.status === "fixed" || r.status === "wontfix"),
+    )
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status as "fixed" | "wontfix",
+      message: r.admin_note,
+      rewardCents: r.status === "fixed" ? BUG_FIX_BOUNTY_CENTS : 0,
+    }));
 }
 
 /** (관리자) 리포트 상태·메모 갱신. */
