@@ -223,7 +223,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
   {
     id: "udnge",
     ticker: "UDGE",
-    name: "영원정 제약",
+    name: "레이센 제약",
     sector: "바이오",
     subsector: "제약",
     initialPrice: 38000,
