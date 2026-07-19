@@ -15,11 +15,18 @@ import {
   underlyingSplitMultiplier,
   intrinsic,
 } from "../src/lib/market/options";
+import { LEVERAGE_SPLIT_AT } from "../src/lib/market/constants";
 import type { OptionPosition, StockState } from "../src/lib/types/market";
 
 const base = createGenesisStocks();
 const etfDef = base.find((s) => s.id === "vnsl2")!; // 2x 레버리지 (기초 vnasdaq)
 const underDef = base.find((s) => s.id === "vnasdaq")!;
+
+// 임의의 목표 raw 가격을 만드는 기초자산가: raw = etfInit × (u/uInit)^lev (lev=2)
+const etfInit = etfDef.initialPrice;
+const underInit = underDef.initialPrice;
+const underlyingForRaw = (rawTarget: number) =>
+  underInit * Math.sqrt(rawTarget / etfInit);
 
 function scenario(underlyingPrice: number) {
   const underlying: StockState = { ...underDef, currentPrice: underlyingPrice };
@@ -29,15 +36,15 @@ function scenario(underlyingPrice: number) {
   return { etf, underlying, stocks, m: leverageMultiplierFor(etf, underlying), etfDisplay };
 }
 
-// 개시: 표시가 밴드 상단 근처($499), 분할 전이라 배수 1
-const open = scenario(46910);
+// 개시: 표시가 밴드 상단 근처(분할 직전), 배수 1
+const open = scenario(underlyingForRaw(LEVERAGE_SPLIT_AT * 0.99));
 assert.equal(open.m, 1, "개시 시 배수 1 (분할 전)");
 assert.ok(
-  open.etfDisplay >= 48000 && open.etfDisplay < 50000,
+  open.etfDisplay >= LEVERAGE_SPLIT_AT * 0.9 && open.etfDisplay < LEVERAGE_SPLIT_AT,
   `개시 표시가 밴드 상단 근처여야: ${open.etfDisplay}`,
 );
 
-const strike = 48000; // $480 풋
+const strike = Math.round(LEVERAGE_SPLIT_AT * 0.96); // 분할 직전 밴드의 ATM 근처 풋
 const pos: OptionPosition = {
   id: "t",
   stockId: etfDef.id,
@@ -52,17 +59,17 @@ const pos: OptionPosition = {
 };
 assert.equal(pos.openSplitMultiplier, 1, "개시 배수가 포지션에 1로 저장돼야");
 
-// 기초자산 상승 → raw가 $500 돌파 → 5:1 분할 → 표시가 ÷5
-const after = scenario(47200);
+// 기초자산 상승 → raw가 분할가 돌파 → 5:1 분할 → 표시가 ÷5
+const after = scenario(underlyingForRaw(LEVERAGE_SPLIT_AT * 1.03));
 assert.ok(after.m > open.m, `상승 후 분할로 배수 증가해야: ${after.m}`);
 assert.ok(
-  after.etfDisplay < 20000,
+  after.etfDisplay < LEVERAGE_SPLIT_AT * 0.5,
   `분할로 표시가가 밴드 하단으로 리셋돼야: ${after.etfDisplay}`,
 );
 
 // 옛 방식(버그): 표시가로 바로 계산 → ETF가 올랐는데 풋이 폭발
 const buggy = intrinsic("put", after.etf.currentPrice, strike);
-assert.ok(buggy > 30000, `옛 방식은 분할로 풋이 공짜 ITM: ${buggy}`);
+assert.ok(buggy > LEVERAGE_SPLIT_AT * 0.3, `옛 방식은 분할로 풋이 공짜 ITM: ${buggy}`);
 
 // 수정: 유효 기초자산가로 계산 → 상승장이므로 풋은 무가치(0)
 const fixedPrice = effectiveOptionUnderlyingPrice(pos, after.etf, after.stocks);

@@ -27,14 +27,14 @@ for (const raw of [4000, 5000, 9999, 10000, 50000, 50001, 250000, 1_250_000, 250
   assert.ok(err < 0.01, `가치 보존 실패: raw=${raw} disp=${disp} m=${m} recovered=${recovered}`);
 }
 
-// 3) 경계 동작: $500 정확히 → 5:1 분할되어 $100.
-assert.equal(leverageSplitMultiplier(50000), 5);
-assert.equal(leverageDisplayPrice(50000), 10000);
-// $499.99 → 분할 없음.
-assert.equal(leverageSplitMultiplier(49999), 1);
-// $49.99 → 2:1 병합되어 ~$99.98.
-assert.equal(leverageSplitMultiplier(4999), 0.5);
-assert.equal(leverageDisplayPrice(4999), 9998);
+// 3) 경계 동작: $1000 정확히 → 5:1 분할되어 $200.
+assert.equal(leverageSplitMultiplier(100000), 5);
+assert.equal(leverageDisplayPrice(100000), 20000);
+// $999.99 → 분할 없음.
+assert.equal(leverageSplitMultiplier(99999), 1);
+// $9.99 → 2:1 병합되어 ~$19.98.
+assert.equal(leverageSplitMultiplier(999), 0.5);
+assert.equal(leverageDisplayPrice(999), 1998);
 
 // 4) 보유분 가치 불변: 매수 시점 배수 m0에서 좌수 q0, 이후 배수 m1이면
 //    좌수 q0*(m1/m0), 평단 avg0/(m1/m0), 표시가 raw/m1 → 포지션 가치 = rawQty*raw 불변.
