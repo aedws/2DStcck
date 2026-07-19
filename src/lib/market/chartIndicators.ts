@@ -5,6 +5,30 @@ export interface IndicatorPoint {
   value: number;
 }
 
+export interface BandPoint {
+  timestamp: number;
+  upper: number;
+  middle: number;
+  lower: number;
+}
+
+export interface VolumePoint {
+  timestamp: number;
+  volume: number;
+  up: boolean;
+}
+
+/** FNV-1a → [0,1). 캔들 타임스탬프로 재현 가능한 값을 뽑는다. */
+function hashUnit(seed: number): number {
+  let hash = 2166136261;
+  const text = String(seed);
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4_294_967_296;
+}
+
 export function simpleMovingAverage(
   candles: Candle[],
   period: number,
@@ -19,6 +43,112 @@ export function simpleMovingAverage(
     if (index >= window - 1) {
       points.push({ timestamp: candles[index].timestamp, value: sum / window });
     }
+  }
+  return points;
+}
+
+/** 지수이동평균(EMA) — SMA보다 최근값에 빠르게 반응해 단타·스켈핑에 적합. */
+export function exponentialMovingAverage(
+  candles: Candle[],
+  period: number,
+): IndicatorPoint[] {
+  const window = Math.max(1, Math.floor(period));
+  if (candles.length < window) return [];
+  const multiplier = 2 / (window + 1);
+  const points: IndicatorPoint[] = [];
+  // 시드는 첫 window 구간 SMA로 잡아 초반 튐을 줄인다.
+  let sum = 0;
+  for (let index = 0; index < window; index++) sum += candles[index].close;
+  let ema = sum / window;
+  points.push({ timestamp: candles[window - 1].timestamp, value: ema });
+  for (let index = window; index < candles.length; index++) {
+    ema = (candles[index].close - ema) * multiplier + ema;
+    points.push({ timestamp: candles[index].timestamp, value: ema });
+  }
+  return points;
+}
+
+/**
+ * 결정론 가상 거래량 — 가격 엔진을 건드리지 않고 캔들의 몸통·범위와 시드
+ * 노이즈로 재현 가능한 거래량을 만든다. 리플레이마다 동일하다. VWAP·거래량 바의
+ * 가중치로만 쓰이며 실제 유동성이 아니라 '흐름의 세기' 표현이다.
+ */
+export function deterministicCandleVolume(candle: Candle): number {
+  const bodyCents = Math.abs(candle.close - candle.open);
+  const rangeCents = Math.max(0, candle.high - candle.low);
+  const activity = bodyCents + rangeCents * 0.6; // 센트 단위 움직임
+  const noise = 0.55 + hashUnit(candle.timestamp) * 0.9; // 0.55~1.45배
+  const base = activity / 100 + 1; // $ 환산 + 최소 1
+  return Math.max(1, Math.round(base * noise * 20));
+}
+
+/** 캔들별 결정론 거래량 바(상승/하락 색 구분용 플래그 포함). */
+export function candleVolumes(candles: Candle[]): VolumePoint[] {
+  return candles.map((candle) => ({
+    timestamp: candle.timestamp,
+    volume: deterministicCandleVolume(candle),
+    up: candle.close >= candle.open,
+  }));
+}
+
+/**
+ * VWAP(거래량 가중 평균가). 거래일(세션) 경계에서 리셋한다 — 스켈핑의 1순위
+ * 앵커로, 가격이 이 선 위/아래로 되돌아오는지를 본다. 거래량은 결정론 가상값.
+ */
+export function volumeWeightedAveragePrice(
+  candles: Candle[],
+  sessionMs: number,
+): IndicatorPoint[] {
+  const points: IndicatorPoint[] = [];
+  let currentSession: number | null = null;
+  let cumulativePV = 0;
+  let cumulativeVolume = 0;
+  for (const candle of candles) {
+    const session = Math.floor(candle.timestamp / sessionMs);
+    if (session !== currentSession) {
+      currentSession = session;
+      cumulativePV = 0;
+      cumulativeVolume = 0;
+    }
+    const typical = (candle.high + candle.low + candle.close) / 3;
+    const volume = deterministicCandleVolume(candle);
+    cumulativePV += typical * volume;
+    cumulativeVolume += volume;
+    points.push({
+      timestamp: candle.timestamp,
+      value: cumulativeVolume > 0 ? cumulativePV / cumulativeVolume : typical,
+    });
+  }
+  return points;
+}
+
+/** 볼린저 밴드(기본 20, 2σ). 밴드 태그 후 평균회귀 진입에 쓴다. */
+export function bollingerBands(
+  candles: Candle[],
+  period = 20,
+  multiplier = 2,
+): BandPoint[] {
+  const window = Math.max(2, Math.floor(period));
+  if (candles.length < window) return [];
+  const points: BandPoint[] = [];
+  for (let index = window - 1; index < candles.length; index++) {
+    let sum = 0;
+    for (let offset = 0; offset < window; offset++) {
+      sum += candles[index - offset].close;
+    }
+    const mean = sum / window;
+    let variance = 0;
+    for (let offset = 0; offset < window; offset++) {
+      const diff = candles[index - offset].close - mean;
+      variance += diff * diff;
+    }
+    const sd = Math.sqrt(variance / window);
+    points.push({
+      timestamp: candles[index].timestamp,
+      upper: mean + multiplier * sd,
+      middle: mean,
+      lower: mean - multiplier * sd,
+    });
   }
   return points;
 }

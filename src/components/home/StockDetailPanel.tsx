@@ -13,6 +13,7 @@ import {
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
+import { FuturesLeadBadge } from "@/components/market/FuturesLeadBadge";
 import { getCharacterById } from "@/data/characters";
 import { useMarketStore } from "@/store/marketStore";
 
@@ -69,7 +70,8 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
         </p>
       </div>
 
-      <div className="px-4 py-3">
+      <div className="space-y-2 px-4 py-3">
+        {stock.sector !== "선물" && <FuturesLeadBadge />}
         <CandlestickChart
           candles={stock.candles}
           dailyCandles={stock.dailyCandles}

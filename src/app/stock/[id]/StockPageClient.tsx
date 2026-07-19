@@ -6,6 +6,7 @@ import { FuturesView } from "./FuturesView";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
+import { FuturesLeadBadge } from "@/components/market/FuturesLeadBadge";
 import { EtfComposition } from "@/components/market/EtfComposition";
 import { OrderBook } from "@/components/market/OrderBook";
 import { OptionsPanel } from "@/components/market/OptionsPanel";
@@ -378,6 +379,7 @@ export function StockPageClient({ id }: { id: string }) {
         <main className="min-w-0 flex-1 px-4 py-4 md:overflow-y-auto md:px-5">
           {tab === 0 && (
             <div className="space-y-4">
+              {stock.sector !== "선물" && <FuturesLeadBadge />}
               <CandlestickChart
                 candles={stock.candles}
                 dailyCandles={stock.dailyCandles}

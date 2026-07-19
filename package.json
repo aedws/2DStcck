@@ -15,6 +15,7 @@
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
     "test:minigame": "tsx scripts/test-minigame.ts",
     "test:tetris": "tsx scripts/test-tetris-logic.ts",
+    "test:indicators": "tsx scripts/test-chart-indicators.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },
   "dependencies": {

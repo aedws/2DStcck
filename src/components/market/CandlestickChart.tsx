@@ -17,9 +17,14 @@ import {
   buildCandles,
 } from "@/lib/market/engine";
 import {
+  bollingerBands,
+  candleVolumes,
+  exponentialMovingAverage,
   relativeStrengthIndex,
   simpleMovingAverage,
+  volumeWeightedAveragePrice,
 } from "@/lib/market/chartIndicators";
+import { SESSION_DURATION_MS } from "@/lib/market/constants";
 
 const UP_COLOR = "#f04452";
 const DOWN_COLOR = "#3182f6";
@@ -137,6 +142,12 @@ export function CandlestickChart({
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("30s");
   const [showMa5, setShowMa5] = useState(true);
   const [showMa20, setShowMa20] = useState(false);
+  const [showEma9, setShowEma9] = useState(false);
+  const [showEma20, setShowEma20] = useState(false);
+  const [showVwap, setShowVwap] = useState(false);
+  const [showBoll, setShowBoll] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
+  const [showSession, setShowSession] = useState(false);
   const [showRsi, setShowRsi] = useState(false);
   const [trendMode, setTrendMode] = useState(false);
   const [trendPoints, setTrendPoints] = useState<Array<{ time: UTCTimestamp; price: number }>>([]);
@@ -148,6 +159,16 @@ export function CandlestickChart({
   const prevCloseLineRef = useRef<IPriceLine | null>(null);
   const ma5Ref = useRef<ISeriesApi<"Line"> | null>(null);
   const ma20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema9Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const vwapRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const bollUpperRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const bollMidRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const bollLowerRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const openLineRef = useRef<IPriceLine | null>(null);
+  const hodLineRef = useRef<IPriceLine | null>(null);
+  const lodLineRef = useRef<IPriceLine | null>(null);
   const trendRef = useRef<ISeriesApi<"Line"> | null>(null);
   const trendModeRef = useRef(false);
   const initialFitDoneRef = useRef(false);
@@ -191,7 +212,72 @@ export function CandlestickChart({
     () => relativeStrengthIndex(visibleCandles, 14),
     [visibleCandles],
   );
+  const toLine = (points: Array<{ timestamp: number; value: number }>) =>
+    points.map((point) => ({
+      time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+      value: point.value,
+    }));
+  const ema9Data = useMemo(
+    () => (showEma9 ? toLine(exponentialMovingAverage(visibleCandles, 9)) : []),
+    [showEma9, visibleCandles],
+  );
+  const ema20Data = useMemo(
+    () => (showEma20 ? toLine(exponentialMovingAverage(visibleCandles, 20)) : []),
+    [showEma20, visibleCandles],
+  );
+  const vwapData = useMemo(
+    () =>
+      showVwap
+        ? toLine(volumeWeightedAveragePrice(visibleCandles, SESSION_DURATION_MS))
+        : [],
+    [showVwap, visibleCandles],
+  );
+  const bollData = useMemo(
+    () => (showBoll ? bollingerBands(visibleCandles, 20, 2) : []),
+    [showBoll, visibleCandles],
+  );
+  const volumeData = useMemo(
+    () =>
+      showVolume
+        ? candleVolumes(visibleCandles).map((point) => ({
+            time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+            value: point.volume,
+            color: point.up
+              ? "rgba(240,68,82,0.5)"
+              : "rgba(49,130,246,0.5)",
+          }))
+        : [],
+    [showVolume, visibleCandles],
+  );
+  // 세션(거래일) 기준선: 최근 세션의 시가·고가(HOD)·저가(LOD)
+  const sessionLevels = useMemo(() => {
+    if (visibleCandles.length === 0) return null;
+    const lastSession = Math.floor(
+      visibleCandles[visibleCandles.length - 1].timestamp / SESSION_DURATION_MS,
+    );
+    const inSession = visibleCandles.filter(
+      (c) => Math.floor(c.timestamp / SESSION_DURATION_MS) === lastSession,
+    );
+    if (inSession.length === 0) return null;
+    return {
+      open: inSession[0].open,
+      high: Math.max(...inSession.map((c) => c.high)),
+      low: Math.min(...inSession.map((c) => c.low)),
+    };
+  }, [visibleCandles]);
   const hasData = data.length > 0;
+
+  const indicatorToggles: IndicatorToggle[] = [
+    { key: "ma5", label: "이평5", active: showMa5, onToggle: () => setShowMa5((v) => !v) },
+    { key: "ma20", label: "이평20", active: showMa20, onToggle: () => setShowMa20((v) => !v) },
+    { key: "ema9", label: "EMA9", active: showEma9, onToggle: () => setShowEma9((v) => !v) },
+    { key: "ema20", label: "EMA20", active: showEma20, onToggle: () => setShowEma20((v) => !v) },
+    { key: "vwap", label: "VWAP", active: showVwap, onToggle: () => setShowVwap((v) => !v) },
+    { key: "boll", label: "볼밴", active: showBoll, onToggle: () => setShowBoll((v) => !v) },
+    { key: "vol", label: "거래량", active: showVolume, onToggle: () => setShowVolume((v) => !v) },
+    { key: "session", label: "세션선", active: showSession, onToggle: () => setShowSession((v) => !v) },
+    { key: "rsi", label: "RSI14", active: showRsi, onToggle: () => setShowRsi((v) => !v) },
+  ];
 
   // 차트 생성/해제
   useEffect(() => {
@@ -264,6 +350,53 @@ export function CandlestickChart({
       priceLineVisible: false,
       lastValueVisible: false,
     });
+    const ema9 = chart.addLineSeries({
+      color: "#34d399",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const ema20 = chart.addLineSeries({
+      color: "#fb7185",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const vwap = chart.addLineSeries({
+      color: "#eab308",
+      lineWidth: 2,
+      lineStyle: LineStyle.LargeDashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const bollUpper = chart.addLineSeries({
+      color: "rgba(129,140,248,0.75)",
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const bollMid = chart.addLineSeries({
+      color: "rgba(129,140,248,0.45)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const bollLower = chart.addLineSeries({
+      color: "rgba(129,140,248,0.75)",
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const volume = chart.addHistogramSeries({
+      priceFormat: { type: "volume" },
+      priceScaleId: "vol",
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    volume.priceScale().applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+    });
     const trend = chart.addLineSeries({
       color: "#22d3ee",
       lineWidth: 2,
@@ -286,6 +419,13 @@ export function CandlestickChart({
     seriesRef.current = series;
     ma5Ref.current = ma5;
     ma20Ref.current = ma20;
+    ema9Ref.current = ema9;
+    ema20Ref.current = ema20;
+    vwapRef.current = vwap;
+    bollUpperRef.current = bollUpper;
+    bollMidRef.current = bollMid;
+    bollLowerRef.current = bollLower;
+    volumeRef.current = volume;
     trendRef.current = trend;
     initialFitDoneRef.current = false;
 
@@ -295,8 +435,18 @@ export function CandlestickChart({
       seriesRef.current = null;
       avgLineRef.current = null;
       prevCloseLineRef.current = null;
+      openLineRef.current = null;
+      hodLineRef.current = null;
+      lodLineRef.current = null;
       ma5Ref.current = null;
       ma20Ref.current = null;
+      ema9Ref.current = null;
+      ema20Ref.current = null;
+      vwapRef.current = null;
+      bollUpperRef.current = null;
+      bollMidRef.current = null;
+      bollLowerRef.current = null;
+      volumeRef.current = null;
       trendRef.current = null;
     };
   }, [chartHeight, hasData, priceKind, timeframe]);
@@ -336,6 +486,81 @@ export function CandlestickChart({
         : [],
     );
   }, [showMa5, showMa20, visibleCandles, timeframe]);
+
+  useEffect(() => {
+    ema9Ref.current?.setData(ema9Data);
+    ema20Ref.current?.setData(ema20Data);
+  }, [ema9Data, ema20Data]);
+
+  useEffect(() => {
+    vwapRef.current?.setData(vwapData);
+  }, [vwapData]);
+
+  useEffect(() => {
+    const upper = bollUpperRef.current;
+    const mid = bollMidRef.current;
+    const lower = bollLowerRef.current;
+    if (!upper || !mid || !lower) return;
+    upper.setData(
+      bollData.map((point) => ({
+        time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+        value: point.upper,
+      })),
+    );
+    mid.setData(
+      bollData.map((point) => ({
+        time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+        value: point.middle,
+      })),
+    );
+    lower.setData(
+      bollData.map((point) => ({
+        time: ((point.timestamp + TZ_OFFSET_MS) / 1000) as UTCTimestamp,
+        value: point.lower,
+      })),
+    );
+  }, [bollData]);
+
+  useEffect(() => {
+    volumeRef.current?.setData(volumeData);
+  }, [volumeData]);
+
+  // 세션 기준선: 시가 / 당일 고가(HOD) / 당일 저가(LOD)
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    for (const ref of [openLineRef, hodLineRef, lodLineRef]) {
+      if (ref.current) {
+        series.removePriceLine(ref.current);
+        ref.current = null;
+      }
+    }
+    if (!showSession || !sessionLevels) return;
+    openLineRef.current = series.createPriceLine({
+      price: sessionLevels.open,
+      color: "#8b95a1",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: "시가",
+    });
+    hodLineRef.current = series.createPriceLine({
+      price: sessionLevels.high,
+      color: UP_COLOR,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "고가",
+    });
+    lodLineRef.current = series.createPriceLine({
+      price: sessionLevels.low,
+      color: DOWN_COLOR,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "저가",
+    });
+  }, [showSession, sessionLevels, hasData]);
 
   useEffect(() => {
     const trend = trendRef.current;
@@ -399,13 +624,8 @@ export function CandlestickChart({
       >
         <TimeframeTabs value={timeframe} onChange={setTimeframe} />
         <IndicatorToolbar
-          showMa5={showMa5}
-          showMa20={showMa20}
-          showRsi={showRsi}
+          toggles={indicatorToggles}
           trendMode={trendMode}
-          onMa5={() => setShowMa5((value) => !value)}
-          onMa20={() => setShowMa20((value) => !value)}
-          onRsi={() => setShowRsi((value) => !value)}
           onTrend={() => setTrendMode((value) => !value)}
           onClearTrend={() => setTrendPoints([])}
         />
@@ -428,13 +648,8 @@ export function CandlestickChart({
     >
       <TimeframeTabs value={timeframe} onChange={setTimeframe} />
       <IndicatorToolbar
-        showMa5={showMa5}
-        showMa20={showMa20}
-        showRsi={showRsi}
+        toggles={indicatorToggles}
         trendMode={trendMode}
-        onMa5={() => setShowMa5((value) => !value)}
-        onMa20={() => setShowMa20((value) => !value)}
-        onRsi={() => setShowRsi((value) => !value)}
         onTrend={() => setTrendMode((value) => !value)}
         onClearTrend={() => setTrendPoints([])}
       />
@@ -449,24 +664,21 @@ export function CandlestickChart({
   );
 }
 
+interface IndicatorToggle {
+  key: string;
+  label: string;
+  active: boolean;
+  onToggle: () => void;
+}
+
 function IndicatorToolbar({
-  showMa5,
-  showMa20,
-  showRsi,
+  toggles,
   trendMode,
-  onMa5,
-  onMa20,
-  onRsi,
   onTrend,
   onClearTrend,
 }: {
-  showMa5: boolean;
-  showMa20: boolean;
-  showRsi: boolean;
+  toggles: IndicatorToggle[];
   trendMode: boolean;
-  onMa5: () => void;
-  onMa20: () => void;
-  onRsi: () => void;
   onTrend: () => void;
   onClearTrend: () => void;
 }) {
@@ -474,9 +686,16 @@ function IndicatorToolbar({
     `min-h-9 rounded-lg border px-2.5 text-[11px] font-semibold ${active ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]" : "border-[var(--border)] text-[var(--muted)]"}`;
   return (
     <div className="mb-1 flex flex-wrap gap-1 px-1">
-      <button type="button" onClick={onMa5} className={button(showMa5)}>이평 5</button>
-      <button type="button" onClick={onMa20} className={button(showMa20)}>이평 20</button>
-      <button type="button" onClick={onRsi} className={button(showRsi)}>RSI 14</button>
+      {toggles.map((toggle) => (
+        <button
+          key={toggle.key}
+          type="button"
+          onClick={toggle.onToggle}
+          className={button(toggle.active)}
+        >
+          {toggle.label}
+        </button>
+      ))}
       <button type="button" onClick={onTrend} className={button(trendMode)}>2점 추세선</button>
       <button type="button" onClick={onClearTrend} className={button(false)}>추세선 삭제</button>
     </div>
