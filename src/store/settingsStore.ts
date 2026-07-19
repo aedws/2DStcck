@@ -24,6 +24,9 @@ interface SettingsState {
   /** 여정 완주 카드를 접었는지 여부 */
   learningJourneyDismissed: boolean;
   setLearningJourneyDismissed: (value: boolean) => void;
+  /** 첫 매수 축하 연출을 이미 봤는지 여부 */
+  firstTradeCelebrated: boolean;
+  setFirstTradeCelebrated: (value: boolean) => void;
   missionTutorialSeen: boolean;
   setMissionTutorialSeen: (value: boolean) => void;
   missionTutorialVersion: number;
@@ -75,6 +78,9 @@ export const useSettingsStore = create<SettingsState>()(
       learningJourneyDismissed: false,
       setLearningJourneyDismissed: (learningJourneyDismissed) =>
         set({ learningJourneyDismissed }),
+      firstTradeCelebrated: false,
+      setFirstTradeCelebrated: (firstTradeCelebrated) =>
+        set({ firstTradeCelebrated }),
       missionTutorialSeen: false,
       setMissionTutorialSeen: (missionTutorialSeen) =>
         set({ missionTutorialSeen }),

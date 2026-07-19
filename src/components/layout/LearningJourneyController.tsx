@@ -16,6 +16,7 @@ export function LearningJourneyController() {
   const onboarded = useSettingsStore((s) => s.onboarded);
   const seen = useSettingsStore((s) => s.learningLayerSeen);
   const setSeen = useSettingsStore((s) => s.setLearningLayerSeen);
+  const firstTradeCelebrated = useSettingsStore((s) => s.firstTradeCelebrated);
 
   const signals = useLearningSignals();
   const reached = reachedLearningLayer(signals);
@@ -37,6 +38,8 @@ export function LearningJourneyController() {
   const nextLayerId = Math.min(reached, seen + 1);
   const layer = LEARNING_LAYERS[nextLayerId - 1];
   if (!layer) return null;
+  // 첫 거래 직후엔 축하 연출이 먼저 나가도록, 그게 끝나기 전 레이어2 안내는 미룬다.
+  if (nextLayerId === 2 && !firstTradeCelebrated) return null;
 
   return (
     <FeatureTutorialModal

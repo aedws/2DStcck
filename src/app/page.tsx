@@ -22,6 +22,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 export default function MarketPage() {
   const stocks = useMarketStore((s) => s.stocks);
   const events = useMarketStore((s) => s.events);
+  const trades = useMarketStore((s) => s.trades);
   const [mounted, setMounted] = useState(false);
   const onboarded = useSettingsStore((s) => s.onboarded);
   const eraTutorialSeen = useSettingsStore((s) => s.marketEraTutorialSeen);
@@ -57,7 +58,10 @@ export default function MarketPage() {
       </div>
       <AttendanceBanner />
       <LearningJourneyCard />
-      <OperationBriefing />
+      {/* 새내기(거래 3건 미만)에겐 시즌·연속사건·라이벌까지 담긴 작전 브리핑이
+          과부하다. 학습 여정 카드가 '첫 매수' 한 가지에 집중하도록 잠시 감춘다.
+          마운트 전엔 렌더하지 않아 새내기 화면에 깜빡임이 남지 않게 한다. */}
+      {mounted && trades.length >= 3 && <OperationBriefing />}
       <PumpBanner pumps={pumpStocks} />
       {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해
           페이지 전체가 스크롤되도록 두고, 이 행에만 한 화면 높이를 줘 각 패널이

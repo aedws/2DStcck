@@ -121,3 +121,22 @@ input[type="number"] {
   animation: mgTspinPop 0.85s ease-out forwards;
   pointer-events: none;
 }
+
+/* 첫 거래 축하 — 카드 팝 + 색종이 낙하 */
+@keyframes celebratePop {
+  0% { transform: scale(0.82) translateY(12px); opacity: 0; }
+  55% { transform: scale(1.04) translateY(0); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.celebrate-pop { animation: celebratePop 0.34s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes confettiFall {
+  0% { transform: translateY(-10%) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(360px) rotate(540deg); opacity: 0; }
+}
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  animation: confettiFall 1.15s ease-in forwards;
+  pointer-events: none;
+}
