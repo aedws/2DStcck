@@ -37,6 +37,11 @@ import {
   RATE_LABEL,
 } from "@/lib/market/interestRate";
 import { EquityCurve } from "@/components/ui/EquityCurve";
+import {
+  positionMark,
+  optionLabel,
+  isZeroDteExpiry,
+} from "@/lib/market/options";
 
 export default function PortfolioPage() {
   const cash = useMarketStore((s) => s.cash);
@@ -201,6 +206,74 @@ export default function PortfolioPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {formatPrice(stock.currentPrice)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right font-mono ${
+                        pnl >= 0 ? "text-emerald-400" : "text-red-400"
+                      }`}
+                    >
+                      {pnl >= 0 ? "+" : ""}
+                      {formatPrice(pnl)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {options.length > 0 && (
+        <div className="mb-6 overflow-x-auto rounded-xl border border-zinc-800">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/50 text-left text-zinc-500">
+                <th className="px-4 py-3 font-medium">보유 옵션</th>
+                <th className="px-4 py-3 font-medium text-right">계약</th>
+                <th className="px-4 py-3 font-medium text-right">진입</th>
+                <th className="px-4 py-3 font-medium text-right">현재 마크</th>
+                <th className="px-4 py-3 font-medium text-right">평가손익</th>
+              </tr>
+            </thead>
+            <tbody>
+              {options.map((pos) => {
+                const stock = stocks.find((s) => s.id === pos.stockId);
+                if (!stock) return null;
+                const sessionExact = Date.now() / SESSION_DURATION_MS;
+                const rate = getAnnualRatePercent(rateLevel) / 100;
+                const mark = positionMark(pos, stock, sessionExact, rate, stocks);
+                const pnl =
+                  (pos.side === "long"
+                    ? mark - pos.openPremium
+                    : pos.openPremium - mark) * pos.quantity;
+                const zeroDte = isZeroDteExpiry(pos.expirySession, sessionExact);
+                return (
+                  <tr
+                    key={pos.id}
+                    className="border-b border-zinc-800/50 hover:bg-zinc-900/50"
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/stock/${pos.stockId}`}
+                        className="font-medium hover:text-emerald-400"
+                      >
+                        {stock.name}
+                        <span className="ml-2 text-xs text-zinc-500">
+                          {optionLabel(pos.kind, pos.side)} · {formatPrice(pos.strike)}
+                          {zeroDte && (
+                            <span className="ml-1 text-amber-400">0DTE</span>
+                          )}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {pos.quantity.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {formatPrice(pos.openPremium)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {formatPrice(mark)}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-mono ${

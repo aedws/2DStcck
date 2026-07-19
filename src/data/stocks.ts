@@ -293,7 +293,10 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
             ? "곱버스 ETF"
             : "레버리지 ETF",
       initialPrice: 10_000,
-      volatility: underlying.volatility,
+      // 레버리지·인버스 ETF는 기초 대비 |배수|만큼 크게 움직인다. 옵션 가격은 이
+      // volatility 로 매겨지므로(가격 생성은 기초자산 순함수라 이 값을 안 씀),
+      // |배수|를 곱해 옵션이 저평가돼 0DTE 스트래들이 공짜가 되는 걸 막는다.
+      volatility: underlying.volatility * Math.abs(leverage),
       drift: 0,
       beta: 0,
       leverage,

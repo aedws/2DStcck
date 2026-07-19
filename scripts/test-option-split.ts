@@ -96,6 +96,20 @@ assert.equal(
   "일반 종목은 유효가 = 표시가",
 );
 
+// 레버리지·인버스 ETF 옵션 변동성 = |배수| × 기초 (0DTE 스트래들 저평가 차단).
+for (const [etfId, baseId, mult] of [
+  ["wwmne-leverage-2x", "wwmne", 2],
+  ["wwmne-inverse-2x", "wwmne", 2],
+  ["wwmne-inverse", "wwmne", 1],
+] as const) {
+  const etf = base.find((s) => s.id === etfId)!;
+  const under = base.find((s) => s.id === baseId)!;
+  assert.ok(
+    Math.abs(etf.volatility - under.volatility * mult) < 1e-9,
+    `${etfId} 변동성은 기초×${mult}이어야: ${etf.volatility} vs ${under.volatility * mult}`,
+  );
+}
+
 console.log(
-  `✅ option-split: 분할 익스플로잇 차단 (옛 $${(buggy / 100).toFixed(0)}/계약 → 수정 $0), 일반 종목 무영향`,
+  `✅ option-split: 분할 익스플로잇 차단 (옛 $${(buggy / 100).toFixed(0)}/계약 → 수정 $0), 레버리지 옵션 변동성 |배수|× 반영, 일반 종목 무영향`,
 );
