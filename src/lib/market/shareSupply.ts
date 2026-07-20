@@ -16,18 +16,9 @@ export function isSupplyLimitedStock(
   return !stock.universalDerivative && !UNLIMITED_SECTORS.has(stock.sector);
 }
 
-function stableHash(value: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index++) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
 /**
- * CSV에서 수치를 지정하지 않은 회사도 기기마다 같은 자본 구조를 갖게 한다.
- * 발행주식수는 2천만~2억 주(백만 주 단위), 유통비율은 45~80% 범위다.
+ * 별도 설정이 없는 회사의 기본 자본 구조. 현재 최고 자산 계정이 500% 미수를
+ * 모두 써도 한 종목 유통량을 잠그기 어렵도록 종목당 5조 주를 넉넉히 발행한다.
  */
 export function getShareStructure(
   stock: Pick<
@@ -36,10 +27,8 @@ export function getShareStructure(
   >,
 ): ShareStructure | null {
   if (!isSupplyLimitedStock(stock)) return null;
-  const hash = stableHash(`${stock.id}:${stock.ticker}`);
-  const issuedShares =
-    stock.issuedShares ?? (20 + (hash % 181)) * 1_000_000;
-  const floatRatio = stock.floatRatio ?? (45 + ((hash >>> 8) % 36)) / 100;
+  const issuedShares = stock.issuedShares ?? 5_000_000_000_000;
+  const floatRatio = stock.floatRatio ?? 0.9;
   return {
     issuedShares,
     floatRatio,

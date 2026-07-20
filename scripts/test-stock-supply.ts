@@ -20,6 +20,14 @@ for (const stock of limited) {
   );
 }
 
+const defaultStructure = getShareStructure({
+  id: "default-test",
+  ticker: "DFLT",
+  sector: "테스트",
+});
+assert.equal(defaultStructure?.issuedShares, 5_000_000_000_000);
+assert.equal(defaultStructure?.floatShares, 4_500_000_000_000);
+
 for (const stock of STOCK_DEFINITIONS.filter(
   (item) => ["ETF", "채권", "지수", "선물"].includes(item.sector),
 )) {

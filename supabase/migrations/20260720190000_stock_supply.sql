@@ -89,6 +89,17 @@ values
   ('nkccl', 'NKCCL', 28000000, 13160000, 13160000)
 on conflict (stock_id) do update set ticker = excluded.ticker;
 
+-- 기존에 이 파일을 실행했어도 다시 실행하면 이미 매수된 수량은 그대로 두고
+-- 기본 발행량을 종목당 5조 주, 유통량을 4.5조 주로 넓힌다. 분할·병합 배수도 보존한다.
+update public.stock_supply
+set issued_shares = 5000000000000 * split_multiplier,
+    float_shares = 4500000000000 * split_multiplier,
+    remaining_shares = greatest(
+      0,
+      4500000000000 * split_multiplier - (float_shares - remaining_shares)
+    ),
+    updated_at = now();
+
 create or replace function public.adjust_stock_supply(
   p_operation_id text,
   p_stock_id text,
