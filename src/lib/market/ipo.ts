@@ -1,5 +1,5 @@
 import type { StockDefinition } from "@/lib/types/market";
-import { SIM_TICK_MS } from "@/lib/market/constants";
+import { MARKET_EPOCH_MS, SIM_TICK_MS } from "@/lib/market/constants";
 
 /**
  * IPO(신규 상장) 유틸리티.
@@ -13,7 +13,7 @@ export function listingTickOf(def: {
   listingEpochMs?: number;
 }): number {
   if (!def.listingEpochMs) return Number.NEGATIVE_INFINITY;
-  return Math.floor(def.listingEpochMs / SIM_TICK_MS);
+  return Math.floor((def.listingEpochMs - MARKET_EPOCH_MS) / SIM_TICK_MS);
 }
 
 /** 지금 시각 기준 상장되어 거래 가능한가. */

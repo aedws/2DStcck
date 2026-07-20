@@ -109,6 +109,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-20",
+    tag: "수정",
+    title: "IPO 티커·상장 후 시세 정상화",
+    detail:
+      "레이센 제약의 공식 티커를 UDGE로 통일했습니다. 상장 시각을 시뮬레이션 틱과 잘못 비교해 레이센 제약과 단테 정밀시계가 개장 후에도 공모가에 고정되고 캔들이 생성되지 않던 문제를 고쳤습니다. 두 종목 모두 상장 전에는 공모가로 동결되고 상장 시각부터는 다른 종목과 동일한 결정론 시장에서 가격과 차트가 움직입니다.",
+  },
+  {
+    date: "2026-07-20",
     tag: "개선",
     title: "피드백도 채택 시 보상·회신 — 버그 리포트와 동일하게",
     detail:

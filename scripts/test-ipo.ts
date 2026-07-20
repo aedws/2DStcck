@@ -7,7 +7,13 @@ import {
   isRecentlyListed,
   upcomingIpos,
 } from "../src/lib/market/ipo";
-import { SIM_TICK_MS, SESSION_DURATION_MS } from "../src/lib/market/constants";
+import {
+  MARKET_EPOCH_MS,
+  SIM_TICK_MS,
+  SESSION_DURATION_MS,
+} from "../src/lib/market/constants";
+import { createInitialStockState } from "../src/lib/market/engine";
+import { replayMarket } from "../src/lib/market/localSim";
 import {
   EARNINGS_INTERVAL_SESSIONS,
   getEarningsCalendar,
@@ -27,7 +33,10 @@ const future = { listingEpochMs: now + 3 * 3600_000 }; // 3시간 후
 assert.equal(isListed(future, now), false);
 assert.equal(isUpcomingIpo(future, now), true);
 assert.equal(msUntilListing(future, now), 3 * 3600_000);
-assert.equal(listingTickOf(future), Math.floor(future.listingEpochMs / SIM_TICK_MS));
+assert.equal(
+  listingTickOf(future),
+  Math.floor((future.listingEpochMs - MARKET_EPOCH_MS) / SIM_TICK_MS),
+);
 
 // 과거 상장 → 상장됨
 const past = { listingEpochMs: now - 1000 };
@@ -55,6 +64,52 @@ assert.equal(stockHref("pump-495692"), "/pump");
 assert.equal(stockHref({ id: "pump-1" }), "/pump");
 assert.equal(stockHref("vnasdaq"), "/stock/vnasdaq");
 assert.equal(stockHref({ id: "dante" }), "/stock/dante");
+
+// 레이센 제약 공식 티커
+const reisen = getCompanyDefinitions().find((stock) => stock.id === "udnge");
+assert.ok(reisen, "레이센 제약 정의가 없음");
+assert.equal(reisen.ticker, "UDGE");
+
+// 모든 예약 IPO: 상장 틱부터 결정론 시세·캔들 생성
+const scheduledIpos = getCompanyDefinitions().filter(
+  (stock) => stock.listingEpochMs !== undefined,
+);
+assert.deepEqual(
+  scheduledIpos.map((stock) => stock.id).sort(),
+  ["dante", "udnge"],
+);
+for (const ipo of scheduledIpos) {
+  const listingTick = listingTickOf(ipo);
+  assert.equal(
+    listingTick,
+    Math.floor((ipo.listingEpochMs! - MARKET_EPOCH_MS) / SIM_TICK_MS),
+  );
+  const replayed = replayMarket(
+    [createInitialStockState(ipo, MARKET_EPOCH_MS)],
+    [],
+    listingTick - 1,
+    listingTick + 5,
+  ).stocks[0];
+  assert.notEqual(
+    replayed.currentPrice,
+    ipo.initialPrice,
+    `상장 후에도 ${ipo.name} 가격이 공모가에 고정됨`,
+  );
+  assert.equal(
+    replayed.priceHistory.some(
+      (point) => point.timestamp >= ipo.listingEpochMs!,
+    ),
+    true,
+    `상장 후 ${ipo.name} 가격 기록이 생성되지 않음`,
+  );
+  assert.equal(
+    replayed.candles.some(
+      (candle) => candle.timestamp >= ipo.listingEpochMs!,
+    ),
+    true,
+    `상장 후 ${ipo.name} 캔들이 생성되지 않음`,
+  );
+}
 
 // 실적 캘린더: 상장 예정(IPO) 기업은 상장 세션 전에는 노출되지 않는다.
 const upcomingCompany = getCompanyDefinitions().find(
