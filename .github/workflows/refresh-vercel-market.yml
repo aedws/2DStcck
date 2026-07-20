@@ -1,7 +1,9 @@
 name: Refresh Vercel market checkpoint
 
 on:
-  # Hook Secret 교체를 실제 검증한 뒤 3시간 schedule을 활성화한다.
+  # 새 커밋 없이 main을 다시 빌드해 Vercel 번들 체크포인트를 갱신한다.
+  schedule:
+    - cron: "29 */3 * * *"
   workflow_dispatch:
 
 permissions:
