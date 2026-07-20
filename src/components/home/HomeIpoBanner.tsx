@@ -10,8 +10,8 @@ import {
 } from "@/lib/market/ipo";
 import { getCharacterById } from "@/data/characters";
 
-/** 상장 후 이 시간 동안 '신규 상장' 알림을 홈에 띄운다. */
-const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** 상장 후 이 시간 동안 '신규 상장' 알림을 홈에 띄운다. 지나면 홈에서 내린다. */
+const RECENT_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 /**
  * 홈 IPO 배너 — 곧 상장할 종목의 카운트다운과, 방금(24시간 내) 상장한 종목의
