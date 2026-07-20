@@ -85,6 +85,10 @@ import {
   replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
 import { isListed } from "@/lib/market/ipo";
+import {
+  OPERATIONAL_COMPENSATIONS,
+  settleOperationalCompensations,
+} from "@/lib/market/operationalCompensation";
 import type {
   ShortPosition,
   RateLevel,
@@ -337,6 +341,8 @@ interface MarketStore extends MarketSnapshot {
   resolvedBugReportIds: string[];
   /** 운영자 회신을 이미 처리한 피드백 id. 중복 지급 방지. */
   resolvedFeedbackIds: string[];
+  /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
+  claimedCompensationIds: string[];
   /**
    * 운영자가 처리한 버그 리포트 회신을 반영한다. 수정 완료(fixed)엔 보상을
    * 지급하고, 이미 처리한 id 는 건너뛴다(멱등). 새로 처리한 회신 목록을 돌려준다.
@@ -488,6 +494,7 @@ function createInitialState(): MarketSnapshot & {
   readCharacterMessageIds: string[];
   resolvedBugReportIds: string[];
   resolvedFeedbackIds: string[];
+  claimedCompensationIds: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
@@ -562,6 +569,10 @@ function createInitialState(): MarketSnapshot & {
     readCharacterMessageIds: [],
     resolvedBugReportIds: [],
     resolvedFeedbackIds: [],
+    // 신규 계정은 기존 운영 보상 지급 대상이 아니므로 전부 수령 완료로 시작한다.
+    claimedCompensationIds: OPERATIONAL_COMPENSATIONS.map(
+      (compensation) => compensation.id,
+    ),
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
@@ -1624,14 +1635,21 @@ export const useMarketStore = create<MarketStore>()(
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           marginEnabled: wallet.marginEnabled === true,
         });
+        // 발행량 제한 롤백 보상 등 전 계정 운영 보상을 1회 지급한다(멱등).
+        const cloudCompensation = settleOperationalCompensations({
+          cash: cloudRepair.cash,
+          cashPayments: wallet.cashPayments ?? [],
+          claimedCompensationIds: wallet.claimedCompensationIds,
+        });
         set({
           walletEpoch: WALLET_EPOCH,
-          cash: cloudRepair.cash,
+          cash: cloudCompensation.cash,
           initialCash: wallet.initialCash,
           holdings: cloudRepair.holdings,
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
-          cashPayments: wallet.cashPayments ?? [],
+          cashPayments: cloudCompensation.cashPayments,
+          claimedCompensationIds: cloudCompensation.claimedCompensationIds,
           lastSalarySession: cloudClockChanged
             ? nowSession
             : cloudSession(wallet.lastSalarySession),
@@ -1716,6 +1734,13 @@ export const useMarketStore = create<MarketStore>()(
               ? nowSession
               : cloudSession(wallet.lastInterestSession),
         });
+        if (cloudCompensation.grantedCents > 0) {
+          useToastStore.getState().push(
+            `⏪ 롤백 보상 ${formatPrice(cloudCompensation.grantedCents)} 지급`,
+            "success",
+          );
+          playSound("cash");
+        }
         return "loaded";
       },
 
@@ -1755,6 +1780,7 @@ export const useMarketStore = create<MarketStore>()(
           readCharacterMessageIds: s.readCharacterMessageIds,
           resolvedBugReportIds: s.resolvedBugReportIds,
           resolvedFeedbackIds: s.resolvedFeedbackIds,
+          claimedCompensationIds: s.claimedCompensationIds,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
@@ -3339,6 +3365,7 @@ export const useMarketStore = create<MarketStore>()(
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         resolvedBugReportIds: state.resolvedBugReportIds.slice(0, 200),
         resolvedFeedbackIds: state.resolvedFeedbackIds.slice(0, 200),
+        claimedCompensationIds: state.claimedCompensationIds,
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
@@ -3570,6 +3597,16 @@ export const useMarketStore = create<MarketStore>()(
             (walletSource as Partial<MarketStore>).marginEnabled === true,
         });
 
+        // 발행량 제한 롤백 보상 등 전 계정 운영 보상을 1회 지급한다(멱등).
+        const compensation = settleOperationalCompensations({
+          cash: overflowRepair.cash,
+          cashPayments: Array.isArray(walletSource.cashPayments)
+            ? walletSource.cashPayments
+            : [],
+          claimedCompensationIds: (walletSource as Partial<MarketStore>)
+            .claimedCompensationIds,
+        });
+
         return {
           ...walletSource,
           marketVersion: MARKET_SIM_VERSION,
@@ -3578,7 +3615,7 @@ export const useMarketStore = create<MarketStore>()(
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : current.tick,
           stocks: stocksWithDerived,
-          cash: overflowRepair.cash,
+          cash: compensation.cash,
           holdings: overflowRepair.holdings,
           events:
             marketValid && Array.isArray(merged.events)
@@ -3607,9 +3644,8 @@ export const useMarketStore = create<MarketStore>()(
               : nowSession),
             QUARTERLY_DIVIDEND_INTERVAL_DAYS,
           ),
-          cashPayments: Array.isArray(walletSource.cashPayments)
-            ? walletSource.cashPayments
-            : [],
+          cashPayments: compensation.cashPayments,
+          claimedCompensationIds: compensation.claimedCompensationIds,
           ownedLuxuries: Array.isArray(
             (walletSource as Partial<MarketStore>).ownedLuxuries,
           )

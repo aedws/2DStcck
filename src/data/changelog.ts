@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-20": {
     highlights: [
+      "보통주 발행량 제한(공유 유통 재고) 롤백 — 버그 다발로 기능만 되돌리고 전 계정 보상 $100,000 지급.",
       "자금 성장 정비 — 오버플로우 상한 폐지·K/M/B/T 표기·피해 복구($10M) + 현금 채굴 20배.",
       "운영 소통 정비 — 버그·피드백 채택 보상($50K)·회신 + 업데이트 페이지 최신 요약·날짜 접기.",
       "시장 첫 진입 최적화 — 체크포인트 즉시 로드·Worker 분리 + Pages·Vercel 3시간 자동 갱신.",
@@ -107,6 +108,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-20",
+    tag: "수정",
+    title: "보통주 발행량 제한 롤백 + 전 계정 보상 $100,000",
+    detail:
+      "이날 도입했던 보통주 발행/유통주식수·전역 잔여 물량 제한(공유 유통 재고)에서 다수의 버그가 확인되어 해당 기능만 도입 전 상태로 되돌렸습니다. 매수 가능 물량 제한과 잔여 물량 표시가 사라지고, 보통주의 지정가 주문·자동 모으기도 이전처럼 동작합니다. 이날의 다른 변경(오버플로우 상한 폐지, 체크포인트 고속 로드, IPO 정상화 등)은 그대로 유지됩니다. 불편을 드린 점 사과드리며, 롤백 보상으로 전 계정에 $100,000를 1회 지급합니다. 지급 내역은 거래·지급 내역에서 확인할 수 있습니다.",
+  },
   {
     date: "2026-07-20",
     tag: "개선",

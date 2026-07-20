@@ -72,7 +72,7 @@ export default function HistoryPage() {
                               : payment.kind === "attendance"
                                 ? "출석"
                                 : payment.kind === "compensation"
-                                  ? "버그 보상"
+                                  ? "운영 보상"
                                   : "분기 배당"}
                   </td>
                   <td className="px-4 py-3">
