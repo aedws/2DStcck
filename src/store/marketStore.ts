@@ -85,8 +85,6 @@ import {
   replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
 import { isListed } from "@/lib/market/ipo";
-import { isSupplyLimitedStock } from "@/lib/market/shareSupply";
-import { adjustStockSupply } from "@/lib/supabase/stockSupply";
 import type {
   ShortPosition,
   RateLevel,
@@ -1175,12 +1173,6 @@ export const useMarketStore = create<MarketStore>()(
         if (!stock || stock.sector === "지수" || stock.sector === "선물") {
           return { success: false, message: "이 종목은 모으기를 설정할 수 없습니다." };
         }
-        if (state.userId && isSupplyLimitedStock(stock)) {
-          return {
-            success: false,
-            message: "공유 유통 물량이 있는 보통주는 빠른주문으로만 매수할 수 있습니다.",
-          };
-        }
         if (!Number.isFinite(amount) || Math.round(amount) < MIN_RECURRING_AMOUNT) {
           return { success: false, message: "모으기 금액은 회차당 $1 이상이어야 합니다." };
         }
@@ -1814,86 +1806,23 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       placeOrder: async (stockId, quantity, orderType) => {
-        get().settleCashflows();
-        const state = get();
-        const stock = state.getStockById(stockId);
-        if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
-        if (stock.sector === "선물" || stock.sector === "지수") {
+        const sector = get().getStockById(stockId)?.sector;
+        if (sector === "선물" || sector === "지수") {
           return {
             success: false,
             message: "지수·선물은 직접 거래할 수 없습니다. ETF를 이용해 주세요.",
           };
         }
-        if (!isListed(stock)) {
-          return {
-            success: false,
-            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
-          };
-        }
-        if (!isValidShareQuantity(quantity)) {
-          return {
-            success: false,
-            message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요.",
-          };
-        }
-
-        const normalizedQuantity = normalizeShareQuantity(quantity);
-        const side = orderType.startsWith("buy") ? "buy" : "sell";
-        const price =
-          orderType === "buy_market"
-            ? getMarketBuyPrice(stock.currentPrice)
-            : orderType === "sell_market"
-              ? getMarketSellPrice(stock.currentPrice)
-              : stock.currentPrice;
-        if (side === "buy") {
-          if (shareOrderTotal(price, normalizedQuantity) > longBuyingPower(state)) {
-            return { success: false, message: "매수여력이 부족합니다." };
-          }
-        } else {
-          const held = state.holdings.find((item) => item.stockId === stockId);
-          if (!held || held.quantity + 1e-9 < normalizedQuantity) {
-            return { success: false, message: "보유 수량이 부족합니다." };
-          }
-        }
-
-        const operationId = `supply-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const supply = await adjustStockSupply(
-          stock,
-          side,
-          normalizedQuantity,
-          operationId,
-          Boolean(state.userId),
-        );
-        if (!supply.success) return { success: false, message: supply.message };
-
-        let result: OrderResult;
         switch (orderType) {
           case "buy_market":
-            result = get().buyMarket(stockId, normalizedQuantity);
-            break;
+            return get().buyMarket(stockId, quantity);
           case "sell_market":
-            result = get().sellMarket(stockId, normalizedQuantity);
-            break;
+            return get().sellMarket(stockId, quantity);
           case "buy_current":
-            result = get().buyCurrent(stockId, normalizedQuantity);
-            break;
+            return get().buyCurrent(stockId, quantity);
           case "sell_current":
-            result = get().sellCurrent(stockId, normalizedQuantity);
-            break;
+            return get().sellCurrent(stockId, quantity);
         }
-        if (!result.success && supply.mode === "applied") {
-          await adjustStockSupply(
-            stock,
-            side === "buy" ? "sell" : "buy",
-            normalizedQuantity,
-            `${operationId}-rollback`,
-            true,
-          );
-        }
-        if (result.success && supply.mode === "practice") {
-          return { ...result, message: `${result.message} · 게스트 연습 거래` };
-        }
-        return result;
       },
 
       placeLimitOrder: async (stockId, price, quantity, side) => {
@@ -1910,12 +1839,6 @@ export const useMarketStore = create<MarketStore>()(
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) {
           return { success: false, message: "종목을 찾을 수 없습니다." };
-        }
-        if (state.userId && isSupplyLimitedStock(stock)) {
-          return {
-            success: false,
-            message: "공유 유통 물량이 있는 보통주는 빠른주문만 지원합니다.",
-          };
         }
         if (!isListed(stock)) {
           return {
@@ -2011,8 +1934,6 @@ export const useMarketStore = create<MarketStore>()(
           remainingOrders = [];
           for (const order of openOrders) {
             const stock = combinedStocks.find((s) => s.id === order.stockId);
-            // 구버전 저장에 남은 보통주 지정가는 중앙 재고 도입 후 자동 취소한다.
-            if (stock && state.userId && isSupplyLimitedStock(stock)) continue;
             const crossed =
               stock !== undefined &&
               (order.side === "buy"
@@ -2132,16 +2053,8 @@ export const useMarketStore = create<MarketStore>()(
           interest?.lastInterestSession ?? state.lastInterestSession;
 
         // 모으기는 현금으로만 한 번 체결한다. 미접속 기간의 밀린 회차는 몰아서 사지 않는다.
-        const supplySafeRecurringPlans = state.userId
-          ? state.recurringInvestments.map((plan) => {
-              const stock = combinedStocks.find((item) => item.id === plan.stockId);
-              return stock && isSupplyLimitedStock(stock)
-                ? { ...plan, enabled: false, lastStatus: "unavailable" as const }
-                : plan;
-            })
-          : state.recurringInvestments;
         const recurring = processRecurringInvestments(
-          supplySafeRecurringPlans,
+          state.recurringInvestments,
           cash,
           holdings,
           trades,
