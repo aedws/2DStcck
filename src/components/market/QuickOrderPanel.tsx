@@ -14,6 +14,8 @@ import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { toastResult } from "@/store/toastStore";
 import { playResultSound } from "@/lib/ui/sound";
+import { isSupplyLimitedStock } from "@/lib/market/shareSupply";
+import { useStockSupply } from "@/hooks/useStockSupply";
 
 const TABS = ["빠른주문", "지정가", "모으기", "주문내역"] as const;
 const LEVERAGES: MarginLeverage[] = [2, 3, 4, 5];
@@ -41,10 +43,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const buyMarket = useMarketStore((s) => s.buyMarket);
-  const sellMarket = useMarketStore((s) => s.sellMarket);
-  const buyCurrent = useMarketStore((s) => s.buyCurrent);
-  const sellCurrent = useMarketStore((s) => s.sellCurrent);
+  const placeOrder = useMarketStore((s) => s.placeOrder);
   const cash = useMarketStore((s) => s.cash);
   const openOrders = useMarketStore((s) => s.openOrders);
   const placeLimitOrder = useMarketStore((s) => s.placeLimitOrder);
@@ -67,6 +66,9 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     (s) => s.cancelRecurringInvestment,
   );
   const liveStock = useMarketStore((s) => s.getStockById(stock.id)) ?? stock;
+  const userId = useMarketStore((s) => s.userId);
+  const supplyLimited = isSupplyLimitedStock(liveStock);
+  const { supply } = useStockSupply(stock.id, supplyLimited);
   const holding = useMarketStore((s) =>
     s.holdings.find((item) => item.stockId === stock.id),
   );
@@ -81,11 +83,17 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const bestAsk = getMarketBuyPrice(liveStock.currentPrice);
   const bestBid = getMarketSellPrice(liveStock.currentPrice);
   const buyingPower = getBuyingPower();
-  const maxBuy = bestAsk > 0
+  const buyingPowerMax = bestAsk > 0
     ? fractional
       ? Math.floor((buyingPower / bestAsk) * 1_000) / 1_000
       : Math.floor(buyingPower / bestAsk)
     : 0;
+  const supplyMax = supply
+    ? fractional
+      ? Math.floor(supply.remainingShares * 1_000) / 1_000
+      : Math.floor(supply.remainingShares)
+    : Number.POSITIVE_INFINITY;
+  const maxBuy = Math.min(buyingPowerMax, supplyMax);
   const maxSell = holding?.quantity ?? 0;
   const isIndexLike = liveStock.sector === "선물" || liveStock.sector === "지수";
   const isPump = liveStock.sector === "급등주";
@@ -136,19 +144,13 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     if (maxBuy > 0) setQuantityInput(String(maxBuy));
   }
 
-  function order(orderType: OrderType) {
+  async function order(orderType: OrderType) {
     if (!validQuantity) {
       setMessage(fractional ? "0.001주 이상 입력해 주세요." : "1주 이상의 정수를 입력해 주세요.");
       return;
     }
     setLoading(true);
-    const localMap = {
-      buy_market: buyMarket,
-      sell_market: sellMarket,
-      buy_current: buyCurrent,
-      sell_current: sellCurrent,
-    };
-    const result = localMap[orderType](stock.id, quantity);
+    const result = await placeOrder(stock.id, quantity, orderType);
     report(result);
     playResultSound(result, orderType.startsWith("buy") ? "buy" : "sell");
     setLoading(false);
@@ -257,6 +259,16 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             ))}
           </div>
         </section>
+
+        {supplyLimited && (
+          <div className="mb-4 rounded-xl border border-sky-500/25 bg-sky-500/[0.07] px-3 py-2 text-[11px] leading-relaxed text-sky-200">
+            {userId
+              ? supply
+                ? `공유 유통 잔여 ${formatQuantity(supply.remainingShares)}주 · 로그인 유저 전체가 함께 사용합니다.`
+                : "공유 유통 재고를 확인 중입니다. 실제 주문 때 서버에서 최종 확인합니다."
+              : "게스트는 연습 거래입니다. 전역 유통 재고·랭킹에는 반영되지 않습니다."}
+          </div>
+        )}
 
         {(activeTab === 0 || activeTab === 1) && (
           <div className="space-y-3">
@@ -412,7 +424,9 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
         {activeTab === 2 && (
           <div className="space-y-3">
             <div className="rounded-xl bg-[var(--surface)] p-3 text-xs leading-relaxed text-[var(--muted)]">
-              정한 거래일마다 현재가로 소수점 매수합니다. 현금이 부족하면 해당 회차를 건너뛰며 미수는 사용하지 않습니다.
+              {userId && supplyLimited
+                ? "공유 유통 물량이 있는 보통주는 자동 모으기 대신 빠른주문을 이용해 주세요. ETF 등 무제한 상품은 계속 자동 매수할 수 있습니다."
+                : "정한 거래일마다 현재가로 소수점 매수합니다. 현금이 부족하면 해당 회차를 건너뛰며 미수는 사용하지 않습니다."}
             </div>
             {stockPlan ? (
               <div className="rounded-xl border border-[var(--border)] p-3">
@@ -487,7 +501,8 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                 <button
                   type="button"
                   onClick={createPlan}
-                  className="w-full rounded-xl bg-[var(--accent)] py-3 text-sm font-semibold text-white"
+                  disabled={Boolean(userId && supplyLimited)}
+                  className="w-full rounded-xl bg-[var(--accent)] py-3 text-sm font-semibold text-white disabled:opacity-40"
                 >
                   모으기 시작
                 </button>

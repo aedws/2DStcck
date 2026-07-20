@@ -21,6 +21,7 @@
     "test:ipo": "tsx scripts/test-ipo.ts",
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
+    "test:stock-supply": "tsx scripts/test-stock-supply.ts",
     "generate:market-checkpoint": "tsx scripts/generate-market-checkpoint.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },

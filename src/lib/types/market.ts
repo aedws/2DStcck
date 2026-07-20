@@ -62,6 +62,10 @@ export interface StockDefinition {
   logo?: string;
   /** 시장(선물) 민감도. 1 = 시장과 동일 — MVP에선 엔진 미연결, 값만 채워둠 */
   beta?: number;
+  /** 회사가 발행한 보통주 총수. 비우면 종목 id 기반 기본값을 사용한다. */
+  issuedShares?: number;
+  /** 발행주식 중 시장에서 거래 가능한 비율(0 초과 1 이하). */
+  floatRatio?: number;
   /** 이벤트 태그별 발생 가중치 (기본 1). 예: { 수주: 4, 스캔들: 0.5 } */
   eventBias?: Record<string, number>;
   /** ETF 구성종목 (설정 시 NAV 추종 모드 — 가격이 구성종목 가중 수익률을 따라감) */

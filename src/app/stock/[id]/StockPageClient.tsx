@@ -36,6 +36,8 @@ import {
 import { StockLogo } from "@/components/ui/StockLogo";
 import { isUpcomingIpo, listingCountdownLabel } from "@/lib/market/ipo";
 import { useMarketStore } from "@/store/marketStore";
+import { isSupplyLimitedStock } from "@/lib/market/shareSupply";
+import { useStockSupply } from "@/hooks/useStockSupply";
 
 const SUB_TABS = ["차트 · 호가", "옵션", "종목정보", "뉴스"] as const;
 
@@ -110,6 +112,19 @@ function StockHeader({ stock }: { stock: StockState }) {
 /** 종목정보 탭: 회사 소개 + CEO + 투자 지표 */
 function StockInfoTab({ stock }: { stock: StockState }) {
   const ceo = getCharacterById(stock.ceoId);
+  const userId = useMarketStore((state) => state.userId);
+  const supplyLimited = isSupplyLimitedStock(stock);
+  const { supply, loading } = useStockSupply(stock.id, supplyLimited);
+  const issuedShares = supply?.issuedShares ?? stock.issuedShares;
+  const floatShares =
+    supply?.floatShares ??
+    (issuedShares && stock.floatRatio
+      ? Math.round(issuedShares * stock.floatRatio)
+      : undefined);
+  const remainingShares = supply?.remainingShares;
+
+  const formatShares = (value: number) =>
+    `${value.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}주`;
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -149,6 +164,53 @@ function StockInfoTab({ stock }: { stock: StockState }) {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {supplyLimited && issuedShares && floatShares && (
+        <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.05] p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">자본 · 유통 물량</h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--muted)]">
+                보통주만 로그인 유저 전체가 공유하는 중앙 재고를 사용합니다.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-sky-500/15 px-2 py-1 text-[10px] font-semibold text-sky-300">
+              {userId ? "공유 시장" : "게스트 연습"}
+            </span>
+          </div>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm md:grid-cols-4">
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">시가총액</dt>
+              <dd className="tabular-nums">
+                {formatCompactUSD(stock.currentPrice * issuedShares)}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">발행주식수</dt>
+              <dd className="tabular-nums">{formatShares(issuedShares)}</dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">유통주식수</dt>
+              <dd className="tabular-nums">{formatShares(floatShares)}</dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-[11px] text-[var(--muted)]">매수 가능 잔여</dt>
+              <dd className="tabular-nums">
+                {remainingShares !== undefined
+                  ? formatShares(remainingShares)
+                  : loading
+                    ? "조회 중"
+                    : "서버 SQL 필요"}
+              </dd>
+            </div>
+          </dl>
+          {supply && Math.abs(supply.splitMultiplier - 1) > 1e-8 && (
+            <p className="mt-3 text-[11px] text-[var(--muted)]">
+              누적 분할·병합 배수 ×{supply.splitMultiplier.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}
+            </p>
+          )}
         </div>
       )}
 

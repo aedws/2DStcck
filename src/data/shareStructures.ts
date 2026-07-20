@@ -1,0 +1,9 @@
+/**
+ * 종목별 자본 구조 수동 설정. 키는 stock id(티커 소문자)다.
+ * 비어 있는 회사는 종목 id 기반 기본값(발행 2천만~2억 주, 유통 45~80%)을 쓴다.
+ * 예: udnge: { issuedShares: 80_000_000, floatRatio: 0.55 }
+ */
+export const SHARE_STRUCTURE_OVERRIDES: Record<
+  string,
+  { issuedShares: number; floatRatio: number }
+> = {};

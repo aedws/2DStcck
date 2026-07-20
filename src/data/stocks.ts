@@ -1,6 +1,8 @@
 import type { EventTemplate, StockDefinition } from "@/lib/types/market";
 import { CSV_COMPANIES } from "@/data/generated";
 import { IPO_SCHEDULE } from "@/data/ipoSchedule";
+import { SHARE_STRUCTURE_OVERRIDES } from "@/data/shareStructures";
+import { getShareStructure } from "@/lib/market/shareSupply";
 
 export const INITIAL_CASH = 10_000_000;
 
@@ -269,13 +271,25 @@ const BASE_STOCK_DEFINITIONS: StockDefinition[] = [
 ];
 
 const DISPLAY_BASE_STOCK_DEFINITIONS: StockDefinition[] =
-  BASE_STOCK_DEFINITIONS.map((definition) => ({
-    ...definition,
-    name: KOREAN_STOCK_NAMES[definition.id] ?? definition.name,
-    subsector: definition.subsector ?? DEFAULT_SUBSECTORS[definition.id],
-    // IPO 예약이 있으면 상장 시각을 얹는다(그 전에는 비거래·비노출·시뮬 동결).
-    listingEpochMs: IPO_SCHEDULE[definition.id] ?? definition.listingEpochMs,
-  }));
+  BASE_STOCK_DEFINITIONS.map((definition) => {
+    const shareStructure = getShareStructure({
+      ...definition,
+      ...SHARE_STRUCTURE_OVERRIDES[definition.id],
+    });
+    return {
+      ...definition,
+      ...(shareStructure
+        ? {
+            issuedShares: shareStructure.issuedShares,
+            floatRatio: shareStructure.floatRatio,
+          }
+        : {}),
+      name: KOREAN_STOCK_NAMES[definition.id] ?? definition.name,
+      subsector: definition.subsector ?? DEFAULT_SUBSECTORS[definition.id],
+      // IPO 예약이 있으면 상장 시각을 얹는다(그 전에는 비거래·비노출·시뮬 동결).
+      listingEpochMs: IPO_SCHEDULE[definition.id] ?? definition.listingEpochMs,
+    };
+  });
 
 const DERIVATIVE_FACTORS = [
   { leverage: -1, idSuffix: "inverse", tickerSuffix: "I", name: "인버스" },
