@@ -1,0 +1,32 @@
+name: Refresh Vercel market checkpoint
+
+on:
+  # 새 커밋 없이 main을 다시 빌드해 Vercel 번들 체크포인트를 갱신한다.
+  schedule:
+    - cron: "29 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-market-checkpoint
+  cancel-in-progress: true
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Vercel main Deploy Hook
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK_URL repository secret is missing."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            --request POST "$VERCEL_DEPLOY_HOOK_URL"

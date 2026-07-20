@@ -30,12 +30,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Refresh deterministic market checkpoint
-        run: npm run generate:market-checkpoint
-
-      - name: Verify market checkpoint
-        run: npm run test:market-bootstrap
-
       - name: Build (static export)
         env:
           # 아래 두 값은 공개용(anon)이라 시크릿이 아니어도 안전합니다

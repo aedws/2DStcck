@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
-    "build": "next build",
+    "build": "npm run generate:market-checkpoint && npm run test:market-bootstrap && next build",
     "start": "next start",
     "lint": "next lint",
     "test:cashflows": "node --experimental-strip-types scripts/test-cashflows.mjs",
