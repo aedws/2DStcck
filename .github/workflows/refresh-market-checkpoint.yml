@@ -1,0 +1,48 @@
+name: Refresh market checkpoint source
+
+on:
+  # 저장소 기준점도 매일 전진시켜 장기간 전체 리플레이가 누적되지 않게 한다.
+  schedule:
+    - cron: "35 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-checkpoint-source
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate current deterministic checkpoint
+        run: npm run generate:market-checkpoint
+
+      - name: Verify generated checkpoint
+        run: npm run test:market-bootstrap
+
+      - name: Commit refreshed checkpoint when changed
+        run: |
+          if git diff --quiet -- src/data/market-checkpoint.json; then
+            echo "Checkpoint is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/market-checkpoint.json
+          git commit -m "chore: refresh market checkpoint"
+          git push origin HEAD:main

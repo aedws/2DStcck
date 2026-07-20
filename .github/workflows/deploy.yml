@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # 배포된 번들 체크포인트가 오래되지 않도록 3시간마다 다시 만든다.
+  schedule:
+    - cron: "17 */3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -26,6 +29,12 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Refresh deterministic market checkpoint
+        run: npm run generate:market-checkpoint
+
+      - name: Verify market checkpoint
+        run: npm run test:market-bootstrap
 
       - name: Build (static export)
         env:
