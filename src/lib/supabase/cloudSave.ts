@@ -73,6 +73,7 @@ export interface WalletSave {
   preferredDiversifiedSince?: number | null;
   readCharacterMessageIds?: string[];
   resolvedBugReportIds?: string[];
+  resolvedFeedbackIds?: string[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;

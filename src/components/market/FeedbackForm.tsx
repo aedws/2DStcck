@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToastStore } from "@/store/toastStore";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
-import { submitFeedback } from "@/lib/supabase/feedback";
+import { submitFeedback, FEEDBACK_REWARD_CENTS } from "@/lib/supabase/feedback";
+import { formatPrice } from "@/lib/market/engine";
 
 const CATEGORIES = ["종목·캐릭터", "기능 추가", "밸런스", "UI·편의", "기타"];
 
@@ -62,6 +63,9 @@ export function FeedbackForm() {
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
           원하는 기능·종목·개선을 제안해 주세요. 무료이고, 검토 후 반영될 수
           있어요.
+        </p>
+        <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-400">
+          🎁 채택(반영 완료) 시 보상 {formatPrice(FEEDBACK_REWARD_CENTS)} 지급
         </p>
       </div>
 

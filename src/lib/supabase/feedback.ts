@@ -22,6 +22,18 @@ export const FEEDBACK_STATUS_LABEL: Record<FeedbackStatus, string> = {
   declined: "반려",
 };
 
+/** 피드백 반영 완료(done) 시 제안자에게 지급하는 보상(센트) — $50,000. */
+export const FEEDBACK_REWARD_CENTS = 5_000_000;
+
+/** 운영자 회신을 유저에게 전달하기 위한 정규화된 응답. */
+export interface FeedbackResponse {
+  id: string;
+  title: string;
+  status: "done" | "declined"; // 처리 완료된 두 상태만
+  message: string | null; // 운영자 회신 메시지(admin_note)
+  rewardCents: number; // 반영 완료 보상(센트). 반려면 0.
+}
+
 export interface FeedbackInput {
   category?: string;
   title: string;
@@ -102,6 +114,30 @@ export async function listFeedback(): Promise<FeedbackRow[]> {
     .limit(500);
   if (error || !data) return [];
   return data as FeedbackRow[];
+}
+
+/**
+ * (유저) 내 피드백 중 운영자가 처리(반영 완료·반려)한 건들의 회신을 가져온다.
+ * RLS 로 본인 것만 반환되지만, 관리자 계정 등 예외를 위해 user_id 로 한 번 더 거른다.
+ * 반영 완료(done)엔 보상 지급, 반려(declined)엔 회신 메시지만 전달한다.
+ */
+export async function listMyFeedbackResponses(): Promise<FeedbackResponse[]> {
+  const auth = await getCurrentAuth();
+  if (!auth) return [];
+  const rows = await listFeedback();
+  return rows
+    .filter(
+      (r) =>
+        r.user_id === auth.userId &&
+        (r.status === "done" || r.status === "declined"),
+    )
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status as "done" | "declined",
+      message: r.admin_note,
+      rewardCents: r.status === "done" ? FEEDBACK_REWARD_CENTS : 0,
+    }));
 }
 
 /** (관리자) 피드백 상태·메모 갱신. */

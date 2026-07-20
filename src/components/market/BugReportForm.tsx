@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToastStore } from "@/store/toastStore";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
-import { submitBugReport } from "@/lib/supabase/bugReports";
+import { submitBugReport, BUG_FIX_BOUNTY_CENTS } from "@/lib/supabase/bugReports";
+import { formatPrice } from "@/lib/market/engine";
 
 const CATEGORIES = ["거래·주문", "차트", "옵션·레버리지", "캐릭터·수집", "기타"];
 
@@ -62,6 +63,9 @@ export function BugReportForm() {
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
           이상하게 동작하는 부분을 발견하면 알려주세요. 무료이고, 확인 후
           빠르게 고칩니다.
+        </p>
+        <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-400">
+          🎁 채택(수정 완료) 시 보상 {formatPrice(BUG_FIX_BOUNTY_CENTS)} 지급
         </p>
       </div>
 
