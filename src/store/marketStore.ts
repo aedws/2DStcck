@@ -4,16 +4,15 @@ import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import {
   clearLegacyMarketStorage,
+  marketStorageKey,
   safeMarketStorage,
 } from "@/lib/storage/safeLocalStorage";
 import {
   computeLeveragedPrice,
-  computeLeveragedRawPrice,
   createInitialStockState,
   formatPrice,
   getMarketBuyPrice,
   getMarketSellPrice,
-  leverageDisplayPrice,
   leverageMultiplierFor,
   seededRand,
 } from "@/lib/market/engine";
@@ -119,6 +118,12 @@ import {
   replayMarket,
   simTickTime,
 } from "@/lib/market/localSim";
+import {
+  getBundledMarketCheckpoint,
+  hydrateMarketCheckpoint,
+  reconstructDerivativeSeries,
+  type MarketCheckpoint,
+} from "@/lib/market/marketCheckpoint";
 import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
@@ -244,6 +249,8 @@ import {
 interface MarketStore extends MarketSnapshot {
   userId: string | null;
   isReady: boolean;
+  /** 로그인 지갑을 클라우드에서 확인한 뒤에만 자동 저장을 허용한다. */
+  cloudSyncReady: boolean;
   /** 미체결 지정가 주문 */
   openOrders: OpenOrder[];
   /** 보유 사치재 (재화 sink) — 가치는 순자산에 합산되어 랭킹에 반영 */
@@ -422,8 +429,9 @@ interface MarketStore extends MarketSnapshot {
   cancelOrder: (orderId: string) => Promise<void>;
   setReady: (ready: boolean) => void;
   setUserId: (id: string | null) => void;
+  setCloudSyncReady: (ready: boolean) => void;
   /** 로그인 시 클라우드 저장분(지갑)을 불러와 반영 */
-  loadCloudSave: () => Promise<void>;
+  loadCloudSave: () => Promise<"loaded" | "created" | "offline">;
   /** 현재 지갑을 클라우드에 저장 (로그인 시에만) */
   saveCloud: () => Promise<void>;
   placeOrder: (
@@ -432,6 +440,8 @@ interface MarketStore extends MarketSnapshot {
     orderType: OrderType,
   ) => Promise<OrderResult>;
   tickMarket: () => void;
+  /** Web Worker가 계산한 공통 시장 체크포인트를 지갑과 분리해 반영한다. */
+  applyMarketCheckpoint: (checkpoint: MarketCheckpoint) => void;
   /** 주문 전·복원 직후 밀린 급여와 투자 분배금을 정산 */
   settleCashflows: () => void;
   buyMarket: (stockId: string, quantity: number) => OrderResult;
@@ -446,6 +456,7 @@ interface MarketStore extends MarketSnapshot {
 function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
+  cloudSyncReady: boolean;
   openOrders: OpenOrder[];
   ownedLuxuries: OwnedLuxury[];
   netWorthHistory: NetWorthPoint[];
@@ -483,11 +494,12 @@ function createInitialState(): MarketSnapshot & {
   storyDecisionHistory: StoryDecision[];
 } {
   const now = Date.now();
+  const initialMarket = hydrateMarketCheckpoint(getBundledMarketCheckpoint());
   return {
     marketVersion: MARKET_SIM_VERSION,
     walletEpoch: WALLET_EPOCH,
     sessionDurationMs: SESSION_DURATION_MS,
-    tick: 0,
+    tick: initialMarket.tick,
     // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
     marketStartedAt: MARKET_EPOCH_MS,
     cash: INITIAL_CASH,
@@ -512,10 +524,11 @@ function createInitialState(): MarketSnapshot & {
     lastInterestSession: Math.floor(now / SESSION_DURATION_MS),
     trades: [],
     cashPayments: [],
-    stocks: createGenesisStocks(),
-    events: [],
+    stocks: initialMarket.stocks,
+    events: initialMarket.events,
     userId: null,
     isReady: false,
+    cloudSyncReady: false,
     openOrders: [],
     ownedLuxuries: [],
     netWorthHistory: [],
@@ -918,62 +931,6 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
   });
 }
 
-/**
- * 자동 생성 레버리지·인버스 ETF(universalDerivative)는 용량 때문에 저장하지 않아
- * 복원 시 빈 캔들로 재생성된다. 접속 간격이 짧으면 리플레이가 캔들을 채우지 못해
- * 차트가 "종가 점 하나"로만 보인다. 이 상품 가격은 기초자산의 결정론 함수이므로,
- * 복원된 기초자산의 캔들·히스토리에서 파생 시계열을 역산해 즉시 정상 봉을 만든다.
- * (prevDayClose가 고정 기준가인 모델과 동일하게 computeLeveragedPrice를 사용)
- */
-function reconstructDerivativeSeries(
-  etf: StockState,
-  underlying: StockState,
-): StockState {
-  const lev = etf.leverage ?? 1;
-  const etfInitial = etf.initialPrice ?? etf.prevDayClose;
-  const u0 =
-    underlying.initialPrice ||
-    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ||
-    0;
-  const uCandles = underlying.candles ?? [];
-  if (u0 <= 0 || uCandles.length === 0) {
-    return { ...etf, currentPrice: computeLeveragedPrice(etf, underlying) };
-  }
-
-  // power-law 매핑(경로 독립) 후 분할·병합을 적용해 표시가 밴드로 변환한다.
-  const mapPrice = (uPrice: number) =>
-    leverageDisplayPrice(
-      computeLeveragedRawPrice(etfInitial, uPrice, u0, lev),
-    );
-
-  const candles = uCandles.map((candle) => {
-    const open = mapPrice(candle.open);
-    const close = mapPrice(candle.close);
-    // 인버스(음수 레버리지)는 고·저가가 뒤집히므로 매핑 후 다시 max/min을 취한다.
-    const a = mapPrice(candle.high);
-    const b = mapPrice(candle.low);
-    return {
-      timestamp: candle.timestamp,
-      open,
-      close,
-      high: Math.max(open, close, a, b),
-      low: Math.min(open, close, a, b),
-    };
-  });
-
-  const priceHistory = (underlying.priceHistory ?? []).map((point) => ({
-    timestamp: point.timestamp,
-    price: mapPrice(point.price),
-  }));
-
-  return {
-    ...etf,
-    currentPrice: computeLeveragedPrice(etf, underlying),
-    candles,
-    priceHistory: priceHistory.length > 0 ? priceHistory : etf.priceHistory,
-  };
-}
-
 interface SplitEvent {
   ticker: string;
   ratio: number;
@@ -1161,7 +1118,9 @@ export const useMarketStore = create<MarketStore>()(
       ...createInitialState(),
 
       setReady: (ready) => set({ isReady: ready }),
-      setUserId: (userId) => set({ userId }),
+      setUserId: (userId) =>
+        set({ userId, cloudSyncReady: userId === null }),
+      setCloudSyncReady: (cloudSyncReady) => set({ cloudSyncReady }),
       setMarginEnabled: (enabled) => {
         const state = get();
         if (state.marginEnabled === enabled) {
@@ -1534,8 +1493,13 @@ export const useMarketStore = create<MarketStore>()(
         })),
 
       loadCloudSave: async () => {
-        if (!get().userId) return;
-        const wallet = await loadGameSave();
+        if (!get().userId) return "offline";
+        const loaded = await loadGameSave();
+        if (loaded.status === "error") {
+          // 네트워크 오류를 '저장 없음'으로 오인해 로컬 지갑을 덮어쓰지 않는다.
+          return "offline";
+        }
+        const wallet = loaded.status === "loaded" ? loaded.wallet : null;
         if (!wallet || (wallet.walletEpoch ?? 0) < WALLET_EPOCH) {
           // 첫 로그인·구세대 저장분: 현재(이미 epoch 리셋된) 로컬 지갑을 클라우드에 올린다.
           // 구세대 클라우드가 로컬을 다시 오염시키지 않도록 적용하지 않는다.
@@ -1551,54 +1515,13 @@ export const useMarketStore = create<MarketStore>()(
                 state.selectedSeasonFrameId ?? "season-frame-master",
             }));
           }
+          set({ cloudSyncReady: true });
           await get().saveCloud();
-          return;
+          return "created";
         }
 
-        const local = get();
-        const activityAt = (trades: Trade[] | undefined, payments: CashPayment[] | undefined) => {
-          let max = 0;
-          for (const trade of trades ?? []) {
-            if (trade.timestamp > max) max = trade.timestamp;
-          }
-          for (const payment of payments ?? []) {
-            if (payment.timestamp > max) max = payment.timestamp;
-          }
-          return max;
-        };
-        const checkpointScore = (w: {
-          lastSalarySession?: number;
-          lastMonthlyDistributionSession?: number;
-          lastSingleCoveredCallDistributionSession?: number;
-          lastQuarterlyDividendSession?: number;
-        }) =>
-          Math.max(
-            Number.isFinite(w.lastSalarySession) ? w.lastSalarySession! : 0,
-            Number.isFinite(w.lastMonthlyDistributionSession)
-              ? w.lastMonthlyDistributionSession!
-              : 0,
-            Number.isFinite(w.lastSingleCoveredCallDistributionSession)
-              ? w.lastSingleCoveredCallDistributionSession!
-              : 0,
-            Number.isFinite(w.lastQuarterlyDividendSession)
-              ? w.lastQuarterlyDividendSession!
-              : 0,
-          );
-        // 로그인 직전 로컬 매매·분배 정산이 아직 클라우드에 없다면 덮어쓰지 않는다.
-        // (체크포인트만 과거인 클라우드를 적용하면 분배가 재지급되어 현금이 복제된다.)
-        const localActivity = activityAt(local.trades, local.cashPayments);
-        const cloudActivity = activityAt(wallet.trades, wallet.cashPayments);
-        const localCheckpoint = checkpointScore(local);
-        const cloudCheckpoint = checkpointScore(wallet);
-        if (
-          localActivity > cloudActivity ||
-          (localActivity === cloudActivity && localCheckpoint > cloudCheckpoint)
-        ) {
-          await get().saveCloud();
-          return;
-        }
-
-        // 클라우드 지갑을 로컬 계산 시장 위에 얹고, 그동안 밀린 급여·배당을 정산
+        // 로그인 계정은 클라우드 지갑이 원본이다. 기기별 로컬 캐시는 절대
+        // 클라우드보다 우선하지 않으며, 적용 후 밀린 급여·배당만 정산한다.
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         const cloudClockChanged =
           (wallet.sessionDurationMs ?? 3 * 60 * 60 * 1000) !==
@@ -1684,11 +1607,10 @@ export const useMarketStore = create<MarketStore>()(
               ]),
             )
           : normalizedCloudProgress;
-        // 분배 체크포인트는 절대 뒤로 돌리지 않는다. 회귀 + settle 가 현금 복제 원인.
-        const maxSession = (cloudValue: number | undefined, localValue: number) => {
-          const cloud = Number.isFinite(cloudValue) ? Math.floor(cloudValue!) : localValue;
-          return Math.max(cloud, localValue);
-        };
+        // 분배 체크포인트도 클라우드 값을 원본으로 쓴다. 구 저장분에 값이 없으면
+        // 현재 회차에서 시작해 중복 지급을 막고, 다른 기기 로컬 값은 섞지 않는다.
+        const cloudSession = (value: number | undefined) =>
+          Number.isFinite(value) ? Math.floor(value!) : nowSession;
         // 오버플로우로 깨진 클라우드 지갑도 복구 지원금으로 재출발시킨다(멱등).
         const cloudRepair = recoverFromOverflow({
           cash: Number(wallet.cash ?? 0),
@@ -1712,28 +1634,19 @@ export const useMarketStore = create<MarketStore>()(
           cashPayments: wallet.cashPayments ?? [],
           lastSalarySession: cloudClockChanged
             ? nowSession
-            : maxSession(wallet.lastSalarySession, local.lastSalarySession),
+            : cloudSession(wallet.lastSalarySession),
           lastMonthlyDistributionSession: cloudClockChanged
             ? alignSessionToGrid(nowSession, COVERED_CALL_INTERVAL_DAYS)
-            : maxSession(
-                wallet.lastMonthlyDistributionSession,
-                local.lastMonthlyDistributionSession,
-              ),
+            : cloudSession(wallet.lastMonthlyDistributionSession),
           lastSingleCoveredCallDistributionSession: cloudClockChanged
             ? alignSessionToGrid(
                 nowSession,
                 SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
               )
-            : maxSession(
-                wallet.lastSingleCoveredCallDistributionSession,
-                local.lastSingleCoveredCallDistributionSession,
-              ),
+            : cloudSession(wallet.lastSingleCoveredCallDistributionSession),
           lastQuarterlyDividendSession: cloudClockChanged
             ? alignSessionToGrid(nowSession, QUARTERLY_DIVIDEND_INTERVAL_DAYS)
-            : maxSession(
-                wallet.lastQuarterlyDividendSession,
-                local.lastQuarterlyDividendSession,
-              ),
+            : cloudSession(wallet.lastQuarterlyDividendSession),
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: cloudRepair.shorts,
           options: cloudRepair.options,
@@ -1801,13 +1714,13 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession:
             cloudClockChanged
               ? nowSession
-              : maxSession(wallet.lastInterestSession, local.lastInterestSession),
+              : cloudSession(wallet.lastInterestSession),
         });
-        get().settleCashflows();
+        return "loaded";
       },
 
       saveCloud: async () => {
-        if (!get().userId) return;
+        if (!get().userId || !get().cloudSyncReady) return;
         const s = get();
         await saveGameSave({
           walletEpoch: WALLET_EPOCH,
@@ -1998,7 +1911,9 @@ export const useMarketStore = create<MarketStore>()(
         // 리플레이하면 메인 스레드가 길게 멈춰 시장이 안 뜨는 것처럼 보인다(날짜가
         // 지날수록 악화). 한 번에 처리하는 틱 수를 제한하고, 남은 구간은 다음 틱
         // 호출에서 이어서 따라잡는다 — 결정론 리플레이라 나눠도 결과가 동일하다.
-        const MAX_CATCHUP_TICKS = 30_000;
+        // 긴 공백은 MarketRealtime의 Web Worker가 처리한다. Worker를 쓸 수 없는
+        // 환경에서도 메인 스레드 한 번의 계산이 긴 작업이 되지 않도록 작게 제한한다.
+        const MAX_CATCHUP_TICKS = 250;
         const stepTarget = Math.min(targetTick, tick + MAX_CATCHUP_TICKS);
         // 급등주는 벽시계의 순함수로 다시 만들기 때문에 일반 시장 리플레이에
         // 넣지 않는다. 이전 구현은 저장된 급등주를 리플레이한 뒤 다시 덧붙여
@@ -2571,6 +2486,17 @@ export const useMarketStore = create<MarketStore>()(
         });
 
         get().checkAchievements();
+      },
+
+      applyMarketCheckpoint: (checkpoint) => {
+        const hydrated = hydrateMarketCheckpoint(checkpoint);
+        set({
+          marketVersion: MARKET_SIM_VERSION,
+          marketStartedAt: MARKET_EPOCH_MS,
+          tick: hydrated.tick,
+          stocks: replaceActivePumpStocks(hydrated.stocks, Date.now()),
+          events: hydrated.events.map(ensureEventDialogue),
+        });
       },
 
       settleCashflows: () => {
@@ -3369,7 +3295,8 @@ export const useMarketStore = create<MarketStore>()(
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
     {
-      name: "2dstock-market-local-v3",
+      name: marketStorageKey(null),
+      skipHydration: true,
       storage: createJSONStorage(() => {
         clearLegacyMarketStorage();
         return safeMarketStorage;
@@ -3511,7 +3438,9 @@ export const useMarketStore = create<MarketStore>()(
         const persistedById = new Map(
           persistedStocks.map((stock) => [stock.id, stock]),
         );
-        const genesisStocks = createGenesisStocks();
+        const genesisStocks = marketValid
+          ? createGenesisStocks()
+          : current.stocks;
         const genesisById = new Map(genesisStocks.map((stock) => [stock.id, stock]));
         const restoredStocks = marketValid
           ? STOCK_DEFINITIONS.map((definition) => {
@@ -3529,7 +3458,7 @@ export const useMarketStore = create<MarketStore>()(
                 dailyCandles: [...synthetic, ...migrated.dailyCandles].slice(-1_250),
               };
             })
-          : genesisStocks;
+          : current.stocks;
 
         // 저장하지 않는 레버리지·인버스 ETF는 기초자산 캔들에서 시계열을 역산해
         // 복원 직후에도 차트가 점이 아닌 정상 봉으로 보이게 한다.
@@ -3647,14 +3576,14 @@ export const useMarketStore = create<MarketStore>()(
           walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           marketStartedAt: MARKET_EPOCH_MS,
-          tick: marketValid ? merged.tick : 0,
+          tick: marketValid ? merged.tick : current.tick,
           stocks: stocksWithDerived,
           cash: overflowRepair.cash,
           holdings: overflowRepair.holdings,
           events:
             marketValid && Array.isArray(merged.events)
               ? merged.events.map(ensureEventDialogue)
-              : [],
+              : current.events,
           lastSalarySession: sessionBaseline ?? (Number.isSafeInteger(walletSource.lastSalarySession)
             ? walletSource.lastSalarySession
             : nowSession),
@@ -3815,6 +3744,7 @@ export const useMarketStore = create<MarketStore>()(
           ),
           userId: null,
           isReady: false,
+          cloudSyncReady: false,
         };
       },
     },

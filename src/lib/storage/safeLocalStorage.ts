@@ -4,9 +4,20 @@ import type { StateStorage } from "zustand/middleware";
 const LEGACY_MARKET_KEYS = [
   "2dstock-market-local",
   "2dstock-market-local-v2",
+  "2dstock-market-local-v3",
 ];
 
+const MARKET_STORAGE_PREFIX = "2dstock-market-local-v4";
+
+/** 지갑 캐시가 다른 로그인 계정·게스트와 섞이지 않도록 사용자별 키를 만든다. */
+export function marketStorageKey(userId: string | null): string {
+  return `${MARKET_STORAGE_PREFIX}:${userId ?? "guest"}`;
+}
+
 let legacyCleared = false;
+const pendingWrites = new Map<string, string>();
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let flushListenersInstalled = false;
 
 /** 구 LocalStorage 키를 한 번 지워 quota 를 확보한다. */
 export function clearLegacyMarketStorage(): void {
@@ -33,6 +44,49 @@ function isQuotaError(error: unknown): boolean {
   );
 }
 
+function writeNow(name: string, value: string): void {
+  try {
+    window.localStorage.setItem(name, value);
+    return;
+  } catch (error) {
+    if (!isQuotaError(error)) throw error;
+  }
+  try {
+    for (const key of LEGACY_MARKET_KEYS) {
+      window.localStorage.removeItem(key);
+    }
+    window.localStorage.removeItem(name);
+    window.localStorage.setItem(name, value);
+  } catch {
+    console.warn(
+      "[2dstock] localStorage quota exceeded; skipping local persist",
+    );
+  }
+}
+
+function flushPendingWrites(): void {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  for (const [name, value] of pendingWrites) {
+    writeNow(name, value);
+  }
+  pendingWrites.clear();
+}
+
+function scheduleFlush(): void {
+  if (!flushTimer) {
+    flushTimer = setTimeout(flushPendingWrites, 10_000);
+  }
+  if (flushListenersInstalled || typeof window === "undefined") return;
+  flushListenersInstalled = true;
+  window.addEventListener("pagehide", flushPendingWrites);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPendingWrites();
+  });
+}
+
 /**
  * zustand persist 용 LocalStorage.
  * - 구 키 정리
@@ -42,6 +96,7 @@ function isQuotaError(error: unknown): boolean {
 export const safeMarketStorage: StateStorage = {
   getItem: (name) => {
     clearLegacyMarketStorage();
+    if (pendingWrites.has(name)) return pendingWrites.get(name) ?? null;
     try {
       return window.localStorage.getItem(name);
     } catch {
@@ -50,29 +105,11 @@ export const safeMarketStorage: StateStorage = {
   },
   setItem: (name, value) => {
     clearLegacyMarketStorage();
-    try {
-      window.localStorage.setItem(name, value);
-      return;
-    } catch (error) {
-      if (!isQuotaError(error)) throw error;
-    }
-    // 1차 실패: 레거시·다른 대형 키를 더 공격적으로 비운다
-    try {
-      for (const key of LEGACY_MARKET_KEYS) {
-        window.localStorage.removeItem(key);
-      }
-      // 자기 자신 옛 값도 지우고 다시 쓴다
-      window.localStorage.removeItem(name);
-      window.localStorage.setItem(name, value);
-      return;
-    } catch {
-      // 2차도 실패하면 persist 를 포기 — tickMarket 이 죽지 않게 한다
-      console.warn(
-        "[2dstock] localStorage quota exceeded; skipping local persist",
-      );
-    }
+    pendingWrites.set(name, value);
+    scheduleFlush();
   },
   removeItem: (name) => {
+    pendingWrites.delete(name);
     try {
       window.localStorage.removeItem(name);
     } catch {

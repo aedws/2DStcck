@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useMarketStore } from "@/store/marketStore";
 import { MarketRealtime } from "@/components/market/MarketRealtime";
 import { PriceAlertMonitor } from "@/components/market/PriceAlertMonitor";
+import {
+  marketStorageKey,
+  safeMarketStorage,
+} from "@/lib/storage/safeLocalStorage";
 
 /**
  * 클라우드 계정 동기화 (선택적):
@@ -14,11 +18,13 @@ import { PriceAlertMonitor } from "@/components/market/PriceAlertMonitor";
  */
 function CloudSaveSync() {
   const setUserId = useMarketStore((s) => s.setUserId);
+  const setCloudSyncReady = useMarketStore((s) => s.setCloudSyncReady);
   const loadCloudSave = useMarketStore((s) => s.loadCloudSave);
   const applyTargetedAccountReset = useMarketStore(
     (s) => s.applyTargetedAccountReset,
   );
   const saveCloud = useMarketStore((s) => s.saveCloud);
+  const settleCashflows = useMarketStore((s) => s.settleCashflows);
 
   // 로그인 상태 추적 + 로그인 시 저장분 로드.
   // onAuthStateChange는 구독 즉시 INITIAL_SESSION을 한 번 발생시키므로 별도의
@@ -26,16 +32,32 @@ function CloudSaveSync() {
   useEffect(() => {
     const supabase = createClient();
     let loadedFor: string | null = null;
+    const switchLocalCache = async (userId: string | null) => {
+      const name = marketStorageKey(userId);
+      const hasCachedState = Boolean(safeMarketStorage.getItem(name));
+      useMarketStore.persist.setOptions({ name });
+      if (hasCachedState) {
+        await useMarketStore.persist.rehydrate();
+      } else {
+        // 다른 계정의 메모리 지갑을 새 계정·게스트 캐시로 복사하지 않는다.
+        useMarketStore.getState().reset();
+      }
+    };
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const user = session?.user ?? null;
         if (!user) {
           loadedFor = null;
-          setUserId(null);
+          setTimeout(() => {
+            void (async () => {
+              await switchLocalCache(null);
+              setUserId(null);
+              settleCashflows();
+            })();
+          }, 0);
           return;
         }
-        setUserId(user.id);
         // 같은 세션의 반복 이벤트(토큰 갱신 등)에는 재로딩하지 않는다.
         // 매번 로드하면 클라우드 지갑이 진행 중인 로컬 매매를 덮어쓸 수 있다.
         if (loadedFor === user.id) return;
@@ -45,10 +67,19 @@ function CloudSaveSync() {
         // 수 초간 멈춘다. 락이 풀린 뒤 실행되도록 마이크로태스크 밖으로 미룬다.
         setTimeout(() => {
           void (async () => {
-            await loadCloudSave();
-            // 대상 계정이면 로컬·클라우드 어느 쪽이 적용됐든 클라이언트가 스스로
-            // 초기화한다(로컬-우선 규칙을 이겨 재로그인해도 리셋이 유지됨).
+            const previousUserId = useMarketStore.getState().userId;
+            setCloudSyncReady(false);
+            if (previousUserId !== user.id) {
+              await switchLocalCache(user.id);
+            }
+            setUserId(user.id);
+            const loadResult = await loadCloudSave();
+            if (loadResult === "offline") return;
+            // 대상 계정이면 클라우드 지갑을 적용한 뒤 클라이언트가 스스로
+            // 초기화한다(재로그인해도 리셋이 유지됨).
             applyTargetedAccountReset();
+            settleCashflows();
+            setCloudSyncReady(true);
             await saveCloud();
           })();
         }, 0);
@@ -56,7 +87,14 @@ function CloudSaveSync() {
     );
 
     return () => listener.subscription.unsubscribe();
-  }, [setUserId, loadCloudSave, saveCloud, applyTargetedAccountReset]);
+  }, [
+    setUserId,
+    setCloudSyncReady,
+    loadCloudSave,
+    saveCloud,
+    settleCashflows,
+    applyTargetedAccountReset,
+  ]);
 
   // 지갑 변경 시 디바운스 저장 (로그인 상태에서만).
   // 매매 직후 탭을 닫으면 디바운스가 날아가 거래내역이 유실되므로,
@@ -72,11 +110,12 @@ function CloudSaveSync() {
       }
       if (!pending) return;
       pending = false;
-      if (useMarketStore.getState().userId) void saveCloud();
+      const state = useMarketStore.getState();
+      if (state.userId && state.cloudSyncReady) void saveCloud();
     };
 
     const unsub = useMarketStore.subscribe((state, prev) => {
-      if (!state.userId) return;
+      if (!state.userId || !state.cloudSyncReady) return;
       const tradesChanged = state.trades !== prev.trades;
       const walletChanged =
         tradesChanged ||
@@ -138,7 +177,8 @@ function CloudSaveSync() {
   // 거래가 없어도 공개 랭킹 스냅샷과 주간 수익률을 10분마다 갱신한다.
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (useMarketStore.getState().userId) void saveCloud();
+      const state = useMarketStore.getState();
+      if (state.userId && state.cloudSyncReady) void saveCloud();
     }, 10 * 60 * 1_000);
     return () => window.clearInterval(id);
   }, [saveCloud]);

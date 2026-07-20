@@ -111,10 +111,16 @@ function createHistoricalDailyCandles(def: StockDefinition): Candle[] {
 export function createGenesisStocks(): StockState[] {
   return STOCK_DEFINITIONS.map((def) => {
     const state = createInitialStockState(def, MARKET_EPOCH_MS);
+    // 자동 생성 레버리지 상품의 과거 일봉은 기초자산에서 즉시 역산한다.
+    // 여기서 1,200개를 만들면 복원 직후 버려지는 중복 계산이 된다.
+    const syntheticHistory =
+      def.universalDerivative && def.leverage !== undefined
+        ? []
+        : createHistoricalDailyCandles(def);
     return {
       ...state,
       dailyCandles: [
-        ...createHistoricalDailyCandles(def),
+        ...syntheticHistory,
         ...state.dailyCandles,
       ].slice(-MAX_DAILY_CANDLES),
     };

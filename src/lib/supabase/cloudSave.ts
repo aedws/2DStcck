@@ -91,23 +91,33 @@ export interface WalletSave {
   selectedSeasonFrameId?: SeasonRewardId | null;
 }
 
-/** 로그인 유저의 저장된 지갑을 불러온다 (RLS: 본인 행만). 없으면 null. */
-export async function loadGameSave(): Promise<WalletSave | null> {
+export type GameSaveLoadResult =
+  | { status: "loaded"; wallet: WalletSave; updatedAt: number }
+  | { status: "missing" }
+  | { status: "error"; message: string };
+
+/** 로그인 유저의 지갑을 읽고, '저장 없음'과 네트워크 오류를 구분한다. */
+export async function loadGameSave(): Promise<GameSaveLoadResult> {
   const supabase = createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
   const user = session?.user ?? null;
-  if (!user) return null;
+  if (!user) return { status: "error", message: "not authenticated" };
 
   const { data, error } = await supabase
     .from("game_saves")
-    .select("state")
+    .select("state, updated_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error || !data?.state) return null;
-  return data.state as WalletSave;
+  if (error) return { status: "error", message: error.message };
+  if (!data?.state) return { status: "missing" };
+  return {
+    status: "loaded",
+    wallet: data.state as WalletSave,
+    updatedAt: new Date(data.updated_at as string).getTime(),
+  };
 }
 
 /** 현재 지갑을 저장한다 (upsert). 로그인 상태가 아니면 무시. */
