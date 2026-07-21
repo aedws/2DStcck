@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: only dark;
   --background: #101214;
   --surface: #17171c;
   --surface-elevated: #1e1e24;
@@ -10,6 +11,12 @@
   --up: #f04452;
   --down: #3182f6;
   --accent: #3182f6;
+}
+
+/* 마이룸 팔레트는 명시한 색을 그대로 써야 하므로 브라우저 자동 다크 변환에서 제외한다. */
+.myroom-color-canvas {
+  color-scheme: only light;
+  forced-color-adjust: none;
 }
 
 body {

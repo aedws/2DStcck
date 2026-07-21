@@ -198,6 +198,14 @@ export default function MyRoomPage() {
   const expansion = nextRoomExpansion(myRoomLevel);
   const theme = getRoomTheme(myRoomTheme);
   const palette = theme.palette;
+  const darkRoomPalette = theme.id === "midnight";
+  const roomLabelColor = darkRoomPalette ? "#f5f3ff" : "#4a044e";
+  const roomLabelBackground = darkRoomPalette
+    ? "rgba(15, 23, 42, 0.9)"
+    : "rgba(255, 255, 255, 0.9)";
+  const roomGridColor = darkRoomPalette
+    ? "rgba(221, 214, 254, 0.2)"
+    : `${palette.frame}40`;
   // 격자가 커질수록 타일·이모지를 작게 그려 전체 구도가 한눈에 들어오게 한다.
   const cellText =
     dims.cols >= 26
@@ -274,8 +282,8 @@ export default function MyRoomPage() {
 
       {/* 방 — 테마 팔레트로 벽지·바닥·욕실 타일을 통째로 칠한다 */}
       <div
-        className="overflow-hidden rounded-3xl border-4 p-1.5 shadow-lg sm:p-2"
-        style={{ borderColor: palette.frame, background: `${palette.frame}33` }}
+        className="myroom-color-canvas overflow-hidden rounded-3xl border-4 p-1.5 shadow-lg sm:p-2"
+        style={{ borderColor: palette.frame, background: `${palette.frame}55` }}
       >
         <div
           className="relative grid overflow-hidden rounded-2xl"
@@ -314,7 +322,7 @@ export default function MyRoomPage() {
                   }
                   style={{
                     background,
-                    borderColor: `${palette.frame}26`,
+                    borderColor: roomGridColor,
                     ...(bath && y === dims.rows - 3
                       ? { borderTopWidth: 2, borderTopColor: palette.divider }
                       : {}),
@@ -341,7 +349,8 @@ export default function MyRoomPage() {
                       className="absolute inset-x-[14%] bottom-0 top-[12%] rounded-t-[45%]"
                       style={{
                         background: "linear-gradient(180deg, #92400e, #78350f)",
-                        boxShadow: "inset 0 0 0 2px #b4530966",
+                        boxShadow:
+                          "inset 0 0 0 2px #f59e0b99, 0 1px 4px #11182766",
                       }}
                     >
                       <span
@@ -354,7 +363,7 @@ export default function MyRoomPage() {
                   {x === ROOM_DOOR_X && y === ROOM_WALL_ROWS && !def && (
                     <span
                       aria-hidden
-                      className="absolute inset-x-[16%] inset-y-[28%] rounded-[30%] opacity-40"
+                      className="absolute inset-x-[16%] inset-y-[28%] rounded-[30%] opacity-75"
                       style={{ background: palette.divider }}
                     />
                   )}
@@ -371,22 +380,24 @@ export default function MyRoomPage() {
           {/* 구역 라벨 — 공간의 용도를 드러낸다 */}
           <span
             aria-hidden
-            className="pointer-events-none absolute left-1.5 z-10 rounded px-1 text-[8px] font-bold opacity-60 sm:text-[10px]"
+            className="pointer-events-none absolute left-1.5 z-10 rounded-md border px-1.5 py-0.5 text-[8px] font-bold shadow-sm sm:text-[10px]"
             style={{
               top: `calc(${(ROOM_WALL_ROWS / dims.rows) * 100}% + 2px)`,
-              color: palette.divider,
-              background: `${palette.floorA}cc`,
+              color: roomLabelColor,
+              background: roomLabelBackground,
+              borderColor: `${palette.divider}88`,
             }}
           >
             🛏️ 숙소
           </span>
           <span
             aria-hidden
-            className="pointer-events-none absolute left-1.5 z-10 rounded px-1 text-[8px] font-bold opacity-60 sm:text-[10px]"
+            className="pointer-events-none absolute left-1.5 z-10 rounded-md border px-1.5 py-0.5 text-[8px] font-bold shadow-sm sm:text-[10px]"
             style={{
               top: `calc(${((dims.rows - 3) / dims.rows) * 100}% + 2px)`,
-              color: palette.divider,
-              background: `${palette.bathA}cc`,
+              color: roomLabelColor,
+              background: roomLabelBackground,
+              borderColor: `${palette.divider}88`,
             }}
           >
             ♨️ 욕장

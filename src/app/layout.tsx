@@ -14,6 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        <meta name="color-scheme" content="dark" />
+        {/* 자체 다크 테마가 있으므로 확장 프로그램의 이중 색상 변환을 막는다. */}
+        <meta name="darkreader-lock" />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>
