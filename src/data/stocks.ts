@@ -296,6 +296,25 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_bahina",
   },
+  {
+    id: "gsck",
+    ticker: "GSCK",
+    name: "키보토스 총학생회 금융지주",
+    sector: "금융",
+    subsector: "행정 지주회사",
+    initialPrice: 88000,
+    volatility: 0.02,
+    drift: 0.0007,
+    beta: 0.9,
+    description:
+      "키보토스 연방 예산과 금융 자산 운용, 9개 행정위원회·각 학원 거버넌스, 생텀 타워 인프라 관제를 총괄하는 행정 지주회사. 총학생회장 장기 부재 중에도 수석 행정관 나나가미 린의 쿨하고 철저한 일처리로 리스크를 최소화하며, 린의 직인이 찍히지 않은 합병 서류는 어떤 경우에도 효력이 없다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      행보: 3,
+      실적: 2,
+      스캔들: 0.5,
+    },
+    ceoId: "chr_baspy",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */

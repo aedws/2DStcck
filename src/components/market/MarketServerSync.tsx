@@ -140,6 +140,7 @@ function CloudSaveSync() {
         state.lastInterestSession !== prev.lastInterestSession ||
         state.ownedLuxuries !== prev.ownedLuxuries ||
         state.myRoomItems !== prev.myRoomItems ||
+        state.myRoomLevel !== prev.myRoomLevel ||
         state.shorts !== prev.shorts ||
         state.options !== prev.options ||
         state.investmentMission !== prev.investmentMission ||

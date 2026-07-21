@@ -5,13 +5,13 @@ import { useMarketStore } from "@/store/marketStore";
 import { formatPrice } from "@/lib/market/engine";
 import { toastResult } from "@/store/toastStore";
 import {
-  ROOM_GRID_COLS,
-  ROOM_GRID_ROWS,
   ROOM_ITEMS,
-  ROOM_MAX_ITEMS,
   ROOM_SELL_RATIO,
   getRoomItem,
   isWallRow,
+  nextRoomExpansion,
+  roomDimsForLevel,
+  roomMaxItemsForLevel,
   type RoomItemCategory,
   type RoomItemDefinition,
 } from "@/data/roomItems";
@@ -27,9 +27,11 @@ type RoomMode =
 export default function MyRoomPage() {
   const cash = useMarketStore((s) => s.cash);
   const myRoomItems = useMarketStore((s) => s.myRoomItems);
+  const myRoomLevel = useMarketStore((s) => s.myRoomLevel);
   const buyRoomItem = useMarketStore((s) => s.buyRoomItem);
   const moveRoomItem = useMarketStore((s) => s.moveRoomItem);
   const sellRoomItem = useMarketStore((s) => s.sellRoomItem);
+  const expandMyRoom = useMarketStore((s) => s.expandMyRoom);
 
   const [mode, setMode] = useState<RoomMode>({ type: "idle" });
   const [mounted, setMounted] = useState(false);
@@ -47,6 +49,10 @@ export default function MyRoomPage() {
   );
 
   if (!mounted) return null;
+
+  const dims = roomDimsForLevel(myRoomLevel);
+  const maxItems = roomMaxItemsForLevel(myRoomLevel);
+  const expansion = nextRoomExpansion(myRoomLevel);
 
   const placingItem =
     mode.type === "placing"
@@ -108,7 +114,7 @@ export default function MyRoomPage() {
           </p>
           <p className="mt-0.5">
             방 꾸미기 누적 <span className="font-semibold text-[var(--foreground)]">{formatPrice(roomValue)}</span> ·{" "}
-            {myRoomItems.length}/{ROOM_MAX_ITEMS}개
+            {myRoomItems.length}/{maxItems}개 · {dims.cols}×{dims.rows}
           </p>
         </div>
       </div>
@@ -117,10 +123,10 @@ export default function MyRoomPage() {
       <div className="overflow-hidden rounded-3xl border-4 border-pink-300 bg-pink-100 p-2 shadow-lg">
         <div
           className="grid overflow-hidden rounded-2xl"
-          style={{ gridTemplateColumns: `repeat(${ROOM_GRID_COLS}, minmax(0, 1fr))` }}
+          style={{ gridTemplateColumns: `repeat(${dims.cols}, minmax(0, 1fr))` }}
         >
-          {Array.from({ length: ROOM_GRID_ROWS }).flatMap((_, y) =>
-            Array.from({ length: ROOM_GRID_COLS }).map((_, x) => {
+          {Array.from({ length: dims.rows }).flatMap((_, y) =>
+            Array.from({ length: dims.cols }).map((_, x) => {
               const key = `${x}:${y}`;
               const occupiedIndex = cellMap.get(key);
               const placed =
@@ -231,6 +237,35 @@ export default function MyRoomPage() {
       {mode.type === "idle" && myRoomItems.length === 0 && (
         <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-center text-sm text-[var(--muted)]">
           아직 텅 빈 방이에요. 아래 카탈로그에서 첫 가구를 들여 보세요.
+        </p>
+      )}
+
+      {/* 방 크기 확장권 */}
+      {expansion ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-bold">
+              🏗️ 확장권 · {expansion.name}
+              <span className="ml-2 text-xs font-normal text-[var(--muted)]">
+                {dims.cols}×{dims.rows} → {expansion.cols}×{expansion.rows} · 가구 한도 +20
+              </span>
+            </p>
+            <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+              확장권은 1회성 소비이며 환불되지 않습니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={expansion.price > cash}
+            onClick={() => toastResult(expandMyRoom())}
+            className="shrink-0 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-white transition disabled:opacity-40"
+          >
+            {formatPrice(expansion.price)}에 확장
+          </button>
+        </div>
+      ) : (
+        <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-center text-xs text-[var(--muted)]">
+          🏰 최대 크기의 방입니다 — 대저택 홀에 오신 것을 환영합니다.
         </p>
       )}
 

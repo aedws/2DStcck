@@ -76,7 +76,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["dante", "hinafg", "udnge"],
+  ["dante", "gsck", "hinafg", "udnge"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);

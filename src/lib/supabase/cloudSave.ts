@@ -79,6 +79,8 @@ export interface WalletSave {
   claimedCompensationIds?: string[];
   /** 마이룸에 배치된 가구. */
   myRoomItems?: PlacedRoomItem[];
+  /** 마이룸 확장 단계 (0 = 기본 방). */
+  myRoomLevel?: number;
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;

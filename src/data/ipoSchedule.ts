@@ -18,4 +18,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   dante: Date.UTC(2026, 6, 21, 9, 0),
   // 소라사키 히나 금융지주(HINA) — 2026-07-22 15:00 KST 개장 (= 06:00 UTC)
   hinafg: Date.UTC(2026, 6, 22, 6, 0),
+  // 키보토스 총학생회 금융지주(GSCK) — 2026-07-23 15:00 KST 개장 (= 06:00 UTC)
+  gsck: Date.UTC(2026, 6, 23, 6, 0),
 };

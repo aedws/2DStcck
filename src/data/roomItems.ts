@@ -10,8 +10,46 @@ export const ROOM_GRID_ROWS = 8;
 export const ROOM_WALL_ROWS = 2;
 /** 되팔기 환불 비율. 나머지는 소각된다. */
 export const ROOM_SELL_RATIO = 0.5;
-/** 방에 놓을 수 있는 최대 가구 수 (저장 용량 보호). */
+/** 기본 방에 놓을 수 있는 최대 가구 수 (저장 용량 보호). */
 export const ROOM_MAX_ITEMS = 60;
+
+/** 방 크기 확장권 — 단계별 1회 구매(환불 없음)로 격자가 커진다. */
+export interface RoomExpansion {
+  level: number;
+  name: string;
+  cols: number;
+  rows: number;
+  /** 이 단계로 올라가는 확장권 가격(센트). level 0은 기본 제공. */
+  price: number;
+}
+
+export const ROOM_EXPANSIONS: RoomExpansion[] = [
+  { level: 0, name: "기본 방", cols: 10, rows: 8, price: 0 },
+  { level: 1, name: "넓은 방", cols: 12, rows: 9, price: 1_000_000_000 },
+  { level: 2, name: "별관 증축", cols: 14, rows: 10, price: 10_000_000_000 },
+  { level: 3, name: "대욕장", cols: 16, rows: 11, price: 200_000_000_000 },
+  { level: 4, name: "펜트하우스", cols: 18, rows: 12, price: 5_000_000_000_000 },
+  { level: 5, name: "대저택 홀", cols: 20, rows: 14, price: 100_000_000_000_000 },
+];
+
+export function normalizeRoomLevel(value: unknown): number {
+  const level = Number(value);
+  if (!Number.isInteger(level) || level < 0) return 0;
+  return Math.min(level, ROOM_EXPANSIONS.length - 1);
+}
+
+export function roomDimsForLevel(level: number): { cols: number; rows: number } {
+  const expansion = ROOM_EXPANSIONS[normalizeRoomLevel(level)];
+  return { cols: expansion.cols, rows: expansion.rows };
+}
+
+export function roomMaxItemsForLevel(level: number): number {
+  return ROOM_MAX_ITEMS + normalizeRoomLevel(level) * 20;
+}
+
+export function nextRoomExpansion(level: number): RoomExpansion | undefined {
+  return ROOM_EXPANSIONS[normalizeRoomLevel(level) + 1];
+}
 
 export type RoomItemCategory = "가구" | "욕실" | "장식" | "펫" | "프리미엄";
 
@@ -85,15 +123,24 @@ export function isWallRow(y: number): boolean {
 }
 
 /** 배치 가능 여부(격자 범위·벽/바닥 규칙). 점유 검사는 호출부가 한다. */
-export function isValidRoomCell(item: RoomItemDefinition, x: number, y: number): boolean {
+export function isValidRoomCell(
+  item: RoomItemDefinition,
+  x: number,
+  y: number,
+  level: number = 0,
+): boolean {
+  const dims = roomDimsForLevel(level);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
-  if (x < 0 || x >= ROOM_GRID_COLS || y < 0 || y >= ROOM_GRID_ROWS) return false;
+  if (x < 0 || x >= dims.cols || y < 0 || y >= dims.rows) return false;
   if (item.wallOnly) return isWallRow(y);
   return !isWallRow(y);
 }
 
 /** 저장 복원용 정규화 — 알 수 없는 아이템·범위 밖·중복 칸을 걷어낸다. */
-export function normalizeRoomItems(value: unknown): PlacedRoomItem[] {
+export function normalizeRoomItems(
+  value: unknown,
+  level: number = ROOM_EXPANSIONS.length - 1,
+): PlacedRoomItem[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
   const result: PlacedRoomItem[] = [];
@@ -104,7 +151,7 @@ export function normalizeRoomItems(value: unknown): PlacedRoomItem[] {
     if (!item) continue;
     const x = Number(entry.x);
     const y = Number(entry.y);
-    if (!isValidRoomCell(item, x, y)) continue;
+    if (!isValidRoomCell(item, x, y, level)) continue;
     const cell = `${x}:${y}`;
     if (seen.has(cell)) continue;
     seen.add(cell);
@@ -118,7 +165,7 @@ export function normalizeRoomItems(value: unknown): PlacedRoomItem[] {
           : item.price,
       purchasedAt: Number.isFinite(entry.purchasedAt) ? entry.purchasedAt! : 0,
     });
-    if (result.length >= ROOM_MAX_ITEMS) break;
+    if (result.length >= roomMaxItemsForLevel(level)) break;
   }
   return result;
 }
