@@ -52,6 +52,29 @@ export interface StockRequestRow {
   updated_at: string;
 }
 
+/** 반려된 IPO 요청을 신청자에게 전달하기 위한 회신. */
+export interface StockRequestResponse {
+  id: string;
+  title: string;
+  status: "rejected";
+  message: string | null;
+  refundCents: number;
+}
+
+/**
+ * 반려 환불액은 실제 기록액을 따르되 현재 신청 비용을 넘지 않는다.
+ * cost_paid는 클라이언트가 작성하는 감사 필드라 임의의 큰 값으로 환불받을 수 없게 제한한다.
+ */
+export function stockRequestRefundCents(
+  request: Pick<StockRequestRow, "status" | "cost_paid">,
+): number {
+  if (request.status !== "rejected") return 0;
+  return Math.min(
+    STOCK_REQUEST_COST,
+    Math.max(0, Math.floor(Number.isFinite(request.cost_paid) ? request.cost_paid : 0)),
+  );
+}
+
 /** 이메일(game.<id>@2dstock.local)에서 게임 아이디를 뽑는다. */
 export function gameIdFromEmail(email: string | undefined | null): string {
   if (!email) return "";
@@ -143,6 +166,22 @@ export async function listStockRequests(): Promise<StockRequestRow[]> {
     .limit(500);
   if (error || !data) return [];
   return data as StockRequestRow[];
+}
+
+/** (유저) 반려된 내 IPO 요청의 사유와 환불액을 가져온다. */
+export async function listMyStockRequestResponses(): Promise<StockRequestResponse[]> {
+  const auth = await getCurrentAuth();
+  if (!auth) return [];
+  const rows = await listStockRequests();
+  return rows
+    .filter((r) => r.user_id === auth.userId && r.status === "rejected")
+    .map((r) => ({
+      id: r.id,
+      title: r.name,
+      status: "rejected" as const,
+      message: r.admin_note,
+      refundCents: stockRequestRefundCents(r),
+    }));
 }
 
 /** (관리자) 요청 상태·메모 갱신. */

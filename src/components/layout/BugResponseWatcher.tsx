@@ -10,11 +10,15 @@ import {
   listMyFeedbackResponses,
   FEEDBACK_STATUS_LABEL,
 } from "@/lib/supabase/feedback";
+import {
+  listMyStockRequestResponses,
+  STOCK_REQUEST_STATUS_LABEL,
+} from "@/lib/supabase/stockRequests";
 import { formatPrice } from "@/lib/market/engine";
 
 /** 모달 큐에 쌓이는 통합 회신 아이템(버그·피드백 공통). */
 interface QueuedResponse {
-  source: "bug" | "feedback";
+  source: "bug" | "feedback" | "stock";
   id: string;
   title: string;
   statusLabel: string;
@@ -24,9 +28,9 @@ interface QueuedResponse {
 }
 
 /**
- * 로그인한 유저의 버그 리포트·피드백 중 운영자가 처리한 건을 감지해, 채택(수정
- * 완료·반영 완료)엔 보상을 지급하고 운영자 회신을 모달로 전달한다. 처리 id 는
- * 지갑에 기록돼(멱등) 다시 뜨지 않는다.
+ * 로그인한 유저의 버그 리포트·피드백·IPO 요청 중 운영자가 처리한 건을 감지해,
+ * 보상 또는 IPO 반려 환불을 지급하고 운영자 회신을 모달로 전달한다. 처리 id 는
+ * 지갑에 기록돼 다시 뜨거나 중복 지급되지 않는다.
  */
 export function BugResponseWatcher() {
   const userId = useMarketStore((s) => s.userId);
@@ -35,13 +39,17 @@ export function BugResponseWatcher() {
   const resolveFeedbackResponses = useMarketStore(
     (s) => s.resolveFeedbackResponses,
   );
+  const resolveStockRequestResponses = useMarketStore(
+    (s) => s.resolveStockRequestResponses,
+  );
   const [queue, setQueue] = useState<QueuedResponse[]>([]);
 
   const check = useCallback(async () => {
     if (!userId) return;
-    const [bugs, feedback] = await Promise.all([
+    const [bugs, feedback, stocks] = await Promise.all([
       listMyBugResponses(),
       listMyFeedbackResponses(),
+      listMyStockRequestResponses(),
     ]);
 
     const queued: QueuedResponse[] = [];
@@ -71,8 +79,26 @@ export function BugResponseWatcher() {
         });
       }
     }
+    if (stocks.length > 0) {
+      for (const r of resolveStockRequestResponses(stocks)) {
+        queued.push({
+          source: "stock",
+          id: r.id,
+          title: r.title,
+          statusLabel: STOCK_REQUEST_STATUS_LABEL[r.status],
+          reward: r.refundCents > 0,
+          rewardCents: r.refundCents,
+          message: r.message,
+        });
+      }
+    }
     if (queued.length > 0) setQueue((prev) => [...prev, ...queued]);
-  }, [userId, resolveBugReports, resolveFeedbackResponses]);
+  }, [
+    userId,
+    resolveBugReports,
+    resolveFeedbackResponses,
+    resolveStockRequestResponses,
+  ]);
 
   useEffect(() => {
     if (!userId || !isReady) return;
@@ -89,22 +115,27 @@ export function BugResponseWatcher() {
 
   const current = queue[0];
   const isBug = current.source === "bug";
+  const isStock = current.source === "stock";
   const rewarded = current.reward && current.rewardCents > 0;
   const dismiss = () => setQueue((prev) => prev.slice(1));
 
-  const heading = rewarded
-    ? isBug
+  const heading = isStock
+    ? "IPO 신청 반려 — 비용 환불"
+    : rewarded
+      ? isBug
       ? "버그 수정 완료 — 보상 지급"
       : "피드백 반영 — 보상 지급"
-    : isBug
-      ? "버그 리포트 회신"
-      : "피드백 회신";
-  const emoji = rewarded ? (isBug ? "🛠️" : "💡") : "📮";
-  const closing = rewarded
-    ? isBug
+      : isBug
+        ? "버그 리포트 회신"
+        : "피드백 회신";
+  const emoji = isStock ? "📈" : rewarded ? (isBug ? "🛠️" : "💡") : "📮";
+  const closing = isStock
+    ? "반려 사유를 확인해 주세요. 사용한 IPO 신청 비용은 전액 돌려드렸습니다."
+    : rewarded
+      ? isBug
       ? "제보해 주셔서 고맙습니다. 여러분의 제보가 게임을 더 단단하게 만듭니다."
       : "제안해 주셔서 고맙습니다. 여러분의 아이디어가 게임을 키웁니다."
-    : "소중한 의견 고맙습니다. 다음에 더 좋은 소식으로 찾아뵐게요.";
+      : "소중한 의견 고맙습니다. 다음에 더 좋은 소식으로 찾아뵐게요.";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
@@ -113,12 +144,13 @@ export function BugResponseWatcher() {
         <h2 className="mt-3 text-lg font-bold">{heading}</h2>
         <span
           className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            rewarded
+            rewarded && !isStock
               ? "bg-emerald-500/15 text-emerald-400"
               : "bg-rose-500/15 text-rose-400"
           }`}
         >
-          {isBug ? "🐞 버그" : "💡 피드백"} · {current.statusLabel}
+          {isBug ? "🐞 버그" : isStock ? "📈 IPO 요청" : "💡 피드백"} ·{" "}
+          {current.statusLabel}
         </span>
 
         <p className="mt-3 text-sm font-medium text-[var(--foreground)]">
@@ -128,7 +160,7 @@ export function BugResponseWatcher() {
         {rewarded && (
           <div className="mt-4 rounded-2xl bg-emerald-500/10 px-5 py-3">
             <p className="text-[11px] text-[var(--muted)]">
-              {isBug ? "제보 보상" : "제안 보상"}
+              {isStock ? "IPO 신청 비용 환불" : isBug ? "제보 보상" : "제안 보상"}
             </p>
             <p className="text-xl font-black tabular-nums text-emerald-400">
               +{formatPrice(current.rewardCents)}

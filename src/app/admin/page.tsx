@@ -8,6 +8,7 @@ import {
   isAdminEmail,
   listStockRequests,
   updateStockRequest,
+  STOCK_REQUEST_COST,
   STOCK_REQUEST_STATUS_LABEL,
   type StockRequestRow,
   type StockRequestStatus,
@@ -33,7 +34,6 @@ const STOCK_STATUSES: StockRequestStatus[] = [
   "pending",
   "reviewing",
   "accepted",
-  "rejected",
   "shipped",
 ];
 
@@ -121,12 +121,32 @@ export default function AdminPage() {
   }, [refresh]);
 
   async function setStockStatus(id: string, status: StockRequestStatus) {
+    const savedNote = rows.find((r) => r.id === id)?.admin_note ?? "";
+    const note =
+      status === "rejected"
+        ? (noteDrafts[id] ?? savedNote).trim()
+        : undefined;
+    if (status === "rejected" && !note) return;
     setSavingId(id);
-    if (await updateStockRequest(id, { status })) {
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    if (
+      await updateStockRequest(id, {
+        status,
+        ...(note !== undefined ? { adminNote: note } : {}),
+      })
+    ) {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, status, ...(note !== undefined ? { admin_note: note } : {}) }
+            : r,
+        ),
+      );
     }
     setSavingId(null);
   }
+
+  const stockDraftOf = (r: StockRequestRow) =>
+    noteDrafts[r.id] ?? r.admin_note ?? "";
 
   const draftOf = (r: BugReportRow) =>
     noteDrafts[r.id] ?? r.admin_note ?? "";
@@ -380,6 +400,36 @@ export default function AdminPage() {
                         {STOCK_REQUEST_STATUS_LABEL[s]}
                       </button>
                     ))}
+                  </div>
+                  <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+                    <label className="text-[11px] font-semibold text-rose-400">
+                      반려 사유 · 신청자에게 전달
+                    </label>
+                    <textarea
+                      value={stockDraftOf(r)}
+                      onChange={(e) =>
+                        setNoteDrafts((prev) => ({
+                          ...prev,
+                          [r.id]: e.target.value.slice(0, 1000),
+                        }))
+                      }
+                      disabled={r.status === "rejected"}
+                      placeholder="반려 사유를 입력해야 반려 처리할 수 있습니다."
+                      rows={2}
+                      className="mt-1.5 w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs outline-none focus:border-rose-400 disabled:opacity-70"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setStockStatus(r.id, "rejected")}
+                      disabled={
+                        savingId === r.id ||
+                        r.status === "rejected" ||
+                        !stockDraftOf(r).trim()
+                      }
+                      className="mt-2 w-full rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:opacity-40"
+                    >
+                      📮 반려 사유 전송 + {formatPrice(STOCK_REQUEST_COST)} 환불
+                    </button>
                   </div>
                 </li>
                 );

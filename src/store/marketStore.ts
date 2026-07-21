@@ -376,6 +376,8 @@ interface MarketStore extends MarketSnapshot {
   resolvedBugReportIds: string[];
   /** 운영자 회신을 이미 처리한 피드백 id. 중복 지급 방지. */
   resolvedFeedbackIds: string[];
+  /** 반려 회신·환불을 이미 처리한 IPO 요청 id. 중복 환불 방지. */
+  resolvedStockRequestIds: string[];
   /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
   claimedCompensationIds: string[];
   /**
@@ -415,6 +417,22 @@ interface MarketStore extends MarketSnapshot {
     status: "done" | "declined";
     message: string | null;
     rewardCents: number;
+  }[];
+  /** 반려된 IPO 요청의 사유를 전달하고 신청 비용을 한 번만 환불한다. */
+  resolveStockRequestResponses: (
+    responses: {
+      id: string;
+      title: string;
+      status: "rejected";
+      message: string | null;
+      refundCents: number;
+    }[],
+  ) => {
+    id: string;
+    title: string;
+    status: "rejected";
+    message: string | null;
+    refundCents: number;
   }[];
   investmentMastery: InvestmentMasteryState;
   /** 20거래일 지수 대비 티어 시즌과 최근 결과. */
@@ -532,6 +550,7 @@ function createInitialState(): MarketSnapshot & {
   readCharacterMessageIds: string[];
   resolvedBugReportIds: string[];
   resolvedFeedbackIds: string[];
+  resolvedStockRequestIds: string[];
   claimedCompensationIds: string[];
   myRoomItems: PlacedRoomItem[];
   myRoomLevel: number;
@@ -611,6 +630,7 @@ function createInitialState(): MarketSnapshot & {
     readCharacterMessageIds: [],
     resolvedBugReportIds: [],
     resolvedFeedbackIds: [],
+    resolvedStockRequestIds: [],
     // 신규 계정은 기존 운영 보상 지급 대상이 아니므로 전부 수령 완료로 시작한다.
     claimedCompensationIds: OPERATIONAL_COMPENSATIONS.map(
       (compensation) => compensation.id,
@@ -1527,6 +1547,36 @@ export const useMarketStore = create<MarketStore>()(
         void get().saveCloud();
         return fresh;
       },
+      resolveStockRequestResponses: (responses) => {
+        const state = get();
+        const already = new Set(state.resolvedStockRequestIds);
+        const fresh = responses.filter((r) => !already.has(r.id));
+        if (fresh.length === 0) return [];
+        const now = Date.now();
+        const dueSession = Math.floor(now / SESSION_DURATION_MS);
+        const refundPayments: CashPayment[] = fresh
+          .filter((r) => r.refundCents > 0)
+          .map((r) => ({
+            id: `ipo-refund-${r.id}`,
+            kind: "compensation",
+            sourceId: "stock-request-refund",
+            dueSession,
+            amount: r.refundCents,
+            timestamp: now,
+          }));
+        const totalRefund = refundPayments.reduce((sum, p) => sum + p.amount, 0);
+        set({
+          cash: state.cash + totalRefund,
+          cashPayments: [...refundPayments, ...state.cashPayments],
+          resolvedStockRequestIds: [
+            ...fresh.map((r) => r.id),
+            ...state.resolvedStockRequestIds,
+          ].slice(0, 300),
+        });
+        if (totalRefund > 0) playSound("cash");
+        void get().saveCloud();
+        return fresh;
+      },
       selectInvestmentSeasonGoal: (goalId, targetWeight) => {
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         const next = selectSeasonGoal(
@@ -1791,6 +1841,7 @@ export const useMarketStore = create<MarketStore>()(
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           resolvedBugReportIds: wallet.resolvedBugReportIds ?? [],
           resolvedFeedbackIds: wallet.resolvedFeedbackIds ?? [],
+          resolvedStockRequestIds: wallet.resolvedStockRequestIds ?? [],
           myRoomItems: normalizeRoomItems(
             wallet.myRoomItems,
             normalizeRoomLevel(wallet.myRoomLevel),
@@ -1881,6 +1932,7 @@ export const useMarketStore = create<MarketStore>()(
           readCharacterMessageIds: s.readCharacterMessageIds,
           resolvedBugReportIds: s.resolvedBugReportIds,
           resolvedFeedbackIds: s.resolvedFeedbackIds,
+          resolvedStockRequestIds: s.resolvedStockRequestIds,
           claimedCompensationIds: s.claimedCompensationIds,
           myRoomItems: s.myRoomItems,
           myRoomLevel: s.myRoomLevel,
@@ -3608,6 +3660,7 @@ export const useMarketStore = create<MarketStore>()(
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         resolvedBugReportIds: state.resolvedBugReportIds.slice(0, 200),
         resolvedFeedbackIds: state.resolvedFeedbackIds.slice(0, 200),
+        resolvedStockRequestIds: state.resolvedStockRequestIds.slice(0, 200),
         claimedCompensationIds: state.claimedCompensationIds,
         myRoomItems: state.myRoomItems,
         myRoomLevel: state.myRoomLevel,
@@ -3979,6 +4032,11 @@ export const useMarketStore = create<MarketStore>()(
             (walletSource as Partial<MarketStore>).resolvedFeedbackIds,
           )
             ? (walletSource as Partial<MarketStore>).resolvedFeedbackIds!.slice(0, 300)
+            : [],
+          resolvedStockRequestIds: Array.isArray(
+            (walletSource as Partial<MarketStore>).resolvedStockRequestIds,
+          )
+            ? (walletSource as Partial<MarketStore>).resolvedStockRequestIds!.slice(0, 300)
             : [],
           myRoomItems: normalizeRoomItems(
             (walletSource as Partial<MarketStore>).myRoomItems,

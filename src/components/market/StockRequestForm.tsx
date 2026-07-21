@@ -97,7 +97,7 @@ export function StockRequestForm({
           <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
             추가됐으면 하는 종목·캐릭터를 제안하세요. 검토 후 반영될 수 있어요.
             요청 1건에 {formatPrice(STOCK_REQUEST_COST)} · {STOCK_REQUEST_COOLDOWN_DAYS}
-            거래일마다 1회.
+            거래일마다 1회. 반려되면 사유와 함께 신청 비용 전액을 돌려드립니다.
           </p>
         </div>
       </div>
