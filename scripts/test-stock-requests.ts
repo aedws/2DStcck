@@ -1,6 +1,9 @@
 import assert from "node:assert";
 import {
   STOCK_REQUEST_COST,
+  STOCK_REQUEST_PROGRESS,
+  STOCK_REQUEST_STATUS_LABEL,
+  stockRequestProgressIndex,
   stockRequestRefundCents,
   type StockRequestStatus,
 } from "../src/lib/supabase/stockRequests";
@@ -21,4 +24,20 @@ assert.equal(refund("rejected", STOCK_REQUEST_COST * 100), STOCK_REQUEST_COST);
 assert.equal(refund("rejected", -1), 0);
 assert.equal(refund("rejected", Number.NaN), 0);
 
-console.log("stock request rejection & refund scenarios passed");
+assert.deepEqual(STOCK_REQUEST_PROGRESS, [
+  "pending",
+  "reviewing",
+  "accepted",
+  "shipped",
+]);
+assert.equal(stockRequestProgressIndex("pending"), 0);
+assert.equal(stockRequestProgressIndex("reviewing"), 1);
+assert.equal(stockRequestProgressIndex("accepted"), 2);
+assert.equal(stockRequestProgressIndex("shipped"), 3);
+assert.equal(stockRequestProgressIndex("rejected"), -1);
+assert.deepEqual(
+  Object.values(STOCK_REQUEST_STATUS_LABEL),
+  ["대기", "검토 중", "반영 예정", "반려", "반영 완료"],
+);
+
+console.log("stock request status, rejection & refund scenarios passed");

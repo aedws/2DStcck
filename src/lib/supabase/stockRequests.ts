@@ -29,6 +29,20 @@ export const STOCK_REQUEST_STATUS_LABEL: Record<StockRequestStatus, string> = {
   shipped: "반영 완료",
 };
 
+/** 반려를 제외한 정상 IPO 진행 순서. */
+export const STOCK_REQUEST_PROGRESS = [
+  "pending",
+  "reviewing",
+  "accepted",
+  "shipped",
+] as const satisfies readonly StockRequestStatus[];
+
+export function stockRequestProgressIndex(status: StockRequestStatus): number {
+  return STOCK_REQUEST_PROGRESS.indexOf(
+    status as (typeof STOCK_REQUEST_PROGRESS)[number],
+  );
+}
+
 export interface StockRequestInput {
   sector?: string;
   name: string;
@@ -168,13 +182,26 @@ export async function listStockRequests(): Promise<StockRequestRow[]> {
   return data as StockRequestRow[];
 }
 
-/** (유저) 반려된 내 IPO 요청의 사유와 환불액을 가져온다. */
-export async function listMyStockRequestResponses(): Promise<StockRequestResponse[]> {
+/** (유저) 로그인한 본인이 신청한 IPO 요청만 가져온다. 관리자 계정도 본인 것만 반환한다. */
+export async function listMyStockRequests(): Promise<StockRequestRow[]> {
   const auth = await getCurrentAuth();
   if (!auth) return [];
-  const rows = await listStockRequests();
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("stock_requests")
+    .select("*")
+    .eq("user_id", auth.userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error || !data) return [];
+  return data as StockRequestRow[];
+}
+
+/** (유저) 반려된 내 IPO 요청의 사유와 환불액을 가져온다. */
+export async function listMyStockRequestResponses(): Promise<StockRequestResponse[]> {
+  const rows = await listMyStockRequests();
   return rows
-    .filter((r) => r.user_id === auth.userId && r.status === "rejected")
+    .filter((r) => r.status === "rejected")
     .map((r) => ({
       id: r.id,
       title: r.name,
