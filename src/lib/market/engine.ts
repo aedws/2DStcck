@@ -37,6 +37,7 @@ import {
 import { getCharacterById } from "@/data/characters";
 import { pickEventQuote, withCharacterQuote } from "@/data/eventQuotes";
 import { generateOrderBook } from "@/lib/market/orderBook";
+import { isListed } from "@/lib/market/ipo";
 import {
   TRADING_SESSIONS_PER_YEAR,
 } from "@/lib/market/distributions";
@@ -866,7 +867,10 @@ export function resolveEventTemplate(
 
   if (template.category === "company") {
     const candidates = getCompanyDefinitions().filter(
-      (c) => !template.requiresCeo || c.ceoId,
+      (c) =>
+        isListed(c, now) &&
+        (!template.companyId || c.id === template.companyId) &&
+        (!template.requiresCeo || c.ceoId),
     );
     const company = pickWeighted(
       candidates,

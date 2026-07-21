@@ -44,6 +44,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "26개의 메가코프가 도시를 지배하는 세계에서 최연소 수석연구원으로 이름을 알린 발명가. 연구 성과를 특허로 권리화하고 판매·라이선싱하는 이상 연구소의 연구개발을 총괄한다.",
     emoji: "🪽",
   },
+  {
+    id: "chr_minori",
+    name: "야스모리 미노리",
+    title: "미노리 용역 대표",
+    traits: ["행동파", "선동가", "성실"],
+    bio: "붉은겨울 연방학원의 공무부장이자 노동과 시위를 이끄는 현장 책임자. 건설 용역을 앞세운 미노리 용역에서는 과감한 사보타주와 자사주 소각으로 계약을 완수하며, 보수 문제에는 의뢰주까지 책임을 묻는다.",
+    emoji: "🪧",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

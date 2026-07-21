@@ -22,4 +22,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   gsck: Date.UTC(2026, 6, 22, 9, 0),
   // 이상 연구소(YSAN) — 2026-07-22 21:00 KST 개장 (= 12:00 UTC)
   yisang: Date.UTC(2026, 6, 22, 12, 0),
+  // 미노리 용역(MNRI) — 2026-07-24 15:00 KST 개장 (= 06:00 UTC)
+  minori: Date.UTC(2026, 6, 24, 6, 0),
 };

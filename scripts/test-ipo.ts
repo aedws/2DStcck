@@ -12,13 +12,19 @@ import {
   SIM_TICK_MS,
   SESSION_DURATION_MS,
 } from "../src/lib/market/constants";
-import { createInitialStockState } from "../src/lib/market/engine";
+import {
+  createInitialStockState,
+  resolveEventTemplate,
+} from "../src/lib/market/engine";
 import { replayMarket } from "../src/lib/market/localSim";
 import {
   EARNINGS_INTERVAL_SESSIONS,
   getEarningsCalendar,
 } from "../src/lib/market/earningsCalendar";
-import { getCompanyDefinitions } from "../src/data/stocks";
+import {
+  EVENT_TEMPLATES,
+  getCompanyDefinitions,
+} from "../src/data/stocks";
 import { stockHref } from "../src/lib/ui/stockLink";
 
 const now = 1_000_000_000_000;
@@ -76,7 +82,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["dante", "gsck", "hinafg", "udnge"],
+  ["dante", "gsck", "hinafg", "minori", "udnge", "yisang"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -110,6 +116,39 @@ for (const ipo of scheduledIpos) {
     `상장 후 ${ipo.name} 캔들이 생성되지 않음`,
   );
 }
+
+// 미노리 용역: 지정 시각 전 동결·거래 차단, 무배당·희석 하락 성향과 전용 사건
+const minori = getCompanyDefinitions().find((stock) => stock.id === "minori");
+assert.ok(minori, "미노리 용역 정의가 없음");
+const minoriListing = Date.UTC(2026, 6, 24, 6, 0);
+assert.equal(minori.ticker, "MNRI");
+assert.equal(minori.listingEpochMs, minoriListing);
+assert.equal(minori.quarterlyDividend, undefined);
+assert.ok(minori.drift < 0, "희석 압력을 반영한 음의 드리프트가 필요함");
+assert.ok(minori.volatility >= 0.07, "급등락 성향이 충분히 반영되지 않음");
+assert.equal(isListed(minori, minoriListing - 1), false);
+assert.equal(isListed(minori, minoriListing), true);
+
+const minoriBurn = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "minori" && template.impact > 0,
+);
+assert.ok(minoriBurn, "미노리 용역 자사주 소각 사건이 없음");
+assert.ok(minoriBurn.impact >= 1.5, "자사주 소각 숏 스퀴즈 강도가 부족함");
+const minoriSabotage = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "minori" && template.impact < 0,
+);
+assert.ok(minoriSabotage, "미노리 용역 보수 갈등 사건이 없음");
+assert.ok(minoriSabotage.impact <= -1, "보수 갈등 사보타주 강도가 부족함");
+assert.equal(
+  resolveEventTemplate(minoriBurn, minoriListing - 1, () => 0.5),
+  null,
+  "상장 전 미노리 용역 전용 사건이 발생함",
+);
+assert.deepEqual(
+  resolveEventTemplate(minoriBurn, minoriListing, () => 0.5)?.affectedStockIds,
+  ["minori"],
+  "미노리 용역 전용 사건이 다른 종목에 배정됨",
+);
 
 // 실적 캘린더: 상장 예정(IPO) 기업은 상장 세션 전에는 노출되지 않는다.
 const upcomingCompany = getCompanyDefinitions().find(

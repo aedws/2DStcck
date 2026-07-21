@@ -108,6 +108,8 @@ export interface EventTemplate {
   affectedStockIds?: string[];
   /** sector: 해당 섹터 전 종목 대상 */
   sector?: string;
+  /** company: 특정 기업 전용 사건이면 해당 종목 id로 대상을 고정 */
+  companyId?: string;
   /** company 이벤트 중 {ceo} 문구 사용 → CEO 있는 회사만 대상 */
   requiresCeo?: boolean;
 }

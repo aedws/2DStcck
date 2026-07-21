@@ -16,6 +16,14 @@ export interface ChangelogDaySummary {
 }
 
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
+  "2026-07-22": {
+    highlights: [
+      "IPO 예고 — 미노리 용역(MNRI) 7/24(금) 15:00 상장 (유저 종목 요청 반영).",
+      "미노리 용역 전용 변동 — 평시 신주·전환사채 희석 압력, 자사주 대량 소각 숏 스퀴즈와 보수 갈등 사보타주 급락.",
+    ],
+    intent:
+      "상장 전에는 공모가와 거래를 동결하고 지정 시각부터 정상 시장에 편입합니다. 무배당·지속 희석이라는 약세 구조와 드물지만 강한 자사주 소각 급등, 보수 협상 결렬 시 급락을 함께 넣어 기업 설정이 실제 가격 움직임으로 이어지게 했습니다.",
+  },
   "2026-07-21": {
     highlights: [
       "보통주 발행량 제한(공유 유통 재고) 롤백 — 버그 다발로 기능만 되돌리고 전 계정 보상 $100,000 지급.",
@@ -138,6 +146,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-22",
+    tag: "신규",
+    title: "IPO 예고 — 미노리 용역(MNRI)",
+    detail:
+      "건설 용역·사보타주 기업 미노리 용역이 7월 24일(금) 15:00 KST에 공모가 $310.00로 상장합니다. 상장 전에는 가격이 공모가로 고정되고 거래할 수 없으며, 상장 시각부터 가격 변동과 매매가 시작됩니다. 배당은 지급하지 않고 전환사채·신주 발행에 따른 희석 압력으로 평시 우하향 성향을 갖습니다. 사보타주 보수로 받은 자사주를 대량 소각하면 강한 숏 스퀴즈가, 보수 협상이 결렬되면 의뢰 대상과 의뢰주를 함께 공격하는 급락 사건이 발생할 수 있습니다.",
+  },
   {
     date: "2026-07-21",
     tag: "신규",

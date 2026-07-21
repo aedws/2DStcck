@@ -95,6 +95,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "새 발명에 번호가 부여되었소. 하나의 이상이 비로소 권리가 되었군.",
     ],
   },
+  {
+    characterId: "chr_minori",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "현장은 거짓말하지 않는다! 노동의 대가는 행동으로 증명하겠다!",
+      "동지들이여, 계약은 완수됐다! 이제 정당한 몫을 받아낼 차례다!",
+    ],
+  },
+  {
+    characterId: "chr_minori",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "부당한 조건에는 타협하지 않는다! 전원, 현장으로 집결하라!",
+      "임금을 종이로 대신하겠다고? 좋다, 그 종이의 무게를 보여주지!",
+    ],
+  },
+  {
+    characterId: "chr_minori",
+    tag: "자사주 소각",
+    direction: "positive",
+    quotes: [
+      "보수로 받은 주식은 전량 소각한다! 공매도 세력은 각오하라!",
+    ],
+  },
+  {
+    characterId: "chr_minori",
+    tag: "보수 갈등",
+    direction: "negative",
+    quotes: [
+      "약속한 보수를 외면한 대가는 의뢰주도 함께 치르게 될 것이다!",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

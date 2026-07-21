@@ -346,6 +346,26 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_yisang",
   },
+  {
+    id: "minori",
+    ticker: "MNRI",
+    name: "미노리 용역",
+    sector: "건설",
+    subsector: "건설 용역·사보타주",
+    initialPrice: 31000,
+    volatility: 0.075,
+    drift: -0.0014,
+    beta: 1.15,
+    description:
+      "야스모리 미노리가 운영하는 건설 용역회사이자 의뢰 성공률 100%를 내세우는 사보타주 전문기업. 배당을 지급하지 않고 임직원 임금을 전환사채와 신주 발행으로 충당해 평시에는 희석 압력이 이어진다. 사보타주 보수로 받은 자사주를 대량 소각하면 갑작스러운 숏 스퀴즈가 발생하지만, 보수 협상이 틀어지면 의뢰 대상과 의뢰주를 함께 공격해 급락할 수 있다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      수주: 2,
+      스캔들: 4,
+      행보: 3,
+      실적: 0.5,
+    },
+    ceoId: "chr_minori",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -753,5 +773,23 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description: "{company} {ceo} {title}이(가) 이례적인 공개 행보로 화제를 모읍니다.",
     impact: 0.045,
     requiresCeo: true,
+  },
+  {
+    category: "company",
+    companyId: "minori",
+    tag: "자사주 소각",
+    title: "미노리 용역, 사보타주 성공 보수 전량 소각",
+    description:
+      "사보타주 의뢰 보수로 받은 자사주가 대량 소각되며 유통 물량이 급감했습니다. 공매도 상환이 겹쳐 강한 숏 스퀴즈가 발생합니다.",
+    impact: 1.6,
+  },
+  {
+    category: "company",
+    companyId: "minori",
+    tag: "보수 갈등",
+    title: "미노리 용역, 보수 협상 결렬 후 의뢰주까지 사보타주",
+    description:
+      "의뢰 보수 협상이 결렬되자 의뢰 대상과 의뢰주 양쪽의 현장이 동시에 마비됐습니다. 전환사채와 신주 발행 우려까지 겹치며 매물이 쏟아집니다.",
+    impact: -1.15,
   },
 ];
