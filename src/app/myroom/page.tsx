@@ -30,7 +30,12 @@ import {
   type RoomRotation,
   type PlacedRoomItem,
 } from "@/data/roomItems";
-import { getCharacterById } from "@/data/characters";
+import { CHARACTERS, getCharacterById } from "@/data/characters";
+import { getCharacterProgress } from "@/lib/market/characterProgress";
+import {
+  ROOM_RESIDENT_AFFINITY,
+  ROOM_RESIDENT_LIMIT,
+} from "@/lib/player/roomResidents";
 
 const CATEGORY_ORDER: RoomItemCategory[] = ["가구", "욕실", "장식", "펫", "프리미엄"];
 
@@ -67,12 +72,16 @@ function RoomResident({
   occupiedCells,
   cellText,
   visitor,
+  permanent = false,
+  startDelayTicks = 2,
 }: {
   cols: number;
   rows: number;
   occupiedCells: Set<string>;
   cellText: string;
   visitor?: { emoji: string; name: string };
+  permanent?: boolean;
+  startDelayTicks?: number;
 }) {
   const [state, setState] = useState<ResidentState>({
     x: ROOM_DOOR_X,
@@ -97,7 +106,7 @@ function RoomResident({
     let visible = false;
     let leaving = false;
     let steps = 0;
-    let waitTicks = 2;
+    let waitTicks = permanent ? startDelayTicks : 2;
     const bathStart = roomBathStartRow(rows);
     const bathDoorColumns = roomBathDoorColumns(cols);
     const crossesBathWall = (fromY: number, toY: number, atX: number) =>
@@ -170,7 +179,7 @@ function RoomResident({
         y = ny;
       }
       steps++;
-      if (!leaving && steps > 22 + Math.random() * 18) leaving = true;
+      if (!permanent && !leaving && steps > 22 + Math.random() * 18) leaving = true;
       setState({
         x,
         y,
@@ -180,7 +189,7 @@ function RoomResident({
       });
     }, RESIDENT_STEP_MS);
     return () => window.clearInterval(id);
-  }, [cols, rows, occupiedCells]);
+  }, [cols, rows, occupiedCells, permanent, startDelayTicks]);
 
   if (!state.visible) return null;
   return (
@@ -218,10 +227,14 @@ export default function MyRoomPage() {
   const userId = useMarketStore((s) => s.userId);
   const holdings = useMarketStore((s) => s.holdings);
   const stocks = useMarketStore((s) => s.stocks);
+  const characterProgress = useMarketStore((s) => s.characterProgress);
   const myRoomItems = useMarketStore((s) => s.myRoomItems);
   const myRoomLevel = useMarketStore((s) => s.myRoomLevel);
   const myRoomTheme = useMarketStore((s) => s.myRoomTheme);
   const myRoomOwnedThemes = useMarketStore((s) => s.myRoomOwnedThemes);
+  const myRoomResidentCharacterIds = useMarketStore(
+    (s) => s.myRoomResidentCharacterIds,
+  );
   const buyRoomItem = useMarketStore((s) => s.buyRoomItem);
   const moveRoomItem = useMarketStore((s) => s.moveRoomItem);
   const sellRoomItem = useMarketStore((s) => s.sellRoomItem);
@@ -230,6 +243,8 @@ export default function MyRoomPage() {
   const expandMyRoom = useMarketStore((s) => s.expandMyRoom);
   const buyRoomTheme = useMarketStore((s) => s.buyRoomTheme);
   const selectRoomTheme = useMarketStore((s) => s.selectRoomTheme);
+  const inviteRoomResident = useMarketStore((s) => s.inviteRoomResident);
+  const dismissRoomResident = useMarketStore((s) => s.dismissRoomResident);
 
   const [mode, setMode] = useState<RoomMode>({ type: "idle" });
   const [mounted, setMounted] = useState(false);
@@ -277,6 +292,30 @@ export default function MyRoomPage() {
     const character = getCharacterById(favorite?.ceoId);
     return character ? { emoji: character.emoji, name: character.name } : undefined;
   }, [holdings, stocks]);
+
+  const residentCharacters = useMemo(
+    () =>
+      myRoomResidentCharacterIds
+        .map((id) => getCharacterById(id))
+        .filter((character): character is NonNullable<typeof character> => Boolean(character)),
+    [myRoomResidentCharacterIds],
+  );
+  const residentCandidates = useMemo(
+    () =>
+      CHARACTERS.map((character) => ({
+        character,
+        affinity: getCharacterProgress(characterProgress, character.id).affinity,
+        invited: myRoomResidentCharacterIds.includes(character.id),
+      }))
+        .filter(
+          (entry) => entry.invited || entry.affinity >= ROOM_RESIDENT_AFFINITY,
+        )
+        .sort(
+          (a, b) =>
+            Number(b.invited) - Number(a.invited) || b.affinity - a.affinity,
+        ),
+    [characterProgress, myRoomResidentCharacterIds],
+  );
 
   const ownedItemIds = useMemo(
     () => new Set(myRoomItems.map((item) => item.itemId)),
@@ -742,13 +781,28 @@ export default function MyRoomPage() {
           </span>
 
           {/* 숙소 주민 — 문으로 들어와 산책하고 탕도 들른다 */}
-          <RoomResident
-            cols={dims.cols}
-            rows={dims.rows}
-            occupiedCells={occupiedCells}
-            cellText={cellText}
-            visitor={visitor}
-          />
+          {residentCharacters.length > 0 ? (
+            residentCharacters.map((character, index) => (
+              <RoomResident
+                key={character.id}
+                cols={dims.cols}
+                rows={dims.rows}
+                occupiedCells={occupiedCells}
+                cellText={cellText}
+                visitor={{ emoji: character.emoji, name: character.name }}
+                permanent
+                startDelayTicks={index * 2}
+              />
+            ))
+          ) : (
+            <RoomResident
+              cols={dims.cols}
+              rows={dims.rows}
+              occupiedCells={occupiedCells}
+              cellText={cellText}
+              visitor={visitor}
+            />
+          )}
         </div>
       </div>
 
@@ -894,9 +948,11 @@ export default function MyRoomPage() {
               ))}
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-[var(--muted)]">
-              {visitor
-                ? `오늘은 보유 종목의 ${visitor.name}이 방문합니다.`
-                : "관련 기업을 보유하면 경영 캐릭터가 방을 방문합니다."}
+              {residentCharacters.length > 0
+                ? `${residentCharacters.map((character) => character.name).join(", ")}이(가) 상주 중입니다.`
+                : visitor
+                  ? `오늘은 보유 종목의 ${visitor.name}이 방문합니다.`
+                  : "관련 기업을 보유하면 경영 캐릭터가 방을 방문합니다."}
               {night ? " 현재는 야간 조명으로 전환됐습니다." : " 현재는 주간 채광입니다."}
             </p>
             <p className="mt-1 text-[11px] text-[var(--muted)]">{marketMood}</p>
@@ -917,6 +973,72 @@ export default function MyRoomPage() {
               {missionCount >= 4
                 ? "🏅 완료 · 이번 주 장식 배지를 획득했습니다."
                 : `${missionCount}/4 · 현금 보상 없이 수집 배지만 제공`}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-violet-400/25 bg-violet-500/[0.06] p-4 md:col-span-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold">🏠 상주 CEO 초대</h2>
+                <p className="mt-1 text-[11px] leading-relaxed text-[var(--muted)]">
+                  친밀도 {ROOM_RESIDENT_AFFINITY} 이상인 CEO를 최대 {ROOM_RESIDENT_LIMIT}명까지
+                  초대할 수 있습니다. 초대 후에는 보유 종목과 관계없이 계속 방에서 생활합니다.
+                </p>
+              </div>
+              <span className="rounded-full bg-violet-400/15 px-2 py-1 text-[10px] font-bold text-violet-300">
+                상주 {residentCharacters.length}/{ROOM_RESIDENT_LIMIT}
+              </span>
+            </div>
+            {residentCandidates.length === 0 ? (
+              <p className="mt-3 rounded-xl bg-[var(--background)] px-3 py-3 text-xs text-[var(--muted)]">
+                아직 초대 가능한 CEO가 없습니다. 직접 주식 장기 보유·의뢰·사건 선택으로
+                친밀도 {ROOM_RESIDENT_AFFINITY}을 달성해 보세요.
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {residentCandidates.map(({ character, affinity, invited }) => {
+                  const limitReached =
+                    !invited && residentCharacters.length >= ROOM_RESIDENT_LIMIT;
+                  return (
+                    <div
+                      key={character.id}
+                      className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--background)]/75 p-2.5"
+                    >
+                      <span
+                        aria-label={`${character.name} 임시 캐릭터 이미지`}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-400/10 text-xl"
+                      >
+                        {character.emoji}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold">{character.name}</p>
+                        <p className="text-[10px] text-[var(--muted)]">친밀도 {affinity}/120</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={limitReached}
+                        onClick={() =>
+                          toastResult(
+                            invited
+                              ? dismissRoomResident(character.id)
+                              : inviteRoomResident(character.id),
+                          )
+                        }
+                        className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+                          invited
+                            ? "bg-rose-500/15 text-rose-300"
+                            : "bg-violet-500 text-white"
+                        }`}
+                      >
+                        {invited ? "상주 해제" : limitReached ? "정원 초과" : "초대"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="mt-2 text-[10px] text-[var(--muted)]">
+              캐릭터 전용 이미지 에셋은 임시로 기존 이모지를 사용합니다.
             </p>
           </div>
 
@@ -953,9 +1075,11 @@ export default function MyRoomPage() {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 md:col-span-2">
             <h2 className="text-sm font-bold">📝 오늘의 방명록</h2>
             <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
-              {visitor
-                ? `${visitor.emoji} ${visitor.name}: “${atmosphere[0]?.[0] ?? "새로운"} 분위기가 인상적이네요. 다음에도 들르겠습니다.”`
-                : "🐰 오늘의 주민: “가구를 더 놓으면 친구들과 함께 방문할게요!”"}
+              {residentCharacters[0]
+                ? `${residentCharacters[0].emoji} ${residentCharacters[0].name}: “이제 이 방에서 지내겠습니다. ${atmosphere[0]?.[0] ?? "새로운"} 분위기도 마음에 드네요.”`
+                : visitor
+                  ? `${visitor.emoji} ${visitor.name}: “${atmosphere[0]?.[0] ?? "새로운"} 분위기가 인상적이네요. 다음에도 들르겠습니다.”`
+                  : "🐰 오늘의 주민: “가구를 더 놓으면 친구들과 함께 방문할게요!”"}
             </p>
             <p className="mt-2 text-[10px] text-[var(--muted)]">
               대표 프리미엄 가구는 프로필과 랭킹 과시 목록에도 공개됩니다.

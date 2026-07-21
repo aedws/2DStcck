@@ -85,6 +85,8 @@ export interface WalletSave {
   myRoomTheme?: string;
   /** 보유한 숙소 테마 id 목록. */
   myRoomOwnedThemes?: string[];
+  /** 친밀도로 초대해 상주 중인 CEO 캐릭터 id 목록. */
+  myRoomResidentCharacterIds?: string[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;

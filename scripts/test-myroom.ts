@@ -9,6 +9,12 @@ import {
   roomItemLayer,
   roomItemSize,
 } from "../src/data/roomItems";
+import {
+  ROOM_RESIDENT_AFFINITY,
+  ROOM_RESIDENT_LIMIT,
+  canInviteRoomResident,
+  normalizeRoomResidentCharacterIds,
+} from "../src/lib/player/roomResidents";
 
 const theater = getRoomItem("private-theater")!;
 assert.deepEqual(roomItemSize(theater, 0), { width: 4, height: 3 });
@@ -64,5 +70,38 @@ const legacy = normalizeRoomItems(
 assert.equal(legacy.length, 1);
 assert.equal(legacy[0].rotation, 0);
 assert.ok(ROOM_ITEMS.length >= 30);
+
+const residentIds = normalizeRoomResidentCharacterIds([
+  "chr_udnge",
+  "chr_udnge",
+  "missing-character",
+  "chr_dante",
+  "chr_bahina",
+  "chr_baako",
+]);
+assert.equal(residentIds.length, ROOM_RESIDENT_LIMIT);
+assert.deepEqual(residentIds, ["chr_udnge", "chr_dante", "chr_bahina"]);
+assert.equal(
+  canInviteRoomResident("chr_udnge", {
+    chr_udnge: {
+      characterId: "chr_udnge",
+      trust: 100,
+      affinity: ROOM_RESIDENT_AFFINITY,
+      holdingSessions: 0,
+    },
+  }),
+  true,
+);
+assert.equal(
+  canInviteRoomResident("chr_udnge", {
+    chr_udnge: {
+      characterId: "chr_udnge",
+      trust: 100,
+      affinity: ROOM_RESIDENT_AFFINITY - 1,
+      holdingSessions: 0,
+    },
+  }),
+  false,
+);
 
 console.log("myroom footprint, layer, rotation & legacy scenarios passed");

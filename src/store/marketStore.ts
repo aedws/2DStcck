@@ -215,6 +215,11 @@ import {
 } from "@/lib/player/preferredShares";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import {
+  ROOM_RESIDENT_LIMIT,
+  canInviteRoomResident,
+  normalizeRoomResidentCharacterIds,
+} from "@/lib/player/roomResidents";
+import {
   createInitialMastery,
   normalizeInvestmentMastery,
   updateInvestmentMastery,
@@ -329,6 +334,10 @@ interface MarketStore extends MarketSnapshot {
   myRoomTheme: string;
   /** 보유(구매)한 숙소 테마 id 목록. */
   myRoomOwnedThemes: string[];
+  /** 친밀도로 초대해 상주 중인 CEO 캐릭터 id 목록. */
+  myRoomResidentCharacterIds: string[];
+  inviteRoomResident: (characterId: string) => OrderResult;
+  dismissRoomResident: (characterId: string) => OrderResult;
   /** 숙소 테마 구매(1회성) 후 즉시 적용. */
   buyRoomTheme: (themeId: string) => OrderResult;
   /** 보유한 숙소 테마로 교체. */
@@ -562,6 +571,7 @@ function createInitialState(): MarketSnapshot & {
   myRoomLevel: number;
   myRoomTheme: string;
   myRoomOwnedThemes: string[];
+  myRoomResidentCharacterIds: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
@@ -645,6 +655,7 @@ function createInitialState(): MarketSnapshot & {
     myRoomLevel: 0,
     myRoomTheme: normalizeRoomThemeId(undefined),
     myRoomOwnedThemes: normalizeOwnedRoomThemes(undefined),
+    myRoomResidentCharacterIds: [],
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
@@ -1889,6 +1900,9 @@ export const useMarketStore = create<MarketStore>()(
           myRoomLevel: normalizeRoomLevel(wallet.myRoomLevel),
           myRoomTheme: normalizeRoomThemeId(wallet.myRoomTheme),
           myRoomOwnedThemes: normalizeOwnedRoomThemes(wallet.myRoomOwnedThemes),
+          myRoomResidentCharacterIds: normalizeRoomResidentCharacterIds(
+            wallet.myRoomResidentCharacterIds,
+          ),
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
           ),
@@ -1984,6 +1998,7 @@ export const useMarketStore = create<MarketStore>()(
           myRoomLevel: s.myRoomLevel,
           myRoomTheme: s.myRoomTheme,
           myRoomOwnedThemes: s.myRoomOwnedThemes,
+          myRoomResidentCharacterIds: s.myRoomResidentCharacterIds,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
@@ -3119,6 +3134,42 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: `${theme.emoji} ${theme.name} 테마로 바꿨습니다.` };
       },
 
+      inviteRoomResident: (characterId) => {
+        const state = get();
+        const character = getCharacterById(characterId);
+        if (!character) return { success: false, message: "캐릭터를 찾을 수 없습니다." };
+        if (state.myRoomResidentCharacterIds.includes(characterId)) {
+          return { success: false, message: `${character.name}은(는) 이미 상주 중입니다.` };
+        }
+        if (!canInviteRoomResident(characterId, state.characterProgress)) {
+          return { success: false, message: "상주 초대는 친밀도 100부터 가능합니다." };
+        }
+        if (state.myRoomResidentCharacterIds.length >= ROOM_RESIDENT_LIMIT) {
+          return { success: false, message: `상주 CEO는 최대 ${ROOM_RESIDENT_LIMIT}명까지 초대할 수 있습니다.` };
+        }
+        set({
+          myRoomResidentCharacterIds: [
+            ...state.myRoomResidentCharacterIds,
+            characterId,
+          ],
+        });
+        return { success: true, message: `${character.emoji} ${character.name}을(를) 마이룸에 초대했습니다.` };
+      },
+
+      dismissRoomResident: (characterId) => {
+        const state = get();
+        const character = getCharacterById(characterId);
+        if (!state.myRoomResidentCharacterIds.includes(characterId)) {
+          return { success: false, message: "상주 중인 캐릭터가 아닙니다." };
+        }
+        set({
+          myRoomResidentCharacterIds: state.myRoomResidentCharacterIds.filter(
+            (id) => id !== characterId,
+          ),
+        });
+        return { success: true, message: `${character?.emoji ?? ""} ${character?.name ?? "CEO"}의 상주를 해제했습니다.` };
+      },
+
       expandMyRoom: () => {
         const state = get();
         const expansion = nextRoomExpansion(state.myRoomLevel);
@@ -3764,6 +3815,7 @@ export const useMarketStore = create<MarketStore>()(
         myRoomLevel: state.myRoomLevel,
         myRoomTheme: state.myRoomTheme,
         myRoomOwnedThemes: state.myRoomOwnedThemes,
+        myRoomResidentCharacterIds: state.myRoomResidentCharacterIds,
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
@@ -4148,6 +4200,9 @@ export const useMarketStore = create<MarketStore>()(
           ),
           myRoomOwnedThemes: normalizeOwnedRoomThemes(
             (walletSource as Partial<MarketStore>).myRoomOwnedThemes,
+          ),
+          myRoomResidentCharacterIds: normalizeRoomResidentCharacterIds(
+            (walletSource as Partial<MarketStore>).myRoomResidentCharacterIds,
           ),
           investmentMastery: normalizeInvestmentMastery(
             (walletSource as Partial<MarketStore>).investmentMastery,
