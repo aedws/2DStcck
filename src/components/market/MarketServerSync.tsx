@@ -9,6 +9,7 @@ import {
   marketStorageKey,
   safeMarketStorage,
 } from "@/lib/storage/safeLocalStorage";
+import { LEADERBOARD_REFRESH_MS } from "@/lib/supabase/cloudSave";
 
 /**
  * 클라우드 계정 동기화 (선택적):
@@ -24,6 +25,7 @@ function CloudSaveSync() {
     (s) => s.applyTargetedAccountReset,
   );
   const saveCloud = useMarketStore((s) => s.saveCloud);
+  const syncLeaderboardNow = useMarketStore((s) => s.syncLeaderboardNow);
   const settleCashflows = useMarketStore((s) => s.settleCashflows);
 
   // 로그인 상태 추적 + 로그인 시 저장분 로드.
@@ -186,14 +188,15 @@ function CloudSaveSync() {
     };
   }, [saveCloud]);
 
-  // 거래가 없어도 공개 랭킹 스냅샷과 주간 수익률을 10분마다 갱신한다.
+  // 거래가 없어도 공개 랭킹 스냅샷과 주간 수익률을 1분마다 갱신한다.
+  // 지갑 저장과 분리해 500건 거래 JSON을 주기적으로 재업로드하지 않는다.
   useEffect(() => {
     const id = window.setInterval(() => {
       const state = useMarketStore.getState();
-      if (state.userId && state.cloudSyncReady) void saveCloud();
-    }, 10 * 60 * 1_000);
+      if (state.userId && state.cloudSyncReady) void syncLeaderboardNow();
+    }, LEADERBOARD_REFRESH_MS);
     return () => window.clearInterval(id);
-  }, [saveCloud]);
+  }, [syncLeaderboardNow]);
 
   return null;
 }

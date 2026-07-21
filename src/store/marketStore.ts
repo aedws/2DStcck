@@ -150,7 +150,7 @@ import {
 import {
   loadGameSave,
   saveGameSave,
-  syncLeaderboard,
+  syncLeaderboard as syncLeaderboardSnapshot,
 } from "@/lib/supabase/cloudSave";
 import { ACHIEVEMENTS } from "@/data/achievements";
 import { TARGETED_ACCOUNT_ACTIONS } from "@/data/serviceNotice";
@@ -475,6 +475,8 @@ interface MarketStore extends MarketSnapshot {
   /** 현재 지갑을 클라우드에 저장 (로그인 시에만) */
   /** 지갑을 클라우드에 저장한다. 실패(오프라인 등) 시 false — 호출부가 재시도한다. */
   saveCloud: () => Promise<boolean>;
+  /** 큰 지갑 JSON을 다시 올리지 않고 현재 공개 랭킹 스냅샷만 갱신한다. */
+  syncLeaderboardNow: () => Promise<boolean>;
   placeOrder: (
     stockId: string,
     quantity: number,
@@ -1901,12 +1903,20 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession: s.lastInterestSession,
         });
 
-        // 공유 리더보드 갱신: 순자산·수익률·과시 요약을 본인 행에 반영
+        if (saved) await get().syncLeaderboardNow();
+        return saved;
+      },
+
+      syncLeaderboardNow: async () => {
+        if (!get().userId || !get().cloudSyncReady) return false;
+        const s = get();
+        // 공유 리더보드 갱신: 큰 지갑 본문과 분리된 순자산·수익률·과시 요약만
+        // 제출한다. 서버는 game_saves의 STORED 요약 열로 무결성을 검증한다.
         const netWorth = s.getTotalAssets();
         const tradingStats = buildTradingStats(s.trades.slice(0, 500));
         const playerTitle = getPlayerTitle(s.selectedTitleId);
         const seasonFrame = getSeasonReward(s.selectedSeasonFrameId);
-        await syncLeaderboard({
+        return syncLeaderboardSnapshot({
           netWorth,
           returnRate:
             s.initialCash > 0
@@ -1931,7 +1941,6 @@ export const useMarketStore = create<MarketStore>()(
             reputation: s.reputation,
           }).total,
         });
-        return saved;
       },
 
       placeOrder: async (stockId, quantity, orderType) => {

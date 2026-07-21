@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/client";
-import { LEADERBOARD_MAX_NET_WORTH } from "@/lib/market/constants";
 import type {
   CashPayment,
   CharacterProgressMap,
@@ -180,7 +179,8 @@ function isMissingSchema(error: { code?: string; message?: string } | null): boo
   );
 }
 
-export const LEADERBOARD_REFRESH_MS = 10 * 60 * 1_000;
+/** 저장 성공 뒤 공개 랭킹을 다시 제출할 수 있는 최소 간격. */
+export const LEADERBOARD_REFRESH_MS = 60 * 1_000;
 
 /** 계산된 지표를 본인 리더보드 행에 upsert 한다. 로그인 상태가 아니면 무시. */
 export async function syncLeaderboard(stats: {
@@ -220,9 +220,9 @@ export async function syncLeaderboard(stats: {
     stats.initialCash > 0
       ? ((stats.netWorth - stats.initialCash) / stats.initialCash) * 100
       : Number.NaN;
-  // 순자산은 상한 없이 무한히 커질 수 있으므로 '안전 정수'가 아니라 '유한값'만
-  // 요구한다. 정밀도 검증 오차는 값 크기에 비례해 완화한다(거액에서 float
-  // 반올림으로 오탐 안 나게). DB int8 범위를 넘지 않도록 제출값만 상한으로 막는다.
+  // 순자산은 상한 없이 커질 수 있으므로 '안전 정수'가 아니라 '유한값'만 요구한다.
+  // 정밀도 검증 오차는 값 크기에 비례해 완화한다(거액에서 float 반올림으로 오탐
+  // 안 나게). DB도 numeric으로 저장하므로 Qa 이후 값을 잘라낼 필요가 없다.
   const returnTolerance = Math.max(0.05, Math.abs(expectedReturn) * 1e-4);
   if (
     !Number.isFinite(stats.netWorth) ||
@@ -238,13 +238,9 @@ export async function syncLeaderboard(stats: {
     return false;
   }
 
-  const safeNetWorth = Math.min(
-    Math.round(stats.netWorth),
-    LEADERBOARD_MAX_NET_WORTH,
-  );
   const baseParams = {
     p_display_name: displayName,
-    p_net_worth: safeNetWorth,
+    p_net_worth: Math.round(stats.netWorth),
     p_return_rate: Number(stats.returnRate.toFixed(2)),
     p_initial_cash: Math.round(stats.initialCash),
     p_market_session: stats.marketSession,
