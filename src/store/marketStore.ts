@@ -1891,6 +1891,12 @@ export const useMarketStore = create<MarketStore>()(
           );
           playSound("cash");
         }
+        if (cloudCompensation.reconciledCents > 0) {
+          useToastStore.getState().push(
+            `🧾 중복 운영 보상 ${formatPrice(cloudCompensation.reconciledCents)} 정정`,
+            "info",
+          );
+        }
         return "loaded";
       },
 

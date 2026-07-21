@@ -20,6 +20,7 @@
     "test:indicators": "tsx scripts/test-chart-indicators.ts",
     "test:ipo": "tsx scripts/test-ipo.ts",
     "test:requests": "tsx scripts/test-stock-requests.ts",
+    "test:compensation": "tsx scripts/test-operational-compensation.ts",
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
     "generate:market-checkpoint": "tsx scripts/generate-market-checkpoint.ts",

@@ -38,17 +38,39 @@ export function settleOperationalCompensations(input: {
   cashPayments: CashPayment[];
   claimedCompensationIds: string[];
   grantedCents: number;
+  reconciledCents: number;
 } {
   const claimed = normalizeClaimedCompensationIds(input.claimedCompensationIds);
+  const compensationByPaymentId = new Map(
+    OPERATIONAL_COMPENSATIONS.map((compensation) => [
+      `operational-${compensation.id}`,
+      compensation,
+    ]),
+  );
+  const paymentEvidence = new Set<string>();
+  let reconciledCents = 0;
+  const dedupedPayments = input.cashPayments.filter((payment) => {
+    const compensation = compensationByPaymentId.get(payment.id);
+    if (!compensation) return true;
+    if (paymentEvidence.has(compensation.id)) {
+      // 같은 고유 보상 ID가 두 번 기록됐다면 실제 현금도 두 번 더해진 상태다.
+      reconciledCents += compensation.amountCents;
+      return false;
+    }
+    paymentEvidence.add(compensation.id);
+    return true;
+  });
+  const effectiveClaimed = [...new Set([...paymentEvidence, ...claimed])];
   const pending = OPERATIONAL_COMPENSATIONS.filter(
-    (compensation) => !claimed.includes(compensation.id),
+    (compensation) => !effectiveClaimed.includes(compensation.id),
   );
   if (pending.length === 0) {
     return {
-      cash: input.cash,
-      cashPayments: input.cashPayments,
-      claimedCompensationIds: claimed,
+      cash: input.cash - reconciledCents,
+      cashPayments: dedupedPayments,
+      claimedCompensationIds: effectiveClaimed.slice(0, 50),
       grantedCents: 0,
+      reconciledCents,
     };
   }
   const now = input.now ?? Date.now();
@@ -63,12 +85,13 @@ export function settleOperationalCompensations(input: {
   }));
   const grantedCents = payments.reduce((sum, payment) => sum + payment.amount, 0);
   return {
-    cash: input.cash + grantedCents,
-    cashPayments: [...payments, ...input.cashPayments].slice(0, 200),
+    cash: input.cash - reconciledCents + grantedCents,
+    cashPayments: [...payments, ...dedupedPayments].slice(0, 200),
     claimedCompensationIds: [
       ...pending.map((compensation) => compensation.id),
-      ...claimed,
+      ...effectiveClaimed,
     ].slice(0, 50),
     grantedCents,
+    reconciledCents,
   };
 }
