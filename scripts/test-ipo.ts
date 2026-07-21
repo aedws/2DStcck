@@ -82,7 +82,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["dante", "gsck", "hinafg", "minori", "udnge", "yisang"],
+  ["dante", "gsck", "hinafg", "minori", "nagusa", "udnge", "yisang"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -148,6 +148,37 @@ assert.deepEqual(
   resolveEventTemplate(minoriBurn, minoriListing, () => 0.5)?.affectedStockIds,
   ["minori"],
   "미노리 용역 전용 사건이 다른 종목에 배정됨",
+);
+
+// 나구사 야키토리&닭꼬치: 7/23 15:00 KST 개장과 AI 급등·조류독감 급락 사건
+const nagusa = getCompanyDefinitions().find((stock) => stock.id === "nagusa");
+assert.ok(nagusa, "나구사 야키토리&닭꼬치 정의가 없음");
+const nagusaListing = Date.UTC(2026, 6, 23, 6, 0);
+assert.equal(nagusa.ticker, "NGSA");
+assert.equal(nagusa.sector, "식품");
+assert.equal(nagusa.listingEpochMs, nagusaListing);
+assert.equal(isListed(nagusa, nagusaListing - 1), false);
+assert.equal(isListed(nagusa, nagusaListing), true);
+
+const nagusaAi = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "nagusa" && template.tag === "AI",
+);
+assert.ok(nagusaAi, "나구사 AI 테마 급등 사건이 없음");
+assert.ok(nagusaAi.impact >= 1, "AI 테마 급등 강도가 부족함");
+const nagusaBirdFlu = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "nagusa" && template.tag === "조류독감",
+);
+assert.ok(nagusaBirdFlu, "나구사 조류독감 급락 사건이 없음");
+assert.ok(nagusaBirdFlu.impact <= -1, "조류독감 급락 강도가 부족함");
+assert.equal(
+  resolveEventTemplate(nagusaAi, nagusaListing - 1, () => 0.5),
+  null,
+  "상장 전 나구사 전용 사건이 발생함",
+);
+assert.deepEqual(
+  resolveEventTemplate(nagusaAi, nagusaListing, () => 0.5)?.affectedStockIds,
+  ["nagusa"],
+  "나구사 전용 사건이 다른 종목에 배정됨",
 );
 
 // 실적 캘린더: 상장 예정(IPO) 기업은 상장 세션 전에는 노출되지 않는다.

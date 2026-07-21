@@ -96,6 +96,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
     ],
   },
   {
+    characterId: "chr_nagusa",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "닭꼬치를 좋아하는 마음만큼은 자신 있어. 이걸로 충분하다면, 계속해 볼게.",
+      "모두가 맛있게 먹어 줬어. 나도 조금은 대표다운 일을 한 걸까.",
+    ],
+  },
+  {
+    characterId: "chr_nagusa",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "역시 나로서는 무리였던 걸까… 그래도, 여기서 물러날 수는 없어.",
+      "불판도 공급도 흔들리고 있어. 내가 할 수 있는 것부터 다시 바로잡을게.",
+    ],
+  },
+  {
+    characterId: "chr_nagusa",
+    tag: "AI",
+    direction: "positive",
+    quotes: [
+      "굽는 시점을 알려주는 장치일 뿐인데… 이걸 AI라고 불러도 되는 걸까?",
+    ],
+  },
+  {
+    characterId: "chr_nagusa",
+    tag: "조류독감",
+    direction: "negative",
+    quotes: [
+      "안전을 확인하지 않은 닭꼬치는 팔 수 없어. 시간이 걸려도 공급망부터 지킬게.",
+    ],
+  },
+  {
     characterId: "chr_minori",
     tag: "*",
     direction: "positive",

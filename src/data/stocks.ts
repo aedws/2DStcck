@@ -347,6 +347,26 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     ceoId: "chr_yisang",
   },
   {
+    id: "nagusa",
+    ticker: "NGSA",
+    name: "나구사 야키토리&닭꼬치 주식회사",
+    sector: "식품",
+    subsector: "닭꼬치 제조·외식",
+    initialPrice: 24500,
+    volatility: 0.06,
+    drift: 0.0005,
+    beta: 1.05,
+    description:
+      "고료 나구사가 좋아하는 닭꼬치를 직접 굽고 유통하는 식품·외식 기업. 평소에는 숯불 야키토리와 축제 노점 사업에 집중하지만, 자동 굽기 설비를 AI 플랫폼으로 발표할 때마다 인공지능 테마주로 묶여 급등한다. 반대로 조류독감이 번지면 원료육 공급 우려로 급락하는 전형적인 테마주 성향을 보인다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      신제품: 3,
+      행보: 3,
+      실적: 2,
+      스캔들: 2,
+    },
+    ceoId: "chr_nagusa",
+  },
+  {
     id: "minori",
     ticker: "MNRI",
     name: "미노리 용역",
@@ -790,6 +810,24 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     title: "미노리 용역, 보수 협상 결렬 후 의뢰주까지 사보타주",
     description:
       "의뢰 보수 협상이 결렬되자 의뢰 대상과 의뢰주 양쪽의 현장이 동시에 마비됐습니다. 전환사채와 신주 발행 우려까지 겹치며 매물이 쏟아집니다.",
+    impact: -1.15,
+  },
+  {
+    category: "company",
+    companyId: "nagusa",
+    tag: "AI",
+    title: "나구사 야키토리, AI 자동 굽기 플랫폼 발표",
+    description:
+      "꼬치의 뒤집는 시점과 화력을 자동 조절하는 설비가 AI 신사업으로 소개됐습니다. 식품주가 순식간에 인공지능 테마주로 묶이며 매수세가 몰립니다.",
+    impact: 1.25,
+  },
+  {
+    category: "company",
+    companyId: "nagusa",
+    tag: "조류독감",
+    title: "조류독감 확산, 닭고기 공급망 비상",
+    description:
+      "조류독감 확산으로 원료육 수급 차질과 매장 휴업 우려가 커졌습니다. 닭꼬치 생산 원가와 공급 불확실성이 동시에 부각되며 매물이 쏟아집니다.",
     impact: -1.15,
   },
 ];
