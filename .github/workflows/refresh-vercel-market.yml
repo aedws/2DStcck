@@ -1,7 +1,10 @@
 name: Refresh Vercel market checkpoint
 
 on:
-  # 새 커밋 없이 main을 다시 빌드해 Vercel 번들 체크포인트를 갱신한다.
+  # main 이 갱신되면 즉시 Vercel 을 다시 배포한다 (git 연동 없이 hook 배포만 쓰는 구성).
+  push:
+    branches: [main]
+  # 새 커밋 없이도 3시간마다 다시 빌드해 번들 체크포인트를 갱신한다.
   schedule:
     - cron: "29 */3 * * *"
   workflow_dispatch:
