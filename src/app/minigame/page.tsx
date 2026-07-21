@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SwipeBrickBreaker } from "@/components/minigame/SwipeBrickBreaker";
 import { Game2048 } from "@/components/minigame/Game2048";
 import { Tetris } from "@/components/minigame/Tetris";
@@ -30,6 +30,62 @@ interface Result {
   reward: number;
 }
 
+type ExitMode = "settle" | "back";
+
+const GAME_LABEL: Record<GameId, string> = {
+  brick: "코인 브레이커",
+  g2048: "골드 2048",
+  tetris: "골드 테트리스",
+};
+
+function brickResult({
+  rounds,
+  bricks,
+  score,
+}: {
+  rounds: number;
+  bricks: number;
+  score: number;
+}): Result {
+  return {
+    emoji: "🪙",
+    stats: [
+      { name: "라운드", value: String(rounds) },
+      { name: "깬 벽돌", value: String(bricks) },
+      { name: "점수", value: score.toLocaleString() },
+    ],
+    reward: computeBrickBreakerCash(score),
+  };
+}
+
+function game2048Result({ score, best }: { score: number; best: number }): Result {
+  return {
+    emoji: "💰",
+    stats: [
+      { name: "점수", value: score.toLocaleString() },
+      { name: "최고 타일", value: best.toLocaleString() },
+    ],
+    reward: compute2048Cash(score),
+  };
+}
+
+function tetrisResult({ score, lines }: { score: number; lines: number }): Result {
+  return {
+    emoji: "🧊",
+    stats: [
+      { name: "점수", value: score.toLocaleString() },
+      { name: "지운 줄", value: String(lines) },
+    ],
+    reward: computeTetrisCash(score),
+  };
+}
+
+function emptyResult(game: GameId): Result {
+  if (game === "g2048") return game2048Result({ score: 0, best: 2 });
+  if (game === "tetris") return tetrisResult({ score: 0, lines: 0 });
+  return brickResult({ rounds: 1, bricks: 0, score: 0 });
+}
+
 export default function MinigamePage() {
   const cash = useMarketStore((s) => s.cash);
   const awardMinigameCash = useMarketStore((s) => s.awardMinigameCash);
@@ -45,7 +101,20 @@ export default function MinigamePage() {
   const [phase, setPhase] = useState<Phase>("menu");
   const [game, setGame] = useState<GameId>("brick");
   const [result, setResult] = useState<Result | null>(null);
+  const [liveResult, setLiveResult] = useState<Result>(() => emptyResult("brick"));
+  const [exitRequest, setExitRequest] = useState<{
+    mode: ExitMode;
+    result: Result;
+  } | null>(null);
   const [earnedTotal, setEarnedTotal] = useState(0);
+  const liveResultRef = useRef(liveResult);
+  const settledRef = useRef(false);
+  const allowNavigationRef = useRef(false);
+  const guardActiveRef = useRef(false);
+
+  useEffect(() => {
+    liveResultRef.current = liveResult;
+  }, [liveResult]);
 
   const showTutorial = manualTutorial || (mounted && onboarded && !tutorialSeen);
 
@@ -58,62 +127,112 @@ export default function MinigamePage() {
     [awardMinigameCash, saveCloud],
   );
 
+  const releaseBackGuard = useCallback(() => {
+    if (!guardActiveRef.current) return;
+    guardActiveRef.current = false;
+    allowNavigationRef.current = true;
+    window.history.back();
+    window.setTimeout(() => {
+      allowNavigationRef.current = false;
+    }, 0);
+  }, []);
+
+  const finishGame = useCallback(
+    (finished: Result, releaseGuard = true) => {
+      if (settledRef.current) return;
+      settledRef.current = true;
+      award(finished.reward, GAME_LABEL[game]);
+      setResult(finished);
+      setExitRequest(null);
+      setPhase("result");
+      if (releaseGuard) releaseBackGuard();
+    },
+    [award, game, releaseBackGuard],
+  );
+
   const onBrickOver = useCallback(
     ({ rounds, bricks, score }: { rounds: number; bricks: number; score: number }) => {
-      const reward = computeBrickBreakerCash(score);
-      award(reward, "코인 브레이커");
-      setResult({
-        emoji: "🪙",
-        stats: [
-          { name: "라운드", value: String(rounds) },
-          { name: "깬 벽돌", value: String(bricks) },
-          { name: "점수", value: score.toLocaleString() },
-        ],
-        reward,
-      });
-      setPhase("result");
+      finishGame(brickResult({ rounds, bricks, score }));
     },
-    [award],
+    [finishGame],
   );
 
   const on2048Over = useCallback(
     ({ score, best }: { score: number; best: number }) => {
-      const reward = compute2048Cash(score);
-      award(reward, "골드 2048");
-      setResult({
-        emoji: "💰",
-        stats: [
-          { name: "점수", value: score.toLocaleString() },
-          { name: "최고 타일", value: best.toLocaleString() },
-        ],
-        reward,
-      });
-      setPhase("result");
+      finishGame(game2048Result({ score, best }));
     },
-    [award],
+    [finishGame],
   );
 
   const onTetrisOver = useCallback(
     ({ score, lines }: { score: number; lines: number }) => {
-      const reward = computeTetrisCash(score);
-      award(reward, "골드 테트리스");
-      setResult({
-        emoji: "🧊",
-        stats: [
-          { name: "점수", value: score.toLocaleString() },
-          { name: "지운 줄", value: String(lines) },
-        ],
-        reward,
-      });
-      setPhase("result");
+      finishGame(tetrisResult({ score, lines }));
     },
-    [award],
+    [finishGame],
   );
+
+  const onBrickProgress = useCallback(
+    (progress: { rounds: number; bricks: number; score: number }) =>
+      setLiveResult(brickResult(progress)),
+    [],
+  );
+  const on2048Progress = useCallback(
+    (progress: { score: number; best: number }) =>
+      setLiveResult(game2048Result(progress)),
+    [],
+  );
+  const onTetrisProgress = useCallback(
+    (progress: { score: number; lines: number }) =>
+      setLiveResult(tetrisResult(progress)),
+    [],
+  );
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+
+    const guardState = { minigameGuard: Date.now() };
+    window.history.pushState(guardState, "", window.location.href);
+    guardActiveRef.current = true;
+
+    const onPopState = () => {
+      if (allowNavigationRef.current) return;
+      window.history.pushState(guardState, "", window.location.href);
+      guardActiveRef.current = true;
+      setExitRequest({ mode: "back", result: liveResultRef.current });
+    };
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [phase]);
 
   function play(id: GameId) {
     setGame(id);
     setResult(null);
+    const initial = emptyResult(id);
+    liveResultRef.current = initial;
+    setLiveResult(initial);
+    setExitRequest(null);
+    settledRef.current = false;
     setPhase("playing");
+  }
+
+  function confirmExit() {
+    if (!exitRequest) return;
+    const { mode, result: exitResult } = exitRequest;
+    finishGame(exitResult, mode !== "back");
+    if (mode === "back") {
+      allowNavigationRef.current = true;
+      guardActiveRef.current = false;
+      window.history.go(-2);
+    }
   }
 
   return (
@@ -126,6 +245,45 @@ export default function MinigamePage() {
             setManualTutorial(false);
           }}
         />
+      )}
+      {exitRequest && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="minigame-exit-title"
+        >
+          <div className="w-full max-w-sm rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl">
+            <h2 id="minigame-exit-title" className="text-lg font-bold">
+              지금 정산하고 나갈까요?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+              현재까지 번 금액을 지급하고 진행 중인 게임을 종료합니다.
+            </p>
+            <div className="mt-4 rounded-2xl bg-[var(--background)] p-4 text-center">
+              <p className="text-xs text-[var(--muted)]">예상 정산액</p>
+              <p className="mt-1 text-2xl font-bold text-[var(--up)]">
+                +{formatPrice(exitRequest.result.reward)}
+              </p>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setExitRequest(null)}
+                className="flex-1 rounded-xl border border-[var(--border)] py-3 text-sm font-semibold text-[var(--muted)]"
+              >
+                계속하기
+              </button>
+              <button
+                type="button"
+                onClick={confirmExit}
+                className="flex-1 rounded-xl bg-[var(--accent)] py-3 text-sm font-semibold text-white"
+              >
+                정산 후 나가기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <div className="mb-4">
         <div className="flex items-start justify-between gap-2">
@@ -208,14 +366,45 @@ export default function MinigamePage() {
         </div>
       )}
 
+      {phase === "playing" && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+          <p className="text-xs text-[var(--muted)]">
+            지금 정산하면{" "}
+            <b className="text-[var(--up)]">+{formatPrice(liveResult.reward)}</b>
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setExitRequest({ mode: "settle", result: liveResultRef.current })
+            }
+            className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--accent)]"
+          >
+            정산(나가기)
+          </button>
+        </div>
+      )}
+
       {phase === "playing" && game === "brick" && (
-        <SwipeBrickBreaker running onGameOver={onBrickOver} />
+        <SwipeBrickBreaker
+          running
+          paused={Boolean(exitRequest)}
+          onProgress={onBrickProgress}
+          onGameOver={onBrickOver}
+        />
       )}
       {phase === "playing" && game === "g2048" && (
-        <Game2048 onGameOver={on2048Over} />
+        <Game2048
+          paused={Boolean(exitRequest)}
+          onProgress={on2048Progress}
+          onGameOver={on2048Over}
+        />
       )}
       {phase === "playing" && game === "tetris" && (
-        <Tetris onGameOver={onTetrisOver} />
+        <Tetris
+          paused={Boolean(exitRequest)}
+          onProgress={onTetrisProgress}
+          onGameOver={onTetrisOver}
+        />
       )}
 
       {phase === "result" && result && (

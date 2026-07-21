@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
+import { RelatedStocksTab } from "@/components/market/RelatedStocksTab";
 import {
   formatStockValue,
   formatTradeTime,
@@ -85,6 +87,7 @@ function IndexBrowser({
 
 /** 지수·선물(거래 불가 지표) 전용 페이지: 주문 없이 차트 + 세부 뉴스만 */
 export function FuturesView({ stock }: { stock: StockState }) {
+  const [tab, setTab] = useState<"chart" | "related">("chart");
   const stocks = useMarketStore((s) => s.stocks);
   const events = useMarketStore((s) => s.events);
 
@@ -160,19 +163,41 @@ export function FuturesView({ stock }: { stock: StockState }) {
         </div>
       </div>
 
+      <div className="flex shrink-0 items-center gap-5 border-b border-[var(--border)] px-4 md:px-5">
+        {([
+          ["chart", "차트 · 뉴스"],
+          ["related", "관련주"],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={`min-h-11 py-2.5 text-sm transition ${
+              tab === id
+                ? "border-b-2 border-[var(--foreground)] font-semibold text-[var(--foreground)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row md:overflow-hidden">
         <main className="min-w-0 flex-1 px-4 py-4 md:overflow-y-auto md:px-5">
-          <CandlestickChart
-            candles={stock.candles}
-            dailyCandles={stock.dailyCandles}
-            history={stock.priceHistory}
-            height={380}
-            mobileHeight={280}
-            prevDayClose={stock.prevDayClose}
-            priceKind="points"
-          />
+          {tab === "chart" ? (
+            <>
+              <CandlestickChart
+                candles={stock.candles}
+                dailyCandles={stock.dailyCandles}
+                history={stock.priceHistory}
+                height={380}
+                mobileHeight={280}
+                prevDayClose={stock.prevDayClose}
+                priceKind="points"
+              />
 
-          <div className="mt-5 max-w-2xl">
+              <div className="mt-5 max-w-2xl">
             <div className="mb-3 flex items-center gap-2">
               <span>✨</span>
               <h3 className="text-sm font-semibold">왜 움직였을까?</h3>
@@ -217,7 +242,11 @@ export function FuturesView({ stock }: { stock: StockState }) {
                 ))}
               </ul>
             )}
-          </div>
+              </div>
+            </>
+          ) : (
+            <RelatedStocksTab stock={stock} stocks={stocks} />
+          )}
         </main>
 
         <IndexBrowser stocks={stocks} currentId={stock.id} />

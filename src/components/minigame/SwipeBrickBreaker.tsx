@@ -106,6 +106,7 @@ interface GameState {
 
 interface Hud {
   rounds: number;
+  bricksBroken: number;
   coins: number;
   score: number;
   arsenal: Record<BallGrade, number>;
@@ -217,22 +218,40 @@ function updateEffects(gs: GameState) {
 
 export function SwipeBrickBreaker({
   onGameOver,
+  onProgress,
+  paused = false,
   running,
 }: {
   onGameOver: (result: { rounds: number; bricks: number; score: number }) => void;
+  onProgress?: (result: { rounds: number; bricks: number; score: number }) => void;
+  paused?: boolean;
   running: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gsRef = useRef<GameState | null>(null);
   const rafRef = useRef<number>(0);
   const overRef = useRef(false);
+  const pausedRef = useRef(paused);
   const [hud, setHud] = useState<Hud>({
     rounds: 1,
+    bricksBroken: 0,
     coins: 0,
     score: 0,
     arsenal: { N: 1, S: 0, SS: 0 },
     phase: "aim",
   });
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
+    onProgress?.({
+      rounds: hud.rounds,
+      bricks: hud.bricksBroken,
+      score: hud.score,
+    });
+  }, [hud.bricksBroken, hud.rounds, hud.score, onProgress]);
 
   const brickHpForRound = (round: number) =>
     Math.max(1, Math.round(round * 0.7) + Math.floor(Math.random() * 2));
@@ -260,6 +279,7 @@ export function SwipeBrickBreaker({
   const syncHud = useCallback((gs: GameState) => {
     setHud((prev) =>
       prev.rounds === gs.rounds &&
+      prev.bricksBroken === gs.bricksBroken &&
       prev.coins === gs.coins &&
       prev.score === gs.score &&
       prev.phase === gs.phase &&
@@ -269,6 +289,7 @@ export function SwipeBrickBreaker({
         ? prev
         : {
             rounds: gs.rounds,
+            bricksBroken: gs.bricksBroken,
             coins: gs.coins,
             score: gs.score,
             arsenal: { ...gs.arsenal },
@@ -535,8 +556,10 @@ export function SwipeBrickBreaker({
     syncHud(gs);
 
     const loop = () => {
-      if (gs.phase === "fire") stepPhysics(gs);
-      updateEffects(gs);
+      if (!pausedRef.current) {
+        if (gs.phase === "fire") stepPhysics(gs);
+        updateEffects(gs);
+      }
       draw(gs, ctx);
       syncHud(gs);
       if (gs.phase === "over" && !overRef.current) {
@@ -553,7 +576,7 @@ export function SwipeBrickBreaker({
   const aimFrom = useCallback((clientX: number, clientY: number) => {
     const gs = gsRef.current;
     const canvas = canvasRef.current;
-    if (!gs || !canvas || gs.phase !== "aim") return;
+    if (!gs || !canvas || pausedRef.current || gs.phase !== "aim") return;
     const rect = canvas.getBoundingClientRect();
     const dx = clientX - rect.left - gs.launchX;
     let dy = clientY - rect.top - gs.launchY;
@@ -564,7 +587,7 @@ export function SwipeBrickBreaker({
 
   const onPointerUp = () => {
     const gs = gsRef.current;
-    if (!gs || gs.phase !== "aim" || !gs.aimDir) return;
+    if (!gs || pausedRef.current || gs.phase !== "aim" || !gs.aimDir) return;
     const queue: BallGrade[] = [
       ...Array<BallGrade>(gs.arsenal.N).fill("N"),
       ...Array<BallGrade>(gs.arsenal.S).fill("S"),
@@ -578,7 +601,7 @@ export function SwipeBrickBreaker({
 
   const buyBall = (grade: BallGrade) => {
     const gs = gsRef.current;
-    if (!gs || gs.phase !== "aim") return;
+    if (!gs || pausedRef.current || gs.phase !== "aim") return;
     if (gs.coins < BALL_PRICE[grade]) return;
     gs.coins -= BALL_PRICE[grade];
     gs.arsenal[grade] += 1;

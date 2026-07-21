@@ -13,6 +13,7 @@ import { OrderBook } from "@/components/market/OrderBook";
 import { OptionsPanel } from "@/components/market/OptionsPanel";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
 import { PriceAlertPanel } from "@/components/market/PriceAlertPanel";
+import { RelatedStocksTab } from "@/components/market/RelatedStocksTab";
 import { FlashValue } from "@/components/ui/FlashValue";
 import { getCharacterById } from "@/data/characters";
 import {
@@ -37,7 +38,7 @@ import { StockLogo } from "@/components/ui/StockLogo";
 import { isUpcomingIpo, listingCountdownLabel } from "@/lib/market/ipo";
 import { useMarketStore } from "@/store/marketStore";
 
-const SUB_TABS = ["차트 · 호가", "옵션", "종목정보", "뉴스"] as const;
+const SUB_TABS = ["차트 · 호가", "옵션", "종목정보", "뉴스", "관련주"] as const;
 
 function HeaderStat({ label, value }: { label: string; value: string }) {
   return (
@@ -482,6 +483,7 @@ export function StockPageClient({ id }: { id: string }) {
           {tab === 1 && <OptionsPanel stock={stock} />}
           {tab === 2 && <StockInfoTab stock={stock} />}
           {tab === 3 && <StockNewsTab stock={stock} events={events} />}
+          {tab === 4 && <RelatedStocksTab stock={stock} stocks={stocks} />}
         </main>
 
         <div

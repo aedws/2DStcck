@@ -139,8 +139,12 @@ function initGame(): Game {
 
 export function Tetris({
   onGameOver,
+  onProgress,
+  paused = false,
 }: {
   onGameOver: (result: { score: number; lines: number }) => void;
+  onProgress?: (result: { score: number; lines: number }) => void;
+  paused?: boolean;
 }) {
   const gRef = useRef<Game>(initGame());
   const [, setV] = useState(0);
@@ -316,6 +320,7 @@ export function Tetris({
   // 통합 틱: 중력 누적 + 락 딜레이
   useEffect(() => {
     const id = setInterval(() => {
+      if (paused) return;
       const g = gRef.current;
       if (g.over || g.paused) return;
       const now = Date.now();
@@ -335,9 +340,10 @@ export function Tetris({
       }
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [rerender, doLock]);
+  }, [doLock, paused, rerender]);
 
   useEffect(() => {
+    if (paused) return;
     const onKey = (e: KeyboardEvent) => {
       const k = e.key;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(k))
@@ -351,9 +357,10 @@ export function Tetris({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [move, rotate, softDrop, hardDrop, doHold]);
+  }, [doHold, hardDrop, move, paused, rotate, softDrop]);
 
   const onPointerUp = (e: React.PointerEvent) => {
+    if (paused) return;
     const s = startRef.current;
     startRef.current = null;
     if (!s) return;
@@ -367,6 +374,10 @@ export function Tetris({
   };
 
   const g = gRef.current;
+  useEffect(() => {
+    onProgress?.({ score: g.score, lines: g.lines });
+  }, [g.lines, g.score, onProgress]);
+
   const disp = g.board.map((row) => row.slice());
   if (!g.over && !g.paused) {
     let gy = g.piece.y;

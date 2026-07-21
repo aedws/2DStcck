@@ -75,8 +75,12 @@ function hasMoves(tiles: Tile[]): boolean {
 
 export function Game2048({
   onGameOver,
+  onProgress,
+  paused = false,
 }: {
   onGameOver: (result: { score: number; best: number }) => void;
+  onProgress?: (result: { score: number; best: number }) => void;
+  paused?: boolean;
 }) {
   const idRef = useRef(1);
   const overRef = useRef(false);
@@ -111,9 +115,16 @@ export function Game2048({
   );
   const [score, setScore] = useState(0);
 
+  useEffect(() => {
+    onProgress?.({
+      score,
+      best: Math.max(...tiles.map((tile) => tile.value)),
+    });
+  }, [onProgress, score, tiles]);
+
   const doMove = useCallback(
     (dir: Dir) => {
-      if (overRef.current) return;
+      if (overRef.current || paused) return;
       setTiles((prev) => {
         const grid = toGrid(prev);
         const occ: (Tile | null)[][] = Array.from({ length: SIZE }, () =>
@@ -177,10 +188,11 @@ export function Game2048({
         return result;
       });
     },
-    [onGameOver, score, spawnInto],
+    [onGameOver, paused, score, spawnInto],
   );
 
   useEffect(() => {
+    if (paused) return;
     const onKey = (e: KeyboardEvent) => {
       const map: Record<string, Dir> = {
         ArrowLeft: "left",
@@ -196,9 +208,10 @@ export function Game2048({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doMove]);
+  }, [doMove, paused]);
 
   const onPointerUp = (e: React.PointerEvent) => {
+    if (paused) return;
     const s = startRef.current;
     startRef.current = null;
     if (!s) return;

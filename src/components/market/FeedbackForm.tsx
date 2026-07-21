@@ -7,7 +7,7 @@ import { getCurrentAuth } from "@/lib/supabase/stockRequests";
 import { submitFeedback, FEEDBACK_REWARD_CENTS } from "@/lib/supabase/feedback";
 import { formatPrice } from "@/lib/market/engine";
 
-const CATEGORIES = ["종목·캐릭터", "기능 추가", "밸런스", "UI·편의", "기타"];
+const CATEGORIES = ["기능 추가", "밸런스", "UI·편의", "기타"];
 
 /**
  * 피드백·요청 사항 폼 — 원하는 기능·개선을 무료로 제안한다. 로그인 필수.
@@ -61,8 +61,7 @@ export function FeedbackForm() {
       <div className="min-w-0">
         <h2 className="text-sm font-bold">💡 피드백·요청 사항</h2>
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-          원하는 기능·종목·개선을 제안해 주세요. 무료이고, 검토 후 반영될 수
-          있어요.
+          원하는 기능·개선을 제안해 주세요. 무료이고, 검토 후 반영될 수 있어요.
         </p>
         <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-400">
           🎁 채택(반영 완료) 시 보상 {formatPrice(FEEDBACK_REWARD_CENTS)} 지급
