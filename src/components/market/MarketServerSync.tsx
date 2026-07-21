@@ -139,6 +139,7 @@ function CloudSaveSync() {
         state.lastQuarterlyDividendSession !== prev.lastQuarterlyDividendSession ||
         state.lastInterestSession !== prev.lastInterestSession ||
         state.ownedLuxuries !== prev.ownedLuxuries ||
+        state.myRoomItems !== prev.myRoomItems ||
         state.shorts !== prev.shorts ||
         state.options !== prev.options ||
         state.investmentMission !== prev.investmentMission ||

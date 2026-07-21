@@ -17,6 +17,7 @@ import type {
   Trade,
 } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
+import type { PlacedRoomItem } from "@/data/roomItems";
 import type { InvestmentMasteryState } from "@/lib/market/investmentMastery";
 import type { InvestmentSeasonState } from "@/lib/market/investmentSeasons";
 import type { AttendanceState } from "@/lib/player/playerProfile";
@@ -76,6 +77,8 @@ export interface WalletSave {
   resolvedFeedbackIds?: string[];
   /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
   claimedCompensationIds?: string[];
+  /** 마이룸에 배치된 가구. */
+  myRoomItems?: PlacedRoomItem[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;

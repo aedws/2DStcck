@@ -89,6 +89,14 @@ import {
   OPERATIONAL_COMPENSATIONS,
   settleOperationalCompensations,
 } from "@/lib/market/operationalCompensation";
+import {
+  getRoomItem,
+  isValidRoomCell,
+  normalizeRoomItems,
+  ROOM_MAX_ITEMS,
+  ROOM_SELL_RATIO,
+  type PlacedRoomItem,
+} from "@/data/roomItems";
 import type {
   ShortPosition,
   RateLevel,
@@ -302,6 +310,14 @@ interface MarketStore extends MarketSnapshot {
   purchaseLuxury: (itemId: string) => OrderResult;
   /** 보유 사치재 총 가치(센트) */
   getLuxuryValue: () => number;
+  /** 마이룸에 배치된 가구 (재화 sink — 순자산·랭킹 미합산). */
+  myRoomItems: PlacedRoomItem[];
+  /** 마이룸 가구 구매 + 지정 칸에 배치 (현금 차감). */
+  buyRoomItem: (itemId: string, x: number, y: number) => OrderResult;
+  /** 배치된 가구를 다른 칸으로 이동. */
+  moveRoomItem: (index: number, x: number, y: number) => OrderResult;
+  /** 배치된 가구 되팔기 — 구매가의 50% 환불, 나머지는 소각. */
+  sellRoomItem: (index: number) => OrderResult;
   /** 공매도 개시 (시장가) */
   openShortPosition: (stockId: string, quantity: number) => OrderResult;
   /** 공매도 청산(cover, 시장가) */
@@ -496,6 +512,7 @@ function createInitialState(): MarketSnapshot & {
   resolvedBugReportIds: string[];
   resolvedFeedbackIds: string[];
   claimedCompensationIds: string[];
+  myRoomItems: PlacedRoomItem[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
@@ -574,6 +591,7 @@ function createInitialState(): MarketSnapshot & {
     claimedCompensationIds: OPERATIONAL_COMPENSATIONS.map(
       (compensation) => compensation.id,
     ),
+    myRoomItems: [],
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
@@ -1746,6 +1764,7 @@ export const useMarketStore = create<MarketStore>()(
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           resolvedBugReportIds: wallet.resolvedBugReportIds ?? [],
           resolvedFeedbackIds: wallet.resolvedFeedbackIds ?? [],
+          myRoomItems: normalizeRoomItems(wallet.myRoomItems),
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
           ),
@@ -1830,6 +1849,7 @@ export const useMarketStore = create<MarketStore>()(
           resolvedBugReportIds: s.resolvedBugReportIds,
           resolvedFeedbackIds: s.resolvedFeedbackIds,
           claimedCompensationIds: s.claimedCompensationIds,
+          myRoomItems: s.myRoomItems,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
@@ -2796,6 +2816,80 @@ export const useMarketStore = create<MarketStore>()(
 
       getLuxuryValue: () => getLuxuryValue(get().ownedLuxuries),
 
+      buyRoomItem: (itemId, x, y) => {
+        const item = getRoomItem(itemId);
+        if (!item) return { success: false, message: "존재하지 않는 가구입니다." };
+        const state = get();
+        if (state.myRoomItems.length >= ROOM_MAX_ITEMS) {
+          return { success: false, message: `가구는 최대 ${ROOM_MAX_ITEMS}개까지 놓을 수 있습니다.` };
+        }
+        if (!isValidRoomCell(item, x, y)) {
+          return {
+            success: false,
+            message: item.wallOnly ? "벽걸이 가구는 벽에만 걸 수 있습니다." : "바닥 가구는 바닥에만 놓을 수 있습니다.",
+          };
+        }
+        if (state.myRoomItems.some((p) => p.x === x && p.y === y)) {
+          return { success: false, message: "이미 가구가 놓인 칸입니다." };
+        }
+        if (item.price > state.cash) {
+          return { success: false, message: "보유 현금이 부족합니다." };
+        }
+        const placed: PlacedRoomItem = {
+          itemId: item.id,
+          x,
+          y,
+          paidPrice: item.price,
+          purchasedAt: Date.now(),
+        };
+        set({
+          cash: state.cash - item.price,
+          myRoomItems: [...state.myRoomItems, placed],
+        });
+        playSound("cash");
+        return { success: true, message: `${item.emoji} ${item.name} 배치 완료` };
+      },
+
+      moveRoomItem: (index, x, y) => {
+        const state = get();
+        const placed = state.myRoomItems[index];
+        if (!placed) return { success: false, message: "가구를 찾을 수 없습니다." };
+        const item = getRoomItem(placed.itemId);
+        if (!item) return { success: false, message: "가구를 찾을 수 없습니다." };
+        if (!isValidRoomCell(item, x, y)) {
+          return {
+            success: false,
+            message: item.wallOnly ? "벽걸이 가구는 벽에만 걸 수 있습니다." : "바닥 가구는 바닥에만 놓을 수 있습니다.",
+          };
+        }
+        if (state.myRoomItems.some((p, i) => i !== index && p.x === x && p.y === y)) {
+          return { success: false, message: "이미 가구가 놓인 칸입니다." };
+        }
+        set({
+          myRoomItems: state.myRoomItems.map((p, i) =>
+            i === index ? { ...p, x, y } : p,
+          ),
+        });
+        return { success: true, message: `${item.emoji} ${item.name} 이동 완료` };
+      },
+
+      sellRoomItem: (index) => {
+        const state = get();
+        const placed = state.myRoomItems[index];
+        if (!placed) return { success: false, message: "가구를 찾을 수 없습니다." };
+        const item = getRoomItem(placed.itemId);
+        const refund = Math.round(placed.paidPrice * ROOM_SELL_RATIO);
+        set({
+          cash: state.cash + refund,
+          myRoomItems: state.myRoomItems.filter((_, i) => i !== index),
+        });
+        playSound("cash");
+        return {
+          success: true,
+          message: `${item?.emoji ?? ""} ${item?.name ?? "가구"} 되팔기 · ${formatPrice(refund)} 환불`,
+        };
+      },
+
       openShortPosition: (stockId, quantity) => {
         get().settleCashflows();
         const state = get();
@@ -3416,6 +3510,7 @@ export const useMarketStore = create<MarketStore>()(
         resolvedBugReportIds: state.resolvedBugReportIds.slice(0, 200),
         resolvedFeedbackIds: state.resolvedFeedbackIds.slice(0, 200),
         claimedCompensationIds: state.claimedCompensationIds,
+        myRoomItems: state.myRoomItems,
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
@@ -3783,6 +3878,9 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (walletSource as Partial<MarketStore>).resolvedFeedbackIds!.slice(0, 300)
             : [],
+          myRoomItems: normalizeRoomItems(
+            (walletSource as Partial<MarketStore>).myRoomItems,
+          ),
           investmentMastery: normalizeInvestmentMastery(
             (walletSource as Partial<MarketStore>).investmentMastery,
           ),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   LUXURY_CATEGORY_ORDER,
   LUXURY_ITEMS,
@@ -53,6 +54,20 @@ export default function ShopPage() {
         <StatCard label="사치재 가치" value={formatPrice(luxuryValue)} />
         <StatCard label="수집" value={`${ownedCount} / ${LUXURY_ITEMS.length}`} />
       </div>
+
+      <Link
+        href="/myroom"
+        className="mb-6 flex items-center gap-3 rounded-2xl border border-pink-400/40 bg-pink-500/10 px-4 py-3 transition hover:border-pink-400/70"
+      >
+        <span className="text-2xl">🛁</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold">마이룸 꾸미기</span>
+          <span className="mt-0.5 block text-[11px] text-[var(--muted)]">
+            가구·욕조·펫으로 나만의 방을 꾸며 보세요 — 새로 열린 소비 공간.
+          </span>
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-pink-400">입장 →</span>
+      </Link>
 
       <div className="space-y-7">
         {LUXURY_CATEGORY_ORDER.map((category) => {

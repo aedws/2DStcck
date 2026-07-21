@@ -9,43 +9,128 @@ import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 
-// 정체성: 수집·경쟁 메타가 주(主). 도감·시즌·랭킹·프로필 등 수집/경쟁 항목을
-// 앞에 두고, 거래·유틸리티(내 계좌·실적·전략·복권·주문내역)는 뒤로 배치한다.
-const navItems = [
+// 정체성: 수집·경쟁 메타가 주(主). 자주 가는 5개만 1차 탭으로 남기고,
+// 나머지는 성격별 드롭다운(성장·투자 도구·라운지)으로 묶는다.
+// 업데이트·설정은 우측 아이콘으로 상시 노출한다.
+const primaryNavItems = [
   { href: "/", label: "홈" },
+  { href: "/portfolio", label: "내 계좌" },
   { href: "/season", label: "시즌" },
   { href: "/leaderboard", label: "랭킹" },
   { href: "/characters", label: "도감" },
-  { href: "/profile", label: "프로필" },
-  { href: "/mastery", label: "숙련도" },
-  { href: "/missions", label: "의뢰" },
-  { href: "/messages", label: "메시지" },
-  { href: "/achievements", label: "업적" },
-  { href: "/shop", label: "상점" },
-  { href: "/portfolio", label: "내 계좌" },
-  { href: "/calendar", label: "실적" },
-  { href: "/strategy", label: "전략" },
-  { href: "/lottery", label: "복권" },
-  { href: "/minigame", label: "현금 채굴" },
-  { href: "/ipo", label: "IPO" },
-  { href: "/history", label: "주문내역" },
-  { href: "/updates", label: "업데이트" },
-  { href: "/settings", label: "설정" },
 ];
+
+const navGroups = [
+  {
+    label: "성장",
+    items: [
+      { href: "/profile", label: "프로필" },
+      { href: "/mastery", label: "숙련도" },
+      { href: "/achievements", label: "업적" },
+      { href: "/missions", label: "의뢰" },
+      { href: "/messages", label: "메시지" },
+    ],
+  },
+  {
+    label: "투자 도구",
+    items: [
+      { href: "/calendar", label: "실적 캘린더" },
+      { href: "/strategy", label: "전략" },
+      { href: "/ipo", label: "IPO" },
+      { href: "/history", label: "주문내역" },
+    ],
+  },
+  {
+    label: "라운지",
+    items: [
+      { href: "/shop", label: "상점" },
+      { href: "/myroom", label: "마이룸" },
+      { href: "/lottery", label: "복권" },
+      { href: "/minigame", label: "현금 채굴" },
+    ],
+  },
+];
+
+function NavGroupMenu({
+  label,
+  items,
+  pathname,
+}: {
+  label: string;
+  items: { href: string; label: string }[];
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const groupActive = items.some((item) => pathname.startsWith(item.href));
+
+  // 바깥 클릭·페이지 이동 시 닫기
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+  useEffect(() => setOpen(false), [pathname]);
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={`flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm transition ${
+          groupActive
+            ? "font-semibold text-[var(--foreground)]"
+            : "text-[var(--muted)] hover:text-[var(--foreground)]"
+        }`}
+      >
+        {label}
+        <span className={`text-[9px] transition-transform ${open ? "rotate-180" : ""}`}>▼</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-36 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] py-1 shadow-lg">
+          {items.map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={`block px-3.5 py-2 text-sm transition hover:bg-[var(--surface)] ${
+                  active
+                    ? "font-semibold text-[var(--foreground)]"
+                    : "text-[var(--muted)]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function TossHeader() {
   const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-md">
-      <div className="flex h-14 items-center gap-3 overflow-hidden px-3 sm:px-5">
+      <div className="flex h-14 items-center gap-3 px-3 sm:px-5">
         <Link href="/" className="shrink-0 text-lg font-bold tracking-tight">
           2D<span className="text-[var(--accent)]">Stock</span>
         </Link>
 
-        <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex">
-          {navItems.map((item) => {
-            const active = pathname === item.href;
+        <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
+          {primaryNavItems.map((item) => {
+            const active =
+              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
@@ -60,6 +145,14 @@ export function TossHeader() {
               </Link>
             );
           })}
+          {navGroups.map((group) => (
+            <NavGroupMenu
+              key={group.label}
+              label={group.label}
+              items={group.items}
+              pathname={pathname}
+            />
+          ))}
         </nav>
 
         <div className="hidden w-56 shrink-0 lg:block xl:w-72">
@@ -77,6 +170,31 @@ export function TossHeader() {
             </span>
           </span>
           <span className="h-4 w-px bg-[var(--border)]" aria-hidden />
+          <Link
+            href="/updates"
+            title="업데이트 내역"
+            aria-label="업데이트 내역"
+            className={`hidden rounded-lg px-1.5 py-1 text-sm transition md:inline ${
+              pathname.startsWith("/updates")
+                ? "text-[var(--foreground)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            🔔
+          </Link>
+          <Link
+            href="/settings"
+            title="설정"
+            aria-label="설정"
+            className={`hidden rounded-lg px-1.5 py-1 text-sm transition md:inline ${
+              pathname.startsWith("/settings")
+                ? "text-[var(--foreground)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            ⚙️
+          </Link>
+          <span className="hidden h-4 w-px bg-[var(--border)] md:inline-block" aria-hidden />
           <AuthButton />
         </div>
       </div>
