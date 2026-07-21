@@ -46,8 +46,9 @@ const HEADER = [
   "etfHoldings", "quarterlyDividend", "subsector",
 ];
 
-/** 코드 관리 코어 종목 (구성종목 참조 검증용) */
-const CORE_IDS = new Set(["vnasdaq", "vnasfut"]);
+/** 코드 관리 코어 종목 (구성종목 참조 검증용). bahina는 티커 변경(BAAKO) 때
+ * 기존 보유·호감도의 id를 보존하려고 CSV에서 코드 관리로 옮겼다. */
+const CORE_IDS = new Set(["vnasdaq", "vnasfut", "bahina"]);
 
 /** 최소 RFC4180 파서: 따옴표 필드, "" 이스케이프, CRLF 지원 */
 function parseCsv(text) {

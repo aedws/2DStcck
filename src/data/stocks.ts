@@ -219,6 +219,25 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     description:
       "실물 금 가격을 추종하는 ETF. 시장이 흔들릴 때 오히려 강세를 보이는 경향이 있어 위기 국면의 헤지·분산 수단으로 쓰인다. 배당은 없다.",
   },
+  // ── 코드 관리 캐릭터 기업 ──
+  {
+    // CSV에서 이관 — 티커를 BAHINA→BAAKO로 바꾸면서 id(보유·호감도 키)는 보존한다.
+    id: "bahina",
+    ticker: "BAAKO",
+    name: "선도부 방위산업",
+    sector: "PMC",
+    subsector: "치안 서비스",
+    initialPrice: 142000,
+    volatility: 0.038,
+    drift: 0.0009,
+    beta: 1,
+    description: "게헨나 풍기위원회 직영의 최정예 방위 서비스.",
+    eventBias: {
+      수주: 3,
+      스캔들: 0.5,
+    },
+    ceoId: "chr_baako",
+  },
   // ── IPO 상장 예정 (코드 관리 캐릭터 기업) ──
   {
     id: "udnge",

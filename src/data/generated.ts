@@ -368,22 +368,6 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "ceoId": "chr_ba68"
   },
   {
-    "id": "bahina",
-    "ticker": "BAHINA",
-    "name": "Prefect Defense Corporation",
-    "sector": "PMC",
-    "initialPrice": 142000,
-    "volatility": 0.038,
-    "drift": 0.0009,
-    "beta": 1,
-    "description": "게헨나 풍기위원회 직영의 최정예 방위 서비스.",
-    "eventBias": {
-      "수주": 3,
-      "스캔들": 0.5
-    },
-    "ceoId": "chr_bahina"
-  },
-  {
     "id": "bahrn",
     "ticker": "BAHRN",
     "name": "Gourmet Research Dining",
@@ -1214,18 +1198,6 @@ export const CSV_CHARACTERS: Character[] = [
     "emoji": "😈"
   },
   {
-    "id": "chr_bahina",
-    "name": "소라사키 히나",
-    "title": "위원장",
-    "traits": [
-      "워커홀릭",
-      "천재",
-      "카리스마"
-    ],
-    "bio": "잠도 잊고 일하는 게헨나 최강의 풍기위원장.",
-    "emoji": "⚡"
-  },
-  {
     "id": "chr_bahrn",
     "name": "쿠로다테 하루나",
     "title": "오너셰프",
@@ -1859,26 +1831,6 @@ export const CSV_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "쳇",
       "또 일이 꼬였군… 그래도 의뢰는 완수한다.",
       "이 정도 트러블은 각본에 있었어. 아마도."
-    ]
-  },
-  {
-    "characterId": "chr_bahina",
-    "tag": "*",
-    "direction": "positive",
-    "quotes": [
-      "좋은 결과군요. 하지만 저는 아직 자리를 뜨지 않습니다.",
-      "성과는 확인했습니다. 다음 업무로 넘어가죠.",
-      "만족스럽네요. 잠은 다 끝낸 뒤에 자겠습니다."
-    ]
-  },
-  {
-    "characterId": "chr_bahina",
-    "tag": "*",
-    "direction": "negative",
-    "quotes": [
-      "질서가 흔들렸군요. 제가 바로 세우겠습니다.",
-      "이 정도 혼란은 제가 밤새워 정리하면 됩니다.",
-      "물러설 이유가 없습니다. 끝까지 책임지죠."
     ]
   },
   {

@@ -1802,7 +1802,7 @@ export const useMarketStore = create<MarketStore>()(
           holdings: s.holdings,
           // 단타 위주 계정은 하루 100건을 쉽게 넘긴다 — 당일 내역이 밀려나지
           // 않도록 여유 있게 보존한다.
-          trades: s.trades.slice(0, 300),
+          trades: s.trades.slice(0, 500),
           openOrders: s.openOrders,
           cashPayments: s.cashPayments.slice(0, 50),
           lastSalarySession: s.lastSalarySession,
@@ -1850,7 +1850,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 공유 리더보드 갱신: 순자산·수익률·과시 요약을 본인 행에 반영
         const netWorth = s.getTotalAssets();
-        const tradingStats = buildTradingStats(s.trades.slice(0, 300));
+        const tradingStats = buildTradingStats(s.trades.slice(0, 500));
         const playerTitle = getPlayerTitle(s.selectedTitleId);
         const seasonFrame = getSeasonReward(s.selectedSeasonFrameId);
         await syncLeaderboard({
@@ -3394,7 +3394,7 @@ export const useMarketStore = create<MarketStore>()(
         shorts: state.shorts,
         options: state.options,
         lastInterestSession: state.lastInterestSession,
-        trades: state.trades.slice(0, 300),
+        trades: state.trades.slice(0, 500),
         openOrders: state.openOrders.slice(0, 50),
         cashPayments: state.cashPayments.slice(0, 50),
         ownedLuxuries: state.ownedLuxuries,

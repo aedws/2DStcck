@@ -61,6 +61,45 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "새 무브먼트가 완성됐습니다. 심장이… 아니, 초침이 뜁니다. 똑딱!",
     ],
   },
+  // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
+  {
+    characterId: "chr_bahina",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "좋은 결과군요. 하지만 저는 아직 자리를 뜨지 않습니다.",
+      "성과는 확인했습니다. 다음 업무로 넘어가죠.",
+      "만족스럽네요. 잠은 다 끝낸 뒤에 자겠습니다.",
+    ],
+  },
+  {
+    characterId: "chr_bahina",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "질서가 흔들렸군요. 제가 바로 세우겠습니다.",
+      "이 정도 혼란은 제가 밤새워 정리하면 됩니다.",
+      "물러설 이유가 없습니다. 끝까지 책임지죠.",
+    ],
+  },
+  {
+    characterId: "chr_baako",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "보고드립니다. 계획대로, 오차 없이 완료했습니다.",
+      "위원장님께 부끄럽지 않은 결과입니다. 다음 안건으로.",
+    ],
+  },
+  {
+    characterId: "chr_baako",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "규율에 어긋난 결과입니다. 원인을 끝까지 추적하겠습니다.",
+      "정정하겠습니다. 같은 실수는 두 번 일어나지 않습니다.",
+    ],
+  },
 ];
 
 /**
