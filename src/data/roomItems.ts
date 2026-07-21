@@ -10,6 +10,8 @@ export const ROOM_GRID_ROWS = 12;
 export const ROOM_WALL_ROWS = 2;
 /** 아래쪽 3줄은 욕실 구역(타일 바닥) — 배치 규칙은 바닥과 동일, 시각만 다르다. */
 export const ROOM_BATH_ROWS = 3;
+/** 숙소와 욕탕 사이 고정 출입문 너비(격자 칸). */
+export const ROOM_BATH_DOOR_WIDTH = 2;
 /** 되팔기 환불 비율. 나머지는 소각된다. */
 export const ROOM_SELL_RATIO = 0.5;
 /** 기본 방에 놓을 수 있는 최대 가구 수 (저장 용량 보호). */
@@ -171,6 +173,34 @@ export function normalizeOwnedRoomThemes(value: unknown): string[] {
 /** 이 행이 욕실 구역인가 (아래쪽 ROOM_BATH_ROWS줄). */
 export function isBathRow(y: number, rows: number): boolean {
   return y >= rows - ROOM_BATH_ROWS;
+}
+
+/** 욕탕이 시작되는 행. 이 행의 위쪽 경계에 고정 벽과 출입문이 놓인다. */
+export function roomBathStartRow(rows: number): number {
+  return rows - ROOM_BATH_ROWS;
+}
+
+/** 방 크기가 달라져도 중앙에 유지되는 욕탕 양문형 출입구의 열 목록. */
+export function roomBathDoorColumns(cols: number): number[] {
+  const first = Math.max(0, Math.floor((cols - ROOM_BATH_DOOR_WIDTH) / 2));
+  return Array.from(
+    { length: Math.min(ROOM_BATH_DOOR_WIDTH, cols) },
+    (_, offset) => first + offset,
+  );
+}
+
+/** 경계문 바로 앞뒤의 통로 칸. 새 가구를 놓지 않아 문이 항상 열려 있게 한다. */
+export function isRoomBathPassageCell(
+  x: number,
+  y: number,
+  level: number = 0,
+): boolean {
+  const { cols, rows } = roomDimsForLevel(level);
+  const bathStart = roomBathStartRow(rows);
+  return (
+    roomBathDoorColumns(cols).includes(x) &&
+    (y === bathStart - 1 || y === bathStart)
+  );
 }
 
 /** 뒷벽 출입문 위치(벽 아래줄 고정). 이 칸엔 가구를 걸 수 없다. */

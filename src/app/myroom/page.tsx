@@ -14,9 +14,12 @@ import {
   getRoomItem,
   getRoomTheme,
   isBathRow,
+  isRoomBathPassageCell,
   isWallRow,
   nextRoomExpansion,
   roomDimsForLevel,
+  roomBathDoorColumns,
+  roomBathStartRow,
   roomMaxItemsForLevel,
   type RoomItemCategory,
   type RoomItemDefinition,
@@ -71,15 +74,34 @@ function RoomResident({
     let leaving = false;
     let steps = 0;
     let waitTicks = 2;
+    const bathStart = roomBathStartRow(rows);
+    const bathDoorColumns = roomBathDoorColumns(cols);
+    const crossesBathWall = (fromY: number, toY: number, atX: number) =>
+      ((fromY === bathStart - 1 && toY === bathStart) ||
+        (fromY === bathStart && toY === bathStart - 1)) &&
+      !bathDoorColumns.includes(atX);
 
     const free = (nx: number, ny: number) =>
       nx >= 0 &&
       nx < cols &&
       ny >= ROOM_WALL_ROWS &&
       ny < rows &&
+      !crossesBathWall(y, ny, nx) &&
       !occupiedCells.has(`${nx}:${ny}`);
-    const doorDistance = (nx: number, ny: number) =>
-      Math.abs(nx - ROOM_DOOR_X) + (ny - ROOM_WALL_ROWS);
+    const doorDistance = (nx: number, ny: number) => {
+      if (ny < bathStart) {
+        return Math.abs(nx - ROOM_DOOR_X) + (ny - ROOM_WALL_ROWS);
+      }
+      const bathDoorX = bathDoorColumns.reduce((nearest, candidate) =>
+        Math.abs(candidate - nx) < Math.abs(nearest - nx) ? candidate : nearest,
+      );
+      return (
+        Math.abs(nx - bathDoorX) +
+        (ny - bathStart + 1) +
+        Math.abs(bathDoorX - ROOM_DOOR_X) +
+        (bathStart - 1 - ROOM_WALL_ROWS)
+      );
+    };
 
     const id = window.setInterval(() => {
       if (!visible) {
@@ -206,6 +228,10 @@ export default function MyRoomPage() {
   const roomGridColor = darkRoomPalette
     ? "rgba(221, 214, 254, 0.2)"
     : `${palette.frame}40`;
+  const bathStart = roomBathStartRow(dims.rows);
+  const bathDoorColumns = roomBathDoorColumns(dims.cols);
+  const bathDoorLeft = (bathDoorColumns[0] / dims.cols) * 100;
+  const bathDoorWidth = (bathDoorColumns.length / dims.cols) * 100;
   // 격자가 커질수록 타일·이모지를 작게 그려 전체 구도가 한눈에 들어오게 한다.
   const cellText =
     dims.cols >= 26
@@ -225,6 +251,7 @@ export default function MyRoomPage() {
     if (!placingItem) return false;
     if (cellMap.has(`${x}:${y}`)) return false;
     if (x === ROOM_DOOR_X && y === ROOM_DOOR_Y) return false;
+    if (isRoomBathPassageCell(x, y, myRoomLevel)) return false;
     return placingItem.wallOnly ? isWallRow(y) : !isWallRow(y);
   }
 
@@ -303,6 +330,7 @@ export default function MyRoomPage() {
                 mode.type === "selected" && occupiedIndex === mode.index;
               const isMovingSource =
                 mode.type === "moving" && occupiedIndex === mode.index;
+              const bathPassage = isRoomBathPassageCell(x, y, myRoomLevel);
               const background = wall
                 ? `linear-gradient(180deg, ${palette.wallFrom}, ${palette.wallTo})`
                 : bath
@@ -318,7 +346,11 @@ export default function MyRoomPage() {
                   key={key}
                   onClick={() => onCellClick(x, y)}
                   aria-label={
-                    def ? `${def.name} (${x + 1}, ${y + 1})` : `빈 칸 (${x + 1}, ${y + 1})`
+                    def
+                      ? `${def.name} (${x + 1}, ${y + 1})`
+                      : bathPassage
+                        ? `욕탕 출입문 통로 (${x + 1}, ${y + 1})`
+                        : `빈 칸 (${x + 1}, ${y + 1})`
                   }
                   style={{
                     background,
@@ -377,6 +409,68 @@ export default function MyRoomPage() {
             }),
           )}
 
+          {/* 숙소·욕탕 경계벽 — 중앙 양문형 출입구만 통과할 수 있다. */}
+          <div
+            aria-hidden
+            data-testid="room-bath-boundary"
+            className="pointer-events-none absolute inset-x-0 z-20 h-2 -translate-y-1/2 sm:h-2.5"
+            style={{ top: `${(bathStart / dims.rows) * 100}%` }}
+          >
+            <span
+              className="absolute inset-y-0 left-0 border-y shadow-sm"
+              style={{
+                width: `${bathDoorLeft}%`,
+                borderColor: palette.divider,
+                background: `linear-gradient(180deg, ${palette.wallFrom}, ${palette.wallTo})`,
+              }}
+            />
+            <span
+              className="absolute inset-y-0 right-0 border-y shadow-sm"
+              style={{
+                width: `${100 - bathDoorLeft - bathDoorWidth}%`,
+                borderColor: palette.divider,
+                background: `linear-gradient(180deg, ${palette.wallFrom}, ${palette.wallTo})`,
+              }}
+            />
+            <span
+              data-testid="room-bath-door"
+              className="absolute bottom-1/2 h-6 rounded-t-lg border-x-[3px] border-t-[3px] sm:h-8"
+              style={{
+                left: `${bathDoorLeft}%`,
+                width: `${bathDoorWidth}%`,
+                borderColor: palette.frame,
+                boxShadow: `0 -2px 6px ${palette.frame}55`,
+              }}
+            >
+              <span
+                className="absolute bottom-0 left-0 h-4/5 w-[18%] rounded-sm border"
+                style={{
+                  borderColor: palette.divider,
+                  background: palette.wallTo,
+                  transform: "translateX(-18%) rotate(-7deg)",
+                  transformOrigin: "bottom left",
+                }}
+              />
+              <span
+                className="absolute bottom-0 right-0 h-4/5 w-[18%] rounded-sm border"
+                style={{
+                  borderColor: palette.divider,
+                  background: palette.wallTo,
+                  transform: "translateX(18%) rotate(7deg)",
+                  transformOrigin: "bottom right",
+                }}
+              />
+            </span>
+            <span
+              className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
+              style={{
+                left: `${bathDoorLeft}%`,
+                width: `${bathDoorWidth}%`,
+                background: palette.divider,
+              }}
+            />
+          </div>
+
           {/* 구역 라벨 — 공간의 용도를 드러낸다 */}
           <span
             aria-hidden
@@ -394,7 +488,7 @@ export default function MyRoomPage() {
             aria-hidden
             className="pointer-events-none absolute left-1.5 z-10 rounded-md border px-1.5 py-0.5 text-[8px] font-bold shadow-sm sm:text-[10px]"
             style={{
-              top: `calc(${((dims.rows - 3) / dims.rows) * 100}% + 2px)`,
+              top: `calc(${(bathStart / dims.rows) * 100}% + 8px)`,
               color: roomLabelColor,
               background: roomLabelBackground,
               borderColor: `${palette.divider}88`,

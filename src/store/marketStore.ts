@@ -92,6 +92,7 @@ import {
 import {
   getRoomItem,
   getRoomTheme,
+  isRoomBathPassageCell,
   isValidRoomCell,
   nextRoomExpansion,
   normalizeOwnedRoomThemes,
@@ -2866,6 +2867,9 @@ export const useMarketStore = create<MarketStore>()(
         if (state.myRoomItems.length >= maxItems) {
           return { success: false, message: `가구는 최대 ${maxItems}개까지 놓을 수 있습니다.` };
         }
+        if (isRoomBathPassageCell(x, y, state.myRoomLevel)) {
+          return { success: false, message: "숙소와 욕탕 사이 출입문 통로는 비워 두어야 합니다." };
+        }
         if (!isValidRoomCell(item, x, y, state.myRoomLevel)) {
           return {
             success: false,
@@ -2899,6 +2903,9 @@ export const useMarketStore = create<MarketStore>()(
         if (!placed) return { success: false, message: "가구를 찾을 수 없습니다." };
         const item = getRoomItem(placed.itemId);
         if (!item) return { success: false, message: "가구를 찾을 수 없습니다." };
+        if (isRoomBathPassageCell(x, y, state.myRoomLevel)) {
+          return { success: false, message: "숙소와 욕탕 사이 출입문 통로는 비워 두어야 합니다." };
+        }
         if (!isValidRoomCell(item, x, y, state.myRoomLevel)) {
           return {
             success: false,
