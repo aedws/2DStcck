@@ -131,11 +131,15 @@ function interpolatePumpFrames(frames: readonly PumpKeyframe[], progress: number
  * 반등을 섞은 숨은 곡선. 모든 패턴에 두 번 이상의 급락과 재돌파가 있어
  * 횡보 구간이나 첫 고점만 보고 정답을 외울 수 없다.
  */
-export function pumpPatternMultiplierAt(spec: PumpSpec, progress: number): number {
+function pumpBasePatternMultiplierAt(
+  spec: PumpSpec,
+  pattern: PumpPatternId,
+  progress: number,
+): number {
   const p = spec.peakMult;
   const c = spec.crashMult;
   let frames: readonly PumpKeyframe[];
-  switch (spec.pattern) {
+  switch (pattern) {
     case "rug-rebirth":
       frames = [
         [0, 1], [0.06, 1.8], [0.12, p * 0.75], [0.16, p],
@@ -205,6 +209,93 @@ export function pumpPatternMultiplierAt(spec: PumpSpec, progress: number): numbe
   return interpolatePumpFrames(frames, progress);
 }
 
+/** 테스트·밸런스 분석용 기본 패턴. 실제 시세에는 아래 절차적 함정이 더해진다. */
+export function pumpPatternMultiplierAt(spec: PumpSpec, progress: number): number {
+  return pumpBasePatternMultiplierAt(spec, spec.pattern, progress);
+}
+
+function smoothUnit(value: number): number {
+  const x = Math.min(1, Math.max(0, value));
+  return x * x * (3 - 2 * x);
+}
+
+/** 한두 틱 안에 갭이 난 뒤 서서히 되돌리는 비대칭 시세조종 펄스. */
+function manipulationPulse(progress: number, start: number, duration: number): number {
+  const local = (progress - start) / duration;
+  if (local <= 0 || local >= 1) return 0;
+  const gapFraction = 0.02;
+  if (local < gapFraction) return smoothUnit(local / gapFraction);
+  return 1 - smoothUnit((local - gapFraction) / (1 - gapFraction));
+}
+
+/**
+ * 기본 패턴 2개를 종목별 비공개 시점에 교체하고, 손절 유도 급락→반등과
+ * 돌파 추격 유도→급락을 4~7쌍 겹친다. 같은 기본 패턴도 시간축·혼합 상대·
+ * 함정 위치가 달라져 과거 차트를 외운 것만으로 다음 경로를 알 수 없다.
+ */
+export function pumpAdversarialMultiplierAt(
+  spec: PumpSpec,
+  progress: number,
+): number {
+  const t = Math.min(1, Math.max(0, progress));
+  const variantRand = seededRand(spec.spawnSession, "pump-procedural-variant");
+  const exponent = 0.72 + variantRand() * 0.7;
+  const timeWobble = 0.025 + variantRand() * 0.055;
+  const timeFrequency = 1 + Math.floor(variantRand() * 3);
+  const timePhase = variantRand() * Math.PI * 2;
+  const warped = Math.min(
+    1,
+    Math.max(
+      0,
+      Math.pow(t, exponent) +
+        timeWobble *
+          Math.sin(Math.PI * t) *
+          Math.sin(Math.PI * 2 * timeFrequency * t + timePhase),
+    ),
+  );
+
+  const primaryIndex = PUMP_PATTERN_IDS.indexOf(spec.pattern);
+  const secondaryOffset = 1 + Math.floor(variantRand() * (PUMP_PATTERN_IDS.length - 1));
+  const secondaryPattern =
+    PUMP_PATTERN_IDS[(primaryIndex + secondaryOffset) % PUMP_PATTERN_IDS.length];
+  const pivot = 0.24 + variantRand() * 0.5;
+  const blendWidth = 0.025 + variantRand() * 0.08;
+  const blend = smoothUnit((t - (pivot - blendWidth)) / (blendWidth * 2));
+  const primary = pumpBasePatternMultiplierAt(spec, spec.pattern, warped);
+  const secondary = pumpBasePatternMultiplierAt(spec, secondaryPattern, warped);
+  // 기하 혼합으로 저가 러그풀과 고가 스퀴즈가 서로 뭉개지지 않게 한다.
+  const hybrid = Math.exp(
+    Math.log(Math.max(0.0001, primary)) * (1 - blend) +
+      Math.log(Math.max(0.0001, secondary)) * blend,
+  );
+
+  const trapRand = seededRand(spec.spawnSession, "pump-psychological-traps");
+  const trapPairs = 4 + Math.floor(trapRand() * 4);
+  let trapMultiplier = 1;
+  for (let index = 0; index < trapPairs; index++) {
+    const anchor =
+      0.055 +
+      (index / Math.max(1, trapPairs - 1)) * 0.82 +
+      (trapRand() - 0.5) * 0.035;
+    const gap = 0.007 + trapRand() * 0.026;
+    const firstWidth = 0.003 + trapRand() * 0.012;
+    const secondWidth = 0.003 + trapRand() * 0.014;
+    const squeeze = 1.45 + trapRand() * 2.8;
+    const crash = 0.008 + trapRand() * 0.2;
+    const stopHuntFirst = trapRand() < 0.5;
+    const firstTarget = stopHuntFirst ? crash : squeeze;
+    const secondTarget = stopHuntFirst ? squeeze : crash;
+    trapMultiplier *=
+      1 +
+      (firstTarget - 1) * manipulationPulse(t, anchor, firstWidth);
+    trapMultiplier *=
+      1 +
+      (secondTarget - 1) * manipulationPulse(t, anchor + gap, secondWidth);
+  }
+
+  return Math.max(0.0005, Math.min(30, hybrid * trapMultiplier));
+}
+
 /** 모든 클라이언트에서 동일하지만 플레이어에게는 공개하지 않는 실제 상장폐지 시각. */
 export function pumpDelistAt(spec: PumpSpec): number {
   return (
@@ -225,17 +316,38 @@ export function pumpPriceAt(spec: PumpSpec, now: number): number {
   const tapeWave =
     0.035 * (Math.sin(f * Math.PI * 34 + phaseA) - Math.sin(phaseA)) +
     0.025 * (Math.sin(f * Math.PI * 82 + phaseB) - Math.sin(phaseB));
-  const noise =
-    (seededRand(Math.floor(now / SIM_TICK_MS), `${spec.id}-pump-tape`)() - 0.5) *
-    0.1;
-  return Math.max(
+  const tapeTick = now / SIM_TICK_MS;
+  const noiseBucket = Math.floor(tapeTick / 6);
+  const noiseFraction = tapeTick / 6 - noiseBucket;
+  const noiseFrom =
+    seededRand(noiseBucket, `${spec.id}-pump-volatility-cluster`)() * 2 - 1;
+  const noiseTo =
+    seededRand(noiseBucket + 1, `${spec.id}-pump-volatility-cluster`)() * 2 - 1;
+  const clusteredNoise =
+    noiseFrom + (noiseTo - noiseFrom) * smoothUnit(noiseFraction);
+  const tickNoise =
+    (seededRand(Math.floor(tapeTick), `${spec.id}-pump-tape`)() - 0.5) * 0.04;
+  let rawPrice = Math.max(
     1,
     Math.round(
       spec.basePrice *
-        pumpPatternMultiplierAt(spec, f) *
-        Math.max(0.75, 1 + tapeWave + noise),
+        pumpAdversarialMultiplierAt(spec, f) *
+        Math.max(0.7, 1 + tapeWave + clusteredNoise * 0.09 + tickNoise),
     ),
   );
+
+  // 두 차례의 거래량 마른 횡보처럼 보이는 가격 압축 구간. 압축 직후 방향은
+  // 위 함정 펄스가 정하므로 횡보=고점 또는 돌파 준비라는 단순 해석을 깨뜨린다.
+  const compressionRand = seededRand(spec.spawnSession, "pump-compression-bait");
+  for (let index = 0; index < 2; index++) {
+    const center = 0.14 + compressionRand() * 0.66;
+    const halfWidth = 0.018 + compressionRand() * 0.035;
+    const quantum = Math.max(1, Math.round(spec.basePrice * (0.018 + compressionRand() * 0.05)));
+    if (Math.abs(f - center) < halfWidth) {
+      rawPrice = Math.max(1, Math.round(rawPrice / quantum) * quantum);
+    }
+  }
+  return rawPrice;
 }
 
 /** 상장폐지 시 최종 정산가 (수명 종료 시점 가격) */
@@ -312,7 +424,7 @@ function buildPumpState(spec: PumpSpec, now: number): StockState {
     initialPrice: spec.basePrice,
     volatility: 0.06,
     drift: 0,
-    description: `${spec.emoji} 최대 2거래일 안에 예고 없이 상장폐지되는 초고위험 급등주. 상승 중에도 갑자기 폭락가로 정산될 수 있습니다.`,
+    description: `${spec.emoji} 패턴·타이밍이 매번 변형되고 최대 2거래일 안에 예고 없이 상장폐지되는 초고위험 급등주. 상승 중에도 갑자기 폭락가로 정산될 수 있습니다.`,
     currentPrice: price,
     prevDayClose,
     dayOpen,

@@ -119,8 +119,8 @@ export const MINIGAME_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-/** v3: 다중 함정 패턴과 플래시 크래시 미수 강제청산 위험 추가. */
-export const PUMP_TUTORIAL_VERSION = 3;
+/** v4: 절차적 패턴 혼합·시간 왜곡·FOMO/손절 사냥 함정 추가. */
+export const PUMP_TUTORIAL_VERSION = 4;
 
 export const PUMP_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
@@ -132,6 +132,11 @@ export const PUMP_TUTORIAL_STEPS: FeatureTutorialStep[] = [
     emoji: "📉",
     title: "횡보·첫 고점이 끝이라는 보장은 없습니다",
     body: "이중천장·가짜 돌파·계단식 상승·플래시 크래시·죽은 고양이 반등처럼 패턴이 종목마다 다릅니다. 99% 가까이 폭락한 뒤 저점 대비 1,000% 이상 재급등하거나, 신고가 직후 다시 수직 낙하할 수도 있습니다.",
+  },
+  {
+    emoji: "🧠",
+    title: "외운 차트도 그대로 반복되지 않습니다",
+    body: "7개 기본 패턴 중 2개가 중간에 섞이고 시간축·진폭·횡보 구간이 종목마다 달라집니다. 돌파 추격을 부르는 상승 갭 뒤 급락, 손절을 유도하는 하락 갭 뒤 반등도 여러 차례 무작위 위치에 겹치므로 기존 차트 모양만으로 다음 움직임을 확정할 수 없습니다.",
   },
   {
     emoji: "💥",

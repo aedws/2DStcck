@@ -113,6 +113,7 @@ import {
   getActivePumpStocks,
   pumpDelistAt,
   pumpFinalPrice,
+  pumpAdversarialMultiplierAt,
   pumpPatternMultiplierAt,
   pumpPriceAt,
   pumpSpawnAt,
@@ -259,6 +260,78 @@ for (const pattern of PUMP_PATTERN_IDS) {
   }
   assert.ok(worstDrawdown >= 0.7, `${pattern} must contain a margin-threatening crash`);
 }
+const proceduralSignatures = new Map<string, Set<string>>();
+let breakoutTrades = 0;
+let breakoutWins = 0;
+let plateauSamples = 0;
+let plateauFollowedByHigherHigh = 0;
+for (const spec of pumpSpecs) {
+  const lifetimeProgress = spec.lifetimeSessions / PUMP_LIFETIME_SESSIONS;
+  const path = Array.from({ length: 1201 }, (_, index) =>
+    pumpAdversarialMultiplierAt(spec, (lifetimeProgress * index) / 1200),
+  );
+  const signatures = proceduralSignatures.get(spec.pattern) ?? new Set<string>();
+  signatures.add(
+    path
+      .filter((_, index) => index % 100 === 0)
+      .map((value) => value.toFixed(2))
+      .join(":"),
+  );
+  proceduralSignatures.set(spec.pattern, signatures);
+
+  let runningHigh = path[0];
+  let breakoutEntry = -1;
+  for (let index = 1; index < path.length; index++) {
+    runningHigh = Math.max(runningHigh, path[index]);
+    if (path[index] >= 2 && path[index] >= runningHigh * 0.995) {
+      breakoutEntry = index;
+      break;
+    }
+  }
+  if (breakoutEntry > 0) {
+    breakoutTrades += 1;
+    let exit = path.at(-1)!;
+    for (let index = breakoutEntry + 1; index < path.length; index++) {
+      if (
+        path[index] >= path[breakoutEntry] * 1.3 ||
+        path[index] <= path[breakoutEntry] * 0.8
+      ) {
+        exit = path[index];
+        break;
+      }
+    }
+    if (exit > path[breakoutEntry]) breakoutWins += 1;
+  }
+
+  for (let index = 40; index < path.length; index++) {
+    const window = path.slice(index - 10, index + 1);
+    const average = window.reduce((sum, value) => sum + value, 0) / window.length;
+    if (
+      average > 1.2 &&
+      (Math.max(...window) - Math.min(...window)) / average < 0.03
+    ) {
+      plateauSamples += 1;
+      if (Math.max(...path.slice(index + 1)) > path[index] * 1.3) {
+        plateauFollowedByHigherHigh += 1;
+      }
+      break;
+    }
+  }
+}
+assert.ok(
+  [...proceduralSignatures.values()].every((signatures) => signatures.size >= 10),
+  "each base pattern must produce many non-memorizable procedural variants",
+);
+assert.ok(breakoutTrades > 100, "difficulty simulation needs enough breakout trades");
+assert.ok(
+  breakoutWins / breakoutTrades < 0.5,
+  "naive breakout chasing must lose more often than it wins",
+);
+assert.ok(plateauSamples > 100, "difficulty simulation needs enough plateau samples");
+assert.ok(
+  plateauFollowedByHigherHigh / plateauSamples >= 0.8,
+  "the first consolidation must usually be a bait before another high",
+);
 const liquidationCascade = pumpSpecs.find(
   (spec) => spec.pattern === "liquidation-cascade",
 )!;
