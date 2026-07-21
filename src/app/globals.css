@@ -13,10 +13,19 @@
   --accent: #3182f6;
 }
 
-/* 마이룸 팔레트는 명시한 색을 그대로 써야 하므로 브라우저 자동 다크 변환에서 제외한다. */
+/*
+ * 앱 전체가 이미 다크 모드를 지원한다. 마이룸만 `only light`로 선언하면 일부
+ * Chromium 계열 브라우저가 밝은 하위 영역으로 오인해 한 번 더 암전시키므로,
+ * 캔버스와 네이티브 버튼까지 다크 지원 영역으로 고정해 팔레트 재변환을 막는다.
+ */
+.myroom-color-canvas,
+.myroom-color-canvas * {
+  color-scheme: only dark !important;
+  forced-color-adjust: none !important;
+}
+
 .myroom-color-canvas {
-  color-scheme: only light;
-  forced-color-adjust: none;
+  isolation: isolate;
 }
 
 body {
