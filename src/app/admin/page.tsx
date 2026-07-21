@@ -283,7 +283,35 @@ export default function AdminPage() {
             </div>
           ) : (
             <ul className="space-y-3">
-              {rows.map((r) => (
+              {rows.map((r) => {
+                // 처리 완료(반영 완료·반려)된 요청은 기본으로 접어 목록을 정리한다.
+                const terminal = r.status === "shipped" || r.status === "rejected";
+                const collapsed = terminal && !expandedBugIds.has(r.id);
+                if (collapsed) {
+                  return (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleBugExpand(r.id)}
+                        className="flex w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 px-3 py-2 text-left transition hover:bg-[var(--surface)]"
+                      >
+                        <span className="text-[10px] text-[var(--muted)]">▶</span>
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${STOCK_STATUS_STYLE[r.status]}`}
+                        >
+                          {STOCK_REQUEST_STATUS_LABEL[r.status]}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                          {r.name}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-[var(--muted)]">
+                          @{r.game_id}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
+                return (
                 <li
                   key={r.id}
                   className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
@@ -304,11 +332,22 @@ export default function AdminPage() {
                         {formatPrice(r.cost_paid)}
                       </p>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold ${STOCK_STATUS_STYLE[r.status]}`}
-                    >
-                      {STOCK_REQUEST_STATUS_LABEL[r.status]}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${STOCK_STATUS_STYLE[r.status]}`}
+                      >
+                        {STOCK_REQUEST_STATUS_LABEL[r.status]}
+                      </span>
+                      {terminal && (
+                        <button
+                          type="button"
+                          onClick={() => toggleBugExpand(r.id)}
+                          className="rounded-lg border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                        >
+                          접기 ▲
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {r.description && (
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[var(--foreground)]">
@@ -343,7 +382,8 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </>
