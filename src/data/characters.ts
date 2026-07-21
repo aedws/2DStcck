@@ -36,6 +36,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "전임 위원장 히나를 보좌하던 풍기위원회의 실무 사령탑. 서류 한 장, 작전 하나 흐트러지는 것을 참지 못하는 완벽주의로 방위 서비스를 이어받았다.",
     emoji: "🦇",
   },
+  {
+    id: "chr_yisang",
+    name: "이상",
+    title: "이상 연구소 최연소 수석연구원",
+    traits: ["천재", "은둔형", "냉철"],
+    bio: "26개의 메가코프가 도시를 지배하는 세계에서 최연소 수석연구원으로 이름을 알린 발명가. 연구 성과를 특허로 권리화하고 판매·라이선싱하는 이상 연구소의 연구개발을 총괄한다.",
+    emoji: "🪽",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

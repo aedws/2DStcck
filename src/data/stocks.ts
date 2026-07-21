@@ -315,6 +315,26 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_baspy",
   },
+  {
+    id: "yisang",
+    ticker: "YSAN",
+    name: "이상 연구소",
+    sector: "기술",
+    subsector: "특허 라이선싱",
+    initialPrice: 73000,
+    volatility: 0.036,
+    drift: 0.0009,
+    beta: 1.08,
+    description:
+      "26개의 메가코프가 지배하는 도시에서 연구개발로 확보한 특허를 판매하고 라이선싱하는 기술 사업화 연구소. 최연소 수석연구원 이상이 발명과 권리화를 총괄하며, 직접 생산보다 지식재산 사용료와 공동 연구 계약으로 수익을 낸다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      신제품: 4,
+      수주: 3,
+      실적: 2,
+      스캔들: 0.5,
+    },
+    ceoId: "chr_yisang",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */

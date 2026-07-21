@@ -61,6 +61,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "새 무브먼트가 완성됐습니다. 심장이… 아니, 초침이 뜁니다. 똑딱!",
     ],
   },
+  {
+    characterId: "chr_yisang",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "기술은 완성되었고, 이제 그 권리를 빌려줄 차례인 듯하오.",
+      "발명이 날개라면 특허는 그 비행을 증명하는 궤적이겠지.",
+    ],
+  },
+  {
+    characterId: "chr_yisang",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "실험의 실패보다 무서운 것은, 가능성이 서류 속에서 사장되는 일이오.",
+      "예정된 궤도에서 벗어났으나, 계산을 고치면 다시 날 수 있을 것이오.",
+    ],
+  },
+  {
+    characterId: "chr_yisang",
+    tag: "수주",
+    direction: "positive",
+    quotes: [
+      "새 라이선스 계약이 체결되었소. 생각은 머물지 않고 도시에 퍼질 것이오.",
+    ],
+  },
+  {
+    characterId: "chr_yisang",
+    tag: "신제품",
+    direction: "positive",
+    quotes: [
+      "새 발명에 번호가 부여되었소. 하나의 이상이 비로소 권리가 되었군.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

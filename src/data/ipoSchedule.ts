@@ -20,4 +20,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   hinafg: Date.UTC(2026, 6, 22, 6, 0),
   // 키보토스 총학생회 금융지주(GSCK) — 2026-07-22 18:00 KST 개장 (= 09:00 UTC)
   gsck: Date.UTC(2026, 6, 22, 9, 0),
+  // 이상 연구소(YSAN) — 2026-07-22 21:00 KST 개장 (= 12:00 UTC)
+  yisang: Date.UTC(2026, 6, 22, 12, 0),
 };
