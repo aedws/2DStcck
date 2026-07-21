@@ -92,17 +92,19 @@ import {
 import {
   getRoomItem,
   getRoomTheme,
-  isRoomBathPassageCell,
-  isValidRoomCell,
+  isValidRoomPlacement,
   nextRoomExpansion,
   normalizeOwnedRoomThemes,
   normalizeRoomItems,
   normalizeRoomLevel,
   normalizeRoomThemeId,
   roomMaxItemsForLevel,
+  roomItemCells,
+  roomItemLayer,
   ROOM_SELL_RATIO,
   ROOM_THEME_BY_ID,
   type PlacedRoomItem,
+  type RoomRotation,
 } from "@/data/roomItems";
 import type {
   ShortPosition,
@@ -332,9 +334,13 @@ interface MarketStore extends MarketSnapshot {
   /** 보유한 숙소 테마로 교체. */
   selectRoomTheme: (themeId: string) => OrderResult;
   /** 마이룸 가구 구매 + 지정 칸에 배치 (현금 차감). */
-  buyRoomItem: (itemId: string, x: number, y: number) => OrderResult;
+  buyRoomItem: (itemId: string, x: number, y: number, rotation?: RoomRotation) => OrderResult;
   /** 배치된 가구를 다른 칸으로 이동. */
-  moveRoomItem: (index: number, x: number, y: number) => OrderResult;
+  moveRoomItem: (index: number, x: number, y: number, rotation?: RoomRotation) => OrderResult;
+  /** 배치된 다칸 가구를 90도 회전. */
+  rotateRoomItem: (index: number) => OrderResult;
+  /** 같은 보유 가구 구성의 저장된 배치·회전을 한 번에 적용. */
+  applyRoomLayout: (items: PlacedRoomItem[]) => OrderResult;
   /** 배치된 가구 되팔기 — 구매가의 50% 환불, 나머지는 소각. */
   sellRoomItem: (index: number) => OrderResult;
   /** 공매도 개시 (시장가) */
@@ -669,6 +675,40 @@ function latestWalletActivityMs(wallet: {
         : max,
     0,
   );
+}
+
+function canPlaceRoomItemAt(
+  items: PlacedRoomItem[],
+  itemId: string,
+  x: number,
+  y: number,
+  level: number,
+  rotation: RoomRotation = 0,
+  excludeIndex = -1,
+): boolean {
+  const item = getRoomItem(itemId);
+  if (!item || !isValidRoomPlacement(item, x, y, level, rotation)) return false;
+  const cells = roomItemCells(item, x, y, rotation);
+  const keys = new Set(cells.map((cell) => `${cell.x}:${cell.y}`));
+  const layer = roomItemLayer(item);
+  let hasSupport = !item.requiresSupport;
+  for (let index = 0; index < items.length; index++) {
+    if (index === excludeIndex) continue;
+    const placed = items[index];
+    const other = getRoomItem(placed.itemId);
+    if (!other) continue;
+    const otherCells = roomItemCells(
+      other,
+      placed.x,
+      placed.y,
+      placed.rotation ?? 0,
+    );
+    const overlaps = otherCells.some((cell) => keys.has(`${cell.x}:${cell.y}`));
+    if (!overlaps) continue;
+    if (roomItemLayer(other) === layer) return false;
+    if (item.requiresSupport && roomItemLayer(other) === "furniture") hasSupport = true;
+  }
+  return hasSupport;
 }
 
 function ensureEventDialogue(event: MarketEvent): MarketEvent {
@@ -1975,6 +2015,16 @@ export const useMarketStore = create<MarketStore>()(
         const tradingStats = buildTradingStats(s.trades.slice(0, 500));
         const playerTitle = getPlayerTitle(s.selectedTitleId);
         const seasonFrame = getSeasonReward(s.selectedSeasonFrameId);
+        const roomShowcase = s.myRoomItems
+          .map((placed) => getRoomItem(placed.itemId))
+          .filter((item) => item?.category === "프리미엄")
+          .map((item) => item!.emoji)
+          .filter((emoji, index, all) => all.indexOf(emoji) === index)
+          .slice(0, 3);
+        const showcase = [
+          ...getLuxuryShowcase(s.ownedLuxuries),
+          ...roomShowcase,
+        ].slice(0, 5);
         return syncLeaderboardSnapshot({
           netWorth,
           returnRate:
@@ -1984,8 +2034,8 @@ export const useMarketStore = create<MarketStore>()(
           initialCash: s.initialCash,
           marketSession: Math.floor(Date.now() / SESSION_DURATION_MS),
           topTier: getTopLuxuryTier(s.ownedLuxuries),
-          luxuryCount: s.ownedLuxuries.length,
-          showcase: getLuxuryShowcase(s.ownedLuxuries),
+          luxuryCount: s.ownedLuxuries.length + roomShowcase.length,
+          showcase,
           reputation: s.reputation,
           title: `${seasonFrame ? `${seasonFrame.emoji} ` : ""}${playerTitle.emoji} ${playerTitle.name}`,
           tradeCount: tradingStats.tradeCount,
@@ -2917,7 +2967,7 @@ export const useMarketStore = create<MarketStore>()(
 
       getLuxuryValue: () => getLuxuryValue(get().ownedLuxuries),
 
-      buyRoomItem: (itemId, x, y) => {
+      buyRoomItem: (itemId, x, y, rotation = 0) => {
         const item = getRoomItem(itemId);
         if (!item) return { success: false, message: "존재하지 않는 가구입니다." };
         const state = get();
@@ -2925,17 +2975,14 @@ export const useMarketStore = create<MarketStore>()(
         if (state.myRoomItems.length >= maxItems) {
           return { success: false, message: `가구는 최대 ${maxItems}개까지 놓을 수 있습니다.` };
         }
-        if (isRoomBathPassageCell(x, y, state.myRoomLevel)) {
-          return { success: false, message: "숙소와 욕탕 사이 출입문 통로는 비워 두어야 합니다." };
-        }
-        if (!isValidRoomCell(item, x, y, state.myRoomLevel)) {
+        if (!isValidRoomPlacement(item, x, y, state.myRoomLevel, rotation)) {
           return {
             success: false,
-            message: item.wallOnly ? "벽걸이 가구는 벽에만 걸 수 있습니다." : "바닥 가구는 바닥에만 놓을 수 있습니다.",
+            message: "가구가 방 밖·벽·출입문 통로와 겹칩니다.",
           };
         }
-        if (state.myRoomItems.some((p) => p.x === x && p.y === y)) {
-          return { success: false, message: "이미 가구가 놓인 칸입니다." };
+        if (!canPlaceRoomItemAt(state.myRoomItems, item.id, x, y, state.myRoomLevel, rotation)) {
+          return { success: false, message: item.requiresSupport ? "이 소품은 가구 위에 놓아야 합니다." : "같은 층에 다른 가구가 놓여 있습니다." };
         }
         if (item.price > state.cash) {
           return { success: false, message: "보유 현금이 부족합니다." };
@@ -2946,6 +2993,7 @@ export const useMarketStore = create<MarketStore>()(
           y,
           paidPrice: item.price,
           purchasedAt: Date.now(),
+          rotation,
         };
         set({
           cash: state.cash - item.price,
@@ -2955,30 +3003,70 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: `${item.emoji} ${item.name} 배치 완료` };
       },
 
-      moveRoomItem: (index, x, y) => {
+      moveRoomItem: (index, x, y, rotation) => {
         const state = get();
         const placed = state.myRoomItems[index];
         if (!placed) return { success: false, message: "가구를 찾을 수 없습니다." };
         const item = getRoomItem(placed.itemId);
         if (!item) return { success: false, message: "가구를 찾을 수 없습니다." };
-        if (isRoomBathPassageCell(x, y, state.myRoomLevel)) {
-          return { success: false, message: "숙소와 욕탕 사이 출입문 통로는 비워 두어야 합니다." };
-        }
-        if (!isValidRoomCell(item, x, y, state.myRoomLevel)) {
+        const nextRotation = rotation ?? placed.rotation ?? 0;
+        if (!isValidRoomPlacement(item, x, y, state.myRoomLevel, nextRotation)) {
           return {
             success: false,
-            message: item.wallOnly ? "벽걸이 가구는 벽에만 걸 수 있습니다." : "바닥 가구는 바닥에만 놓을 수 있습니다.",
+            message: "가구가 방 밖·벽·출입문 통로와 겹칩니다.",
           };
         }
-        if (state.myRoomItems.some((p, i) => i !== index && p.x === x && p.y === y)) {
-          return { success: false, message: "이미 가구가 놓인 칸입니다." };
+        if (!canPlaceRoomItemAt(state.myRoomItems, item.id, x, y, state.myRoomLevel, nextRotation, index)) {
+          return { success: false, message: item.requiresSupport ? "이 소품은 가구 위에 놓아야 합니다." : "같은 층에 다른 가구가 놓여 있습니다." };
         }
-        set({
-          myRoomItems: state.myRoomItems.map((p, i) =>
-            i === index ? { ...p, x, y } : p,
-          ),
-        });
+        const nextItems = state.myRoomItems.map((p, i) =>
+          i === index ? { ...p, x, y, rotation: nextRotation } : p,
+        );
+        const normalized = normalizeRoomItems(nextItems, state.myRoomLevel);
+        if (normalized.length !== nextItems.length) {
+          return { success: false, message: "가구 위 소품을 먼저 옮겨 주세요." };
+        }
+        set({ myRoomItems: normalized });
         return { success: true, message: `${item.emoji} ${item.name} 이동 완료` };
+      },
+
+      rotateRoomItem: (index) => {
+        const state = get();
+        const placed = state.myRoomItems[index];
+        const item = placed ? getRoomItem(placed.itemId) : undefined;
+        if (!placed || !item) return { success: false, message: "가구를 찾을 수 없습니다." };
+        if (!item.rotatable) return { success: false, message: "회전할 수 없는 가구입니다." };
+        const rotation: RoomRotation = placed.rotation === 90 ? 0 : 90;
+        if (!canPlaceRoomItemAt(state.myRoomItems, item.id, placed.x, placed.y, state.myRoomLevel, rotation, index)) {
+          return { success: false, message: "회전할 공간이 부족합니다." };
+        }
+        const nextItems = state.myRoomItems.map((entry, i) =>
+          i === index ? { ...entry, rotation } : entry,
+        );
+        const normalized = normalizeRoomItems(nextItems, state.myRoomLevel);
+        if (normalized.length !== nextItems.length) {
+          return { success: false, message: "가구 위 소품을 먼저 옮겨 주세요." };
+        }
+        set({ myRoomItems: normalized });
+        return { success: true, message: `${item.emoji} ${item.name} 회전 완료` };
+      },
+
+      applyRoomLayout: (items) => {
+        const state = get();
+        const signature = (entries: PlacedRoomItem[]) =>
+          entries
+            .map((entry) => `${entry.itemId}:${entry.purchasedAt}:${entry.paidPrice}`)
+            .sort()
+            .join("|");
+        if (signature(items) !== signature(state.myRoomItems)) {
+          return { success: false, message: "현재 보유 가구 구성이 프리셋과 다릅니다." };
+        }
+        const normalized = normalizeRoomItems(items, state.myRoomLevel);
+        if (normalized.length !== items.length) {
+          return { success: false, message: "겹치거나 방 밖으로 나간 프리셋입니다." };
+        }
+        set({ myRoomItems: normalized });
+        return { success: true, message: "🗂️ 방 배치 프리셋을 적용했습니다." };
       },
 
       sellRoomItem: (index) => {
@@ -2987,9 +3075,13 @@ export const useMarketStore = create<MarketStore>()(
         if (!placed) return { success: false, message: "가구를 찾을 수 없습니다." };
         const item = getRoomItem(placed.itemId);
         const refund = Math.round(placed.paidPrice * ROOM_SELL_RATIO);
+        const nextItems = state.myRoomItems.filter((_, i) => i !== index);
+        if (normalizeRoomItems(nextItems, state.myRoomLevel).length !== nextItems.length) {
+          return { success: false, message: "가구 위 소품을 먼저 옮기거나 판매해 주세요." };
+        }
         set({
           cash: state.cash + refund,
-          myRoomItems: state.myRoomItems.filter((_, i) => i !== index),
+          myRoomItems: nextItems,
         });
         playSound("cash");
         return {

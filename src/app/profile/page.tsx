@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { formatPrice } from "@/lib/market/engine";
 import {
@@ -17,6 +18,7 @@ import {
 import { computePrestige } from "@/lib/player/prestige";
 import { countFavoriteRelationships } from "@/lib/market/characterProgress";
 import { INVESTMENT_SEASON_TIERS } from "@/lib/market/investmentSeasons";
+import { getRoomItem, getRoomTheme } from "@/data/roomItems";
 
 export default function ProfilePage() {
   const attendance = useMarketStore((state) => state.attendance);
@@ -34,6 +36,8 @@ export default function ProfilePage() {
   const characterProgress = useMarketStore((state) => state.characterProgress);
   const reputation = useMarketStore((state) => state.reputation);
   const ownedLuxuries = useMarketStore((state) => state.ownedLuxuries);
+  const myRoomItems = useMarketStore((state) => state.myRoomItems);
+  const myRoomTheme = useMarketStore((state) => state.myRoomTheme);
   const netWorth = useMarketStore((state) => state.getTotalAssets());
   const stats = buildTradingStats(trades);
   const prestige = computePrestige({
@@ -65,6 +69,11 @@ export default function ProfilePage() {
   const selectedTitle = getPlayerTitle(selectedTitleId);
   const selectedFrame = getSeasonReward(selectedSeasonFrameId);
   const claimedToday = attendance.lastClaimDate === koreaDateKey();
+  const roomTheme = getRoomTheme(myRoomTheme);
+  const roomShowcase = myRoomItems
+    .map((placed) => getRoomItem(placed.itemId))
+    .filter((item) => item?.category === "프리미엄")
+    .slice(0, 5);
 
   return (
     <div className="mx-auto max-w-4xl pb-20">
@@ -82,6 +91,29 @@ export default function ProfilePage() {
           <AuthButton wide />
         </div>
       </div>
+
+      <section className="mb-6 rounded-3xl border border-fuchsia-400/30 bg-gradient-to-br from-fuchsia-500/10 to-cyan-500/5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-fuchsia-300">대표 마이룸</p>
+            <h2 className="mt-1 text-lg font-bold">
+              {roomTheme.emoji} {roomTheme.name}
+            </h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              가구 {myRoomItems.length}개 · 프리미엄 컬렉션 {roomShowcase.length}개
+            </p>
+            {roomShowcase.length > 0 && (
+              <p className="mt-2 text-2xl">{roomShowcase.map((item) => item?.emoji).join(" ")}</p>
+            )}
+          </div>
+          <Link
+            href="/myroom"
+            className="rounded-xl bg-fuchsia-500 px-4 py-2.5 text-sm font-bold text-white"
+          >
+            방 꾸미기·포토 모드 →
+          </Link>
+        </div>
+      </section>
 
       <section className="mb-6 rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">

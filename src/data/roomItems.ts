@@ -227,6 +227,8 @@ export function nextRoomExpansion(level: number): RoomExpansion | undefined {
 }
 
 export type RoomItemCategory = "가구" | "욕실" | "장식" | "펫" | "프리미엄";
+export type RoomItemLayer = "floor" | "furniture" | "surface" | "wall";
+export type RoomRotation = 0 | 90;
 
 export interface RoomItemDefinition {
   id: string;
@@ -235,6 +237,17 @@ export interface RoomItemDefinition {
   category: RoomItemCategory;
   /** 벽 전용 아이템(위쪽 벽 줄에만 배치 가능). */
   wallOnly?: boolean;
+  /** 다칸 가구의 기본 점유 크기. 기존 가구는 1×1. */
+  width?: number;
+  height?: number;
+  rotatable?: boolean;
+  /** 러그·가구·탁상 소품을 같은 칸에 겹쳐 놓기 위한 배치 층. */
+  layer?: RoomItemLayer;
+  /** 탁상 소품처럼 아래 가구가 있어야 하는 아이템. */
+  requiresSupport?: boolean;
+  /** 분위기·세트·상호작용 계산용 태그. */
+  tags?: string[];
+  interaction?: string;
   /** 가격(센트). */
   price: number;
   description: string;
@@ -263,6 +276,8 @@ export const ROOM_ITEMS: RoomItemDefinition[] = [
   { id: "window", name: "바다 전망 창", emoji: "🪟", category: "장식", wallOnly: true, price: 28_000_000, description: "창밖은 언제나 상한가 노을." },
   { id: "lamp", name: "달빛 램프", emoji: "🪔", category: "장식", price: 11_000_000, description: "은은한 야간 거래용 조명." },
   { id: "flower", name: "꽃병", emoji: "💐", category: "장식", price: 6_000_000, description: "축하 인사 대신 놓는 꽃." },
+  { id: "cozy-rug", name: "포근한 대형 러그", emoji: "🟫", category: "장식", price: 24_000_000, description: "가구 아래에도 깔 수 있는 3×2 러그.", width: 3, height: 2, rotatable: true, layer: "floor", tags: ["아늑함", "기숙사"] },
+  { id: "tea-set", name: "애프터눈 티 세트", emoji: "🫖", category: "장식", price: 16_000_000, description: "테이블 위에 올리는 작은 티 세트.", layer: "surface", requiresSupport: true, tags: ["아늑함"], interaction: "찻잔에서 따뜻한 김이 피어오릅니다." },
 
   // ── 펫 ──
   { id: "cat", name: "노랑 고양이", emoji: "🐱", category: "펫", price: 100_000_000, description: "방을 어슬렁거리는 집사장." },
@@ -276,6 +291,10 @@ export const ROOM_ITEMS: RoomItemDefinition[] = [
   { id: "ufo", name: "전용 UFO", emoji: "🛸", category: "프리미엄", price: 1_000_000_000_000, description: "천장에 대기 중인 개인 비행체." },
   { id: "aurora", name: "오로라 천장", emoji: "🌌", category: "프리미엄", wallOnly: true, price: 20_000_000_000_000, description: "벽 너머로 오로라가 흐른다." },
   { id: "whale", name: "황금 고래상", emoji: "🐋", category: "프리미엄", price: 100_000_000_000_000, description: "시장의 큰손임을 증명하는 상징물." },
+  { id: "private-theater", name: "개인 극장", emoji: "🎞️", category: "프리미엄", price: 500_000_000_000_000, description: "4×3 크기의 독립 상영관.", width: 4, height: 3, rotatable: true, tags: ["고급", "문화"], interaction: "오늘의 시장 다큐멘터리가 상영됩니다." },
+  { id: "trading-desk", name: "월스트리트 거래실", emoji: "🖥️", category: "프리미엄", price: 1_000_000_000_000_000, description: "4×2 멀티 모니터 거래실.", width: 4, height: 2, rotatable: true, tags: ["투자광", "고급"], interaction: "모니터에 실시간 호가와 뉴스가 흐릅니다." },
+  { id: "indoor-pool", name: "실내 인피니티 풀", emoji: "🏊", category: "프리미엄", price: 5_000_000_000_000_000, description: "5×3 크기의 대저택 수영장.", width: 5, height: 3, rotatable: true, tags: ["고급", "온천"], interaction: "수면 위로 잔잔한 물결이 번집니다." },
+  { id: "rooftop-garden", name: "옥상 정원", emoji: "🌳", category: "프리미엄", price: 10_000_000_000_000_000, description: "5×3 규모의 개인 정원.", width: 5, height: 3, rotatable: true, tags: ["자연", "고급"], interaction: "바람에 나뭇잎이 사각거립니다." },
 ];
 
 export const ROOM_ITEM_BY_ID = new Map(ROOM_ITEMS.map((item) => [item.id, item]));
@@ -291,6 +310,51 @@ export interface PlacedRoomItem {
   /** 구매 당시 가격(센트) — 되팔기 환불 기준. */
   paidPrice: number;
   purchasedAt: number;
+  rotation?: RoomRotation;
+}
+
+export function roomItemLayer(item: RoomItemDefinition): RoomItemLayer {
+  if (item.wallOnly) return "wall";
+  return item.layer ?? "furniture";
+}
+
+export function roomItemSize(
+  item: RoomItemDefinition,
+  rotation: RoomRotation = 0,
+): { width: number; height: number } {
+  const width = Math.max(1, Math.floor(item.width ?? 1));
+  const height = Math.max(1, Math.floor(item.height ?? 1));
+  return rotation === 90 ? { width: height, height: width } : { width, height };
+}
+
+export function roomItemCells(
+  item: RoomItemDefinition,
+  x: number,
+  y: number,
+  rotation: RoomRotation = 0,
+): { x: number; y: number }[] {
+  const size = roomItemSize(item, rotation);
+  return Array.from({ length: size.height }).flatMap((_, dy) =>
+    Array.from({ length: size.width }, (__, dx) => ({ x: x + dx, y: y + dy })),
+  );
+}
+
+export function isValidRoomPlacement(
+  item: RoomItemDefinition,
+  x: number,
+  y: number,
+  level: number = 0,
+  rotation: RoomRotation = 0,
+): boolean {
+  const dims = roomDimsForLevel(level);
+  const cells = roomItemCells(item, x, y, rotation);
+  return cells.every((cell) => {
+    if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y)) return false;
+    if (cell.x < 0 || cell.x >= dims.cols || cell.y < 0 || cell.y >= dims.rows) return false;
+    if (cell.x === ROOM_DOOR_X && cell.y === ROOM_DOOR_Y) return false;
+    if (isRoomBathPassageCell(cell.x, cell.y, level)) return false;
+    return item.wallOnly ? isWallRow(cell.y) : !isWallRow(cell.y);
+  });
 }
 
 export function isWallRow(y: number): boolean {
@@ -304,13 +368,7 @@ export function isValidRoomCell(
   y: number,
   level: number = 0,
 ): boolean {
-  const dims = roomDimsForLevel(level);
-  if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
-  if (x < 0 || x >= dims.cols || y < 0 || y >= dims.rows) return false;
-  // 출입문 칸은 항상 비워 둔다.
-  if (x === ROOM_DOOR_X && y === ROOM_DOOR_Y) return false;
-  if (item.wallOnly) return isWallRow(y);
-  return !isWallRow(y);
+  return isValidRoomPlacement(item, x, y, level, 0);
 }
 
 /** 저장 복원용 정규화 — 알 수 없는 아이템·범위 밖·중복 칸을 걷어낸다. */
@@ -328,10 +386,13 @@ export function normalizeRoomItems(
     if (!item) continue;
     const x = Number(entry.x);
     const y = Number(entry.y);
-    if (!isValidRoomCell(item, x, y, level)) continue;
-    const cell = `${x}:${y}`;
-    if (seen.has(cell)) continue;
-    seen.add(cell);
+    const rotation: RoomRotation = entry.rotation === 90 && item.rotatable ? 90 : 0;
+    if (!isValidRoomPlacement(item, x, y, level, rotation)) continue;
+    const layer = roomItemLayer(item);
+    const cells = roomItemCells(item, x, y, rotation);
+    const keys = cells.map((cell) => `${layer}:${cell.x}:${cell.y}`);
+    if (keys.some((key) => seen.has(key))) continue;
+    keys.forEach((key) => seen.add(key));
     result.push({
       itemId: item.id,
       x,
@@ -341,8 +402,30 @@ export function normalizeRoomItems(
           ? Math.round(entry.paidPrice!)
           : item.price,
       purchasedAt: Number.isFinite(entry.purchasedAt) ? entry.purchasedAt! : 0,
+      rotation,
     });
     if (result.length >= roomMaxItemsForLevel(level)) break;
   }
-  return result;
+  return result.filter((placed) => {
+    const item = getRoomItem(placed.itemId);
+    if (!item?.requiresSupport) return true;
+    const keys = new Set(
+      roomItemCells(item, placed.x, placed.y, placed.rotation ?? 0).map(
+        (cell) => `${cell.x}:${cell.y}`,
+      ),
+    );
+    return result.some((otherPlaced) => {
+      const other = getRoomItem(otherPlaced.itemId);
+      return (
+        Boolean(other) &&
+        roomItemLayer(other!) === "furniture" &&
+        roomItemCells(
+          other!,
+          otherPlaced.x,
+          otherPlaced.y,
+          otherPlaced.rotation ?? 0,
+        ).some((cell) => keys.has(`${cell.x}:${cell.y}`))
+      );
+    });
+  });
 }
