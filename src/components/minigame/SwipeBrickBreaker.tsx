@@ -9,6 +9,7 @@ import {
   COIN_PER_ROUND,
   type BallGrade,
 } from "@/lib/market/minigame";
+import { sweepCircleAgainstRect } from "@/lib/minigame/brickBreakerPhysics";
 
 /**
  * 스와이프 벽돌깨기 (Ballz 계열 + 등급 공 로그라이트).
@@ -21,6 +22,7 @@ const COLS = 7;
 const BALL_SPEED = 0.34;
 const SUBSTEPS = 3;
 const FIRE_INTERVAL_FRAMES = 4;
+const MAX_COLLISIONS_PER_SUBSTEP = 4;
 
 const GRADE_COLOR: Record<BallGrade, string> = {
   N: "#3b82f6",
@@ -186,6 +188,65 @@ function applyGradeDamage(gs: GameState, grade: BallGrade, hit: Brick) {
     gs.beams.push({ kind: "v", pos: hx, half: gs.cell * 0.5, life: 16, max: 16, color });
   }
   for (const t of targets) damageBrick(gs, t, color);
+}
+
+function moveBallThroughBricks(gs: GameState, ball: Ball, distanceScale: number) {
+  let remaining = distanceScale;
+  const separation = Math.max(0.001, gs.cell * 0.0001);
+
+  for (let impact = 0; impact < MAX_COLLISIONS_PER_SUBSTEP && remaining > 0.0001; impact++) {
+    const deltaX = ball.vx * remaining;
+    const deltaY = ball.vy * remaining;
+    let firstHit:
+      | {
+          brick: Brick;
+          time: number;
+          normalX: -1 | 0 | 1;
+          normalY: -1 | 0 | 1;
+          correctedX: number;
+          correctedY: number;
+          startedInside: boolean;
+        }
+      | null = null;
+
+    for (const brick of gs.bricks) {
+      const left = brick.col * gs.cell + gs.cell * 0.04;
+      const top = brick.row * gs.cell + gs.cell * 0.04;
+      const hit = sweepCircleAgainstRect(ball.x, ball.y, deltaX, deltaY, gs.ballR, {
+        left,
+        top,
+        right: left + gs.cell * 0.92,
+        bottom: top + gs.cell * 0.92,
+      });
+      if (hit && (!firstHit || hit.time < firstHit.time)) {
+        firstHit = { brick, ...hit };
+      }
+    }
+
+    if (!firstHit) {
+      ball.x += deltaX;
+      ball.y += deltaY;
+      return;
+    }
+
+    ball.x = firstHit.correctedX + firstHit.normalX * separation;
+    ball.y = firstHit.correctedY + firstHit.normalY * separation;
+
+    // 경계 쪽으로 들어오는 속도만 반사한다. 이미 파고든 공이 바깥으로 향하면
+    // 위치만 복구해 같은 블록을 연속 타격하는 현상을 막는다.
+    const approaching = ball.vx * firstHit.normalX + ball.vy * firstHit.normalY < 0;
+    if (approaching) {
+      if (firstHit.normalX !== 0) ball.vx *= -1;
+      if (firstHit.normalY !== 0) ball.vy *= -1;
+    }
+    applyGradeDamage(gs, ball.grade, firstHit.brick);
+
+    const consumed = firstHit.startedInside ? 0 : firstHit.time;
+    remaining *= Math.max(0, 1 - consumed);
+    if (!approaching) return;
+    // 정확히 모서리나 시작점에서 충돌해도 반복문이 같은 지점에 갇히지 않게 한다.
+    if (consumed < 0.0001) remaining *= 0.999;
+  }
 }
 
 function updateEffects(gs: GameState) {
@@ -376,8 +437,7 @@ export function SwipeBrickBreaker({
       for (let s = 0; s < SUBSTEPS; s++) {
         for (let i = gs.balls.length - 1; i >= 0; i--) {
           const ball = gs.balls[i];
-          ball.x += ball.vx / SUBSTEPS;
-          ball.y += ball.vy / SUBSTEPS;
+          moveBallThroughBricks(gs, ball, 1 / SUBSTEPS);
           if (ball.x < r) { ball.x = r; ball.vx = Math.abs(ball.vx); }
           if (ball.x > gs.W - r) { ball.x = gs.W - r; ball.vx = -Math.abs(ball.vx); }
           if (ball.y < r) { ball.y = r; ball.vy = Math.abs(ball.vy); }
@@ -385,28 +445,6 @@ export function SwipeBrickBreaker({
             if (gs.returnX === null) gs.returnX = ball.x;
             gs.balls.splice(i, 1);
             continue;
-          }
-          for (let k = 0; k < gs.bricks.length; k++) {
-            const br = gs.bricks[k];
-            const left = br.col * gs.cell + gs.cell * 0.04;
-            const top = br.row * gs.cell + gs.cell * 0.04;
-            const right = left + gs.cell * 0.92;
-            const bottom = top + gs.cell * 0.92;
-            const nx = Math.max(left, Math.min(ball.x, right));
-            const ny = Math.max(top, Math.min(ball.y, bottom));
-            const dx = ball.x - nx;
-            const dy = ball.y - ny;
-            if (dx * dx + dy * dy < r * r) {
-              if (Math.abs(dx) > Math.abs(dy)) {
-                ball.vx = dx >= 0 ? Math.abs(ball.vx) : -Math.abs(ball.vx);
-                ball.x += ball.vx >= 0 ? r : -r;
-              } else {
-                ball.vy = dy >= 0 ? Math.abs(ball.vy) : -Math.abs(ball.vy);
-                ball.y += ball.vy >= 0 ? r : -r;
-              }
-              applyGradeDamage(gs, ball.grade, br);
-              break;
-            }
           }
         }
       }
