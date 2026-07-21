@@ -71,7 +71,7 @@ function PumpRow({ stock }: { stock: StockState }) {
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-sm font-semibold">
           <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-500">
-            급등주 · 2거래일 내 상장폐지
+            급등주 · 최대 2거래일 · 무작위 상폐
           </span>
           <span className="truncate">
             {stock.name}{" "}

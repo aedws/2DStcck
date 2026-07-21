@@ -49,6 +49,8 @@ interface SettingsState {
   setMarketEraTutorialSeen: (value: boolean) => void;
   pumpTutorialSeen: boolean;
   setPumpTutorialSeen: (value: boolean) => void;
+  pumpTutorialVersion: number;
+  setPumpTutorialVersion: (value: number) => void;
   stressTestTutorialSeen: boolean;
   setStressTestTutorialSeen: (value: boolean) => void;
   seasonTutorialSeen: boolean;
@@ -116,6 +118,9 @@ export const useSettingsStore = create<SettingsState>()(
         set({ marketEraTutorialSeen }),
       pumpTutorialSeen: false,
       setPumpTutorialSeen: (pumpTutorialSeen) => set({ pumpTutorialSeen }),
+      pumpTutorialVersion: 0,
+      setPumpTutorialVersion: (pumpTutorialVersion) =>
+        set({ pumpTutorialVersion }),
       stressTestTutorialSeen: false,
       setStressTestTutorialSeen: (stressTestTutorialSeen) =>
         set({ stressTestTutorialSeen }),

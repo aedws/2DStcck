@@ -2061,7 +2061,7 @@ export const useMarketStore = create<MarketStore>()(
         const replayed = replayMarket(regularStocks, events, tick, stepTarget);
         const nextTick = stepTarget;
         const allEvents = replayed.events;
-        // 결정론 급등주(2거래일 내 상장폐지)를 고정 시장에 얹는다
+        // 결정론 급등주(최대 2거래일 내 무작위 시각 상장폐지)를 고정 시장에 얹는다
         const combinedStocks = replaceActivePumpStocks(replayed.stocks, now);
 
         // 로컬 지정가 대기 주문: 가격 도달 시 체결 (잔고 부족 시 자동 취소)
@@ -2138,7 +2138,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 급등주 상장폐지 정산: 폐지된 급등주 보유분을 최종가로 강제 매도
         holdings = holdings.filter((h) => {
-          const finalPrice = delistedPumpFinalPrice(h.stockId, currentSession);
+          const finalPrice = delistedPumpFinalPrice(h.stockId, now);
           if (finalPrice === null) return true;
           cash += finalPrice * h.quantity;
           trades = [

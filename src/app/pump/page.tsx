@@ -6,13 +6,15 @@ import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { OrderBook } from "@/components/market/OrderBook";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
-import { PUMP_TUTORIAL_STEPS } from "@/data/featureTutorials";
+import {
+  PUMP_TUTORIAL_STEPS,
+  PUMP_TUTORIAL_VERSION,
+} from "@/data/featureTutorials";
 import { StockLogo } from "@/components/ui/StockLogo";
 import { FlashValue } from "@/components/ui/FlashValue";
 import { formatPrice, getChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
-import { SESSION_DURATION_MS } from "@/lib/market/constants";
-import { PUMP_LIFETIME_SESSIONS, isPumpStock } from "@/lib/market/pumpStocks";
+import { isPumpStock } from "@/lib/market/pumpStocks";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -32,12 +34,19 @@ export default function PumpDetailPage() {
   const onboarded = useSettingsStore((s) => s.onboarded);
   const tutorialSeen = useSettingsStore((s) => s.pumpTutorialSeen);
   const setTutorialSeen = useSettingsStore((s) => s.setPumpTutorialSeen);
+  const tutorialVersion = useSettingsStore((s) => s.pumpTutorialVersion);
+  const setTutorialVersion = useSettingsStore((s) => s.setPumpTutorialVersion);
   useEffect(() => setMounted(true), []);
   const tutorial =
-    mounted && onboarded && !tutorialSeen ? (
+    mounted &&
+    onboarded &&
+    (!tutorialSeen || tutorialVersion < PUMP_TUTORIAL_VERSION) ? (
       <FeatureTutorialModal
         steps={PUMP_TUTORIAL_STEPS}
-        onFinish={() => setTutorialSeen(true)}
+        onFinish={() => {
+          setTutorialSeen(true);
+          setTutorialVersion(PUMP_TUTORIAL_VERSION);
+        }}
       />
     ) : null;
 
@@ -58,12 +67,6 @@ export default function PumpDetailPage() {
   }
 
   const change = getChangePercent(pump.currentPrice, pump.initialPrice);
-  const spawnSession = Number(pump.id.slice(5));
-  const session = Math.floor(Date.now() / SESSION_DURATION_MS);
-  const sessionsLeft = Number.isSafeInteger(spawnSession)
-    ? Math.max(0, spawnSession + PUMP_LIFETIME_SESSIONS - session)
-    : 0;
-
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
       {tutorial}
@@ -79,7 +82,7 @@ export default function PumpDetailPage() {
         <div className="min-w-0">
           <p className="flex items-center gap-2">
             <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-500">
-              급등주 · 상장폐지까지 {sessionsLeft}거래일
+              급등주 · 최대 2거래일 · 조기 상폐 주의
             </span>
             <span className="truncate text-sm font-semibold">{pump.name}</span>
             <span className="shrink-0 text-xs text-[var(--muted)]">
@@ -106,8 +109,9 @@ export default function PumpDetailPage() {
             <p className="font-semibold">⚠️ 초고위험 펌프-앤-덤프 · 타이밍 싸움</p>
             <p className="mt-1">
               편하게 언제든 돈을 빼는 종목이 아니라, 정점을 노려 사고파는
-              하이리스크·하이리턴 게임입니다. 2거래일 내 상장폐지되며, 정점에서
-              팔지 못하면 폭락가로 강제 정산되어 큰 손실이 납니다.
+              하이리스크·하이리턴 게임입니다. 최대 2거래일 안에서 예고 없이
+              무작위 상장폐지되며, 상승 중이라도 보유분이 폭락가로 강제 정산될
+              수 있습니다.
             </p>
             <p className="mt-1 font-medium">
               🚫 급등주는 공매도(하락 베팅)가 불가합니다 — 매수 후 정점에서

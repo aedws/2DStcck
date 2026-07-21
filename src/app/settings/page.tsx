@@ -16,6 +16,7 @@ import {
   STRESS_TEST_TUTORIAL_STEPS,
   MARKET_ERA_TUTORIAL_STEPS,
   PUMP_TUTORIAL_STEPS,
+  PUMP_TUTORIAL_VERSION,
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 import { SupportForms } from "@/components/market/SupportForms";
@@ -71,6 +72,9 @@ export default function SettingsPage() {
   const setPumpTutorialSeen = useSettingsStore(
     (state) => state.setPumpTutorialSeen,
   );
+  const setPumpTutorialVersion = useSettingsStore(
+    (state) => state.setPumpTutorialVersion,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -114,8 +118,9 @@ export default function SettingsPage() {
       setStressTestTutorialSeen(false);
     } else if (kind === "market_era") {
       setMarketEraTutorialSeen(false);
-    } else {
+    } else if (kind === "pump") {
       setPumpTutorialSeen(false);
+      setPumpTutorialVersion(0);
     }
     setOpenTutorial(kind);
   }
@@ -141,6 +146,7 @@ export default function SettingsPage() {
       setMarketEraTutorialSeen(true);
     } else if (openTutorial === "pump") {
       setPumpTutorialSeen(true);
+      setPumpTutorialVersion(PUMP_TUTORIAL_VERSION);
     }
     setOpenTutorial(null);
   }

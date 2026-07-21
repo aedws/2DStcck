@@ -105,7 +105,12 @@ import {
   getCorporateActionEventForSession,
 } from "../src/lib/market/corporateActions";
 import {
+  PUMP_LIFETIME_SESSIONS,
+  PUMP_MIN_LIFETIME_SESSIONS,
+  delistedPumpFinalPrice,
   getActivePumpStocks,
+  pumpDelistAt,
+  pumpFinalPrice,
   pumpSpawnAt,
   replaceActivePumpStocks,
 } from "../src/lib/market/pumpStocks";
@@ -192,14 +197,37 @@ assert.equal(tradingStats.winRate, 100);
 assert.equal(tradingStats.realizedPnl, 20);
 
 let pumpSession = -1;
+const pumpSpecs = [];
 for (let candidate = 1; candidate < 2_000; candidate++) {
   assert.ok(
     getActivePumpStocks(candidate * SESSION_DURATION_MS + SESSION_DURATION_MS / 2).length <= 1,
     "only one pump stock may be active at any time",
   );
-  if (pumpSession < 0 && pumpSpawnAt(candidate)) pumpSession = candidate;
+  const spec = pumpSpawnAt(candidate);
+  if (spec) {
+    pumpSpecs.push(spec);
+    if (pumpSession < 0) pumpSession = candidate;
+  }
 }
 assert.ok(pumpSession > 0, "deterministic pump schedule should contain a spawn");
+assert.ok(pumpSpecs.length > 10, "pump schedule should contain enough samples");
+assert.ok(
+  pumpSpecs.every(
+    (spec) =>
+      spec.lifetimeSessions >= PUMP_MIN_LIFETIME_SESSIONS &&
+      spec.lifetimeSessions <= PUMP_LIFETIME_SESSIONS,
+  ),
+  "every pump must delist inside the advertised two-session window",
+);
+assert.ok(
+  new Set(pumpSpecs.map((spec) => spec.lifetimeSessions.toFixed(3))).size > 1,
+  "pump delisting times must vary by listing",
+);
+assert.ok(
+  pumpSpecs.some((spec) => spec.lifetimeSessions < 1) &&
+    pumpSpecs.some((spec) => spec.lifetimeSessions >= 1),
+  "pump schedule must include both first-day rug pulls and later delistings",
+);
 const pumpNow = pumpSession * SESSION_DURATION_MS + SESSION_DURATION_MS / 2;
 const activePump = getActivePumpStocks(pumpNow);
 assert.equal(activePump.length, 1);
@@ -207,6 +235,26 @@ assert.equal(
   replaceActivePumpStocks([...activePump, ...activePump], pumpNow).length,
   1,
   "replacing active pump stocks must remove duplicate persisted copies",
+);
+const firstPumpSpec = pumpSpecs[0];
+const firstPumpDelistAt = pumpDelistAt(firstPumpSpec);
+assert.ok(
+  getActivePumpStocks(firstPumpDelistAt - 1).some((stock) => stock.id === firstPumpSpec.id),
+  "pump must remain tradable until its hidden delisting time",
+);
+assert.ok(
+  !getActivePumpStocks(firstPumpDelistAt).some((stock) => stock.id === firstPumpSpec.id),
+  "pump must disappear exactly at its hidden delisting time",
+);
+assert.equal(
+  delistedPumpFinalPrice(firstPumpSpec.id, firstPumpDelistAt - 1),
+  null,
+  "pump holdings must not settle before delisting",
+);
+assert.equal(
+  delistedPumpFinalPrice(firstPumpSpec.id, firstPumpDelistAt),
+  pumpFinalPrice(firstPumpSpec),
+  "pump holdings must settle at the crash price when delisted",
 );
 
 assert.equal(seasonTierForAlpha(-0.051).id, "bronze");

@@ -18,8 +18,10 @@ import { generateOrderBook } from "@/lib/market/orderBook";
 export const PUMP_SECTOR = "급등주";
 /** 거래일마다 급등주가 상장될 확률 */
 export const PUMP_SPAWN_CHANCE = 0.14;
-/** 상장 후 상장폐지까지 거래일 수 */
+/** 상장 후 상장폐지까지 허용되는 최대 거래일 수 */
 export const PUMP_LIFETIME_SESSIONS = 2;
+/** 상장 직후 바로 사라지는 불공정한 경우를 막는 최소 수명 */
+export const PUMP_MIN_LIFETIME_SESSIONS = 0.5;
 
 const NAMES = [
   ["MEME", "밈코어 홀딩스", "🚀"],
@@ -41,6 +43,8 @@ export interface PumpSpec {
   basePrice: number;
   peakMult: number;
   crashMult: number;
+  /** 최대 2거래일 범위에서 종목별로 숨겨진 실제 상장 수명 */
+  lifetimeSessions: number;
 }
 
 export function isPumpStock(stock: { sector: string }): boolean {
@@ -55,6 +59,9 @@ function rawPumpSpawnAt(session: number): PumpSpec | null {
   const basePrice = Math.round(1000 + rand() * 4000); // $10 ~ $50
   const peakMult = 3 + rand() * 5; // 3x ~ 8x
   const crashMult = 0.08 + rand() * 0.17; // 최종 8% ~ 25%
+  const lifetimeSessions =
+    PUMP_MIN_LIFETIME_SESSIONS +
+    rand() * (PUMP_LIFETIME_SESSIONS - PUMP_MIN_LIFETIME_SESSIONS);
   return {
     spawnSession: session,
     id: `pump-${session}`,
@@ -64,6 +71,7 @@ function rawPumpSpawnAt(session: number): PumpSpec | null {
     basePrice,
     peakMult,
     crashMult,
+    lifetimeSessions,
   };
 }
 
@@ -99,8 +107,18 @@ function pumpCurve(spec: PumpSpec, f: number): number {
   return spec.peakMult + (spec.crashMult - spec.peakMult) * Math.pow(x, 1.6);
 }
 
+/** 모든 클라이언트에서 동일하지만 플레이어에게는 공개하지 않는 실제 상장폐지 시각. */
+export function pumpDelistAt(spec: PumpSpec): number {
+  return (
+    spec.spawnSession * SESSION_DURATION_MS +
+    Math.floor(spec.lifetimeSessions * SESSION_DURATION_MS)
+  );
+}
+
 export function pumpPriceAt(spec: PumpSpec, now: number): number {
   const start = spec.spawnSession * SESSION_DURATION_MS;
+  // 가격 곡선은 최대 2거래일 기준으로 흐른다. 실제 상폐 시각을 곡선에 맞추지 않아
+  // 상승 중에도 예고 없이 끝날 수 있고, 수명 역산으로 안전한 매도 시점을 알 수 없다.
   const lifeMs = PUMP_LIFETIME_SESSIONS * SESSION_DURATION_MS;
   const f = (now - start) / lifeMs;
   const noise =
@@ -185,7 +203,7 @@ function buildPumpState(spec: PumpSpec, now: number): StockState {
     initialPrice: spec.basePrice,
     volatility: 0.06,
     drift: 0,
-    description: `${spec.emoji} 상장 2거래일 내 상장폐지 예정인 초고위험 급등주. 정점에서 팔지 못하면 폭락합니다.`,
+    description: `${spec.emoji} 최대 2거래일 안에 예고 없이 상장폐지되는 초고위험 급등주. 상승 중에도 갑자기 폭락가로 정산될 수 있습니다.`,
     currentPrice: price,
     prevDayClose,
     dayOpen,
@@ -205,7 +223,7 @@ export function getActivePumpStocks(now: number): StockState[] {
     if (s < 0) continue;
     const spec = pumpSpawnAt(s);
     if (!spec) continue;
-    if (session >= spec.spawnSession + PUMP_LIFETIME_SESSIONS) continue;
+    if (now >= pumpDelistAt(spec)) continue;
     active.push(buildPumpState(spec, now));
   }
   return active;
@@ -231,7 +249,7 @@ export function getPumpSpawnEvent(
   return {
     id: `pump-${session}`,
     title: `${spec.emoji} 급등주 ${spec.name}(${spec.ticker}) 상장 — 급등 중!`,
-    description: `초고위험 급등주가 상장되어 폭등하고 있습니다. 단, 2거래일 내 상장폐지되니 정점에서 반드시 매도하세요.`,
+    description: `초고위험 급등주가 상장되어 폭등하고 있습니다. 최대 2거래일 안에 예고 없이 무작위 상장폐지되며, 상승 중에도 폭락가로 강제 정산될 수 있습니다.`,
     affectedStockIds: [spec.id],
     impact: 0,
     timestamp: now,
@@ -243,13 +261,13 @@ export function getPumpSpawnEvent(
 /** 상장폐지된 급등주 id에서 최종 정산가를 구한다 (보유분 정산용). */
 export function delistedPumpFinalPrice(
   stockId: string,
-  currentSession: number,
+  now: number,
 ): number | null {
   if (!stockId.startsWith("pump-")) return null;
   const s = Number(stockId.slice(5));
   if (!Number.isSafeInteger(s)) return null;
-  if (currentSession < s + PUMP_LIFETIME_SESSIONS) return null; // 아직 상장 중
   const spec = pumpSpawnAt(s);
   if (!spec) return null;
+  if (now < pumpDelistAt(spec)) return null; // 아직 상장 중
   return pumpFinalPrice(spec);
 }
