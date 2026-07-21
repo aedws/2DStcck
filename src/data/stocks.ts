@@ -258,6 +258,25 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_dante",
   },
+  {
+    id: "hinafg",
+    ticker: "HINA",
+    name: "소라사키 히나 금융지주",
+    sector: "금융",
+    subsector: "금융지주",
+    initialPrice: 52000,
+    volatility: 0.024,
+    drift: 0.0007,
+    beta: 1.1,
+    description:
+      "키보토스 금융업계 최대 기업 가치를 지닌 종합 금융지주. 상업은행·투자은행·자산운용 3개 사업부를 거느리며, 풍기위원장 출신 회장 소라사키 히나가 잠도 잊은 결재 속도로 그룹 전체를 직접 통솔한다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      실적: 3,
+      행보: 2,
+      스캔들: 1.5,
+    },
+    ceoId: "chr_bahina",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */

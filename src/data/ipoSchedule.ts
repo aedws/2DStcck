@@ -16,4 +16,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   udnge: Date.UTC(2026, 6, 20, 6, 0),
   // 단테 정밀시계(단테) — 2026-07-21 18:00 KST 개장 (= 09:00 UTC)
   dante: Date.UTC(2026, 6, 21, 9, 0),
+  // 소라사키 히나 금융지주(HINA) — 2026-07-22 18:00 KST 개장 (= 09:00 UTC)
+  hinafg: Date.UTC(2026, 6, 22, 9, 0),
 };
