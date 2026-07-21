@@ -91,12 +91,16 @@ import {
 } from "@/lib/market/operationalCompensation";
 import {
   getRoomItem,
+  getRoomTheme,
   isValidRoomCell,
   nextRoomExpansion,
+  normalizeOwnedRoomThemes,
   normalizeRoomItems,
   normalizeRoomLevel,
+  normalizeRoomThemeId,
   roomMaxItemsForLevel,
   ROOM_SELL_RATIO,
+  ROOM_THEME_BY_ID,
   type PlacedRoomItem,
 } from "@/data/roomItems";
 import type {
@@ -318,6 +322,14 @@ interface MarketStore extends MarketSnapshot {
   myRoomLevel: number;
   /** 다음 단계 방 크기 확장권 구매 (1회성, 환불 없음). */
   expandMyRoom: () => OrderResult;
+  /** 적용 중인 숙소 테마 id. */
+  myRoomTheme: string;
+  /** 보유(구매)한 숙소 테마 id 목록. */
+  myRoomOwnedThemes: string[];
+  /** 숙소 테마 구매(1회성) 후 즉시 적용. */
+  buyRoomTheme: (themeId: string) => OrderResult;
+  /** 보유한 숙소 테마로 교체. */
+  selectRoomTheme: (themeId: string) => OrderResult;
   /** 마이룸 가구 구매 + 지정 칸에 배치 (현금 차감). */
   buyRoomItem: (itemId: string, x: number, y: number) => OrderResult;
   /** 배치된 가구를 다른 칸으로 이동. */
@@ -520,6 +532,8 @@ function createInitialState(): MarketSnapshot & {
   claimedCompensationIds: string[];
   myRoomItems: PlacedRoomItem[];
   myRoomLevel: number;
+  myRoomTheme: string;
+  myRoomOwnedThemes: string[];
   investmentMastery: InvestmentMasteryState;
   investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
@@ -600,6 +614,8 @@ function createInitialState(): MarketSnapshot & {
     ),
     myRoomItems: [],
     myRoomLevel: 0,
+    myRoomTheme: normalizeRoomThemeId(undefined),
+    myRoomOwnedThemes: normalizeOwnedRoomThemes(undefined),
     investmentMastery: createInitialMastery(),
     investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
@@ -1777,6 +1793,8 @@ export const useMarketStore = create<MarketStore>()(
             normalizeRoomLevel(wallet.myRoomLevel),
           ),
           myRoomLevel: normalizeRoomLevel(wallet.myRoomLevel),
+          myRoomTheme: normalizeRoomThemeId(wallet.myRoomTheme),
+          myRoomOwnedThemes: normalizeOwnedRoomThemes(wallet.myRoomOwnedThemes),
           investmentMastery: normalizeInvestmentMastery(
             wallet.investmentMastery,
           ),
@@ -1863,6 +1881,8 @@ export const useMarketStore = create<MarketStore>()(
           claimedCompensationIds: s.claimedCompensationIds,
           myRoomItems: s.myRoomItems,
           myRoomLevel: s.myRoomLevel,
+          myRoomTheme: s.myRoomTheme,
+          myRoomOwnedThemes: s.myRoomOwnedThemes,
           investmentMastery: s.investmentMastery,
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
@@ -2904,6 +2924,35 @@ export const useMarketStore = create<MarketStore>()(
         };
       },
 
+      buyRoomTheme: (themeId) => {
+        const theme = ROOM_THEME_BY_ID.get(themeId);
+        if (!theme) return { success: false, message: "존재하지 않는 테마입니다." };
+        const state = get();
+        if (state.myRoomOwnedThemes.includes(themeId)) {
+          return get().selectRoomTheme(themeId);
+        }
+        if (theme.price > state.cash) {
+          return { success: false, message: "보유 현금이 부족합니다." };
+        }
+        set({
+          cash: state.cash - theme.price,
+          myRoomOwnedThemes: [...state.myRoomOwnedThemes, themeId],
+          myRoomTheme: themeId,
+        });
+        playSound("cash");
+        return { success: true, message: `${theme.emoji} ${theme.name} 테마 적용 완료` };
+      },
+
+      selectRoomTheme: (themeId) => {
+        const state = get();
+        const theme = getRoomTheme(themeId);
+        if (!state.myRoomOwnedThemes.includes(theme.id)) {
+          return { success: false, message: "아직 구매하지 않은 테마입니다." };
+        }
+        set({ myRoomTheme: theme.id });
+        return { success: true, message: `${theme.emoji} ${theme.name} 테마로 바꿨습니다.` };
+      },
+
       expandMyRoom: () => {
         const state = get();
         const expansion = nextRoomExpansion(state.myRoomLevel);
@@ -3546,6 +3595,8 @@ export const useMarketStore = create<MarketStore>()(
         claimedCompensationIds: state.claimedCompensationIds,
         myRoomItems: state.myRoomItems,
         myRoomLevel: state.myRoomLevel,
+        myRoomTheme: state.myRoomTheme,
+        myRoomOwnedThemes: state.myRoomOwnedThemes,
         investmentMastery: state.investmentMastery,
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
@@ -3919,6 +3970,12 @@ export const useMarketStore = create<MarketStore>()(
           ),
           myRoomLevel: normalizeRoomLevel(
             (walletSource as Partial<MarketStore>).myRoomLevel,
+          ),
+          myRoomTheme: normalizeRoomThemeId(
+            (walletSource as Partial<MarketStore>).myRoomTheme,
+          ),
+          myRoomOwnedThemes: normalizeOwnedRoomThemes(
+            (walletSource as Partial<MarketStore>).myRoomOwnedThemes,
           ),
           investmentMastery: normalizeInvestmentMastery(
             (walletSource as Partial<MarketStore>).investmentMastery,

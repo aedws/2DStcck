@@ -37,7 +37,7 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  전체 리플레이를 강제한다.
  *  v22: IPO 상장 틱을 절대 시각이 아닌 시장 기원점 기준 상대 틱으로 교정 — 상장 후에도
  *  공모가에 영구 동결되던 레이센 제약·단테 정밀시계의 시세·캔들을 재생성한다. */
-export const MARKET_SIM_VERSION = 25;
+export const MARKET_SIM_VERSION = 26;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

@@ -7,7 +7,10 @@ import { toastResult } from "@/store/toastStore";
 import {
   ROOM_ITEMS,
   ROOM_SELL_RATIO,
+  ROOM_THEMES,
   getRoomItem,
+  getRoomTheme,
+  isBathRow,
   isWallRow,
   nextRoomExpansion,
   roomDimsForLevel,
@@ -28,10 +31,14 @@ export default function MyRoomPage() {
   const cash = useMarketStore((s) => s.cash);
   const myRoomItems = useMarketStore((s) => s.myRoomItems);
   const myRoomLevel = useMarketStore((s) => s.myRoomLevel);
+  const myRoomTheme = useMarketStore((s) => s.myRoomTheme);
+  const myRoomOwnedThemes = useMarketStore((s) => s.myRoomOwnedThemes);
   const buyRoomItem = useMarketStore((s) => s.buyRoomItem);
   const moveRoomItem = useMarketStore((s) => s.moveRoomItem);
   const sellRoomItem = useMarketStore((s) => s.sellRoomItem);
   const expandMyRoom = useMarketStore((s) => s.expandMyRoom);
+  const buyRoomTheme = useMarketStore((s) => s.buyRoomTheme);
+  const selectRoomTheme = useMarketStore((s) => s.selectRoomTheme);
 
   const [mode, setMode] = useState<RoomMode>({ type: "idle" });
   const [mounted, setMounted] = useState(false);
@@ -53,6 +60,15 @@ export default function MyRoomPage() {
   const dims = roomDimsForLevel(myRoomLevel);
   const maxItems = roomMaxItemsForLevel(myRoomLevel);
   const expansion = nextRoomExpansion(myRoomLevel);
+  const theme = getRoomTheme(myRoomTheme);
+  const palette = theme.palette;
+  // 격자가 커질수록 타일·이모지를 작게 그려 전체 구도가 한눈에 들어오게 한다.
+  const cellText =
+    dims.cols >= 26
+      ? "text-[10px] sm:text-sm"
+      : dims.cols >= 20
+        ? "text-xs sm:text-base"
+        : "text-sm sm:text-lg";
 
   const placingItem =
     mode.type === "placing"
@@ -99,12 +115,12 @@ export default function MyRoomPage() {
   const selectedDef = selected ? getRoomItem(selected.itemId) : undefined;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold">마이룸</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            벌어들인 현금으로 나만의 방을 꾸며 보세요. 되팔면 구매가의{" "}
+            숙소를 꾸미고 아래층 욕장까지 채워 보세요. 되팔면 구매가의{" "}
             {Math.round(ROOM_SELL_RATIO * 100)}%만 돌려받습니다.
           </p>
         </div>
@@ -113,14 +129,17 @@ export default function MyRoomPage() {
             보유 현금 <span className="font-semibold text-[var(--foreground)]">{formatPrice(cash)}</span>
           </p>
           <p className="mt-0.5">
-            방 꾸미기 누적 <span className="font-semibold text-[var(--foreground)]">{formatPrice(roomValue)}</span> ·{" "}
+            꾸미기 누적 <span className="font-semibold text-[var(--foreground)]">{formatPrice(roomValue)}</span> ·{" "}
             {myRoomItems.length}/{maxItems}개 · {dims.cols}×{dims.rows}
           </p>
         </div>
       </div>
 
-      {/* 방 — 파스텔 목욕탕 느낌의 고정 팔레트(다크 테마와 무관한 실내 공간) */}
-      <div className="overflow-hidden rounded-3xl border-4 border-pink-300 bg-pink-100 p-2 shadow-lg">
+      {/* 방 — 테마 팔레트로 벽지·바닥·욕실 타일을 통째로 칠한다 */}
+      <div
+        className="overflow-hidden rounded-3xl border-4 p-1.5 shadow-lg sm:p-2"
+        style={{ borderColor: palette.frame, background: `${palette.frame}33` }}
+      >
         <div
           className="grid overflow-hidden rounded-2xl"
           style={{ gridTemplateColumns: `repeat(${dims.cols}, minmax(0, 1fr))` }}
@@ -133,16 +152,21 @@ export default function MyRoomPage() {
                 occupiedIndex !== undefined ? myRoomItems[occupiedIndex] : undefined;
               const def = placed ? getRoomItem(placed.itemId) : undefined;
               const wall = isWallRow(y);
+              const bath = !wall && isBathRow(y, dims.rows);
               const targetable = placingItem ? cellPlaceable(x, y) : false;
               const isSelected =
                 mode.type === "selected" && occupiedIndex === mode.index;
               const isMovingSource =
                 mode.type === "moving" && occupiedIndex === mode.index;
-              const base = wall
-                ? "bg-gradient-to-b from-pink-300 to-pink-200"
-                : (x + y) % 2 === 0
-                  ? "bg-white"
-                  : "bg-pink-50";
+              const background = wall
+                ? `linear-gradient(180deg, ${palette.wallFrom}, ${palette.wallTo})`
+                : bath
+                  ? (x + y) % 2 === 0
+                    ? palette.bathA
+                    : palette.bathB
+                  : (x + y) % 2 === 0
+                    ? palette.floorA
+                    : palette.floorB;
               return (
                 <button
                   type="button"
@@ -151,13 +175,21 @@ export default function MyRoomPage() {
                   aria-label={
                     def ? `${def.name} (${x + 1}, ${y + 1})` : `빈 칸 (${x + 1}, ${y + 1})`
                   }
-                  className={`relative flex aspect-square items-center justify-center text-xl transition sm:text-2xl ${base} ${
-                    wall ? "border-b border-pink-400/40" : "border border-pink-200/60"
-                  } ${
+                  style={{
+                    background,
+                    borderColor: `${palette.frame}26`,
+                    ...(bath && y === dims.rows - 3
+                      ? { borderTopWidth: 2, borderTopColor: palette.divider }
+                      : {}),
+                    ...(wall && y === 1
+                      ? { borderBottomWidth: 2, borderBottomColor: `${palette.divider}88` }
+                      : {}),
+                  }}
+                  className={`relative flex aspect-square items-center justify-center border transition ${cellText} ${
                     placingItem
                       ? targetable
-                        ? "cursor-pointer ring-2 ring-inset ring-emerald-400/70 hover:bg-emerald-100"
-                        : "cursor-not-allowed opacity-60"
+                        ? "cursor-pointer ring-2 ring-inset ring-emerald-400/80 hover:brightness-110"
+                        : "cursor-not-allowed opacity-50"
                       : def
                         ? "cursor-pointer hover:brightness-95"
                         : "cursor-default"
@@ -236,9 +268,85 @@ export default function MyRoomPage() {
       )}
       {mode.type === "idle" && myRoomItems.length === 0 && (
         <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-center text-sm text-[var(--muted)]">
-          아직 텅 빈 방이에요. 아래 카탈로그에서 첫 가구를 들여 보세요.
+          아직 텅 빈 숙소예요. 아래 카탈로그에서 첫 가구를 들여 보세요.
         </p>
       )}
+
+      {/* 숙소 테마(도배) */}
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">
+          숙소 테마
+          <span className="ml-2 text-[11px] font-normal text-[var(--muted)]">
+            벽지·바닥·욕실 타일을 통째로 바꿉니다
+          </span>
+        </h2>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {ROOM_THEMES.map((entry) => {
+            const owned = myRoomOwnedThemes.includes(entry.id);
+            const active = theme.id === entry.id;
+            const affordable = entry.price <= cash;
+            return (
+              <li
+                key={entry.id}
+                className={`rounded-2xl border p-3 transition ${
+                  active
+                    ? "border-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--surface)]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border"
+                    style={{ borderColor: entry.palette.frame }}
+                    aria-hidden
+                  >
+                    <span
+                      className="block h-1/2 w-full"
+                      style={{
+                        background: `linear-gradient(180deg, ${entry.palette.wallFrom}, ${entry.palette.wallTo})`,
+                      }}
+                    />
+                    <span className="flex h-1/2 w-full">
+                      <span className="h-full w-1/2" style={{ background: entry.palette.floorB }} />
+                      <span className="h-full w-1/2" style={{ background: entry.palette.bathB }} />
+                    </span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold">
+                      {entry.emoji} {entry.name}
+                    </p>
+                    <p className="truncate text-[10px] text-[var(--muted)]">
+                      {entry.description}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={active || (!owned && !affordable)}
+                  onClick={() =>
+                    toastResult(owned ? selectRoomTheme(entry.id) : buyRoomTheme(entry.id))
+                  }
+                  className={`mt-2 w-full rounded-lg px-2 py-1.5 text-[11px] font-semibold transition disabled:opacity-40 ${
+                    active
+                      ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                      : owned
+                        ? "border border-[var(--border)]"
+                        : "bg-[var(--accent)] text-white"
+                  }`}
+                >
+                  {active
+                    ? "적용 중"
+                    : owned
+                      ? "적용하기"
+                      : affordable
+                        ? `${formatPrice(entry.price)}`
+                        : "현금 부족"}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       {/* 방 크기 확장권 */}
       {expansion ? (
@@ -247,7 +355,7 @@ export default function MyRoomPage() {
             <p className="text-sm font-bold">
               🏗️ 확장권 · {expansion.name}
               <span className="ml-2 text-xs font-normal text-[var(--muted)]">
-                {dims.cols}×{dims.rows} → {expansion.cols}×{expansion.rows} · 가구 한도 +20
+                {dims.cols}×{dims.rows} → {expansion.cols}×{expansion.rows} · 가구 한도 +30
               </span>
             </p>
             <p className="mt-0.5 text-[11px] text-[var(--muted)]">
@@ -331,8 +439,8 @@ export default function MyRoomPage() {
       </div>
 
       <p className="pb-4 text-center text-[11px] leading-relaxed text-[var(--muted)]">
-        마이룸 가구는 순자산·시즌·랭킹에 합산되지 않는 순수 소비 공간입니다.
-        로그인 계정은 방 배치가 클라우드에 함께 저장됩니다.
+        마이룸 가구·테마는 순자산·시즌·랭킹에 합산되지 않는 순수 소비 공간입니다.
+        로그인 계정은 방 배치·테마가 클라우드에 함께 저장됩니다.
       </p>
     </div>
   );

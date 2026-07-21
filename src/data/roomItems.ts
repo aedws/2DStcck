@@ -4,14 +4,16 @@
  * 배치·재배치를 반복할수록 재화가 소각된다. 순자산·랭킹에는 합산하지 않는다.
  */
 
-export const ROOM_GRID_COLS = 10;
-export const ROOM_GRID_ROWS = 8;
+export const ROOM_GRID_COLS = 16;
+export const ROOM_GRID_ROWS = 12;
 /** 위쪽 2줄은 벽 — 벽걸이 장식 전용, 나머지는 바닥. */
 export const ROOM_WALL_ROWS = 2;
+/** 아래쪽 3줄은 욕실 구역(타일 바닥) — 배치 규칙은 바닥과 동일, 시각만 다르다. */
+export const ROOM_BATH_ROWS = 3;
 /** 되팔기 환불 비율. 나머지는 소각된다. */
 export const ROOM_SELL_RATIO = 0.5;
 /** 기본 방에 놓을 수 있는 최대 가구 수 (저장 용량 보호). */
-export const ROOM_MAX_ITEMS = 60;
+export const ROOM_MAX_ITEMS = 80;
 
 /** 방 크기 확장권 — 단계별 1회 구매(환불 없음)로 격자가 커진다. */
 export interface RoomExpansion {
@@ -24,13 +26,152 @@ export interface RoomExpansion {
 }
 
 export const ROOM_EXPANSIONS: RoomExpansion[] = [
-  { level: 0, name: "기본 방", cols: 10, rows: 8, price: 0 },
-  { level: 1, name: "넓은 방", cols: 12, rows: 9, price: 1_000_000_000 },
-  { level: 2, name: "별관 증축", cols: 14, rows: 10, price: 10_000_000_000 },
-  { level: 3, name: "대욕장", cols: 16, rows: 11, price: 200_000_000_000 },
-  { level: 4, name: "펜트하우스", cols: 18, rows: 12, price: 5_000_000_000_000 },
-  { level: 5, name: "대저택 홀", cols: 20, rows: 14, price: 100_000_000_000_000 },
+  { level: 0, name: "기본 숙소", cols: 16, rows: 12, price: 0 },
+  { level: 1, name: "넓은 숙소", cols: 18, rows: 13, price: 1_000_000_000 },
+  { level: 2, name: "별관 증축", cols: 20, rows: 14, price: 10_000_000_000 },
+  { level: 3, name: "대욕장", cols: 22, rows: 16, price: 200_000_000_000 },
+  { level: 4, name: "펜트하우스", cols: 26, rows: 18, price: 5_000_000_000_000 },
+  { level: 5, name: "대저택 홀", cols: 30, rows: 20, price: 100_000_000_000_000 },
 ];
+
+/**
+ * 숙소 테마(도배) — 벽지·바닥·욕실 타일 팔레트를 통째로 바꾼다.
+ * 소녀전선·벽람항로 기숙사처럼 방의 분위기를 스킨으로 수집하는 소비처.
+ */
+export interface RoomTheme {
+  id: string;
+  name: string;
+  emoji: string;
+  /** 구매 가격(센트). 0이면 기본 제공. */
+  price: number;
+  description: string;
+  palette: {
+    frame: string;
+    wallFrom: string;
+    wallTo: string;
+    floorA: string;
+    floorB: string;
+    bathA: string;
+    bathB: string;
+    divider: string;
+  };
+}
+
+export const ROOM_THEMES: RoomTheme[] = [
+  {
+    id: "onsen",
+    name: "파스텔 온천장",
+    emoji: "♨️",
+    price: 0,
+    description: "기본 제공되는 분홍 목욕탕 무드.",
+    palette: {
+      frame: "#f9a8d4",
+      wallFrom: "#f9a8d4",
+      wallTo: "#fbcfe8",
+      floorA: "#ffffff",
+      floorB: "#fdf2f8",
+      bathA: "#cffafe",
+      bathB: "#a5f3fc",
+      divider: "#f472b6",
+    },
+  },
+  {
+    id: "commander",
+    name: "지휘관 기숙사",
+    emoji: "🎖️",
+    price: 10_000_000_000,
+    description: "우드 톤과 카키가 섞인 든든한 기숙사 무드.",
+    palette: {
+      frame: "#92400e",
+      wallFrom: "#b45309",
+      wallTo: "#d97706",
+      floorA: "#fef3c7",
+      floorB: "#fde68a",
+      bathA: "#e0f2fe",
+      bathB: "#bae6fd",
+      divider: "#b45309",
+    },
+  },
+  {
+    id: "port",
+    name: "군항 라운지",
+    emoji: "⚓",
+    price: 10_000_000_000,
+    description: "네이비·화이트의 시원한 항구 라운지 무드.",
+    palette: {
+      frame: "#1e3a8a",
+      wallFrom: "#1d4ed8",
+      wallTo: "#3b82f6",
+      floorA: "#eff6ff",
+      floorB: "#dbeafe",
+      bathA: "#cffafe",
+      bathB: "#67e8f9",
+      divider: "#1d4ed8",
+    },
+  },
+  {
+    id: "sakura",
+    name: "벚꽃 온천",
+    emoji: "🌸",
+    price: 50_000_000_000,
+    description: "꽃잎 흩날리는 노천탕 무드.",
+    palette: {
+      frame: "#db2777",
+      wallFrom: "#f472b6",
+      wallTo: "#f9a8d4",
+      floorA: "#fff1f2",
+      floorB: "#ffe4e6",
+      bathA: "#fce7f3",
+      bathB: "#fbcfe8",
+      divider: "#db2777",
+    },
+  },
+  {
+    id: "midnight",
+    name: "심야 스위트",
+    emoji: "🌙",
+    price: 200_000_000_000,
+    description: "네온이 은은한 심야 펜트하우스 무드.",
+    palette: {
+      frame: "#4c1d95",
+      wallFrom: "#312e81",
+      wallTo: "#4c1d95",
+      floorA: "#1e1b4b",
+      floorB: "#312e81",
+      bathA: "#164e63",
+      bathB: "#155e75",
+      divider: "#7c3aed",
+    },
+  },
+];
+
+export const ROOM_THEME_BY_ID = new Map(ROOM_THEMES.map((theme) => [theme.id, theme]));
+export const DEFAULT_ROOM_THEME_ID = "onsen";
+
+export function getRoomTheme(id: string | undefined): RoomTheme {
+  return (id && ROOM_THEME_BY_ID.get(id)) || ROOM_THEMES[0];
+}
+
+export function normalizeRoomThemeId(value: unknown): string {
+  return typeof value === "string" && ROOM_THEME_BY_ID.has(value)
+    ? value
+    : DEFAULT_ROOM_THEME_ID;
+}
+
+export function normalizeOwnedRoomThemes(value: unknown): string[] {
+  const owned = new Set<string>([DEFAULT_ROOM_THEME_ID]);
+  if (Array.isArray(value)) {
+    for (const id of value) {
+      if (typeof id === "string" && ROOM_THEME_BY_ID.has(id)) owned.add(id);
+    }
+  }
+  return [...owned];
+}
+
+/** 이 행이 욕실 구역인가 (아래쪽 ROOM_BATH_ROWS줄). */
+export function isBathRow(y: number, rows: number): boolean {
+  return y >= rows - ROOM_BATH_ROWS;
+}
 
 export function normalizeRoomLevel(value: unknown): number {
   const level = Number(value);
@@ -44,7 +185,7 @@ export function roomDimsForLevel(level: number): { cols: number; rows: number } 
 }
 
 export function roomMaxItemsForLevel(level: number): number {
-  return ROOM_MAX_ITEMS + normalizeRoomLevel(level) * 20;
+  return ROOM_MAX_ITEMS + normalizeRoomLevel(level) * 30;
 }
 
 export function nextRoomExpansion(level: number): RoomExpansion | undefined {

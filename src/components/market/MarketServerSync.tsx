@@ -141,6 +141,8 @@ function CloudSaveSync() {
         state.ownedLuxuries !== prev.ownedLuxuries ||
         state.myRoomItems !== prev.myRoomItems ||
         state.myRoomLevel !== prev.myRoomLevel ||
+        state.myRoomTheme !== prev.myRoomTheme ||
+        state.myRoomOwnedThemes !== prev.myRoomOwnedThemes ||
         state.shorts !== prev.shorts ||
         state.options !== prev.options ||
         state.investmentMission !== prev.investmentMission ||

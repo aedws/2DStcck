@@ -81,6 +81,10 @@ export interface WalletSave {
   myRoomItems?: PlacedRoomItem[];
   /** 마이룸 확장 단계 (0 = 기본 방). */
   myRoomLevel?: number;
+  /** 적용 중인 숙소 테마 id. */
+  myRoomTheme?: string;
+  /** 보유한 숙소 테마 id 목록. */
+  myRoomOwnedThemes?: string[];
   investmentMastery?: InvestmentMasteryState;
   investmentSeason?: InvestmentSeasonState;
   storyDecision?: StoryDecision | null;
