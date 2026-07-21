@@ -111,7 +111,15 @@ function CloudSaveSync() {
       if (!pending) return;
       pending = false;
       const state = useMarketStore.getState();
-      if (state.userId && state.cloudSyncReady) void saveCloud();
+      if (!state.userId || !state.cloudSyncReady) return;
+      void saveCloud().then((saved) => {
+        // 오프라인 등으로 실패한 저장은 버리지 않고 5초 뒤 재시도한다.
+        // 실패를 그냥 삼키면 다음 리로드 때 낡은 클라우드가 최신 매매를 덮는다.
+        if (!saved && useMarketStore.getState().userId) {
+          pending = true;
+          if (!timer) timer = setTimeout(() => flush(), 5_000);
+        }
+      });
     };
 
     const unsub = useMarketStore.subscribe((state, prev) => {

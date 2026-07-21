@@ -9,5 +9,6 @@
 
 - 게임 현금 단위는 **센트**다. 예: `INITIAL_CASH = 10_000_000` = $100,000, $10M = `1_000_000_000`.
 - `src/data/market-checkpoint.json`은 `npm run build` 시 자동 재생성된다 — 재생성본을 그대로 커밋해도 된다.
-- Supabase 마이그레이션 파일이 라이브 DB에 항상 적용돼 있다고 가정하지 말 것. 라이브 상태는 MCP(`list_migrations`/`execute_sql`)로 확인한다.
+- **프로덕션 Supabase는 `fzkrnzxflfvpmmkeaxlj`다** (`src/lib/supabase/client.ts`에 하드코딩). MCP `list_projects`에 보이는 "2DStock"(`mhhyolagigidjwecelet`)은 데이터가 2026-07-13에 멈춘 **옛 프로젝트**이므로 여기서 내린 결론을 프로덕션에 적용하지 말 것. 프로덕션 계정·버그 리포트 조회, 라이브 스키마 확인이 필요하면 소유자에게 프로덕션 프로젝트의 MCP 접근을 요청한다.
+- Supabase 마이그레이션 파일이 라이브 DB에 적용돼 있다고 가정하지 말 것.
 - 전 계정 1회 보상은 `src/lib/market/operationalCompensation.ts`의 `OPERATIONAL_COMPENSATIONS`에 항목을 추가하면 된다(지갑 `claimedCompensationIds`로 멱등 지급).

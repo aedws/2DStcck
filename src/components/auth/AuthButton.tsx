@@ -46,7 +46,7 @@ export function AuthButton({ wide = false }: { wide?: boolean }) {
   if (gameId) {
     return (
       <div className={`flex items-center gap-2 ${wide ? "w-full" : ""}`}>
-        <span className={`${wide ? "block" : "hidden sm:inline"} min-w-0 max-w-[120px] flex-1 truncate text-xs text-[var(--muted)]`}>
+        <span className={`${wide ? "block" : "inline"} min-w-0 max-w-[120px] flex-1 truncate text-xs text-[var(--muted)]`}>
           {gameId}
         </span>
         <button

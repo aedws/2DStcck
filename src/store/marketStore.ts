@@ -439,7 +439,8 @@ interface MarketStore extends MarketSnapshot {
   /** 로그인 시 클라우드 저장분(지갑)을 불러와 반영 */
   loadCloudSave: () => Promise<"loaded" | "created" | "offline">;
   /** 현재 지갑을 클라우드에 저장 (로그인 시에만) */
-  saveCloud: () => Promise<void>;
+  /** 지갑을 클라우드에 저장한다. 실패(오프라인 등) 시 false — 호출부가 재시도한다. */
+  saveCloud: () => Promise<boolean>;
   placeOrder: (
     stockId: string,
     quantity: number,
@@ -578,6 +579,31 @@ function createInitialState(): MarketSnapshot & {
     storyDecision: null,
     storyDecisionHistory: [],
   };
+}
+
+/**
+ * 지갑의 마지막 유저 활동 시각(거래·현금 지급·사건 판단 기준).
+ * 클라우드 저장분과 로컬 캐시 중 어느 쪽이 최신 기록인지 판정할 때 쓴다.
+ */
+function latestWalletActivityMs(wallet: {
+  trades?: Trade[];
+  cashPayments?: CashPayment[];
+  storyDecision?: StoryDecision | null;
+  storyDecisionHistory?: StoryDecision[];
+}): number {
+  const candidates = [
+    wallet.trades?.[0]?.timestamp,
+    wallet.cashPayments?.[0]?.timestamp,
+    wallet.storyDecision?.selectedAt,
+    wallet.storyDecisionHistory?.[0]?.selectedAt,
+  ];
+  return candidates.reduce<number>(
+    (max, value) =>
+      typeof value === "number" && Number.isFinite(value) && value > max
+        ? value
+        : max,
+    0,
+  );
 }
 
 function ensureEventDialogue(event: MarketEvent): MarketEvent {
@@ -1531,6 +1557,27 @@ export const useMarketStore = create<MarketStore>()(
           return "created";
         }
 
+        // 이 기기(같은 계정의 로컬 캐시)에 클라우드 저장 시각 이후의 매매·지급·
+        // 사건 판단 기록이 남아 있으면 클라우드가 낡은 것이다 — 직전 저장이
+        // 실패했거나 저장 전에 탭이 종료된 경우다. 이때 클라우드를 적용하면
+        // 방금 한 거래가 통째로 사라지므로, 최신 로컬을 지키고 즉시 올린다.
+        const localState = get();
+        const cloudUpdatedAt =
+          loaded.status === "loaded" ? loaded.updatedAt : 0;
+        const localActivity = latestWalletActivityMs(localState);
+        if (
+          localState.walletEpoch === WALLET_EPOCH &&
+          localActivity > Math.max(latestWalletActivityMs(wallet), cloudUpdatedAt)
+        ) {
+          set({ cloudSyncReady: true });
+          await get().saveCloud();
+          useToastStore.getState().push(
+            "☁️ 클라우드 저장분보다 최신인 이 기기 기록을 복구해 저장했습니다.",
+            "success",
+          );
+          return "loaded";
+        }
+
         // 로그인 계정은 클라우드 지갑이 원본이다. 기기별 로컬 캐시는 절대
         // 클라우드보다 우선하지 않으며, 적용 후 밀린 급여·배당만 정산한다.
         const nowSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -1745,15 +1792,17 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       saveCloud: async () => {
-        if (!get().userId || !get().cloudSyncReady) return;
+        if (!get().userId || !get().cloudSyncReady) return false;
         const s = get();
-        await saveGameSave({
+        const saved = await saveGameSave({
           walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
           initialCash: s.initialCash,
           holdings: s.holdings,
-          trades: s.trades.slice(0, 200),
+          // 단타 위주 계정은 하루 100건을 쉽게 넘긴다 — 당일 내역이 밀려나지
+          // 않도록 여유 있게 보존한다.
+          trades: s.trades.slice(0, 300),
           openOrders: s.openOrders,
           cashPayments: s.cashPayments.slice(0, 50),
           lastSalarySession: s.lastSalarySession,
@@ -1801,7 +1850,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 공유 리더보드 갱신: 순자산·수익률·과시 요약을 본인 행에 반영
         const netWorth = s.getTotalAssets();
-        const tradingStats = buildTradingStats(s.trades.slice(0, 200));
+        const tradingStats = buildTradingStats(s.trades.slice(0, 300));
         const playerTitle = getPlayerTitle(s.selectedTitleId);
         const seasonFrame = getSeasonReward(s.selectedSeasonFrameId);
         await syncLeaderboard({
@@ -1829,6 +1878,7 @@ export const useMarketStore = create<MarketStore>()(
             reputation: s.reputation,
           }).total,
         });
+        return saved;
       },
 
       placeOrder: async (stockId, quantity, orderType) => {
@@ -3344,7 +3394,7 @@ export const useMarketStore = create<MarketStore>()(
         shorts: state.shorts,
         options: state.options,
         lastInterestSession: state.lastInterestSession,
-        trades: state.trades.slice(0, 100),
+        trades: state.trades.slice(0, 300),
         openOrders: state.openOrders.slice(0, 50),
         cashPayments: state.cashPayments.slice(0, 50),
         ownedLuxuries: state.ownedLuxuries,
