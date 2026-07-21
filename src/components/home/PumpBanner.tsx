@@ -95,7 +95,7 @@ function PumpRow({ stock }: { stock: StockState }) {
           href="/pump"
           className="mt-1 inline-block text-xs font-semibold text-amber-500 hover:underline"
         >
-          📊 차트·정밀주문 (지정가·공매도) →
+          📊 차트·정밀주문 (호가·지정가) →
         </Link>
       </div>
 

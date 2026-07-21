@@ -28,6 +28,7 @@ import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "../src/lib/market/constant
 import {
   computeBuyingPower,
   maintenanceMarginForLeverage,
+  needsLiquidation,
 } from "../src/lib/market/margin";
 import {
   executeBuy,
@@ -107,10 +108,13 @@ import {
 import {
   PUMP_LIFETIME_SESSIONS,
   PUMP_MIN_LIFETIME_SESSIONS,
+  PUMP_PATTERN_IDS,
   delistedPumpFinalPrice,
   getActivePumpStocks,
   pumpDelistAt,
   pumpFinalPrice,
+  pumpPatternMultiplierAt,
+  pumpPriceAt,
   pumpSpawnAt,
   replaceActivePumpStocks,
 } from "../src/lib/market/pumpStocks";
@@ -227,6 +231,60 @@ assert.ok(
   pumpSpecs.some((spec) => spec.lifetimeSessions < 1) &&
     pumpSpecs.some((spec) => spec.lifetimeSessions >= 1),
   "pump schedule must include both first-day rug pulls and later delistings",
+);
+assert.deepEqual(
+  new Set(pumpSpecs.map((spec) => spec.pattern)),
+  new Set(PUMP_PATTERN_IDS),
+  "deterministic pump schedule must use every trap pattern",
+);
+const rugRebirth = pumpSpecs.find((spec) => spec.pattern === "rug-rebirth")!;
+const rugPeak = pumpPatternMultiplierAt(rugRebirth, 0.16);
+const rugLow = pumpPatternMultiplierAt(rugRebirth, 0.172);
+const rugRebound = pumpPatternMultiplierAt(rugRebirth, 0.23);
+assert.ok(rugLow <= rugPeak * 0.011, "rug-rebirth must contain a roughly 99% crash");
+assert.ok(
+  rugRebound / rugLow >= 11,
+  "rug-rebirth must rebound at least 1,000% from the crash low",
+);
+for (const pattern of PUMP_PATTERN_IDS) {
+  const representative = pumpSpecs.find((spec) => spec.pattern === pattern)!;
+  const path = Array.from({ length: 1001 }, (_, index) =>
+    pumpPatternMultiplierAt(representative, index / 1000),
+  );
+  let runningHigh = path[0];
+  let worstDrawdown = 0;
+  for (const value of path) {
+    runningHigh = Math.max(runningHigh, value);
+    worstDrawdown = Math.max(worstDrawdown, 1 - value / runningHigh);
+  }
+  assert.ok(worstDrawdown >= 0.7, `${pattern} must contain a margin-threatening crash`);
+}
+const liquidationCascade = pumpSpecs.find(
+  (spec) => spec.pattern === "liquidation-cascade",
+)!;
+const cascadeStart = liquidationCascade.spawnSession * SESSION_DURATION_MS;
+const cascadeLife = PUMP_LIFETIME_SESSIONS * SESSION_DURATION_MS;
+const cascadeHigh = pumpPriceAt(liquidationCascade, cascadeStart + cascadeLife * 0.1);
+const cascadeLow = pumpPriceAt(liquidationCascade, cascadeStart + cascadeLife * 0.115);
+const marginEquity = 1_000_000;
+const marginExposure = marginEquity * 5;
+const marginQuantity = marginExposure / cascadeHigh;
+assert.ok(cascadeLow < cascadeHigh * 0.25, "liquidation cascade must plunge vertically");
+assert.equal(
+  needsLiquidation(
+    marginEquity - marginExposure,
+    [{
+      stockId: liquidationCascade.id,
+      quantity: marginQuantity,
+      averagePrice: cascadeHigh,
+    }],
+    [],
+    { [liquidationCascade.id]: cascadeLow },
+    0,
+    maintenanceMarginForLeverage(5),
+  ),
+  true,
+  "a 500% margin pump position must be liquidated by the flash crash",
 );
 const pumpNow = pumpSession * SESSION_DURATION_MS + SESSION_DURATION_MS / 2;
 const activePump = getActivePumpStocks(pumpNow);

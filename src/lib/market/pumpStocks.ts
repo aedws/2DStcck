@@ -23,6 +23,17 @@ export const PUMP_LIFETIME_SESSIONS = 2;
 /** 상장 직후 바로 사라지는 불공정한 경우를 막는 최소 수명 */
 export const PUMP_MIN_LIFETIME_SESSIONS = 0.5;
 
+export const PUMP_PATTERN_IDS = [
+  "whipsaw",
+  "rug-rebirth",
+  "double-squeeze",
+  "flash-v",
+  "staircase",
+  "fake-breakout",
+  "liquidation-cascade",
+] as const;
+export type PumpPatternId = (typeof PUMP_PATTERN_IDS)[number];
+
 const NAMES = [
   ["MEME", "밈코어 홀딩스", "🚀"],
   ["MOON", "문샷 다이내믹스", "🌙"],
@@ -45,6 +56,8 @@ export interface PumpSpec {
   crashMult: number;
   /** 최대 2거래일 범위에서 종목별로 숨겨진 실제 상장 수명 */
   lifetimeSessions: number;
+  /** 플레이어에게 공개되지 않는 가격 함정 패턴 */
+  pattern: PumpPatternId;
 }
 
 export function isPumpStock(stock: { sector: string }): boolean {
@@ -62,6 +75,7 @@ function rawPumpSpawnAt(session: number): PumpSpec | null {
   const lifetimeSessions =
     PUMP_MIN_LIFETIME_SESSIONS +
     rand() * (PUMP_LIFETIME_SESSIONS - PUMP_MIN_LIFETIME_SESSIONS);
+  const pattern = PUMP_PATTERN_IDS[Math.floor(rand() * PUMP_PATTERN_IDS.length)];
   return {
     spawnSession: session,
     id: `pump-${session}`,
@@ -72,6 +86,7 @@ function rawPumpSpawnAt(session: number): PumpSpec | null {
     peakMult,
     crashMult,
     lifetimeSessions,
+    pattern,
   };
 }
 
@@ -94,17 +109,100 @@ export function pumpSpawnAt(session: number): PumpSpec | null {
     : null;
 }
 
-/** 상장 후 경과 비율 f(0~1)에 따른 배수: 초반 급등(정점 f≈0.4) 후 폭락. */
-function pumpCurve(spec: PumpSpec, f: number): number {
-  const t = Math.min(1, Math.max(0, f));
-  if (t <= 0.4) {
-    // 1 → peakMult (가속 상승)
-    const x = t / 0.4;
-    return 1 + (spec.peakMult - 1) * Math.pow(x, 0.7);
+type PumpKeyframe = readonly [progress: number, multiplier: number];
+
+function interpolatePumpFrames(frames: readonly PumpKeyframe[], progress: number): number {
+  const t = Math.min(1, Math.max(0, progress));
+  for (let index = 1; index < frames.length; index++) {
+    const previous = frames[index - 1];
+    const next = frames[index];
+    if (t > next[0]) continue;
+    const width = Math.max(Number.EPSILON, next[0] - previous[0]);
+    const linear = (t - previous[0]) / width;
+    // 완만한 구간은 자연스럽게, 촘촘한 구간은 거의 수직으로 이어진다.
+    const eased = linear * linear * (3 - 2 * linear);
+    return previous[1] + (next[1] - previous[1]) * eased;
   }
-  // peakMult → crashMult (급락)
-  const x = (t - 0.4) / 0.6;
-  return spec.peakMult + (spec.crashMult - spec.peakMult) * Math.pow(x, 1.6);
+  return frames.at(-1)?.[1] ?? 1;
+}
+
+/**
+ * 실제 급등주에서 반복되는 페이크 돌파·이중천장·플래시 크래시·죽은 고양이
+ * 반등을 섞은 숨은 곡선. 모든 패턴에 두 번 이상의 급락과 재돌파가 있어
+ * 횡보 구간이나 첫 고점만 보고 정답을 외울 수 없다.
+ */
+export function pumpPatternMultiplierAt(spec: PumpSpec, progress: number): number {
+  const p = spec.peakMult;
+  const c = spec.crashMult;
+  let frames: readonly PumpKeyframe[];
+  switch (spec.pattern) {
+    case "rug-rebirth":
+      frames = [
+        [0, 1], [0.06, 1.8], [0.12, p * 0.75], [0.16, p],
+        [0.172, p * 0.01], [0.2, p * 0.0095], [0.23, p * 0.11],
+        [0.3, p * 0.04], [0.39, p * 0.7], [0.43, p * 1.3],
+        [0.46, p * 0.18], [0.58, p * 0.65], [0.62, p * 0.12],
+        [0.72, p * 0.9], [0.76, p * 0.07], [0.88, p * 0.3], [1, c],
+      ];
+      break;
+    case "double-squeeze":
+      frames = [
+        [0, 1], [0.07, 1.6], [0.15, p * 0.85], [0.19, p],
+        [0.21, p * 0.18], [0.27, p * 0.55], [0.42, p * 0.45],
+        [0.5, p * 1.45], [0.54, p * 0.16], [0.64, p * 0.8],
+        [0.69, p * 0.1], [0.78, p * 1.1], [0.84, p * 0.2], [1, c],
+      ];
+      break;
+    case "flash-v":
+      frames = [
+        [0, 1], [0.08, p * 0.45], [0.12, p * 0.9], [0.135, p * 0.035],
+        [0.165, p * 0.8], [0.21, p * 1.1], [0.25, p * 0.25],
+        [0.34, p * 0.65], [0.38, p * 0.08], [0.46, p * 1.35],
+        [0.51, p * 0.3], [0.62, p * 0.9], [0.7, p * 0.15],
+        [0.82, p * 0.55], [1, c],
+      ];
+      break;
+    case "staircase":
+      frames = [
+        [0, 1], [0.06, 1.7], [0.1, 1.1], [0.16, p * 0.45],
+        [0.2, p * 0.22], [0.25, p * 0.65], [0.29, p * 0.35],
+        [0.36, p * 0.9], [0.4, p * 0.5], [0.46, p * 1.2],
+        [0.49, p * 0.14], [0.58, p * 0.7], [0.63, p * 0.32],
+        [0.72, p * 1.4], [0.76, p * 0.18], [0.85, p * 0.6], [1, c],
+      ];
+      break;
+    case "fake-breakout":
+      frames = [
+        [0, 1], [0.08, 1.5], [0.14, 1.25], [0.18, p * 0.55],
+        [0.205, p * 0.5], [0.22, p * 0.9], [0.235, p * 0.08],
+        [0.27, p * 0.4], [0.34, p * 0.65], [0.42, p * 0.6],
+        [0.46, p * 1.3], [0.49, p * 0.2], [0.58, p * 0.85],
+        [0.61, p * 0.12], [0.72, p * 1.05], [0.78, p * 0.25],
+        [0.88, p * 0.55], [1, c],
+      ];
+      break;
+    case "liquidation-cascade":
+      frames = [
+        [0, 1], [0.06, p * 0.3], [0.1, p * 0.7], [0.115, p * 0.1],
+        [0.15, p * 0.5], [0.18, p * 0.9], [0.195, p * 0.025],
+        [0.22, p * 0.3], [0.28, p * 0.08], [0.35, p * 0.65],
+        [0.365, p * 0.018], [0.4, p * 0.25], [0.48, p * 1.6],
+        [0.495, p * 0.05], [0.56, p * 0.7], [0.63, p * 0.04],
+        [0.71, p * 1.2], [0.76, p * 0.09], [0.86, p * 0.4], [1, c],
+      ];
+      break;
+    case "whipsaw":
+    default:
+      frames = [
+        [0, 1], [0.08, 1.7], [0.13, 1.1], [0.19, p * 0.7],
+        [0.22, p * 0.3], [0.27, p * 0.8], [0.33, p * 0.55],
+        [0.4, p], [0.46, p * 0.4], [0.54, p * 1.2],
+        [0.59, p * 0.22], [0.68, p * 0.75], [0.73, p * 0.18],
+        [0.82, p * 0.45], [0.9, p * 0.1], [1, c],
+      ];
+      break;
+  }
+  return interpolatePumpFrames(frames, progress);
 }
 
 /** 모든 클라이언트에서 동일하지만 플레이어에게는 공개하지 않는 실제 상장폐지 시각. */
@@ -121,11 +219,22 @@ export function pumpPriceAt(spec: PumpSpec, now: number): number {
   // 상승 중에도 예고 없이 끝날 수 있고, 수명 역산으로 안전한 매도 시점을 알 수 없다.
   const lifeMs = PUMP_LIFETIME_SESSIONS * SESSION_DURATION_MS;
   const f = (now - start) / lifeMs;
+  const waveRand = seededRand(spec.spawnSession, "pump-tape-wave");
+  const phaseA = waveRand() * Math.PI * 2;
+  const phaseB = waveRand() * Math.PI * 2;
+  const tapeWave =
+    0.035 * (Math.sin(f * Math.PI * 34 + phaseA) - Math.sin(phaseA)) +
+    0.025 * (Math.sin(f * Math.PI * 82 + phaseB) - Math.sin(phaseB));
   const noise =
-    (seededRand(Math.floor(now / SIM_TICK_MS), spec.id)() - 0.5) * 0.04;
+    (seededRand(Math.floor(now / SIM_TICK_MS), `${spec.id}-pump-tape`)() - 0.5) *
+    0.1;
   return Math.max(
-    50,
-    Math.round(spec.basePrice * pumpCurve(spec, f) * (1 + noise)),
+    1,
+    Math.round(
+      spec.basePrice *
+        pumpPatternMultiplierAt(spec, f) *
+        Math.max(0.75, 1 + tapeWave + noise),
+    ),
   );
 }
 

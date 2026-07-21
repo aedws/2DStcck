@@ -117,6 +117,10 @@ export default function PumpDetailPage() {
               🚫 급등주는 공매도(하락 베팅)가 불가합니다 — 매수 후 정점에서
               매도하는 방향만 열려 있습니다.
             </p>
+            <p className="mt-1 font-semibold text-red-300">
+              💥 이중천장·가짜 돌파·99%급 플래시 크래시 뒤 재폭등도 발생합니다.
+              미수 사용 시 순간 낙폭만으로 계좌 전체가 강제청산될 수 있습니다.
+            </p>
           </div>
           <CandlestickChart
             candles={pump.candles}
