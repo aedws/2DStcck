@@ -173,6 +173,10 @@ export function isBathRow(y: number, rows: number): boolean {
   return y >= rows - ROOM_BATH_ROWS;
 }
 
+/** 뒷벽 출입문 위치(벽 아래줄 고정). 이 칸엔 가구를 걸 수 없다. */
+export const ROOM_DOOR_X = 2;
+export const ROOM_DOOR_Y = ROOM_WALL_ROWS - 1;
+
 export function normalizeRoomLevel(value: unknown): number {
   const level = Number(value);
   if (!Number.isInteger(level) || level < 0) return 0;
@@ -273,6 +277,8 @@ export function isValidRoomCell(
   const dims = roomDimsForLevel(level);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
   if (x < 0 || x >= dims.cols || y < 0 || y >= dims.rows) return false;
+  // 출입문 칸은 항상 비워 둔다.
+  if (x === ROOM_DOOR_X && y === ROOM_DOOR_Y) return false;
   if (item.wallOnly) return isWallRow(y);
   return !isWallRow(y);
 }

@@ -5,9 +5,12 @@ import { useMarketStore } from "@/store/marketStore";
 import { formatPrice } from "@/lib/market/engine";
 import { toastResult } from "@/store/toastStore";
 import {
+  ROOM_DOOR_X,
+  ROOM_DOOR_Y,
   ROOM_ITEMS,
   ROOM_SELL_RATIO,
   ROOM_THEMES,
+  ROOM_WALL_ROWS,
   getRoomItem,
   getRoomTheme,
   isBathRow,
@@ -20,6 +23,138 @@ import {
 } from "@/data/roomItems";
 
 const CATEGORY_ORDER: RoomItemCategory[] = ["가구", "욕실", "장식", "펫", "프리미엄"];
+
+/** 날마다 바뀌는 숙소 주민 — 문으로 들어와 돌아다니다 나간다. */
+const RESIDENT_EMOJIS = ["🐰", "🐱", "🦊", "🐻", "🐹", "🐧"];
+const RESIDENT_STEP_MS = 850;
+
+interface ResidentState {
+  x: number;
+  y: number;
+  visible: boolean;
+  facing: 1 | -1;
+  bathing: boolean;
+}
+
+function RoomResident({
+  cols,
+  rows,
+  occupiedCells,
+  cellText,
+}: {
+  cols: number;
+  rows: number;
+  occupiedCells: Set<string>;
+  cellText: string;
+}) {
+  const [state, setState] = useState<ResidentState>({
+    x: ROOM_DOOR_X,
+    y: ROOM_WALL_ROWS,
+    visible: false,
+    facing: 1,
+    bathing: false,
+  });
+  const emoji = useMemo(
+    () =>
+      RESIDENT_EMOJIS[
+        Math.floor(Date.now() / 86_400_000) % RESIDENT_EMOJIS.length
+      ],
+    [],
+  );
+
+  useEffect(() => {
+    // 간단한 상태기계: 입장 → 랜덤 산책(가구 칸 회피) → 문으로 복귀 → 퇴장·대기.
+    let x = ROOM_DOOR_X;
+    let y = ROOM_WALL_ROWS;
+    let facing: 1 | -1 = 1;
+    let visible = false;
+    let leaving = false;
+    let steps = 0;
+    let waitTicks = 2;
+
+    const free = (nx: number, ny: number) =>
+      nx >= 0 &&
+      nx < cols &&
+      ny >= ROOM_WALL_ROWS &&
+      ny < rows &&
+      !occupiedCells.has(`${nx}:${ny}`);
+    const doorDistance = (nx: number, ny: number) =>
+      Math.abs(nx - ROOM_DOOR_X) + (ny - ROOM_WALL_ROWS);
+
+    const id = window.setInterval(() => {
+      if (!visible) {
+        if (waitTicks > 0) {
+          waitTicks--;
+          return;
+        }
+        visible = true;
+        leaving = false;
+        steps = 0;
+        x = ROOM_DOOR_X;
+        y = ROOM_WALL_ROWS;
+        facing = 1;
+        setState({ x, y, visible, facing, bathing: false });
+        return;
+      }
+      if (leaving && x === ROOM_DOOR_X && y === ROOM_WALL_ROWS) {
+        visible = false;
+        waitTicks = 6 + Math.floor(Math.random() * 8);
+        setState((prev) => ({ ...prev, visible: false }));
+        return;
+      }
+      let candidates = (
+        [
+          [x + 1, y],
+          [x - 1, y],
+          [x, y + 1],
+          [x, y - 1],
+        ] as const
+      ).filter(([nx, ny]) => free(nx, ny));
+      if (leaving) {
+        const closer = candidates.filter(
+          ([nx, ny]) => doorDistance(nx, ny) < doorDistance(x, y),
+        );
+        if (closer.length > 0) candidates = closer;
+      }
+      if (candidates.length > 0 && (leaving || Math.random() > 0.18)) {
+        const [nx, ny] =
+          candidates[Math.floor(Math.random() * candidates.length)];
+        if (nx !== x) facing = nx > x ? 1 : -1;
+        x = nx;
+        y = ny;
+      }
+      steps++;
+      if (!leaving && steps > 22 + Math.random() * 18) leaving = true;
+      setState({
+        x,
+        y,
+        visible: true,
+        facing,
+        bathing: isBathRow(y, rows),
+      });
+    }, RESIDENT_STEP_MS);
+    return () => window.clearInterval(id);
+  }, [cols, rows, occupiedCells]);
+
+  if (!state.visible) return null;
+  return (
+    <div
+      className={`pointer-events-none absolute z-10 flex items-center justify-center ${cellText}`}
+      style={{
+        left: `${(state.x / cols) * 100}%`,
+        top: `${(state.y / rows) * 100}%`,
+        width: `${100 / cols}%`,
+        height: `${100 / rows}%`,
+        transition: `left ${RESIDENT_STEP_MS}ms linear, top ${RESIDENT_STEP_MS}ms linear`,
+      }}
+    >
+      {state.bathing && (
+        <span className="absolute -top-1 right-0 text-[8px] sm:text-[10px]">♨️</span>
+      )}
+      <span style={{ transform: `scaleX(${state.facing})` }}>{emoji}</span>
+    </div>
+  );
+}
 
 type RoomMode =
   | { type: "idle" }
@@ -49,6 +184,7 @@ export default function MyRoomPage() {
     myRoomItems.forEach((placed, index) => map.set(`${placed.x}:${placed.y}`, index));
     return map;
   }, [myRoomItems]);
+  const occupiedCells = useMemo(() => new Set(cellMap.keys()), [cellMap]);
 
   const roomValue = useMemo(
     () => myRoomItems.reduce((sum, placed) => sum + placed.paidPrice, 0),
@@ -80,6 +216,7 @@ export default function MyRoomPage() {
   function cellPlaceable(x: number, y: number): boolean {
     if (!placingItem) return false;
     if (cellMap.has(`${x}:${y}`)) return false;
+    if (x === ROOM_DOOR_X && y === ROOM_DOOR_Y) return false;
     return placingItem.wallOnly ? isWallRow(y) : !isWallRow(y);
   }
 
@@ -141,7 +278,7 @@ export default function MyRoomPage() {
         style={{ borderColor: palette.frame, background: `${palette.frame}33` }}
       >
         <div
-          className="grid overflow-hidden rounded-2xl"
+          className="relative grid overflow-hidden rounded-2xl"
           style={{ gridTemplateColumns: `repeat(${dims.cols}, minmax(0, 1fr))` }}
         >
           {Array.from({ length: dims.rows }).flatMap((_, y) =>
@@ -197,6 +334,30 @@ export default function MyRoomPage() {
                     isMovingSource ? "opacity-40" : ""
                   }`}
                 >
+                  {/* 뒷벽 출입문 — 항상 비워 두는 고정 구조물 */}
+                  {x === ROOM_DOOR_X && y === ROOM_DOOR_Y && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-[14%] bottom-0 top-[12%] rounded-t-[45%]"
+                      style={{
+                        background: "linear-gradient(180deg, #92400e, #78350f)",
+                        boxShadow: "inset 0 0 0 2px #b4530966",
+                      }}
+                    >
+                      <span
+                        className="absolute right-[18%] top-1/2 h-[3px] w-[3px] rounded-full sm:h-1 sm:w-1"
+                        style={{ background: "#fcd34d" }}
+                      />
+                    </span>
+                  )}
+                  {/* 문 앞 발매트 */}
+                  {x === ROOM_DOOR_X && y === ROOM_WALL_ROWS && !def && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-[16%] inset-y-[28%] rounded-[30%] opacity-40"
+                      style={{ background: palette.divider }}
+                    />
+                  )}
                   {def && (
                     <span className={def.category === "프리미엄" ? "drop-shadow-[0_0_6px_rgba(250,204,21,0.9)]" : ""}>
                       {def.emoji}
@@ -206,6 +367,38 @@ export default function MyRoomPage() {
               );
             }),
           )}
+
+          {/* 구역 라벨 — 공간의 용도를 드러낸다 */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1.5 z-10 rounded px-1 text-[8px] font-bold opacity-60 sm:text-[10px]"
+            style={{
+              top: `calc(${(ROOM_WALL_ROWS / dims.rows) * 100}% + 2px)`,
+              color: palette.divider,
+              background: `${palette.floorA}cc`,
+            }}
+          >
+            🛏️ 숙소
+          </span>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1.5 z-10 rounded px-1 text-[8px] font-bold opacity-60 sm:text-[10px]"
+            style={{
+              top: `calc(${((dims.rows - 3) / dims.rows) * 100}% + 2px)`,
+              color: palette.divider,
+              background: `${palette.bathA}cc`,
+            }}
+          >
+            ♨️ 욕장
+          </span>
+
+          {/* 숙소 주민 — 문으로 들어와 산책하고 탕도 들른다 */}
+          <RoomResident
+            cols={dims.cols}
+            rows={dims.rows}
+            occupiedCells={occupiedCells}
+            cellText={cellText}
+          />
         </div>
       </div>
 
