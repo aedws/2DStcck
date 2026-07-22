@@ -301,8 +301,16 @@ export function calculateTickPrice(
       dtSeconds +
     noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
+  const roundedPrice = Math.max(Math.round(nextPrice), 100);
+  if (stock.maxDailyLossRate === undefined) return roundedPrice;
 
-  return Math.max(Math.round(nextPrice), 100);
+  const lossRate = Math.min(1, Math.max(0, stock.maxDailyLossRate));
+  const sessionOpenReference =
+    stock.daySessionId !== undefined && stock.daySessionId !== session
+      ? stock.currentPrice
+      : stock.prevDayClose;
+  const dailyFloor = Math.round(sessionOpenReference * (1 - lossRate));
+  return Math.max(roundedPrice, dailyFloor, 100);
 }
 
 /** 30초봉 6시간, 일봉 약 5게임년을 보존한다. */

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { formatPercent, formatPrice, formatCompactMoney } from "@/lib/market/engine";
 import {
@@ -56,6 +57,7 @@ type HoldingSortKey =
 type SortDirection = "asc" | "desc";
 
 export default function PortfolioPage() {
+  const router = useRouter();
   const [holdingSort, setHoldingSort] = useState<{
     key: HoldingSortKey | null;
     direction: SortDirection;
@@ -604,18 +606,23 @@ export default function PortfolioPage() {
                   return (
                     <tr
                       key={h.stockId}
-                      className="border-b border-zinc-800/50 hover:bg-zinc-900/50"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => router.push(stockHref(h.stockId))}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        router.push(stockHref(h.stockId));
+                      }}
+                      className="group cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
                     >
                     <td className="px-4 py-3">
-                      <Link
-                        href={stockHref(h.stockId)}
-                        className="font-medium hover:text-emerald-400"
-                      >
+                      <span className="font-medium group-hover:text-emerald-400">
                         {stock.name}
                         <span className="ml-2 text-xs text-zinc-500">
                           {stock.ticker}
                         </span>
-                      </Link>
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {h.quantity.toLocaleString("ko-KR", {

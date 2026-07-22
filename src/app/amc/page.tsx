@@ -14,8 +14,10 @@ import {
   AMC_DIVIDEND_INTERVALS,
   AMC_FOUNDING_BURN,
   AMC_GRACE_DAYS,
+  AMC_MAX_DIVIDEND_INTERVAL_DAYS,
   AMC_MAX_HOLDING_WEIGHT,
   AMC_MAX_HOLDINGS,
+  AMC_MIN_DIVIDEND_INTERVAL_DAYS,
   AMC_MIN_HOLDING_WEIGHT,
   AMC_MIN_HOLDINGS,
   AMC_MIN_NET_WORTH,
@@ -1264,20 +1266,39 @@ export default function AssetManagerPage() {
               </p>
             )}
           </div>
-          {(fundStyle === "active" || mixedDividendCadences) && (
+          {mixedDividendCadences ? (
             <Field
-              label={
-                mixedDividendCadences
-                  ? "배당 주기 (거래일 · 혼재 시 선택)"
-                  : "배당 주기 (거래일)"
-              }
+              label={`배당 주기 (운용사 재량 · ${AMC_MIN_DIVIDEND_INTERVAL_DAYS}~${AMC_MAX_DIVIDEND_INTERVAL_DAYS}거래일)`}
             >
-              <select
+              <input
+                type="number"
+                min={AMC_MIN_DIVIDEND_INTERVAL_DAYS}
+                max={AMC_MAX_DIVIDEND_INTERVAL_DAYS}
+                step="1"
                 value={dividendIntervalDays}
                 onChange={(event) =>
                   setDividendIntervalDays(
-                    Number(event.target.value) as AmcDividendIntervalDays,
+                    Math.max(
+                      AMC_MIN_DIVIDEND_INTERVAL_DAYS,
+                      Math.min(
+                        AMC_MAX_DIVIDEND_INTERVAL_DAYS,
+                        Math.floor(Number(event.target.value) || 1),
+                      ),
+                    ),
                   )
+                }
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-[var(--muted)]">
+                구성 종목의 지급 주기가 섞여 있어 운용사가 N거래일을 직접 정합니다.
+              </p>
+            </Field>
+          ) : fundStyle === "active" ? (
+            <Field label="배당 주기 (거래일)">
+              <select
+                value={dividendIntervalDays}
+                onChange={(event) =>
+                  setDividendIntervalDays(Number(event.target.value))
                 }
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
               >
@@ -1288,7 +1309,7 @@ export default function AssetManagerPage() {
                 ))}
               </select>
             </Field>
-          )}
+          ) : null}
           {fundStyle === "passive" && !mixedDividendCadences && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-xs text-[var(--muted)]">
               배당 주기{" "}

@@ -14,6 +14,7 @@ import {
   foundAssetManager,
   hasMixedDividendCadences,
   isAmcFundStockId,
+  normalizeAmcDividendInterval,
   rebalanceAmcFund,
   settleAmcDividends,
   settleAmcManagementFees,
@@ -384,6 +385,11 @@ assert.equal(
   ),
   true,
 );
+assert.equal(normalizeAmcDividendInterval(37), 37);
+assert.equal(normalizeAmcDividendInterval(1), 1);
+assert.equal(normalizeAmcDividendInterval(240), 240);
+assert.equal(normalizeAmcDividendInterval(0), 60);
+assert.equal(normalizeAmcDividendInterval(241), 60);
 
 // 액티브: 회차율 설정 → NAV 차감 (좌당 1¢ 이상 되도록 충분한 요율)
 const withDiv = {

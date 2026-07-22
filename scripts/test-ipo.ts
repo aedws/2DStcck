@@ -13,6 +13,7 @@ import {
   SESSION_DURATION_MS,
 } from "../src/lib/market/constants";
 import {
+  calculateTickPrice,
   createInitialStockState,
   resolveEventTemplate,
 } from "../src/lib/market/engine";
@@ -82,7 +83,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["dante", "gsck", "hinafg", "minori", "nagusa", "udnge", "yakumo", "yisang"],
+  ["carrot", "dante", "faust", "gsck", "hinafg", "miku", "minori", "nagusa", "udnge", "yakumo", "yisang"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -148,6 +149,51 @@ assert.deepEqual(
   resolveEventTemplate(minoriBurn, minoriListing, () => 0.5)?.affectedStockIds,
   ["minori"],
   "미노리 용역 전용 사건이 다른 종목에 배정됨",
+);
+
+// 캬롯 농장: 7/25 12:00 KST 개장, 무배당 저변동 성장과 전일 대비 -3% 하한
+const carrot = getCompanyDefinitions().find((stock) => stock.id === "carrot");
+assert.ok(carrot, "캬롯 농장 정의가 없음");
+const carrotListing = Date.UTC(2026, 6, 25, 3, 0);
+assert.equal(carrot.ticker, "CROT");
+assert.equal(carrot.sector, "식품·외식");
+assert.deepEqual(carrot.marketTags, ["식품"]);
+assert.equal(carrot.listingEpochMs, carrotListing);
+assert.equal(carrot.quarterlyDividend, undefined);
+assert.equal(carrot.maxDailyLossRate, 0.03);
+assert.ok(carrot.volatility <= 0.02, "장기 투자형 저변동 성향이 필요함");
+assert.ok(carrot.drift > 0, "지수 대비 소폭 성장 성향이 필요함");
+assert.equal(isListed(carrot, carrotListing - 1), false);
+assert.equal(isListed(carrot, carrotListing), true);
+
+const carrotBumperCrop = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "carrot" && template.tag === "대풍작",
+);
+assert.ok(carrotBumperCrop, "캬롯 농장 대풍작 사건이 없음");
+assert.ok(carrotBumperCrop.impact <= -1, "대풍작 공급 과잉 충격이 부족함");
+const carrotState = createInitialStockState(carrot, carrotListing);
+const carrotFloor = calculateTickPrice(
+  carrotState,
+  [
+    {
+      id: "carrot-floor-test",
+      title: "대풍작",
+      description: "공급 과잉",
+      category: "company",
+      tag: "대풍작",
+      impact: -100,
+      affectedStockIds: ["carrot"],
+      timestamp: carrotListing,
+    },
+  ],
+  carrotListing + 1000,
+  0,
+  10,
+  () => 0.5,
+);
+assert.ok(
+  carrotFloor >= Math.round(carrotState.prevDayClose * 0.97),
+  "캬롯 농장 하루 -3% 하한이 지켜지지 않음",
 );
 
 // 나구사 야키토리&닭꼬치: 7/23 15:00 KST 개장과 AI 급등·조류독감 급락 사건

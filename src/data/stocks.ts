@@ -483,6 +483,29 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_miku",
   },
+  {
+    id: "carrot",
+    ticker: "CROT",
+    name: "캬롯 농장",
+    instrumentType: "company",
+    sector: "식품·외식",
+    subsector: "농축산물 생산·판매",
+    marketTags: ["식품"],
+    initialPrice: 28000,
+    volatility: 0.018,
+    drift: 0.0008,
+    beta: 0.72,
+    maxDailyLossRate: 0.03,
+    description:
+      "캬롯이 대표로 있는 농축산물 판매기업. 적은 비료로도 높은 수확량을 내며, 드물게 회사 농장에만 기록적인 대풍작이 발생해 공급 과잉을 부르기도 한다. 유보금을 두텁게 쌓아 주주환원에는 소극적이지만 하루 하락폭을 전일 종가 대비 3%로 방어하며 장기적으로 지수보다 소폭 높은 성장을 지향한다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      수확량: 3,
+      대풍작: 2,
+      실적: 2,
+      스캔들: 0.5,
+    },
+    ceoId: "chr_carrot",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -984,5 +1007,23 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "대형 브랜드 콜라보 계약의 판권·사용 범위를 둘러싼 분쟁이 불거졌습니다. 공연·굿즈 일정 차질 우려에 매물이 쏟아집니다.",
     impact: -1.2,
+  },
+  {
+    category: "company",
+    companyId: "carrot",
+    tag: "수확량",
+    title: "캬롯 농장, 저비료 고수확 재배법 상용화",
+    description:
+      "적은 비료로 동일 면적에서 훨씬 많은 농축산물을 생산하는 재배법이 검증됐습니다. 원가 경쟁력과 장기 성장 기대가 높아집니다.",
+    impact: 0.55,
+  },
+  {
+    category: "company",
+    companyId: "carrot",
+    tag: "대풍작",
+    title: "캬롯 농장만 기록적 대풍작, 공급 과잉 우려",
+    description:
+      "회사 소유 농장에 이례적인 대풍작이 발생해 시장 가격이 급락했습니다. 업계 전반의 채산성이 흔들리지만, 캬롯 농장은 쌓아 둔 유보금으로 손실을 방어합니다.",
+    impact: -1.1,
   },
 ];

@@ -84,6 +84,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "버추얼 싱어 IP의 얼굴. 신곡과 라이브, 굿즈·콜라보를 통해 팬덤과 브랜드를 동시에 움직이며, 무대 위의 청록 트윈테일로 콘텐츠 매출의 중심을 지킨다.",
     emoji: "🎤",
   },
+  {
+    id: "chr_carrot",
+    name: "캬롯",
+    title: "캬롯 농장 대표",
+    traits: ["성실", "농업", "절약"],
+    bio: "적은 비료로도 높은 수확량을 끌어내는 농장 대표. 가끔 자기 농장에만 믿기 어려운 대풍작을 일으키지만, 두텁게 쌓은 유보금으로 회사와 주주의 하방을 지키려 한다.",
+    emoji: "🥕",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

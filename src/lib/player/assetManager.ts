@@ -21,7 +21,9 @@ export const AMC_MIN_HOLDING_WEIGHT = 0.01;
 export const AMC_MAX_HOLDING_WEIGHT = 0.5;
 export const AMC_FUND_ID_PREFIX = "amc:" as const;
 export const AMC_DIVIDEND_INTERVALS = [5, 20, 60] as const;
-export type AmcDividendIntervalDays = (typeof AMC_DIVIDEND_INTERVALS)[number];
+export const AMC_MIN_DIVIDEND_INTERVAL_DAYS = 1;
+export const AMC_MAX_DIVIDEND_INTERVAL_DAYS = 240;
+export type AmcDividendIntervalDays = number;
 export const AMC_SHARE_ADJUSTMENT_RATIOS = [2, 5, 10] as const;
 export type AmcShareAdjustmentRatio =
   (typeof AMC_SHARE_ADJUSTMENT_RATIOS)[number];
@@ -265,7 +267,13 @@ export function normalizeAmcDividendInterval(
   fallback: AmcDividendIntervalDays = 60,
 ): AmcDividendIntervalDays {
   const number = Math.floor(Number(value));
-  if (number === 5 || number === 20 || number === 60) return number;
+  if (
+    Number.isFinite(number) &&
+    number >= AMC_MIN_DIVIDEND_INTERVAL_DAYS &&
+    number <= AMC_MAX_DIVIDEND_INTERVAL_DAYS
+  ) {
+    return number;
+  }
   return fallback;
 }
 

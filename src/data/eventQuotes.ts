@@ -265,6 +265,32 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "콜라보가 꼬여도, 제가 부를 수 있는 노래는 남아 있어요.",
     ],
   },
+  {
+    characterId: "chr_carrot",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "비료는 적게, 수확은 많이! 올해도 창고가 가득 찼어요.",
+      "조금씩 오래 키우면 지수보다 당근 한 개쯤은 더 먹을 수 있죠!",
+    ],
+  },
+  {
+    characterId: "chr_carrot",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "괜찮아요. 이럴 때 쓰려고 유보금을 남겨 둔 거니까요!",
+      "작년 영업이익만큼 손해라면… 다시 농사 지으면 돼요.",
+    ],
+  },
+  {
+    characterId: "chr_carrot",
+    tag: "대풍작",
+    direction: "negative",
+    quotes: [
+      "우리 농장만 대풍작이라니… 시장 가격은 제가 지켜 볼게요.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

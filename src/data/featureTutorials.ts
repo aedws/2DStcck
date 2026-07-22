@@ -336,7 +336,7 @@ export const AMC_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const AMC_ETF_TUTORIAL_VERSION = 6;
+export const AMC_ETF_TUTORIAL_VERSION = 7;
 export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🔎",
@@ -370,8 +370,8 @@ export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
   {
     emoji: "🗓️",
-    title: "배당 주기 5·20·60 거래일",
-    body: "펀드 배당 주기를 5/20/60거래일 중 고를 수 있습니다. 패시브에서 단기 인컴(5일)과 분기 배당(60일)이 섞이면 주기를 직접 고르고, 한 종류만 있으면 그 주기에 맞춥니다. 미지급분은 접속 시 최근 회차까지 정산됩니다.",
+    title: "혼합 배당은 N거래일로 자유 설정",
+    body: "패시브 구성 종목의 배당 주기가 서로 다르면 운용사가 1~240거래일 범위에서 N거래일을 직접 정합니다. 한 종류만 있으면 그 주기를 자동으로 따르고, 액티브는 5/20/60거래일 빠른 선택을 제공합니다. 미지급분은 서버가 최근 회차까지 정산합니다.",
   },
   {
     emoji: "✅",

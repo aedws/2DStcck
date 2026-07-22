@@ -32,4 +32,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   faust: Date.UTC(2026, 6, 24, 10, 0),
   // 미쿠 엔터테인먼트(MIKU) — 2026-07-24 21:30 KST 개장 (= 12:30 UTC)
   miku: Date.UTC(2026, 6, 24, 12, 30),
+  // 캬롯 농장(CROT) — 2026-07-25 12:00 KST 개장 (= 03:00 UTC)
+  carrot: Date.UTC(2026, 6, 25, 3, 0),
 };

@@ -111,6 +111,8 @@ export interface StockDefinition {
   coveredCallDistributionIntervalDays?: number;
   /** 일반 주식·ETF의 분기 주당 배당금(센트). 60거래일마다 지급한다. */
   quarterlyDividend?: number;
+  /** 전일 종가 대비 하루 최대 하락률(0~1). 지정 종목의 하방 방어 규칙에 사용한다. */
+  maxDailyLossRate?: number;
   /**
    * IPO 상장 예정 시각(ms). 설정 시 이 시각 전에는 상장 전(비거래·비노출)이며
    * IPO 탭에 카운트다운으로만 보인다. 이 시각부터 공모가(initialPrice)로 개장해
