@@ -336,7 +336,7 @@ export const AMC_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const AMC_ETF_TUTORIAL_VERSION = 5;
+export const AMC_ETF_TUTORIAL_VERSION = 6;
 export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🔎",
@@ -351,7 +351,12 @@ export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🧺",
     title: "유저 ETF 만들기",
-    body: "기업 종목을 3개 이상 골라 바스켓을 만듭니다. 비중은 금액(가치) 비율이며 동일 좌수가 아닙니다. 패시브는 낮은 운용료로 비중을 자유롭게 고치거나 ‘동일 비중 유지’로 맞출 수 있고, 액티브는 30거래일마다 5%p 이상 손바꿈이 필요합니다.",
+    body: "기업 종목을 3개 이상 골라 바스켓을 만듭니다. 패시브는 ‘동일 비중으로 담기’를 켜거나, 해제한 뒤 종목별 1~50% 범위에서 합계 100%가 되도록 직접 설정할 수 있습니다. 비중은 금액(가치) 비율이며 동일 좌수가 아닙니다.",
+  },
+  {
+    emoji: "💗",
+    title: "구성 캐릭터와 관계 형성",
+    body: "유저 ETF를 계좌의 3% 이상 보유하면 바스켓에 포함된 캐릭터 전원의 장기 보유 호감도가 오릅니다. 한 캐릭터만을 기초로 만든 테마 ETF는 설정 시 큰 발행 보너스를 받고, 보유 중에도 일반 유저 ETF보다 조금 빠르게 오릅니다.",
   },
   {
     emoji: "🌱",

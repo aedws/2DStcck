@@ -14,7 +14,9 @@ import {
   AMC_DIVIDEND_INTERVALS,
   AMC_FOUNDING_BURN,
   AMC_GRACE_DAYS,
+  AMC_MAX_HOLDING_WEIGHT,
   AMC_MAX_HOLDINGS,
+  AMC_MIN_HOLDING_WEIGHT,
   AMC_MIN_HOLDINGS,
   AMC_MIN_NET_WORTH,
   AMC_REBALANCE_WINDOW_DAYS,
@@ -92,6 +94,18 @@ function amcHoldingKindOf(stock: {
   return "company";
 }
 
+function equalWeightPercentages(stockIds: string[]): Record<string, string> {
+  if (!stockIds.length) return {};
+  const baseHundredths = Math.floor(10_000 / stockIds.length);
+  let remainder = 10_000 - baseHundredths * stockIds.length;
+  return Object.fromEntries(
+    stockIds.map((stockId) => {
+      const hundredths = baseHundredths + (remainder-- > 0 ? 1 : 0);
+      return [stockId, (hundredths / 100).toFixed(2)];
+    }),
+  );
+}
+
 export default function AssetManagerPage() {
   const assetManager = useMarketStore((state) => state.assetManager);
   const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
@@ -159,6 +173,10 @@ export default function AssetManagerPage() {
   const [benchmarkId, setBenchmarkId] = useState("");
   const [seedDollars, setSeedDollars] = useState("1000");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [equalWeight, setEqualWeight] = useState(true);
+  const [holdingWeightPct, setHoldingWeightPct] = useState<
+    Record<string, string>
+  >({});
   const [holdingSearch, setHoldingSearch] = useState("");
   const [holdingKind, setHoldingKind] = useState<
     "all" | AmcHoldingKind
@@ -339,14 +357,37 @@ export default function AssetManagerPage() {
     );
   }, [listedAmcFunds, managedFunds, userId]);
 
+  useEffect(() => {
+    setHoldingWeightPct(equalWeightPercentages(selectedIds));
+  }, [selectedIds]);
+
+  const useEqualCreationWeights = fundStyle !== "passive" || equalWeight;
   const selectedHoldings = useMemo(
     () =>
       selectedIds.map((stockId) => ({
         stockId,
-        weight: 1 / Math.max(selectedIds.length, 1),
+        weight: useEqualCreationWeights
+          ? 1 / Math.max(selectedIds.length, 1)
+          : Number(holdingWeightPct[stockId] ?? "") / 100,
       })),
-    [selectedIds],
+    [holdingWeightPct, selectedIds, useEqualCreationWeights],
   );
+  const selectedWeightTotal = selectedIds.reduce(
+    (sum, stockId) => sum + Number(holdingWeightPct[stockId] ?? 0),
+    0,
+  );
+  const manualWeightInvalid =
+    fundStyle === "passive" &&
+    !equalWeight &&
+    (Math.abs(selectedWeightTotal - 100) > 0.005 ||
+      selectedIds.some((stockId) => {
+        const weight = Number(holdingWeightPct[stockId]);
+        return (
+          !Number.isFinite(weight) ||
+          weight < AMC_MIN_HOLDING_WEIGHT * 100 ||
+          weight > AMC_MAX_HOLDING_WEIGHT * 100
+        );
+      }));
 
   const stockOfSelected = (stockId: string) =>
     stocks.find((stock) => stock.id === stockId);
@@ -409,14 +450,13 @@ export default function AssetManagerPage() {
   const handleCreateFund = async () => {
     setCreating(true);
     const feeRate = Number(feeRatePct) / 100;
-    const equal = 1 / Math.max(selectedIds.length, 1);
     const result = await createAmcFund({
       name: fundName,
       ticker: fundTicker,
       style: fundStyle,
       feeRate,
       benchmarkStockId: fundStyle === "active" ? benchmarkId : undefined,
-      holdings: selectedIds.map((stockId) => ({ stockId, weight: equal })),
+      holdings: selectedHoldings,
       seedCash: seedCents,
       dividendIntervalDays,
       dividendRate:
@@ -439,6 +479,8 @@ export default function AssetManagerPage() {
       setFundName("");
       setFundTicker("");
       setSelectedIds([]);
+      setEqualWeight(true);
+      setHoldingWeightPct({});
       setDividendRatePct("0");
       void refreshListingRequests();
       void refreshListedAmcFunds();
@@ -910,8 +952,8 @@ export default function AssetManagerPage() {
                       <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-3">
                         <p className="text-xs font-bold text-cyan-200">
                           {fund.style === "active"
-                            ? "액티브 금액 비중 조절 (합 100% · 한 종목 5%p 이상 변경)"
-                            : "패시브 금액 비중 조절 (합 100% · 동일 좌수 아님)"}
+                            ? "액티브 금액 비중 조절 (합 100% · 종목별 1~50% · 한 종목 5%p 이상 변경)"
+                            : "패시브 금액 비중 조절 (합 100% · 종목별 1~50% · 동일 좌수 아님)"}
                         </p>
                         <p className="mt-1 text-[11px] text-[var(--muted)]">
                           비중은 구성 종목의 금액(가치) 목표 비율입니다. 주당 매수
@@ -934,6 +976,10 @@ export default function AssetManagerPage() {
                                   {stock?.ticker ?? row.stockId}
                                 </span>
                                 <input
+                                  type="number"
+                                  min={AMC_MIN_HOLDING_WEIGHT * 100}
+                                  max={AMC_MAX_HOLDING_WEIGHT * 100}
+                                  step="0.1"
                                   value={draft}
                                   onChange={(event) => {
                                     const value = event.target.value.replace(
@@ -1295,7 +1341,7 @@ export default function AssetManagerPage() {
         <div className="mt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold text-[var(--muted)]">
-              구성 종목 선택 ({selectedIds.length}/{AMC_MAX_HOLDINGS} · 금액 동일비중)
+              구성 종목 선택 ({selectedIds.length}/{AMC_MAX_HOLDINGS} · 금액 비중)
             </p>
             {selectedIds.length > 0 && (
               <button
@@ -1347,6 +1393,73 @@ export default function AssetManagerPage() {
               })}
             </div>
           )}
+          {fundStyle === "passive" && selectedIds.length > 0 && (
+            <div className="mt-3 rounded-2xl border border-cyan-400/25 bg-cyan-400/5 p-3">
+              <label className="flex cursor-pointer items-start gap-2 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={equalWeight}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setEqualWeight(checked);
+                    if (!checked) {
+                      setHoldingWeightPct(equalWeightPercentages(selectedIds));
+                    }
+                  }}
+                  className="mt-0.5"
+                />
+                <span>
+                  동일 비중으로 담기
+                  <span className="mt-1 block font-normal text-[var(--muted)]">
+                    해제하면 종목별 1~50% 범위에서 직접 입력하며 합계는 정확히
+                    100%여야 합니다.
+                  </span>
+                </span>
+              </label>
+              {!equalWeight && (
+                <>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {selectedIds.map((stockId) => {
+                      const stock = stocks.find((item) => item.id === stockId);
+                      return (
+                        <label
+                          key={stockId}
+                          className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs"
+                        >
+                          <span className="min-w-0 flex-1 truncate font-bold">
+                            {stock?.ticker ?? stockId}
+                          </span>
+                          <input
+                            type="number"
+                            min={AMC_MIN_HOLDING_WEIGHT * 100}
+                            max={AMC_MAX_HOLDING_WEIGHT * 100}
+                            step="0.01"
+                            value={holdingWeightPct[stockId] ?? ""}
+                            onChange={(event) =>
+                              setHoldingWeightPct((prev) => ({
+                                ...prev,
+                                [stockId]: event.target.value,
+                              }))
+                            }
+                            aria-label={`${stock?.ticker ?? stockId} 비중`}
+                            className="w-20 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-right tabular-nums"
+                          />
+                          <span className="text-[var(--muted)]">%</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p
+                    className={`mt-2 text-right text-xs font-black tabular-nums ${
+                      manualWeightInvalid ? "text-rose-300" : "text-emerald-300"
+                    }`}
+                  >
+                    합계 {selectedWeightTotal.toFixed(2)}% / 100%
+                  </p>
+                </>
+              )}
+            </div>
+          )}
           <div className="mt-2 grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
             {visibleHoldingStocks.map((stock) => {
               const on = selectedIds.includes(stock.id);
@@ -1387,6 +1500,7 @@ export default function AssetManagerPage() {
           disabled={
             creating ||
             selectedIds.length < AMC_MIN_HOLDINGS ||
+            manualWeightInvalid ||
             shareAdjustmentInvalid
           }
           className="mt-4 min-h-12 w-full rounded-2xl bg-cyan-500 px-5 text-sm font-black text-white disabled:bg-[var(--border)] disabled:text-[var(--muted)]"

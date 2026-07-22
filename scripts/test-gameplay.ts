@@ -91,6 +91,7 @@ import {
   addStorySupportAffinity,
   canUseBondChoice,
   getCharacterProgress,
+  resolveEtfCharacterIds,
   settleMissionRelationship,
 } from "../src/lib/market/characterProgress";
 import {
@@ -941,6 +942,108 @@ holdProgress = accrueLongHoldingAffinity(
 assert.equal(
   getCharacterProgress(holdProgress, relationshipCharacter.id).affinity,
   2,
+);
+
+const secondCharacterStock = {
+  ...relationshipStock,
+  id: `${relationshipStock.id}-second-character`,
+  ticker: "SECOND",
+  ceoId: "second-character",
+};
+const singleCharacterDerivative = {
+  ...relationshipStock,
+  id: `${relationshipStock.id}-leveraged`,
+  ticker: "REL2X",
+  ceoId: undefined,
+  leverage: 2,
+  leverageUnderlyingId: relationshipStock.id,
+};
+assert.deepEqual(
+  resolveEtfCharacterIds(
+    [
+      { stockId: relationshipStock.id },
+      { stockId: singleCharacterDerivative.id },
+    ],
+    [relationshipStock, singleCharacterDerivative],
+  ),
+  [relationshipCharacter.id],
+  "single-character ETF should resolve derivatives to the same CEO",
+);
+
+let diversifiedEtfProgress = accrueLongHoldingAffinity(
+  {},
+  [],
+  [relationshipStock, secondCharacterStock],
+  relationshipStock.currentPrice * 10,
+  windowStart,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [
+      { stockId: relationshipStock.id, weight: 0.5 },
+      { stockId: secondCharacterStock.id, weight: 0.5 },
+    ],
+  }],
+);
+diversifiedEtfProgress = accrueLongHoldingAffinity(
+  diversifiedEtfProgress,
+  [],
+  [relationshipStock, secondCharacterStock],
+  relationshipStock.currentPrice * 10,
+  windowStart + 5,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [
+      { stockId: relationshipStock.id, weight: 0.5 },
+      { stockId: secondCharacterStock.id, weight: 0.5 },
+    ],
+  }],
+);
+assert.equal(
+  getCharacterProgress(diversifiedEtfProgress, relationshipCharacter.id).affinity,
+  2,
+);
+assert.equal(
+  getCharacterProgress(diversifiedEtfProgress, "second-character").affinity,
+  2,
+  "all characters in a held user ETF should gain affinity",
+);
+
+let singleCharacterEtfProgress = accrueLongHoldingAffinity(
+  {},
+  [],
+  [relationshipStock, singleCharacterDerivative],
+  relationshipStock.currentPrice * 10,
+  windowStart,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [
+      { stockId: relationshipStock.id, weight: 0.5 },
+      { stockId: singleCharacterDerivative.id, weight: 0.5 },
+    ],
+  }],
+);
+singleCharacterEtfProgress = accrueLongHoldingAffinity(
+  singleCharacterEtfProgress,
+  [],
+  [relationshipStock, singleCharacterDerivative],
+  relationshipStock.currentPrice * 10,
+  windowStart + 5,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [
+      { stockId: relationshipStock.id, weight: 0.5 },
+      { stockId: singleCharacterDerivative.id, weight: 0.5 },
+    ],
+  }],
+);
+assert.equal(
+  getCharacterProgress(singleCharacterEtfProgress, relationshipCharacter.id).affinity,
+  3,
+  "single-character ETF holdings should gain affinity slightly faster",
 );
 
 const messageProgress = addCharacterProgress(

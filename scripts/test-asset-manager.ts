@@ -18,6 +18,7 @@ import {
   settleAmcDividends,
   settleAmcManagementFees,
   splitAmcSeed,
+  validateAmcHoldingWeights,
 } from "../src/lib/player/assetManager";
 import {
   listedFundToAmcState,
@@ -61,6 +62,21 @@ const prices: Record<string, number> = {
 const initials = { ...prices };
 const priceOf = (id: string) => prices[id] ?? 0;
 const initialOf = (id: string) => initials[id] ?? 0;
+
+assert.deepEqual(validateAmcHoldingWeights([
+  { stockId: "a", weight: 0.5 },
+  { stockId: "b", weight: 0.49 },
+  { stockId: "c", weight: 0.01 },
+]), [
+  { stockId: "a", weight: 0.5 },
+  { stockId: "b", weight: 0.49 },
+  { stockId: "c", weight: 0.01 },
+]);
+assert.equal(validateAmcHoldingWeights([
+  { stockId: "a", weight: 0.51 },
+  { stockId: "b", weight: 0.48 },
+  { stockId: "c", weight: 0.01 },
+]), null);
 
 assert.equal(
   foundAssetManager(

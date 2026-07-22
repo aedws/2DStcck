@@ -147,8 +147,51 @@ export const AFFINITY_WEIGHT_PREFERRED = 5;
 export const AFFINITY_WEIGHT_LEVERAGE = 2;
 export const AFFINITY_WEIGHT_COMMON = 1;
 export const AFFINITY_WEIGHT_COVERED_CALL = 0.5;
+/** 여러 캐릭터를 담은 유저 ETF는 보통주와 같은 속도로 구성원 전원의 호감도가 오른다. */
+export const AFFINITY_WEIGHT_USER_ETF = 1;
+/** 단일 캐릭터 테마 ETF 보유는 보통주보다 약간 높은 속도로 오른다. */
+export const AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF = 1.5;
+/** 단일 캐릭터 테마 ETF를 처음 설정할 때 즉시 주는 호감도. */
+export const SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY = 20;
 /** 가중치를 정수 상승폭으로 바꾸는 단위(×2). 보통주=+2로 기존과 동일. */
 const AFFINITY_RATE_UNIT = 2;
+
+export interface CharacterLinkedEtfHolding {
+  /** 현재 보유 ETF 평가액(센트). */
+  value: number;
+  holdings: { stockId: string; weight: number }[];
+}
+
+function resolveStockCharacterId(
+  stockId: string,
+  stockById: Map<string, StockState>,
+): string | undefined {
+  let stock = stockById.get(stockId);
+  const visited = new Set<string>();
+  while (stock && !visited.has(stock.id)) {
+    visited.add(stock.id);
+    if (stock.ceoId) return stock.ceoId;
+    const underlyingId =
+      stock.coveredCallUnderlyingId ?? stock.leverageUnderlyingId;
+    stock = underlyingId ? stockById.get(underlyingId) : undefined;
+  }
+  return undefined;
+}
+
+/** 파생상품은 기초기업까지 따라가고, 같은 캐릭터는 한 번만 반환한다. */
+export function resolveEtfCharacterIds(
+  holdings: { stockId: string }[],
+  stocks: StockState[],
+): string[] {
+  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+  return [
+    ...new Set(
+      holdings
+        .map((holding) => resolveStockCharacterId(holding.stockId, stockById))
+        .filter((characterId): characterId is string => Boolean(characterId)),
+    ),
+  ];
+}
 
 /**
  * 캐릭터 보유 기간을 거래일 단위로 누적해 5거래일마다 호감도를 조정한다.
@@ -164,6 +207,7 @@ export function accrueLongHoldingAffinity(
   equity: number,
   currentSession: number,
   activePreferred: { characterId: string; faceValue: number; shares: number }[] = [],
+  userEtfHoldings: CharacterLinkedEtfHolding[] = [],
 ): CharacterProgressMap {
   if (equity <= 0) return progress;
   const holdingsById = new Map(holdings.map((holding) => [holding.stockId, holding]));
@@ -183,6 +227,20 @@ export function accrueLongHoldingAffinity(
   for (const share of activePreferred) {
     raiseWeight(share.characterId, AFFINITY_WEIGHT_PREFERRED);
     bump(posValue, share.characterId, share.faceValue * share.shares);
+  }
+  for (const etf of userEtfHoldings) {
+    if (!(etf.value > 0)) continue;
+    const characterIds = resolveEtfCharacterIds(etf.holdings, stocks);
+    if (!characterIds.length) continue;
+    const weight =
+      characterIds.length === 1
+        ? AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF
+        : AFFINITY_WEIGHT_USER_ETF;
+    for (const characterId of characterIds) {
+      // ETF 자체가 계좌의 3% 이상이면 구성 캐릭터 전원을 보유한 것으로 본다.
+      raiseWeight(characterId, weight);
+      bump(posValue, characterId, etf.value);
+    }
   }
   for (const stock of stocks) {
     const quantity = holdingsById.get(stock.id)?.quantity ?? 0;

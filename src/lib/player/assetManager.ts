@@ -17,6 +17,8 @@ export const AMC_GRACE_DAYS = 10;
 export const AMC_TURNOVER_THRESHOLD = 0.05;
 export const AMC_MIN_HOLDINGS = 3;
 export const AMC_MAX_HOLDINGS = 30;
+export const AMC_MIN_HOLDING_WEIGHT = 0.01;
+export const AMC_MAX_HOLDING_WEIGHT = 0.5;
 export const AMC_FUND_ID_PREFIX = "amc:" as const;
 export const AMC_DIVIDEND_INTERVALS = [5, 20, 60] as const;
 export type AmcDividendIntervalDays = (typeof AMC_DIVIDEND_INTERVALS)[number];
@@ -231,6 +233,25 @@ export function normalizeWeightsSafe(
   holdings: AmcHoldingWeight[],
 ): AmcHoldingWeight[] | null {
   return normalizeWeights(holdings);
+}
+
+/** 신규 설정·리밸런싱용 비중 규칙. 기존 서버 원장 파싱은 호환성을 위해 별도다. */
+export function validateAmcHoldingWeights(
+  holdings: AmcHoldingWeight[],
+): AmcHoldingWeight[] | null {
+  const normalized = normalizeWeights(holdings);
+  if (!normalized) return null;
+  const epsilon = 1e-9;
+  if (
+    normalized.some(
+      (row) =>
+        row.weight < AMC_MIN_HOLDING_WEIGHT - epsilon ||
+        row.weight > AMC_MAX_HOLDING_WEIGHT + epsilon,
+    )
+  ) {
+    return null;
+  }
+  return normalized;
 }
 
 export function maxFeeRateForStyle(style: AmcFundStyle): number {
@@ -559,11 +580,11 @@ export function createAmcFund(
   ) {
     return { success: false, message: "이미 사용 중인 티커입니다." };
   }
-  const holdings = normalizeWeights(input.holdings);
+  const holdings = validateAmcHoldingWeights(input.holdings);
   if (!holdings) {
     return {
       success: false,
-      message: `구성 종목은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}개, 비중 합 100%여야 합니다.`,
+      message: `구성 종목은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}개, 종목별 비중은 1~50%여야 합니다.`,
     };
   }
   for (const row of holdings) {
@@ -710,11 +731,11 @@ export function rebalanceAmcFund(
   if (fund.status === "delisted") {
     return { success: false, message: "상장폐지된 펀드는 변경할 수 없습니다." };
   }
-  const holdings = normalizeWeights(nextHoldings);
+  const holdings = validateAmcHoldingWeights(nextHoldings);
   if (!holdings) {
     return {
       success: false,
-      message: `구성은 ${AMC_MIN_HOLDINGS}종목 이상이어야 합니다.`,
+      message: `구성은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}종목, 종목별 비중은 1~50%여야 합니다.`,
     };
   }
   const prev = new Map(fund.holdings.map((row) => [row.stockId, row.weight]));

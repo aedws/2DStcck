@@ -593,6 +593,19 @@ export default function SettingsPage() {
           없으므로 안전한 곳에 따로 기록해 주세요.
         </p>
       </section>
+
+      <section className="rounded-2xl border border-cyan-400/25 bg-cyan-400/5 px-4 py-4">
+        <h2 className="text-sm font-semibold">비즈니스 문의</h2>
+        <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+          프로젝트 협업, 개발 및 운영 관련 문의는 아래 이메일로 연락해 주세요.
+        </p>
+        <a
+          href="mailto:aedws0010@gmail.com"
+          className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-cyan-400/35 bg-cyan-400/10 px-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/15"
+        >
+          aedws0010@gmail.com
+        </a>
+      </section>
     </div>
   );
 }

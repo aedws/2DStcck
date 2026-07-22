@@ -202,12 +202,15 @@ import {
 } from "@/lib/market/storyArcs";
 import {
   accrueLongHoldingAffinity,
+  addCharacterProgress,
   addStorySupportAffinity,
   canUseBondChoice,
   countFavoriteRelationships,
   getCharacterProgress,
   getRelationshipTier,
   normalizeCharacterProgressMap,
+  resolveEtfCharacterIds,
+  SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY,
   settleMissionRelationship,
 } from "@/lib/market/characterProgress";
 import {
@@ -2797,13 +2800,38 @@ export const useMarketStore = create<MarketStore>()(
           state.preferredShares,
           preferredConcentration,
         );
+        const fundsForAffinity = new Map(
+          listedAmcFunds
+            .filter((fund) => fund.status !== "delisted")
+            .map((fund) => [fund.id, listedFundToAmcState(fund)] as const),
+        );
+        for (const fund of assetManager?.funds ?? []) {
+          if (fund.status !== "delisted") fundsForAffinity.set(fund.id, fund);
+        }
+        const userEtfHoldings = holdings.flatMap((holding) => {
+          const fundId = parseAmcFundId(holding.stockId);
+          const fund = fundId ? fundsForAffinity.get(fundId) : undefined;
+          if (!fund || !(holding.quantity > 0)) return [];
+          const nav = computeAmcFundNavPerShare(
+            fund,
+            priceOfAmc,
+            initialPriceOfAmc,
+          );
+          return nav > 0
+            ? [{ value: nav * holding.quantity, holdings: fund.holdings }]
+            : [];
+        });
+        const relationshipEquity =
+          netWorth +
+          userEtfHoldings.reduce((sum, holding) => sum + holding.value, 0);
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
           holdings,
           combinedStocks,
-          netWorth,
+          relationshipEquity,
           currentSession,
           activePreferred,
+          userEtfHoldings,
         );
         if (investmentMission?.status === "active") {
           const benchmarkPrice = getBenchmark(combinedStocks)?.currentPrice ?? 0;
@@ -4565,10 +4593,26 @@ export const useMarketStore = create<MarketStore>()(
             amcShareMultiplier: 1,
           },
         ];
+        const fundCharacterIds = resolveEtfCharacterIds(
+          result.fund.holdings,
+          state.stocks,
+        );
+        const issuanceCharacterId =
+          fundCharacterIds.length === 1 ? fundCharacterIds[0] : undefined;
+        const characterProgress = issuanceCharacterId
+          ? addCharacterProgress(
+              state.characterProgress,
+              issuanceCharacterId,
+              0,
+              SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY,
+              currentSession,
+            )
+          : state.characterProgress;
         set({
           cash: result.cash,
           assetManager: result.manager,
           holdings,
+          characterProgress,
           cashPayments: [...payments, ...state.cashPayments].slice(0, 200),
           trades: [
             {
@@ -4613,7 +4657,10 @@ export const useMarketStore = create<MarketStore>()(
             },
           });
         }
-        const message = `${result.message} 상장 허가 신청이 접수되었습니다.`;
+        const issuanceMessage = issuanceCharacterId
+          ? ` 단일 캐릭터 테마 발행 보너스로 호감도 +${SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY}가 적용되었습니다.`
+          : "";
+        const message = `${result.message} 상장 허가 신청이 접수되었습니다.${issuanceMessage}`;
         useToastStore.getState().push(message, "success");
         playSound("cash");
         return { success: true, message };
