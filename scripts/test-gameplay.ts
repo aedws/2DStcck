@@ -958,16 +958,35 @@ const singleCharacterDerivative = {
   leverage: 2,
   leverageUnderlyingId: relationshipStock.id,
 };
+const neutralGoldEtf = {
+  ...relationshipStock,
+  id: "gldx",
+  ticker: "GLDX",
+  ceoId: "must-not-affect-affinity",
+};
+const neutralShortBondEtf = {
+  ...relationshipStock,
+  id: "sbnd",
+  ticker: "SBND",
+  ceoId: "must-not-affect-affinity",
+};
 assert.deepEqual(
   resolveEtfCharacterIds(
     [
       { stockId: relationshipStock.id },
       { stockId: singleCharacterDerivative.id },
+      { stockId: neutralGoldEtf.id },
+      { stockId: neutralShortBondEtf.id },
     ],
-    [relationshipStock, singleCharacterDerivative],
+    [
+      relationshipStock,
+      singleCharacterDerivative,
+      neutralGoldEtf,
+      neutralShortBondEtf,
+    ],
   ),
   [relationshipCharacter.id],
-  "single-character ETF should resolve derivatives to the same CEO",
+  "single-character ETF should ignore gold and short bonds",
 );
 
 let diversifiedEtfProgress = accrueLongHoldingAffinity(

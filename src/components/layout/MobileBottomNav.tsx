@@ -11,6 +11,8 @@ const items = [
   { href: "/missions", label: "의뢰", icon: "📋" },
   { href: "/shop", label: "상점", icon: "🛍" },
   { href: "/minigame", label: "채굴", icon: "⛏️" },
+  { href: "/company", label: "회사", icon: "🏢" },
+  { href: "/amc", label: "ETF", icon: "📊" },
   { href: "/portfolio", label: "계좌", icon: "○" },
   { href: "/settings", label: "설정", icon: "⚙" },
 ];
@@ -21,7 +23,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="모바일 주요 메뉴"
-      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-9 border-t border-[var(--border)] bg-[var(--background)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-[repeat(11,minmax(0,1fr))] border-t border-[var(--border)] bg-[var(--background)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >
       {items.map((item) => {
         const active =

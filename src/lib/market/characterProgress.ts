@@ -162,10 +162,14 @@ export interface CharacterLinkedEtfHolding {
   holdings: { stockId: string; weight: number }[];
 }
 
+/** 캐릭터와 무관한 ETF 구성 자산. 호감도·단일 캐릭터 판정에서 항상 제외한다. */
+export const CHARACTER_NEUTRAL_ETF_STOCK_IDS = new Set(["gldx", "sbnd"]);
+
 function resolveStockCharacterId(
   stockId: string,
   stockById: Map<string, StockState>,
 ): string | undefined {
+  if (CHARACTER_NEUTRAL_ETF_STOCK_IDS.has(stockId)) return undefined;
   let stock = stockById.get(stockId);
   const visited = new Set<string>();
   while (stock && !visited.has(stock.id)) {

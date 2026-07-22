@@ -2230,7 +2230,9 @@ export const useMarketStore = create<MarketStore>()(
           initialCash: s.initialCash,
           marketSession: Math.floor(Date.now() / SESSION_DURATION_MS),
           topTier: getTopLuxuryTier(s.ownedLuxuries),
-          luxuryCount: s.ownedLuxuries.length + roomShowcase.length,
+          // 서버 무결성 열은 실제 사치재 배열 길이를 검증한다. 마이룸 프리미엄
+          // 가구는 showcase 아이콘으로만 공개하고 이 검증 수에는 섞지 않는다.
+          luxuryCount: s.ownedLuxuries.length,
           showcase,
           reputation: s.reputation,
           title: `${seasonFrame ? `${seasonFrame.emoji} ` : ""}${playerTitle.emoji} ${playerTitle.name}`,
