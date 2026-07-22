@@ -157,6 +157,7 @@ function CloudSaveSync() {
         state.investmentSeason !== prev.investmentSeason ||
         state.storyDecision !== prev.storyDecision ||
         state.storyDecisionHistory !== prev.storyDecisionHistory ||
+        state.playerCompany !== prev.playerCompany ||
         state.marginEnabled !== prev.marginEnabled ||
         state.marginLeverage !== prev.marginLeverage ||
         state.recurringInvestments !== prev.recurringInvestments ||

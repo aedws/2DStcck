@@ -19,6 +19,10 @@ import { computePrestige } from "@/lib/player/prestige";
 import { countFavoriteRelationships } from "@/lib/market/characterProgress";
 import { INVESTMENT_SEASON_TIERS } from "@/lib/market/investmentSeasons";
 import { getRoomItem, getRoomTheme } from "@/data/roomItems";
+import {
+  playerCompanyFounderOwnership,
+  playerCompanyLevel,
+} from "@/lib/player/playerCompany";
 
 export default function ProfilePage() {
   const attendance = useMarketStore((state) => state.attendance);
@@ -38,6 +42,7 @@ export default function ProfilePage() {
   const ownedLuxuries = useMarketStore((state) => state.ownedLuxuries);
   const myRoomItems = useMarketStore((state) => state.myRoomItems);
   const myRoomTheme = useMarketStore((state) => state.myRoomTheme);
+  const playerCompany = useMarketStore((state) => state.playerCompany);
   const netWorth = useMarketStore((state) => state.getTotalAssets());
   const stats = buildTradingStats(trades);
   const prestige = computePrestige({
@@ -48,6 +53,7 @@ export default function ProfilePage() {
     investmentSeason,
     ownedLuxuries,
     reputation,
+    playerCompany,
   });
   const bestSeasonTier =
     prestige.bestSeasonTierIndex >= 0
@@ -115,6 +121,30 @@ export default function ProfilePage() {
         </div>
       </section>
 
+      <section className="mb-6 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-amber-300">창업주 회사</p>
+            <h2 className="mt-1 text-lg font-bold">
+              {playerCompany
+                ? `🏢 ${playerCompany.name}`
+                : "🏢 아직 설립한 회사가 없습니다"}
+            </h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {playerCompany
+                ? `Lv.${playerCompanyLevel(playerCompany)} · ${playerCompany.ticker} · 창업주 지분 ${(playerCompanyFounderOwnership(playerCompany) * 100).toFixed(2)}%`
+                : "순자산 $1B 이상 계정은 자본을 영구 소각해 회사를 설립할 수 있습니다."}
+            </p>
+          </div>
+          <Link
+            href="/company"
+            className="rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-black text-black"
+          >
+            {playerCompany ? "회사 경영 →" : "설립 조건 보기 →"}
+          </Link>
+        </div>
+      </section>
+
       <section className="mb-6 rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -123,21 +153,26 @@ export default function ProfilePage() {
             </p>
             <h2 className="mt-1 text-lg font-bold">✨ 프레스티지 점수</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              캐릭터 호감도·업적·시즌 티어·숙련도·과시를 합산합니다. 자산(현금)은 이
-              점수의 연료일 뿐, 대표 성취는 이 점수로 드러납니다.
+              캐릭터 호감도·업적·시즌 티어·숙련도·과시·회사를 합산합니다.
+              자산(현금)은 이 점수의 연료일 뿐, 대표 성취는 이 점수로 드러납니다.
             </p>
           </div>
           <p className="text-4xl font-black tabular-nums text-violet-200">
             {prestige.total.toLocaleString()}
           </p>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           <PrestigePart label="캐릭터" value={prestige.characters} sub={`유대 ${prestige.bondedCharacters}명`} />
           <PrestigePart label="업적" value={prestige.achievements} />
           <PrestigePart label="시즌" value={prestige.season} sub={bestSeasonTier ? `최고 ${bestSeasonTier.emoji}${bestSeasonTier.name}` : "미달성"} />
           <PrestigePart label="숙련도" value={prestige.mastery} />
           <PrestigePart label="과시" value={prestige.luxury} />
           <PrestigePart label="평판" value={prestige.reputation} />
+          <PrestigePart
+            label="회사"
+            value={prestige.company}
+            sub={playerCompany?.name ?? "미설립"}
+          />
         </div>
       </section>
 

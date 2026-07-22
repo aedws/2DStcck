@@ -18,6 +18,10 @@ import { getTopLuxuryTier } from "@/lib/market/luxury";
 import type { CharacterProgressMap } from "@/lib/types/market";
 import type { OwnedLuxury } from "@/lib/types/luxury";
 import type { SeasonRewardId } from "@/lib/player/seasonRewards";
+import {
+  playerCompanyPrestige,
+  type PlayerCompanyState,
+} from "@/lib/player/playerCompany";
 
 export interface PrestigeInput {
   achievements?: string[];
@@ -27,6 +31,7 @@ export interface PrestigeInput {
   investmentSeason?: InvestmentSeasonState;
   ownedLuxuries?: OwnedLuxury[];
   reputation?: number;
+  playerCompany?: PlayerCompanyState | null;
 }
 
 export interface PrestigeBreakdown {
@@ -38,6 +43,7 @@ export interface PrestigeBreakdown {
   mastery: number;
   luxury: number;
   reputation: number;
+  company: number;
   /** 표시용 부가 정보 */
   bondedCharacters: number;
   bestSeasonTierIndex: number;
@@ -88,9 +94,16 @@ export function computePrestige(input: PrestigeInput): PrestigeBreakdown {
   const luxury = getTopLuxuryTier(owned) * 20 + owned.length * 3;
 
   const reputation = Math.max(0, Math.round(Number(input.reputation) || 0));
+  const company = playerCompanyPrestige(input.playerCompany);
 
   const total =
-    characters + achievements + season + mastery + luxury + reputation;
+    characters +
+    achievements +
+    season +
+    mastery +
+    luxury +
+    reputation +
+    company;
 
   return {
     total,
@@ -100,6 +113,7 @@ export function computePrestige(input: PrestigeInput): PrestigeBreakdown {
     mastery,
     luxury,
     reputation,
+    company,
     bondedCharacters,
     bestSeasonTierIndex,
   };

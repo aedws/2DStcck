@@ -49,6 +49,17 @@ export default function IpoPage() {
         </p>
       </div>
 
+      <Link
+        href="/company"
+        className="mb-5 block rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4 transition hover:bg-amber-400/10"
+      >
+        <p className="text-sm font-bold">🏢 내 회사 설립·IPO 준비</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          순자산 $1B 이상 계정은 자본을 영구 소각해 비상장 회사를 설립하고 IPO를
+          준비할 수 있습니다.
+        </p>
+      </Link>
+
       {/* 상장 예정 */}
       <section className="mb-5">
         <h2 className="mb-2 text-sm font-bold">상장 예정</h2>

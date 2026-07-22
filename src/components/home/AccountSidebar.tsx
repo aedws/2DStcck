@@ -44,6 +44,7 @@ export function AccountSidebar() {
   const investmentSeason = useMarketStore((s) => s.investmentSeason);
   const reputation = useMarketStore((s) => s.reputation);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
+  const playerCompany = useMarketStore((s) => s.playerCompany);
 
   const prestige = computePrestige({
     achievements,
@@ -53,6 +54,7 @@ export function AccountSidebar() {
     investmentSeason,
     ownedLuxuries,
     reputation,
+    playerCompany,
   });
   const total = getTotalAssets();
   const profit = total - initialCash;

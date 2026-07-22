@@ -268,6 +268,18 @@ import {
   rewardsFromSeasonHistory,
   type SeasonRewardId,
 } from "@/lib/player/seasonRewards";
+import {
+  dilutePlayerCompanyCapitalCall as diluteCompanyCapitalCall,
+  foundPlayerCompany as createPlayerCompany,
+  fundPlayerCompanyCapitalCall as fundCompanyCapitalCall,
+  markPlayerCompanyIpoRequested as markCompanyIpoRequested,
+  normalizePlayerCompany,
+  preparePlayerCompanyCapitalCall as prepareCompanyCapitalCall,
+  refusePlayerCompanyCapitalCall as refuseCompanyCapitalCall,
+  resumePlayerCompany as resumeCompany,
+  type FoundPlayerCompanyInput,
+  type PlayerCompanyState,
+} from "@/lib/player/playerCompany";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -470,6 +482,15 @@ interface MarketStore extends MarketSnapshot {
   getLotteryTicketsLeft: () => number;
   /** 미니게임(노동 소득) 현금 지급. 시즌·투자 성과에서 제외되는 외생 소득. */
   awardMinigameCash: (amount: number, label: string) => void;
+  /** 초고액 계정 전용 비상장 회사. 회사 가치는 순자산에 합산하지 않는다. */
+  playerCompany: PlayerCompanyState | null;
+  foundPlayerCompany: (input: FoundPlayerCompanyInput) => OrderResult;
+  preparePlayerCompanyCapitalCall: () => void;
+  fundPlayerCompanyCapitalCall: () => OrderResult;
+  dilutePlayerCompanyCapitalCall: () => OrderResult;
+  refusePlayerCompanyCapitalCall: () => OrderResult;
+  resumePlayerCompany: () => OrderResult;
+  markPlayerCompanyIpoRequested: () => OrderResult;
   /** 마지막 종목 추가 요청 거래일 (쿨다운용). 없으면 미요청. */
   lastStockRequestSession?: number;
   /** 종목 추가 요청 가능 여부(현금·쿨다운) */
@@ -576,6 +597,7 @@ function createInitialState(): MarketSnapshot & {
   investmentSeason: InvestmentSeasonState;
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
+  playerCompany: PlayerCompanyState | null;
 } {
   const now = Date.now();
   const initialMarket = hydrateMarketCheckpoint(getBundledMarketCheckpoint());
@@ -660,6 +682,7 @@ function createInitialState(): MarketSnapshot & {
     investmentSeason: createInitialInvestmentSeasonState(),
     storyDecision: null,
     storyDecisionHistory: [],
+    playerCompany: null,
   };
 }
 
@@ -672,12 +695,14 @@ function latestWalletActivityMs(wallet: {
   cashPayments?: CashPayment[];
   storyDecision?: StoryDecision | null;
   storyDecisionHistory?: StoryDecision[];
+  playerCompany?: PlayerCompanyState | null;
 }): number {
   const candidates = [
     wallet.trades?.[0]?.timestamp,
     wallet.cashPayments?.[0]?.timestamp,
     wallet.storyDecision?.selectedAt,
     wallet.storyDecisionHistory?.[0]?.selectedAt,
+    wallet.playerCompany?.lastActionAt,
   ];
   return candidates.reduce<number>(
     (max, value) =>
@@ -1425,6 +1450,7 @@ export const useMarketStore = create<MarketStore>()(
           openOrders: [],
           ownedLuxuries: [],
           cashPayments: compensation,
+          playerCompany: null,
         });
         settings.setAppliedAccountResetVersion(action.resetVersion);
         if (action.compensationAmount > 0) {
@@ -1616,9 +1642,24 @@ export const useMarketStore = create<MarketStore>()(
             timestamp: now,
           }));
         const totalRefund = refundPayments.reduce((sum, p) => sum + p.amount, 0);
+        const companyIpoRejected =
+          state.playerCompany?.status === "ipo-requested" &&
+          fresh.some(
+            (response) =>
+              response.title ===
+              `${state.playerCompany!.name} (${state.playerCompany!.ticker})`,
+          );
         set({
           cash: state.cash + totalRefund,
           cashPayments: [...refundPayments, ...state.cashPayments],
+          playerCompany: companyIpoRejected
+            ? {
+                ...state.playerCompany!,
+                status: "active",
+                ipoRequestedAt: undefined,
+                lastActionAt: now,
+              }
+            : state.playerCompany,
           resolvedStockRequestIds: [
             ...fresh.map((r) => r.id),
             ...state.resolvedStockRequestIds,
@@ -1909,6 +1950,7 @@ export const useMarketStore = create<MarketStore>()(
           investmentSeason: cloudSeason,
           storyDecision: cloudClockChanged ? null : wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
+          playerCompany: normalizePlayerCompany(wallet.playerCompany),
           marginEnabled: cloudRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(wallet.marginLeverage),
           recurringInvestments: normalizeRecurringInvestments(
@@ -2003,6 +2045,7 @@ export const useMarketStore = create<MarketStore>()(
           investmentSeason: s.investmentSeason,
           storyDecision: s.storyDecision,
           storyDecisionHistory: s.storyDecisionHistory,
+          playerCompany: s.playerCompany,
           marginEnabled: s.marginEnabled,
           marginLeverage: s.marginLeverage,
           recurringInvestments: s.recurringInvestments,
@@ -2037,6 +2080,7 @@ export const useMarketStore = create<MarketStore>()(
           .filter((emoji, index, all) => all.indexOf(emoji) === index)
           .slice(0, 3);
         const showcase = [
+          ...(s.playerCompany ? ["🏢"] : []),
           ...getLuxuryShowcase(s.ownedLuxuries),
           ...roomShowcase,
         ].slice(0, 5);
@@ -2063,6 +2107,7 @@ export const useMarketStore = create<MarketStore>()(
             investmentSeason: s.investmentSeason,
             ownedLuxuries: s.ownedLuxuries,
             reputation: s.reputation,
+            playerCompany: s.playerCompany,
           }).total,
         });
       },
@@ -3586,6 +3631,173 @@ export const useMarketStore = create<MarketStore>()(
         playSound("cash");
       },
 
+      foundPlayerCompany: (input) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 회사를 설립할 수 있습니다.",
+          };
+        }
+        if (state.playerCompany) {
+          return { success: false, message: "계정당 회사는 1개만 설립할 수 있습니다." };
+        }
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const result = createPlayerCompany(
+          input,
+          state.getTotalAssets(),
+          state.cash,
+          currentSession,
+          now,
+          state.stocks.map((stock) => stock.ticker),
+        );
+        if (!result.success || !result.company || result.cash === undefined) {
+          return { success: false, message: result.message };
+        }
+        const payment: CashPayment = {
+          id: `company-founding-${result.company.id}`,
+          kind: "company_capital",
+          sourceId: result.company.id,
+          ticker: result.company.ticker,
+          dueSession: currentSession,
+          amount: -(result.burned ?? 0),
+          timestamp: now,
+        };
+        set({
+          cash: result.cash,
+          playerCompany: result.company,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore.getState().push(result.message, "success");
+        playSound("cash");
+        return { success: true, message: result.message };
+      },
+
+      preparePlayerCompanyCapitalCall: () => {
+        const state = get();
+        if (!state.playerCompany) return;
+        const now = Date.now();
+        const next = prepareCompanyCapitalCall(
+          state.playerCompany,
+          state.getTotalAssets(),
+          Math.floor(now / SESSION_DURATION_MS),
+          now,
+        );
+        if (next !== state.playerCompany) set({ playerCompany: next });
+      },
+
+      fundPlayerCompanyCapitalCall: () => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const result = fundCompanyCapitalCall(
+          state.playerCompany,
+          state.cash,
+          currentSession,
+          now,
+        );
+        if (!result.success || !result.company || result.cash === undefined) {
+          return { success: false, message: result.message };
+        }
+        const payment: CashPayment = {
+          id: `company-capital-${result.company.id}-${currentSession}`,
+          kind: "company_capital",
+          sourceId: result.company.id,
+          ticker: result.company.ticker,
+          dueSession: currentSession,
+          amount: -(result.burned ?? 0),
+          timestamp: now,
+        };
+        set({
+          cash: result.cash,
+          playerCompany: result.company,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore.getState().push(result.message, "success");
+        playSound("cash");
+        return { success: true, message: result.message };
+      },
+
+      dilutePlayerCompanyCapitalCall: () => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const now = Date.now();
+        const result = diluteCompanyCapitalCall(
+          state.playerCompany,
+          Math.floor(now / SESSION_DURATION_MS),
+          now,
+        );
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({ playerCompany: result.company });
+        useToastStore.getState().push(result.message, "info");
+        return { success: true, message: result.message };
+      },
+
+      refusePlayerCompanyCapitalCall: () => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const now = Date.now();
+        const result = refuseCompanyCapitalCall(
+          state.playerCompany,
+          Math.floor(now / SESSION_DURATION_MS),
+          now,
+        );
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({ playerCompany: result.company });
+        useToastStore.getState().push(result.message, "error");
+        return { success: true, message: result.message };
+      },
+
+      resumePlayerCompany: () => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const now = Date.now();
+        const result = resumeCompany(
+          state.playerCompany,
+          state.getTotalAssets(),
+          Math.floor(now / SESSION_DURATION_MS),
+          now,
+        );
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({ playerCompany: result.company });
+        useToastStore.getState().push(result.message, "info");
+        return { success: true, message: result.message };
+      },
+
+      markPlayerCompanyIpoRequested: () => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const now = Date.now();
+        const result = markCompanyIpoRequested(state.playerCompany, now);
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({
+          playerCompany: result.company,
+          lastStockRequestSession: Math.floor(now / SESSION_DURATION_MS),
+        });
+        useToastStore.getState().push(result.message, "success");
+        return { success: true, message: result.message };
+      },
+
       canRequestStock: () => {
         const s = get();
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -3820,6 +4032,7 @@ export const useMarketStore = create<MarketStore>()(
         investmentSeason: state.investmentSeason,
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory.slice(0, 30),
+        playerCompany: state.playerCompany,
         marginEnabled: state.marginEnabled,
         marginLeverage: state.marginLeverage,
         recurringInvestments: state.recurringInvestments,
@@ -4217,6 +4430,9 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (walletSource as Partial<MarketStore>).storyDecisionHistory!
             : [],
+          playerCompany: normalizePlayerCompany(
+            (walletSource as Partial<MarketStore>).playerCompany,
+          ),
           marginEnabled: overflowRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(
             (walletSource as Partial<MarketStore>).marginLeverage,

@@ -23,6 +23,7 @@ import type { AttendanceState } from "@/lib/player/playerProfile";
 import type { DailyOperation } from "@/lib/market/dailyOperations";
 import type { PortfolioStrategyId } from "@/lib/market/portfolioStrategies";
 import type { SeasonRewardId } from "@/lib/player/seasonRewards";
+import type { PlayerCompanyState } from "@/lib/player/playerCompany";
 
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
@@ -102,6 +103,8 @@ export interface WalletSave {
   portfolioStrategySelectedAt?: number;
   unlockedSeasonRewardIds?: SeasonRewardId[];
   selectedSeasonFrameId?: SeasonRewardId | null;
+  /** 초고액 계정 전용 비상장 플레이어 회사. 회사 가치는 순자산에 합산하지 않는다. */
+  playerCompany?: PlayerCompanyState | null;
 }
 
 export type GameSaveLoadResult =

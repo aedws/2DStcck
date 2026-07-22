@@ -23,6 +23,7 @@
     "test:compensation": "tsx scripts/test-operational-compensation.ts",
     "test:myroom": "tsx scripts/test-myroom.ts",
     "test:taxonomy": "tsx scripts/test-market-taxonomy.ts",
+    "test:company": "tsx scripts/test-player-company.ts",
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
     "generate:market-checkpoint": "tsx scripts/generate-market-checkpoint.ts",
