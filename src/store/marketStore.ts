@@ -162,6 +162,7 @@ import {
   STOCK_REQUEST_COST,
   STOCK_REQUEST_COOLDOWN_DAYS,
 } from "@/lib/supabase/stockRequests";
+import { verifyCompanyFoundationApproval } from "@/lib/supabase/companyFoundationRequests";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -484,7 +485,10 @@ interface MarketStore extends MarketSnapshot {
   awardMinigameCash: (amount: number, label: string) => void;
   /** 초고액 계정 전용 비상장 회사. 회사 가치는 순자산에 합산하지 않는다. */
   playerCompany: PlayerCompanyState | null;
-  foundPlayerCompany: (input: FoundPlayerCompanyInput) => OrderResult;
+  foundPlayerCompany: (
+    input: FoundPlayerCompanyInput,
+    approvalRequestId: string,
+  ) => Promise<OrderResult>;
   preparePlayerCompanyCapitalCall: () => void;
   fundPlayerCompanyCapitalCall: () => OrderResult;
   dilutePlayerCompanyCapitalCall: () => OrderResult;
@@ -3631,7 +3635,7 @@ export const useMarketStore = create<MarketStore>()(
         playSound("cash");
       },
 
-      foundPlayerCompany: (input) => {
+      foundPlayerCompany: async (input, approvalRequestId) => {
         const state = get();
         if (!state.userId || !state.cloudSyncReady) {
           return {
@@ -3642,15 +3646,29 @@ export const useMarketStore = create<MarketStore>()(
         if (state.playerCompany) {
           return { success: false, message: "계정당 회사는 1개만 설립할 수 있습니다." };
         }
+        if (
+          !approvalRequestId ||
+          !(await verifyCompanyFoundationApproval(approvalRequestId, input))
+        ) {
+          return {
+            success: false,
+            message: "관리자에게 허가된 회사 설립 신청이 필요합니다.",
+          };
+        }
+        // 승인 확인 중 지갑이 바뀌었을 수 있으므로 최신 상태로 비용을 다시 계산한다.
+        const approvedState = get();
+        if (approvedState.playerCompany) {
+          return { success: false, message: "계정당 회사는 1개만 설립할 수 있습니다." };
+        }
         const now = Date.now();
         const currentSession = Math.floor(now / SESSION_DURATION_MS);
         const result = createPlayerCompany(
           input,
-          state.getTotalAssets(),
-          state.cash,
+          approvedState.getTotalAssets(),
+          approvedState.cash,
           currentSession,
           now,
-          state.stocks.map((stock) => stock.ticker),
+          approvedState.stocks.map((stock) => stock.ticker),
         );
         if (!result.success || !result.company || result.cash === undefined) {
           return { success: false, message: result.message };
@@ -3667,7 +3685,7 @@ export const useMarketStore = create<MarketStore>()(
         set({
           cash: result.cash,
           playerCompany: result.company,
-          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+          cashPayments: [payment, ...approvedState.cashPayments].slice(0, 200),
         });
         useToastStore.getState().push(result.message, "success");
         playSound("cash");

@@ -18,6 +18,7 @@ import {
   type StockRequestRow,
   type StockRequestStatus,
 } from "@/lib/supabase/stockRequests";
+import { isCompanyFoundationRequestRow } from "@/lib/supabase/companyFoundationRequests";
 
 const REQUEST_STATUS_STYLE: Record<StockRequestStatus, string> = {
   pending: "bg-slate-500/15 text-[var(--muted)]",
@@ -56,7 +57,11 @@ export function StockRequestForm({
   const [myRequests, setMyRequests] = useState<StockRequestRow[] | null>(null);
 
   const refreshMyRequests = useCallback(async () => {
-    setMyRequests(await listMyStockRequests());
+    setMyRequests(
+      (await listMyStockRequests()).filter(
+        (request) => !isCompanyFoundationRequestRow(request),
+      ),
+    );
   }, []);
 
   useEffect(() => {

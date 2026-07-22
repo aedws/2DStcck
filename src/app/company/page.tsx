@@ -15,9 +15,26 @@ import {
   playerCompanyLevel,
   playerCompanyPrestige,
 } from "@/lib/player/playerCompany";
+import {
+  COMPANY_FOUNDATION_STATUS_LABEL,
+  listMyCompanyFoundationRequests,
+  submitCompanyFoundationRequest,
+  type CompanyFoundationRequest,
+} from "@/lib/supabase/companyFoundationRequests";
 import { submitStockRequest } from "@/lib/supabase/stockRequests";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
+
+const FOUNDATION_STATUS_STYLE: Record<
+  CompanyFoundationRequest["status"],
+  string
+> = {
+  pending: "bg-slate-500/15 text-[var(--muted)]",
+  reviewing: "bg-sky-500/15 text-sky-400",
+  accepted: "bg-emerald-500/15 text-emerald-400",
+  rejected: "bg-rose-500/15 text-rose-400",
+  shipped: "bg-violet-500/15 text-violet-300",
+};
 
 const STATUS_LABEL = {
   active: "운영 중",
@@ -58,6 +75,15 @@ export default function CompanyPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [message, setMessage] = useState("");
   const [submittingIpo, setSubmittingIpo] = useState(false);
+  const [foundationRequests, setFoundationRequests] = useState<
+    CompanyFoundationRequest[] | null
+  >(null);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [founding, setFounding] = useState(false);
+
+  const refreshFoundationRequests = async () => {
+    setFoundationRequests(await listMyCompanyFoundationRequests());
+  };
 
   const netWorth = getTotalAssets();
   const foundingCost = playerCompanyFoundingCost(netWorth);
@@ -67,6 +93,14 @@ export default function CompanyPage() {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!userId || !cloudSyncReady) {
+      setFoundationRequests([]);
+      return;
+    }
+    void refreshFoundationRequests();
+  }, [userId, cloudSyncReady]);
 
   useEffect(() => {
     if (!playerCompany || playerCompany.status !== "active") return;
@@ -89,16 +123,34 @@ export default function CompanyPage() {
     };
   }, [playerCompany]);
 
-  const handleFound = () => {
+  const activeFoundationRequest = useMemo(() => {
+    if (!foundationRequests?.length) return null;
+    return (
+      foundationRequests.find((request) =>
+        ["pending", "reviewing", "accepted"].includes(request.status),
+      ) ?? null
+    );
+  }, [foundationRequests]);
+
+  const latestRejectedFoundationRequest = useMemo(() => {
+    if (!foundationRequests?.length) return null;
+    return foundationRequests.find((request) => request.status === "rejected") ?? null;
+  }, [foundationRequests]);
+
+  useEffect(() => {
+    const source = activeFoundationRequest?.company;
+    if (!source) return;
+    setName(source.name);
+    setTicker(source.ticker);
+    setSector(source.sector);
+    setSubsector(source.subsector ?? "");
+    setDescription(source.description ?? "");
+  }, [activeFoundationRequest?.id]);
+
+  const handleSubmitFoundationRequest = async () => {
     setMessage("");
-    if (
-      !window.confirm(
-        `${formatPrice(foundingCost)}를 영구 소각해 ${name.trim()}을(를) 설립할까요?\n이 금액은 순자산과 회사 가치로 반환되지 않습니다.`,
-      )
-    ) {
-      return;
-    }
-    const result = foundCompany({
+    setSubmittingRequest(true);
+    const result = await submitCompanyFoundationRequest({
       name,
       ticker,
       sector,
@@ -106,6 +158,41 @@ export default function CompanyPage() {
       description,
     });
     setMessage(result.message);
+    if (result.success) {
+      await refreshFoundationRequests();
+    }
+    setSubmittingRequest(false);
+  };
+
+  const handleFound = async () => {
+    setMessage("");
+    if (!activeFoundationRequest || activeFoundationRequest.status !== "accepted") {
+      setMessage("관리자 허가가 완료된 뒤에만 설립할 수 있습니다.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `${formatPrice(foundingCost)}를 영구 소각해 ${name.trim()}을(를) 설립할까요?\n이 금액은 순자산과 회사 가치로 반환되지 않습니다.`,
+      )
+    ) {
+      return;
+    }
+    setFounding(true);
+    const result = await foundCompany(
+      {
+        name,
+        ticker,
+        sector,
+        subsector,
+        description,
+      },
+      activeFoundationRequest.id,
+    );
+    setMessage(result.message);
+    if (result.success) {
+      await refreshFoundationRequests();
+    }
+    setFounding(false);
   };
 
   const handleFund = () => {
@@ -174,6 +261,8 @@ export default function CompanyPage() {
     setSubmittingIpo(false);
   };
 
+  const formLocked = Boolean(activeFoundationRequest);
+
   if (!playerCompany) {
     const eligible = netWorth >= PLAYER_COMPANY_MIN_NET_WORTH;
     const hasCash = cash >= foundingCost;
@@ -183,9 +272,9 @@ export default function CompanyPage() {
           <p className="text-xs font-bold text-amber-300">초고액 자금 소각 콘텐츠</p>
           <h1 className="mt-1 text-3xl font-black">🏢 회사 설립</h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            순자산 $1B 이상 창업주가 자본을 영구 소각해 비상장 회사를 설립합니다.
-            회사 가치는 순자산 랭킹에 합산되지 않으며, 성장 성과는 프레스티지로
-            기록됩니다.
+            순자산 $1B 이상 창업주가 관리자 허가를 받은 뒤 자본을 영구 소각해
+            비상장 회사를 설립합니다. 회사 가치는 순자산 랭킹에 합산되지 않으며,
+            성장 성과는 프레스티지로 기록됩니다.
           </p>
         </header>
 
@@ -213,15 +302,59 @@ export default function CompanyPage() {
                 )}
               </p>
             </div>
+          ) : foundationRequests === null ? (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--muted)]">
+              허가 신청 내역을 불러오는 중…
+            </div>
           ) : (
             <div className="space-y-4">
+              {activeFoundationRequest && (
+                <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-bold">회사 설립 허가 신청</p>
+                    <span
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${FOUNDATION_STATUS_STYLE[activeFoundationRequest.status]}`}
+                    >
+                      {COMPANY_FOUNDATION_STATUS_LABEL[activeFoundationRequest.status]}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                    {activeFoundationRequest.status === "pending"
+                      ? "관리자 검토 대기 중입니다. 허가 전에는 출자금 소각과 설립이 불가합니다."
+                      : activeFoundationRequest.status === "reviewing"
+                        ? "관리자가 심사 중입니다. 승인되면 아래에서 출자금을 소각해 설립할 수 있습니다."
+                        : "허가가 완료되었습니다. 아래에서 출자금을 영구 소각해 회사를 설립하세요."}
+                  </p>
+                  <p className="mt-2 text-[11px] text-[var(--muted)]">
+                    신청일{" "}
+                    {new Date(activeFoundationRequest.createdAt).toLocaleString("ko-KR")}
+                  </p>
+                </div>
+              )}
+
+              {!activeFoundationRequest && latestRejectedFoundationRequest && (
+                <div className="rounded-2xl border border-rose-400/30 bg-rose-400/5 p-4">
+                  <p className="text-sm font-bold text-rose-300">이전 신청이 반려되었습니다</p>
+                  {latestRejectedFoundationRequest.adminNote ? (
+                    <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-[var(--muted)]">
+                      {latestRejectedFoundationRequest.adminNote}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      사유가 기록되지 않았습니다. 내용을 수정해 다시 신청할 수 있습니다.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="회사명">
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value.slice(0, 30))}
                     placeholder="2~30자"
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
+                    disabled={formLocked}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70"
                   />
                 </Field>
                 <Field label="티커">
@@ -236,14 +369,16 @@ export default function CompanyPage() {
                       )
                     }
                     placeholder="영문·숫자 2~6자"
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
+                    disabled={formLocked}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70"
                   />
                 </Field>
                 <Field label="상위 섹터">
                   <select
                     value={sector}
                     onChange={(event) => setSector(event.target.value)}
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
+                    disabled={formLocked}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70"
                   >
                     {PLAYER_COMPANY_SECTORS.map((item) => (
                       <option key={item} value={item}>
@@ -259,7 +394,8 @@ export default function CompanyPage() {
                       setSubsector(event.target.value.slice(0, 40))
                     }
                     placeholder="선택 · 최대 40자"
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
+                    disabled={formLocked}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70"
                   />
                 </Field>
               </div>
@@ -271,36 +407,61 @@ export default function CompanyPage() {
                   }
                   rows={4}
                   placeholder="사업 내용과 회사 설정"
-                  className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
+                  disabled={formLocked}
+                  className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70"
                 />
               </Field>
-              <label className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-3 text-xs">
-                <input
-                  type="checkbox"
-                  checked={acknowledged}
-                  onChange={(event) => setAcknowledged(event.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  출자금 {formatPrice(foundingCost)}가 영구 소각되고 순자산으로
-                  반환되지 않음을 확인했습니다.
-                </span>
-              </label>
-              <button
-                type="button"
-                disabled={
-                  !acknowledged ||
-                  !hasCash ||
-                  name.trim().length < 2 ||
-                  ticker.length < 2
-                }
-                onClick={handleFound}
-                className="min-h-12 w-full rounded-2xl bg-amber-400 px-5 text-sm font-black text-black disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
-              >
-                {hasCash
-                  ? `${formatCompactMoney(foundingCost)} 영구 소각 후 설립`
-                  : "설립 출자금에 필요한 현금 부족"}
-              </button>
+              {activeFoundationRequest?.status === "accepted" ? (
+                <>
+                  <label className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-3 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={acknowledged}
+                      onChange={(event) => setAcknowledged(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      출자금 {formatPrice(foundingCost)}가 영구 소각되고 순자산으로
+                      반환되지 않음을 확인했습니다.
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={
+                      founding ||
+                      !acknowledged ||
+                      !hasCash ||
+                      name.trim().length < 2 ||
+                      ticker.length < 2
+                    }
+                    onClick={() => void handleFound()}
+                    className="min-h-12 w-full rounded-2xl bg-amber-400 px-5 text-sm font-black text-black disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
+                  >
+                    {founding
+                      ? "설립 중…"
+                      : hasCash
+                        ? `${formatCompactMoney(foundingCost)} 영구 소각 후 설립`
+                        : "설립 출자금에 필요한 현금 부족"}
+                  </button>
+                </>
+              ) : !activeFoundationRequest ? (
+                <button
+                  type="button"
+                  disabled={
+                    submittingRequest ||
+                    name.trim().length < 2 ||
+                    ticker.length < 2
+                  }
+                  onClick={() => void handleSubmitFoundationRequest()}
+                  className="min-h-12 w-full rounded-2xl bg-cyan-500 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
+                >
+                  {submittingRequest ? "허가 신청 중…" : "관리자 허가 신청"}
+                </button>
+              ) : (
+                <p className="rounded-2xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted)]">
+                  허가가 완료되면 이 화면에서 출자금 소각과 설립을 진행할 수 있습니다.
+                </p>
+              )}
             </div>
           )}
           {message && (
