@@ -338,6 +338,37 @@ export function computeAmcFundNavPerShare(
   return Math.max(1, Math.round((fund.seedNavValue * relative) / fund.totalShares));
 }
 
+/** 장부가(seed/shares). 생성·환매 시 seedNavValue는 이 값으로만 증감해야 한다. */
+export function computeAmcFundBookPerShare(fund: {
+  seedNavValue: number;
+  totalShares: number;
+}): number {
+  if (!(fund.totalShares > 0)) return 0;
+  return fund.seedNavValue / fund.totalShares;
+}
+
+/**
+ * 오픈엔드 생성/환매 — 장부가 × 좌수만 seed에 반영.
+ * (시세 NAV를 seed에 넣으면 relative가 이중 반영되어 AUM이 폭주·붕괴한다.)
+ */
+export function applyAmcShareCreationRedemption(
+  fund: AmcFundState,
+  deltaShares: number,
+): AmcFundState | null {
+  if (!Number.isFinite(deltaShares) || deltaShares === 0) return null;
+  if (!(fund.totalShares > 0) || fund.status === "delisted") return null;
+  const nextShares = fund.totalShares + deltaShares;
+  if (!(nextShares > 0)) return null;
+  const book = computeAmcFundBookPerShare(fund);
+  const nextSeed = Math.round(fund.seedNavValue + book * deltaShares);
+  if (nextSeed < 0) return null;
+  return {
+    ...fund,
+    totalShares: nextShares,
+    seedNavValue: nextSeed,
+  };
+}
+
 export function amcFundShareValue(
   fund: AmcFundState,
   quantity: number,

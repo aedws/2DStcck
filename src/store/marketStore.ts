@@ -4546,7 +4546,11 @@ export const useMarketStore = create<MarketStore>()(
         if (state.cash < total) {
           return { success: false, message: "현금이 부족합니다." };
         }
-        const adjusted = await adjustAmcListedShares(fundId, qty, total);
+        // 원장 seed는 장부가×좌수만 반영. 시세 NAV를 넣으면 relative 이중 반영.
+        const bookCash = Math.round(
+          (fund.seedNavValue / Math.max(fund.totalShares, 1e-9)) * qty,
+        );
+        const adjusted = await adjustAmcListedShares(fundId, qty, bookCash);
         if (!adjusted.success || !adjusted.fund) {
           return { success: false, message: adjusted.message };
         }
@@ -4650,7 +4654,10 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
         const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
         const total = Math.round(nav * qty);
-        const adjusted = await adjustAmcListedShares(fundId, -qty, -total);
+        const bookCash = Math.round(
+          (fund.seedNavValue / Math.max(fund.totalShares, 1e-9)) * qty,
+        );
+        const adjusted = await adjustAmcListedShares(fundId, -qty, -bookCash);
         if (!adjusted.success || !adjusted.fund) {
           return { success: false, message: adjusted.message };
         }

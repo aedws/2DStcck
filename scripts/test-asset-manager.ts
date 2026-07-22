@@ -3,6 +3,7 @@ import {
   AMC_FOUNDING_BURN,
   AMC_MIN_NET_WORTH,
   amcFundStockId,
+  applyAmcShareCreationRedemption,
   collectHoldingDividendCadences,
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
@@ -303,5 +304,75 @@ const passiveRebalanceBlocked = rebalanceAmcFund(
 );
 assert.equal(passiveRebalanceBlocked.success, false);
 assert.ok(passiveRebalanceBlocked.message.includes("패시브"));
+
+// 생성/환매는 장부가 기준 — relative≠1 이어도 NAV·seed/shares 불변 (사팔 AUM 붕괴 방지)
+{
+  const hotPrices: Record<string, number> = {
+    a: 20_000,
+    b: 40_000,
+    c: 60_000,
+    bench: 15_000,
+  };
+  const hotOf = (id: string) => hotPrices[id] ?? 0;
+  const baseFund = created.fund!;
+  const nav0 = computeAmcFundNavPerShare(baseFund, hotOf, initialOf);
+  assert.ok(nav0 > computeAmcFundNavPerShare(baseFund, priceOf, initialOf));
+
+  // 잘못된 방식(시세 NAV를 seed에 가산)이면 붕괴 — 대조군
+  const wrongBuySeed =
+    baseFund.seedNavValue + Math.round(nav0 * 100_000);
+  const wrongBuyShares = baseFund.totalShares + 100_000;
+  const wrongAfterBuy = {
+    ...baseFund,
+    seedNavValue: wrongBuySeed,
+    totalShares: wrongBuyShares,
+  };
+  const wrongNavBuy = computeAmcFundNavPerShare(wrongAfterBuy, hotOf, initialOf);
+  assert.ok(wrongNavBuy > nav0);
+  const wrongSellSeed =
+    wrongBuySeed - Math.round(wrongNavBuy * 100_000);
+  const wrongAfterSell = {
+    ...wrongAfterBuy,
+    seedNavValue: Math.max(0, wrongSellSeed),
+    totalShares: wrongBuyShares - 100_000,
+  };
+  const wrongNavSell = computeAmcFundNavPerShare(
+    wrongAfterSell,
+    hotOf,
+    initialOf,
+  );
+  assert.ok(wrongNavSell < nav0 * 0.5);
+
+  // 올바른 장부가 생성/환매: 왕복 후 NAV 유지
+  const bought = applyAmcShareCreationRedemption(baseFund, 100_000);
+  assert.ok(bought);
+  const navBought = computeAmcFundNavPerShare(bought!, hotOf, initialOf);
+  assert.equal(navBought, nav0);
+  const sold = applyAmcShareCreationRedemption(bought!, -100_000);
+  assert.ok(sold);
+  assert.equal(sold!.totalShares, baseFund.totalShares);
+  assert.equal(sold!.seedNavValue, baseFund.seedNavValue);
+  assert.equal(
+    computeAmcFundNavPerShare(sold!, hotOf, initialOf),
+    nav0,
+  );
+
+  // relative < 1 에서도 동일
+  const coldPrices: Record<string, number> = {
+    a: 5_000,
+    b: 10_000,
+    c: 15_000,
+    bench: 15_000,
+  };
+  const coldOf = (id: string) => coldPrices[id] ?? 0;
+  const navCold = computeAmcFundNavPerShare(baseFund, coldOf, initialOf);
+  const coldBought = applyAmcShareCreationRedemption(baseFund, 50_000)!;
+  assert.equal(
+    computeAmcFundNavPerShare(coldBought, coldOf, initialOf),
+    navCold,
+  );
+  const coldSold = applyAmcShareCreationRedemption(coldBought, -50_000)!;
+  assert.equal(coldSold.seedNavValue, baseFund.seedNavValue);
+}
 
 console.log("asset manager founding · fee · compliance scenarios passed");

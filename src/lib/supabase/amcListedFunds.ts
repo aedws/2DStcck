@@ -344,6 +344,7 @@ export async function syncAmcListedFundMeta(
     : { success: false, message: "동기화 응답 해석 실패" };
 }
 
+/** 공유 원장 좌수·시드 NAV 조정. cashDelta는 부호 검증용(실제 seed는 서버가 장부가로 계산). */
 export async function adjustAmcListedShares(
   fundId: string,
   delta: number,

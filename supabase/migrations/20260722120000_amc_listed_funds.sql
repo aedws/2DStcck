@@ -109,11 +109,15 @@ begin
     raise exception 'insufficient_shares';
   end if;
 
-  v_next_seed := v_row.seed_nav_value + p_cash_delta;
+  -- 장부가 기준으로 seed 증감 (시세 cash를 넣으면 relative 이중 반영)
+  if v_row.total_shares <= 0 then
+    raise exception 'invalid_total_shares';
+  end if;
+  v_next_seed := v_row.seed_nav_value
+    + round((v_row.seed_nav_value::numeric / v_row.total_shares::numeric) * p_delta)::bigint;
   if v_next_seed < 0 then
     raise exception 'insufficient_nav';
   end if;
-  -- 매수면 시드 NAV도 같이 늘고, 매도면 같이 줄어야 한다(부호 일치).
   if (p_delta > 0 and p_cash_delta < 0) or (p_delta < 0 and p_cash_delta > 0) then
     raise exception 'cash_delta_sign_mismatch';
   end if;
