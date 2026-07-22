@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMarketStore } from "@/store/marketStore";
 import {
@@ -23,6 +23,11 @@ import {
   calculateSeasonPerformance,
   seasonExternalCashTotal,
 } from "@/lib/market/investmentSeasons";
+import {
+  getAmcPortfolioPositions,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
@@ -31,6 +36,8 @@ export function AccountSidebar() {
   const cash = useMarketStore((s) => s.cash);
   const holdings = useMarketStore((s) => s.holdings);
   const stocks = useMarketStore((s) => s.stocks);
+  const assetManager = useMarketStore((s) => s.assetManager);
+  const listedAmcFunds = useMarketStore((s) => s.listedAmcFunds);
   const trades = useMarketStore((s) => s.trades);
   const cashPayments = useMarketStore((s) => s.cashPayments);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
@@ -45,6 +52,49 @@ export function AccountSidebar() {
   const reputation = useMarketStore((s) => s.reputation);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
   const playerCompany = useMarketStore((s) => s.playerCompany);
+
+  const accountPositions = useMemo(() => {
+    const regular = holdings.flatMap((holding) => {
+      const stock = stocks.find((item) => item.id === holding.stockId);
+      if (!stock) return [];
+      const evaluation = holding.quantity * stock.currentPrice;
+      const cost = holding.quantity * holding.averagePrice;
+      return [{
+        id: holding.stockId,
+        name: stock.name,
+        ticker: stock.ticker,
+        quantity: holding.quantity,
+        evaluation,
+        pnl: cost > 0 ? ((evaluation - cost) / cost) * 100 : 0,
+        href: `/stock/${holding.stockId}`,
+        userEtf: false,
+      }];
+    });
+    const funds = mergeAmcPortfolioFunds(
+      assetManager?.funds ?? [],
+      listedAmcFunds.map(listedFundToAmcState),
+    );
+    const userEtfs = getAmcPortfolioPositions(holdings, funds, stocks).map(
+      (position) => {
+        const cost =
+          position.holding.quantity * position.holding.averagePrice;
+        return {
+          id: position.holding.stockId,
+          name: position.fund.name,
+          ticker: position.fund.ticker,
+          quantity: position.holding.quantity,
+          evaluation: position.evaluation,
+          pnl:
+            cost > 0
+              ? ((position.evaluation - cost) / cost) * 100
+              : 0,
+          href: "/amc",
+          userEtf: true,
+        };
+      },
+    );
+    return [...regular, ...userEtfs];
+  }, [assetManager, holdings, listedAmcFunds, stocks]);
 
   const prestige = computePrestige({
     achievements,
@@ -169,38 +219,45 @@ export function AccountSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {holdings.length === 0 ? (
+        {accountPositions.length === 0 ? (
           <p className="py-6 text-center text-xs text-[var(--muted)]">
             보유 종목이 없어요
           </p>
         ) : (
           <ul className="space-y-2">
-            {holdings.map((h) => {
-              const stock = stocks.find((s) => s.id === h.stockId);
-              if (!stock) return null;
-              const evalAmount = h.quantity * stock.currentPrice;
-              const cost = h.quantity * h.averagePrice;
-              const pnl = ((evalAmount - cost) / cost) * 100;
-
+            {accountPositions.map((position) => {
               return (
                 <li
-                  key={h.stockId}
+                  key={position.id}
                   className="rounded-xl bg-[var(--surface)] px-3 py-3"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{stock.name}</span>
+                    <Link
+                      href={position.href}
+                      className="text-sm font-medium hover:text-[var(--up)]"
+                    >
+                      {position.name}
+                      <span className="ml-1 text-[10px] text-[var(--muted)]">
+                        {position.ticker}
+                      </span>
+                      {position.userEtf && (
+                        <span className="ml-1 rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] text-emerald-300">
+                          유저 ETF
+                        </span>
+                      )}
+                    </Link>
                     <span className="text-sm tabular-nums">
-                      {formatPrice(evalAmount)}
+                      {formatPrice(position.evaluation)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-xs">
                     <span className="text-[var(--muted)]">
-                      {h.quantity.toLocaleString("ko-KR", {
+                      {position.quantity.toLocaleString("ko-KR", {
                         maximumFractionDigits: 6,
                       })}주
                     </span>
-                    <span className={`tabular-nums ${upDownClass(pnl)}`}>
-                      {formatSignedPercent(pnl)}
+                    <span className={`tabular-nums ${upDownClass(position.pnl)}`}>
+                      {formatSignedPercent(position.pnl)}
                     </span>
                   </div>
                 </li>

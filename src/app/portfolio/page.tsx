@@ -45,6 +45,11 @@ import {
   optionLabel,
   isZeroDteExpiry,
 } from "@/lib/market/options";
+import {
+  getAmcPortfolioPositions,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 
 type HoldingSortKey =
   | "stock"
@@ -67,6 +72,8 @@ export default function PortfolioPage() {
   const shorts = useMarketStore((s) => s.shorts);
   const options = useMarketStore((s) => s.options);
   const stocks = useMarketStore((s) => s.stocks);
+  const assetManager = useMarketStore((s) => s.assetManager);
+  const listedAmcFunds = useMarketStore((s) => s.listedAmcFunds);
   const trades = useMarketStore((s) => s.trades);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
   const preferredShares = useMarketStore((s) => s.preferredShares);
@@ -106,7 +113,23 @@ export default function PortfolioPage() {
   const priceById = Object.fromEntries(
     stocks.map((s) => [s.id, s.currentPrice]),
   );
-  const longVal = computeLongValue(holdings, priceById);
+  const amcFunds = useMemo(
+    () =>
+      mergeAmcPortfolioFunds(
+        assetManager?.funds ?? [],
+        listedAmcFunds.map(listedFundToAmcState),
+      ),
+    [assetManager, listedAmcFunds],
+  );
+  const amcPositions = useMemo(
+    () => getAmcPortfolioPositions(holdings, amcFunds, stocks),
+    [amcFunds, holdings, stocks],
+  );
+  const amcValue = amcPositions.reduce(
+    (sum, position) => sum + position.evaluation,
+    0,
+  );
+  const longVal = computeLongValue(holdings, priceById) + amcValue;
   const shortLiab = shortLiability(shorts, priceById);
   const debit = marginDebit(cash);
   const stockValue = longVal;
@@ -118,6 +141,13 @@ export default function PortfolioPage() {
   const realizedPnl = computeRealizedPnl(trades);
   const unrealizedPnl =
     computeUnrealizedPnl(holdings, priceById) +
+    amcPositions.reduce(
+      (sum, position) =>
+        sum +
+        (position.navPerShare - position.holding.averagePrice) *
+          position.holding.quantity,
+      0,
+    ) +
     computeShortUnrealizedPnl(shorts, priceById) +
     computeOptionUnrealizedPnl(
       options,
@@ -143,7 +173,7 @@ export default function PortfolioPage() {
   };
 
   const sortedHoldingRows = useMemo(() => {
-    const rows = holdings.flatMap((holding) => {
+    const regularRows = holdings.flatMap((holding) => {
       const stock = stocks.find((item) => item.id === holding.stockId);
       if (!stock) return [];
       const evaluation = holding.quantity * stock.currentPrice;
@@ -187,9 +217,32 @@ export default function PortfolioPage() {
           returnRate,
           payoutAmount: holding.quantity * payoutPerShare,
           payoutDays,
+          href: stockHref(holding.stockId),
+          userEtf: false,
         },
       ];
     });
+    const userEtfRows = amcPositions.map((position) => ({
+      holding: position.holding,
+      stock: {
+        id: position.holding.stockId,
+        name: position.fund.name,
+        ticker: position.fund.ticker,
+        currentPrice: position.navPerShare,
+      },
+      evaluation: position.evaluation,
+      returnRate:
+        position.holding.averagePrice > 0
+          ? ((position.navPerShare - position.holding.averagePrice) /
+              position.holding.averagePrice) *
+            100
+          : 0,
+      payoutAmount: 0,
+      payoutDays: null,
+      href: "/amc",
+      userEtf: true,
+    }));
+    const rows = [...regularRows, ...userEtfRows];
     if (!holdingSort.key) return rows;
 
     const valueOf = (row: (typeof rows)[number]): string | number => {
@@ -223,6 +276,7 @@ export default function PortfolioPage() {
     });
   }, [
     currentSession,
+    amcPositions,
     holdingSort,
     holdings,
     lastMonthlyDistributionSession,
@@ -244,7 +298,7 @@ export default function PortfolioPage() {
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard label="총 자산" value={formatCompactMoney(total)} />
-        <SummaryCard label="주식 평가액" value={formatCompactMoney(stockValue)} />
+        <SummaryCard label="보유 평가액" value={formatCompactMoney(stockValue)} />
         <SummaryCard
           label="수익률"
           value={`${returnRate >= 0 ? "+" : ""}${returnRate.toFixed(2)}%`}
@@ -511,7 +565,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {holdings.length === 0 ? (
+      {sortedHoldingRows.length === 0 ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500">
           보유 종목이 없습니다.{" "}
           <Link href="/" className="text-emerald-400 hover:underline">
@@ -602,17 +656,19 @@ export default function PortfolioPage() {
                   returnRate: profit,
                   payoutAmount,
                   payoutDays,
+                  href,
+                  userEtf,
                 }) => {
                   return (
                     <tr
                       key={h.stockId}
                       role="link"
                       tabIndex={0}
-                      onClick={() => router.push(stockHref(h.stockId))}
+                      onClick={() => router.push(href)}
                       onKeyDown={(event) => {
                         if (event.key !== "Enter" && event.key !== " ") return;
                         event.preventDefault();
-                        router.push(stockHref(h.stockId));
+                        router.push(href);
                       }}
                       className="group cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
                     >
@@ -622,6 +678,11 @@ export default function PortfolioPage() {
                         <span className="ml-2 text-xs text-zinc-500">
                           {stock.ticker}
                         </span>
+                        {userEtf && (
+                          <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                            유저 ETF
+                          </span>
+                        )}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono">

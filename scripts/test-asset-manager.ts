@@ -35,6 +35,11 @@ import {
   type AmcEtfListingRequest,
 } from "../src/lib/supabase/amcEtfListingRequests";
 import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
+import {
+  getAmcPortfolioPositions,
+  getAmcPortfolioValue,
+  mergeAmcPortfolioFunds,
+} from "../src/lib/player/amcPortfolio";
 
 assert.deepEqual(splitAmcSeed(100_000), { burned: 10_000, navValue: 90_000 });
 
@@ -362,6 +367,34 @@ const listed: ListedAmcFund = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
+
+// User ETFs are not in the regular stock map, but the account must still
+// resolve and display their current NAV.
+const founderHolding = {
+  stockId: amcFundStockId(created.fund!.id),
+  quantity: created.fund!.totalShares,
+  averagePrice: computeAmcFundNavPerShare(created.fund!, priceOf, initialOf),
+};
+const portfolioFunds = mergeAmcPortfolioFunds(
+  [created.fund!],
+  [listedFundToAmcState(listed)],
+);
+const portfolioStocks = Object.entries(prices).map(([id, currentPrice]) => ({
+  id,
+  currentPrice,
+  initialPrice: initials[id] ?? currentPrice,
+}));
+const portfolioPositions = getAmcPortfolioPositions(
+  [founderHolding],
+  portfolioFunds,
+  portfolioStocks,
+);
+assert.equal(portfolioPositions.length, 1);
+assert.equal(portfolioPositions[0]!.fund.ticker, listed.ticker);
+assert.equal(
+  getAmcPortfolioValue([founderHolding], portfolioFunds, portfolioStocks),
+  portfolioPositions[0]!.evaluation,
+);
 const merged = mergeListedAumIntoManager(created.manager!, [listed]);
 assert.equal(merged.funds[0]!.totalShares, created.fund!.totalShares + 5_000);
 const asState = listedFundToAmcState(listed);

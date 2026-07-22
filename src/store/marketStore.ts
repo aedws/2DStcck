@@ -4637,6 +4637,19 @@ export const useMarketStore = create<MarketStore>()(
             ...state.trades,
           ].slice(0, 500) as Trade[],
         });
+        // Persist the seed debit and founder position before a listing request
+        // can survive beyond this tab/session.
+        if (!(await get().saveCloud())) {
+          useToastStore.getState().push(
+            "ETF는 계좌에 반영했지만 서버 저장이 지연되고 있습니다.",
+            "info",
+          );
+          return {
+            success: true,
+            message:
+              "ETF와 시드 대금은 계좌에 반영했습니다. 서버 저장 후 펀드 카드에서 상장을 다시 신청해 주세요.",
+          };
+        }
         const listing = await submitAmcEtfListingRequest(
           result.fund,
           result.manager,
