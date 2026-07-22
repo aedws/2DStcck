@@ -150,6 +150,13 @@ function normalizeWeights(
   }));
 }
 
+/** 공유 원장 JSON 파싱용 — 종목 수 상한만 완화하지 않고 동일 규칙. */
+export function normalizeWeightsSafe(
+  holdings: AmcHoldingWeight[],
+): AmcHoldingWeight[] | null {
+  return normalizeWeights(holdings);
+}
+
 export function maxFeeRateForStyle(style: AmcFundStyle): number {
   return style === "active"
     ? AMC_ACTIVE_MAX_FEE_RATE

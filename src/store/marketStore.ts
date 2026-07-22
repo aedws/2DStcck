@@ -290,6 +290,7 @@ import {
   foundAssetManager as createAssetManager,
   isAmcFundStockId,
   normalizeAssetManager,
+  parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
   settleAmcManagementFees,
   type AmcHoldingWeight,
@@ -298,6 +299,18 @@ import {
   type FoundAssetManagerInput,
 } from "@/lib/player/assetManager";
 import { verifyAmcFoundationApproval } from "@/lib/supabase/amcFoundationRequests";
+import {
+  adjustAmcListedShares,
+  applyAmcListedManagementFee,
+  fetchListedAmcFundsByIds,
+  fetchLiveListedAmcFunds,
+  listedFundToAmcState,
+  mergeListedAumIntoManager,
+  publishAmcListedFund,
+  syncAmcListedFundMeta,
+  upsertListedCache,
+  type ListedAmcFund,
+} from "@/lib/supabase/amcListedFunds";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -514,17 +527,20 @@ interface MarketStore extends MarketSnapshot {
   markPlayerCompanyIpoRequested: () => OrderResult;
   /** 자산운용사·유저 ETF. 펀드 좌는 순자산 랭킹에 합산하지 않는다. */
   assetManager: AssetManagerState | null;
+  /** 공유 상장된 유저 ETF(타 계정 포함). AMC 탭 마켓·AUM 동기화용. */
+  listedAmcFunds: ListedAmcFund[];
+  refreshListedAmcFunds: () => Promise<void>;
   foundAssetManager: (
     input: FoundAssetManagerInput,
     approvalRequestId: string,
   ) => Promise<OrderResult>;
-  createAmcFund: (input: CreateAmcFundInput) => OrderResult;
+  createAmcFund: (input: CreateAmcFundInput) => Promise<OrderResult>;
   rebalanceAmcFund: (
     fundId: string,
     holdings: AmcHoldingWeight[],
-  ) => OrderResult;
-  buyAmcFund: (fundId: string, quantity: number) => OrderResult;
-  sellAmcFund: (fundId: string, quantity: number) => OrderResult;
+  ) => Promise<OrderResult>;
+  buyAmcFund: (fundId: string, quantity: number) => Promise<OrderResult>;
+  sellAmcFund: (fundId: string, quantity: number) => Promise<OrderResult>;
   /** 마지막 종목 추가 요청 거래일 (쿨다운용). 없으면 미요청. */
   lastStockRequestSession?: number;
   /** 종목 추가 요청 가능 여부(현금·쿨다운) */
@@ -633,6 +649,7 @@ function createInitialState(): MarketSnapshot & {
   storyDecisionHistory: StoryDecision[];
   playerCompany: PlayerCompanyState | null;
   assetManager: AssetManagerState | null;
+  listedAmcFunds: ListedAmcFund[];
 } {
   const now = Date.now();
   const initialMarket = hydrateMarketCheckpoint(getBundledMarketCheckpoint());
@@ -719,6 +736,7 @@ function createInitialState(): MarketSnapshot & {
     storyDecisionHistory: [],
     playerCompany: null,
     assetManager: null,
+    listedAmcFunds: [],
   };
 }
 
@@ -1490,6 +1508,7 @@ export const useMarketStore = create<MarketStore>()(
           cashPayments: compensation,
           playerCompany: null,
           assetManager: null,
+          listedAmcFunds: [],
         });
         settings.setAppliedAccountResetVersion(action.resetVersion);
         if (action.compensationAmount > 0) {
@@ -1780,6 +1799,7 @@ export const useMarketStore = create<MarketStore>()(
           }
           set({ cloudSyncReady: true });
           await get().saveCloud();
+          void get().refreshListedAmcFunds();
           return "created";
         }
 
@@ -1797,6 +1817,7 @@ export const useMarketStore = create<MarketStore>()(
         ) {
           set({ cloudSyncReady: true });
           await get().saveCloud();
+          void get().refreshListedAmcFunds();
           useToastStore.getState().push(
             "☁️ 클라우드 저장분보다 최신인 이 기기 기록을 복구해 저장했습니다.",
             "success",
@@ -1991,6 +2012,7 @@ export const useMarketStore = create<MarketStore>()(
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
           playerCompany: normalizePlayerCompany(wallet.playerCompany),
           assetManager: normalizeAssetManager(wallet.assetManager),
+          listedAmcFunds: [],
           marginEnabled: cloudRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(wallet.marginLeverage),
           recurringInvestments: normalizeRecurringInvestments(
@@ -2512,13 +2534,59 @@ export const useMarketStore = create<MarketStore>()(
           marginCallAt = now;
         }
 
-        // 자산운용사: 패시브 자동 리밸 · 액티브 준수 · 운용료 · 상폐 환급
+        // 자산운용사: 공유 AUM 동기화 · 패시브 자동 리밸 · 액티브 준수 · 운용료 · 상폐 환급
         let assetManager = state.assetManager;
+        let listedAmcFunds = state.listedAmcFunds;
+        const priceOfAmc = (stockId: string) =>
+          combinedStocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+        const initialPriceOfAmc = (stockId: string) =>
+          combinedStocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+
+        // 타 계정 펀드 상폐 시 보유자 NAV 환급 (공유 원장 캐시 기준)
+        for (const holding of [...holdings]) {
+          const fundId = parseAmcFundId(holding.stockId);
+          if (!fundId || !(holding.quantity > 0)) continue;
+          const listed = listedAmcFunds.find((item) => item.id === fundId);
+          const ownFund = assetManager?.funds.find((item) => item.id === fundId);
+          const delisted =
+            listed?.status === "delisted" || ownFund?.status === "delisted";
+          if (!delisted) continue;
+          const fundState = ownFund
+            ? { ...ownFund, status: "active" as const }
+            : listed
+              ? { ...listedFundToAmcState(listed), status: "active" as const }
+              : null;
+          if (!fundState) continue;
+          const nav = computeAmcFundNavPerShare(
+            fundState,
+            priceOfAmc,
+            initialPriceOfAmc,
+          );
+          const total = Math.round(nav * holding.quantity);
+          cash += total;
+          holdings = holdings.filter((item) => item.stockId !== holding.stockId);
+          trades = [
+            {
+              id: `amc-delist-${fundId}-${currentSession}`,
+              stockId: holding.stockId,
+              ticker: fundState.ticker,
+              type: "sell",
+              quantity: holding.quantity,
+              price: nav,
+              total,
+              timestamp: now,
+            },
+            ...trades,
+          ];
+          useToastStore.getState().push(
+            `📕 ${fundState.ticker} 상장폐지 · NAV 환급 ${formatPrice(total)}`,
+            "info",
+          );
+        }
+
         if (assetManager) {
-          const priceOf = (stockId: string) =>
-            combinedStocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
-          const initialPriceOf = (stockId: string) =>
-            combinedStocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+          assetManager = mergeListedAumIntoManager(assetManager, listedAmcFunds);
+          const beforePassive = assetManager;
           assetManager = autoRebalancePassiveFunds(
             assetManager,
             currentSession,
@@ -2530,14 +2598,38 @@ export const useMarketStore = create<MarketStore>()(
             now,
           );
           assetManager = compliance.manager;
+          for (const fund of assetManager.funds) {
+            const prev =
+              beforePassive.funds.find((item) => item.id === fund.id) ??
+              compliance.manager.funds.find((item) => item.id === fund.id);
+            const statusChanged = prev && prev.status !== fund.status;
+            const rebalanceChanged =
+              prev && prev.lastRebalanceSession !== fund.lastRebalanceSession;
+            if (
+              statusChanged ||
+              rebalanceChanged ||
+              compliance.newlyDelisted.some((item) => item.id === fund.id)
+            ) {
+              void syncAmcListedFundMeta(fund, assetManager).then((result) => {
+                if (result.fund) {
+                  set((state) => ({
+                    listedAmcFunds: upsertListedCache(
+                      state.listedAmcFunds,
+                      result.fund!,
+                    ),
+                  }));
+                }
+              });
+            }
+          }
           for (const fund of compliance.newlyDelisted) {
             const stockId = amcFundStockId(fund.id);
             const holding = holdings.find((item) => item.stockId === stockId);
             if (holding && holding.quantity > 0) {
               const nav = computeAmcFundNavPerShare(
                 { ...fund, status: "active" },
-                priceOf,
-                initialPriceOf,
+                priceOfAmc,
+                initialPriceOfAmc,
               );
               const total = Math.round(nav * holding.quantity);
               cash += total;
@@ -2564,8 +2656,8 @@ export const useMarketStore = create<MarketStore>()(
           const feeSettle = settleAmcManagementFees(
             assetManager,
             currentSession,
-            priceOf,
-            initialPriceOf,
+            priceOfAmc,
+            initialPriceOfAmc,
             now,
           );
           assetManager = feeSettle.manager;
@@ -2586,6 +2678,28 @@ export const useMarketStore = create<MarketStore>()(
               ...cashPayments,
             ].slice(0, 200);
             paidIds.add(fee.id);
+            const settledFund = assetManager.funds.find(
+              (item) => item.id === fee.fundId,
+            );
+            if (settledFund) {
+              void applyAmcListedManagementFee({
+                fundId: fee.fundId,
+                dueSession: fee.dueSession,
+                amount: fee.amount,
+                newSeedNavValue: settledFund.seedNavValue,
+                newLastFeeSession: settledFund.lastFeeSession,
+                newCumulativeFeesPaid: settledFund.cumulativeFeesPaid,
+              }).then((result) => {
+                if (result.fund) {
+                  set((prev) => ({
+                    listedAmcFunds: upsertListedCache(
+                      prev.listedAmcFunds,
+                      result.fund!,
+                    ),
+                  }));
+                }
+              });
+            }
           }
         }
 
@@ -3937,6 +4051,33 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: result.message };
       },
 
+      refreshListedAmcFunds: async () => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          set({ listedAmcFunds: [] });
+          return;
+        }
+        const live = await fetchLiveListedAmcFunds();
+        const heldIds = state.holdings
+          .map((item) => parseAmcFundId(item.stockId))
+          .filter((id): id is string => Boolean(id));
+        const missing = heldIds.filter(
+          (id) => !live.some((fund) => fund.id === id),
+        );
+        const heldExtra = missing.length
+          ? await fetchListedAmcFundsByIds(missing)
+          : [];
+        const merged = [...live];
+        for (const fund of heldExtra) {
+          if (!merged.some((item) => item.id === fund.id)) merged.push(fund);
+        }
+        let assetManager = state.assetManager;
+        if (assetManager) {
+          assetManager = mergeListedAumIntoManager(assetManager, merged);
+        }
+        set({ listedAmcFunds: merged, assetManager });
+      },
+
       foundAssetManager: async (input, approvalRequestId) => {
         const state = get();
         if (!state.userId || !state.cloudSyncReady) {
@@ -3992,8 +4133,14 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: result.message };
       },
 
-      createAmcFund: (input) => {
+      createAmcFund: async (input) => {
         const state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 ETF를 설정·상장할 수 있습니다.",
+          };
+        }
         if (!state.assetManager) {
           return { success: false, message: "먼저 자산운용사를 설립해 주세요." };
         }
@@ -4003,6 +4150,12 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOf = (stockId: string) =>
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const reservedTickers = [
+          ...state.stocks.map((stock) => stock.ticker),
+          ...state.listedAmcFunds
+            .filter((fund) => fund.status !== "delisted")
+            .map((fund) => fund.ticker),
+        ];
         const result = createManagedFund(
           state.assetManager,
           input,
@@ -4011,7 +4164,7 @@ export const useMarketStore = create<MarketStore>()(
           priceOf,
           initialPriceOf,
           now,
-          state.stocks.map((stock) => stock.ticker),
+          reservedTickers,
         );
         if (
           !result.success ||
@@ -4020,6 +4173,16 @@ export const useMarketStore = create<MarketStore>()(
           result.cash === undefined
         ) {
           return { success: false, message: result.message };
+        }
+        const published = await publishAmcListedFund(
+          result.fund,
+          result.manager,
+        );
+        if (!published.success || !published.fund) {
+          return {
+            success: false,
+            message: published.message || "공유 상장에 실패했습니다.",
+          };
         }
         const seedStockId = amcFundStockId(result.fund.id);
         const seedQty = result.fund.totalShares;
@@ -4053,6 +4216,10 @@ export const useMarketStore = create<MarketStore>()(
           assetManager: result.manager,
           holdings,
           cashPayments: [...payments, ...state.cashPayments].slice(0, 200),
+          listedAmcFunds: upsertListedCache(
+            state.listedAmcFunds,
+            published.fund,
+          ),
           trades: [
             {
               id: `amc-seed-${result.fund.id}`,
@@ -4072,7 +4239,7 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: result.message };
       },
 
-      rebalanceAmcFund: (fundId, holdingsInput) => {
+      rebalanceAmcFund: async (fundId, holdingsInput) => {
         const state = get();
         if (!state.assetManager) {
           return { success: false, message: "자산운용사가 없습니다." };
@@ -4085,19 +4252,50 @@ export const useMarketStore = create<MarketStore>()(
           Math.floor(now / SESSION_DURATION_MS),
           now,
         );
-        if (!result.success || !result.manager) {
+        if (!result.success || !result.manager || !result.fund) {
           return { success: false, message: result.message };
         }
-        set({ assetManager: result.manager });
+        const synced = await syncAmcListedFundMeta(
+          result.fund,
+          result.manager,
+        );
+        if (!synced.success) {
+          return {
+            success: false,
+            message: synced.message || "공유 원장 동기화에 실패했습니다.",
+          };
+        }
+        set({
+          assetManager: result.manager,
+          ...(synced.fund
+            ? {
+                listedAmcFunds: upsertListedCache(
+                  state.listedAmcFunds,
+                  synced.fund,
+                ),
+              }
+            : {}),
+        });
         useToastStore.getState().push(result.message, "success");
         return { success: true, message: result.message };
       },
 
-      buyAmcFund: (fundId, quantity) => {
+      buyAmcFund: async (fundId, quantity) => {
         const state = get();
-        const fund = state.assetManager?.funds.find((item) => item.id === fundId);
-        if (!state.assetManager || !fund) {
-          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 유저 ETF를 거래할 수 있습니다.",
+          };
+        }
+        const own = state.assetManager?.funds.find((item) => item.id === fundId);
+        const listed = state.listedAmcFunds.find((item) => item.id === fundId);
+        const fund = own ?? (listed ? listedFundToAmcState(listed) : null);
+        if (!fund) {
+          return {
+            success: false,
+            message: "펀드를 찾을 수 없습니다. 목록을 새로고침해 주세요.",
+          };
         }
         if (fund.status === "delisted") {
           return { success: false, message: "상장폐지된 펀드입니다." };
@@ -4105,7 +4303,8 @@ export const useMarketStore = create<MarketStore>()(
         if (fund.status === "grace") {
           return {
             success: false,
-            message: "유예 기간에는 신규 매수가 불가합니다. 리밸런싱 후 재시도해 주세요.",
+            message:
+              "유예 기간에는 신규 매수가 불가합니다. 리밸런싱 후 재시도해 주세요.",
           };
         }
         const qty = Number(quantity);
@@ -4121,6 +4320,10 @@ export const useMarketStore = create<MarketStore>()(
         if (state.cash < total) {
           return { success: false, message: "현금이 부족합니다." };
         }
+        const adjusted = await adjustAmcListedShares(fundId, qty, total);
+        if (!adjusted.success || !adjusted.fund) {
+          return { success: false, message: adjusted.message };
+        }
         const stockId = amcFundStockId(fund.id);
         const existing = state.holdings.find((item) => item.stockId === stockId);
         const newQty = (existing?.quantity ?? 0) + qty;
@@ -4128,19 +4331,30 @@ export const useMarketStore = create<MarketStore>()(
           ? (existing.averagePrice * existing.quantity + nav * qty) / newQty
           : nav;
         const now = Date.now();
-        const nextFund = {
-          ...fund,
-          totalShares: fund.totalShares + qty,
-        };
-        set({
-          cash: state.cash - total,
-          assetManager: {
-            ...state.assetManager,
-            funds: state.assetManager.funds.map((item) =>
-              item.id === fundId ? nextFund : item,
+        const nextListed = upsertListedCache(
+          state.listedAmcFunds,
+          adjusted.fund,
+        );
+        let nextManager = state.assetManager;
+        if (nextManager) {
+          nextManager = {
+            ...nextManager,
+            funds: nextManager.funds.map((item) =>
+              item.id === fundId
+                ? {
+                    ...item,
+                    totalShares: adjusted.fund!.totalShares,
+                    seedNavValue: adjusted.fund!.seedNavValue,
+                  }
+                : item,
             ),
             lastActionAt: now,
-          },
+          };
+        }
+        set({
+          cash: state.cash - total,
+          assetManager: nextManager,
+          listedAmcFunds: nextListed,
           holdings: existing
             ? state.holdings.map((item) =>
                 item.stockId === stockId
@@ -4169,14 +4383,25 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: `${fund.ticker} ${qty}좌 매수` };
       },
 
-      sellAmcFund: (fundId, quantity) => {
+      sellAmcFund: async (fundId, quantity) => {
         const state = get();
-        const fund = state.assetManager?.funds.find((item) => item.id === fundId);
-        if (!state.assetManager || !fund) {
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 유저 ETF를 거래할 수 있습니다.",
+          };
+        }
+        const own = state.assetManager?.funds.find((item) => item.id === fundId);
+        const listed = state.listedAmcFunds.find((item) => item.id === fundId);
+        const fund = own ?? (listed ? listedFundToAmcState(listed) : null);
+        if (!fund) {
           return { success: false, message: "펀드를 찾을 수 없습니다." };
         }
         if (fund.status === "delisted") {
-          return { success: false, message: "이미 상장폐지되어 환급된 펀드입니다." };
+          return {
+            success: false,
+            message: "이미 상장폐지되어 환급된 펀드입니다.",
+          };
         }
         const qty = Number(quantity);
         if (!Number.isFinite(qty) || qty <= 0) {
@@ -4193,22 +4418,36 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
         const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
         const total = Math.round(nav * qty);
+        const adjusted = await adjustAmcListedShares(fundId, -qty, -total);
+        if (!adjusted.success || !adjusted.fund) {
+          return { success: false, message: adjusted.message };
+        }
         const remaining = existing.quantity - qty;
         const now = Date.now();
-        set({
-          cash: state.cash + total,
-          assetManager: {
-            ...state.assetManager,
-            funds: state.assetManager.funds.map((item) =>
+        const nextListed = upsertListedCache(
+          state.listedAmcFunds,
+          adjusted.fund,
+        );
+        let nextManager = state.assetManager;
+        if (nextManager) {
+          nextManager = {
+            ...nextManager,
+            funds: nextManager.funds.map((item) =>
               item.id === fundId
                 ? {
                     ...item,
-                    totalShares: Math.max(1, item.totalShares - qty),
+                    totalShares: adjusted.fund!.totalShares,
+                    seedNavValue: adjusted.fund!.seedNavValue,
                   }
                 : item,
             ),
             lastActionAt: now,
-          },
+          };
+        }
+        set({
+          cash: state.cash + total,
+          assetManager: nextManager,
+          listedAmcFunds: nextListed,
           holdings:
             remaining > 1e-9
               ? state.holdings.map((item) =>
@@ -4876,6 +5115,11 @@ export const useMarketStore = create<MarketStore>()(
           assetManager: normalizeAssetManager(
             (walletSource as Partial<MarketStore>).assetManager,
           ),
+          listedAmcFunds: Array.isArray(
+            (walletSource as Partial<MarketStore>).listedAmcFunds,
+          )
+            ? (walletSource as Partial<MarketStore>).listedAmcFunds!
+            : [],
           marginEnabled: overflowRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(
             (walletSource as Partial<MarketStore>).marginLeverage,

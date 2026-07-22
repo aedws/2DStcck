@@ -12,6 +12,11 @@ import {
   settleAmcManagementFees,
   splitAmcSeed,
 } from "../src/lib/player/assetManager";
+import {
+  listedFundToAmcState,
+  mergeListedAumIntoManager,
+  type ListedAmcFund,
+} from "../src/lib/supabase/amcListedFunds";
 
 assert.deepEqual(splitAmcSeed(100_000), { burned: 10_000, navValue: 90_000 });
 
@@ -119,6 +124,47 @@ assert.ok(fees.feePayments.length >= 1);
 assert.ok(fees.feePayments[0]!.amount > 0);
 assert.ok(
   fees.manager.funds[0]!.seedNavValue < manager.funds[0]!.seedNavValue,
+);
+
+// 공유 AUM 머지: 타 계정 매수로 늘어난 유통 좌수를 운용료에 반영
+const listed: ListedAmcFund = {
+  id: created.fund!.id,
+  managerUserId: "u1",
+  managerGameId: "g1",
+  managerName: "북방운용",
+  managerTagline: "규칙을 지키는 바스켓",
+  name: created.fund!.name,
+  ticker: created.fund!.ticker,
+  style: "active",
+  feeRate: 0.03,
+  benchmarkStockId: "bench",
+  holdings: created.fund!.holdings,
+  totalShares: created.fund!.totalShares + 5_000,
+  seedNavValue: created.fund!.seedNavValue + 5_000 * Math.max(
+    1,
+    Math.round(created.fund!.seedNavValue / created.fund!.totalShares),
+  ),
+  status: "active",
+  lastFeeSession: created.fund!.lastFeeSession,
+  lastRebalanceSession: created.fund!.lastRebalanceSession,
+  graceStartedSession: null,
+  createdSession: created.fund!.createdSession,
+  cumulativeFeesPaid: 0,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+const merged = mergeListedAumIntoManager(created.manager!, [listed]);
+assert.equal(merged.funds[0]!.totalShares, created.fund!.totalShares + 5_000);
+const asState = listedFundToAmcState(listed);
+assert.equal(asState.totalShares, listed.totalShares);
+const feesOnSharedAum = settleAmcManagementFees(
+  merged,
+  merged.funds[0]!.lastFeeSession + 20,
+  priceOf,
+  initialOf,
+);
+assert.ok(
+  feesOnSharedAum.feePayments[0]!.amount > fees.feePayments[0]!.amount,
 );
 
 console.log("asset manager founding · fee · compliance scenarios passed");

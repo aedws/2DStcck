@@ -7,7 +7,6 @@ import {
   AMC_GRACE_DAYS,
   AMC_MIN_HOLDINGS,
   AMC_MIN_NET_WORTH,
-  AMC_PASSIVE_MAX_FEE_RATE,
   AMC_REBALANCE_WINDOW_DAYS,
   amcFundStockId,
   computeAmcFundNavPerShare,
@@ -20,6 +19,10 @@ import {
   submitAmcFoundationRequest,
   type AmcFoundationRequest,
 } from "@/lib/supabase/amcFoundationRequests";
+import {
+  listedFundToAmcState,
+  type ListedAmcFund,
+} from "@/lib/supabase/amcListedFunds";
 import { formatCompactMoney, formatPrice } from "@/lib/market/engine";
 import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { isListed } from "@/lib/market/ipo";
@@ -31,6 +34,7 @@ const fieldClass =
 
 export default function AssetManagerPage() {
   const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const cash = useMarketStore((state) => state.cash);
   const stocks = useMarketStore((state) => state.stocks);
   const holdings = useMarketStore((state) => state.holdings);
@@ -42,6 +46,9 @@ export default function AssetManagerPage() {
   const rebalanceAmcFund = useMarketStore((state) => state.rebalanceAmcFund);
   const buyAmcFund = useMarketStore((state) => state.buyAmcFund);
   const sellAmcFund = useMarketStore((state) => state.sellAmcFund);
+  const refreshListedAmcFunds = useMarketStore(
+    (state) => state.refreshListedAmcFunds,
+  );
 
   const [requests, setRequests] = useState<AmcFoundationRequest[] | null>(null);
   const [name, setName] = useState("");
@@ -50,6 +57,8 @@ export default function AssetManagerPage() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [founding, setFounding] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [tradingId, setTradingId] = useState<string | null>(null);
 
   const [fundName, setFundName] = useState("");
   const [fundTicker, setFundTicker] = useState("");
@@ -100,7 +109,8 @@ export default function AssetManagerPage() {
       return;
     }
     void refreshRequests();
-  }, [userId, cloudSyncReady]);
+    void refreshListedAmcFunds();
+  }, [userId, cloudSyncReady, refreshListedAmcFunds]);
 
   const activeRequest = useMemo(() => {
     if (!requests?.length) return null;
@@ -140,6 +150,13 @@ export default function AssetManagerPage() {
       .slice(-48);
   }, [assetManager]);
 
+  const marketplaceFunds = useMemo(() => {
+    const ownIds = new Set(assetManager?.funds.map((fund) => fund.id) ?? []);
+    return listedAmcFunds.filter(
+      (fund) => fund.status !== "delisted" && !ownIds.has(fund.id),
+    );
+  }, [listedAmcFunds, assetManager]);
+
   const handleSubmitRequest = async () => {
     setSubmitting(true);
     setMessage("");
@@ -178,10 +195,11 @@ export default function AssetManagerPage() {
     );
   };
 
-  const handleCreateFund = () => {
+  const handleCreateFund = async () => {
+    setCreating(true);
     const feeRate = Number(feeRatePct) / 100;
     const equal = 1 / Math.max(selectedIds.length, 1);
-    const result = createAmcFund({
+    const result = await createAmcFund({
       name: fundName,
       ticker: fundTicker,
       style: fundStyle,
@@ -195,8 +213,80 @@ export default function AssetManagerPage() {
       setFundName("");
       setFundTicker("");
       setSelectedIds([]);
+      void refreshListedAmcFunds();
     }
+    setCreating(false);
   };
+
+  const handleTrade = async (
+    fundId: string,
+    side: "buy" | "sell",
+  ) => {
+    setTradingId(fundId);
+    const qty = Number(tradeQty[fundId] ?? "1");
+    const result =
+      side === "buy"
+        ? await buyAmcFund(fundId, qty)
+        : await sellAmcFund(fundId, qty);
+    setMessage(result.message);
+    setTradingId(null);
+  };
+
+  const marketplaceSection = (
+    <section className="mb-5 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold">상장 ETF 마켓</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            다른 계정 운용사의 공유 상장 펀드입니다. AUM(유통 좌수)은 전 계정
+            매매가 합산되며, 운용료는 그 AUM 기준으로 차감됩니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refreshListedAmcFunds()}
+          className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-bold"
+        >
+          새로고침
+        </button>
+      </div>
+      {!userId || !cloudSyncReady ? (
+        <p className="mt-4 text-center text-sm text-[var(--muted)]">
+          로그인 후 상장 ETF를 볼 수 있습니다.
+        </p>
+      ) : marketplaceFunds.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--muted)]">
+          아직 다른 운용사의 상장 ETF가 없습니다.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {marketplaceFunds.map((fund) => (
+            <ListedFundCard
+              key={fund.id}
+              fund={fund}
+              holdingsQty={
+                holdings.find(
+                  (item) => item.stockId === amcFundStockId(fund.id),
+                )?.quantity ?? 0
+              }
+              priceOf={priceOf}
+              initialPriceOf={initialPriceOf}
+              qty={tradeQty[fund.id] ?? "1"}
+              onQty={(value) =>
+                setTradeQty((prev) => ({
+                  ...prev,
+                  [fund.id]: value.replace(/[^0-9.]/g, ""),
+                }))
+              }
+              busy={tradingId === fund.id}
+              onBuy={() => void handleTrade(fund.id, "buy")}
+              onSell={() => void handleTrade(fund.id, "sell")}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
 
   if (!assetManager) {
     const eligible = netWorth >= AMC_MIN_NET_WORTH;
@@ -208,10 +298,12 @@ export default function AssetManagerPage() {
           <h1 className="mt-1 text-3xl font-black">📕 자산운용사</h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
             순자산 $10,000 이상이면 허가 후 자산운용사를 설립할 수 있습니다.
-            설립 즉시 $10,000가 소각되며, 이후 유저 ETF는 이 탭에서만 보이고
+            설립 즉시 $10,000가 소각되며, 상장 ETF는 이 탭에서만 보이고
             거래됩니다.
           </p>
         </header>
+
+        {marketplaceSection}
 
         <section className="mb-5 grid gap-3 sm:grid-cols-3">
           <Summary label="순자산" value={formatCompactMoney(netWorth)} />
@@ -343,6 +435,8 @@ export default function AssetManagerPage() {
         </div>
       </header>
 
+      {marketplaceSection}
+
       <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-bold">운용사 실적</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
@@ -353,7 +447,7 @@ export default function AssetManagerPage() {
       </section>
 
       <section className="mb-5 space-y-3">
-        <h2 className="text-lg font-bold">유저 ETF</h2>
+        <h2 className="text-lg font-bold">내 유저 ETF</h2>
         {assetManager.funds.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--muted)]">
             아직 설정한 ETF가 없습니다. 아래에서 첫 펀드를 만드세요.
@@ -364,6 +458,7 @@ export default function AssetManagerPage() {
             const held =
               holdings.find((item) => item.stockId === amcFundStockId(fund.id))
                 ?.quantity ?? 0;
+            const aum = Math.round(nav * fund.totalShares);
             const sessionsLeft = Math.max(
               0,
               AMC_REBALANCE_WINDOW_DAYS -
@@ -407,7 +502,8 @@ export default function AssetManagerPage() {
                       {formatPrice(nav)}
                     </p>
                     <p className="text-xs text-[var(--muted)]">
-                      보유 {held.toLocaleString("ko-KR")}좌
+                      AUM {formatCompactMoney(aum)} · 보유{" "}
+                      {held.toLocaleString("ko-KR")}좌
                     </p>
                   </div>
                 </div>
@@ -435,29 +531,17 @@ export default function AssetManagerPage() {
                     />
                     <button
                       type="button"
-                      onClick={() =>
-                        setMessage(
-                          buyAmcFund(
-                            fund.id,
-                            Number(tradeQty[fund.id] ?? "1"),
-                          ).message,
-                        )
-                      }
-                      className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white"
+                      disabled={tradingId === fund.id}
+                      onClick={() => void handleTrade(fund.id, "buy")}
+                      className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                     >
                       매수
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        setMessage(
-                          sellAmcFund(
-                            fund.id,
-                            Number(tradeQty[fund.id] ?? "1"),
-                          ).message,
-                        )
-                      }
-                      className="rounded-xl bg-[var(--background)] px-4 py-2 text-sm font-bold"
+                      disabled={tradingId === fund.id}
+                      onClick={() => void handleTrade(fund.id, "sell")}
+                      className="rounded-xl bg-[var(--background)] px-4 py-2 text-sm font-bold disabled:opacity-60"
                     >
                       매도
                     </button>
@@ -476,7 +560,9 @@ export default function AssetManagerPage() {
                             weight: rotated[1]!.weight + 0.05,
                           };
                         }
-                        setMessage(rebalanceAmcFund(fund.id, rotated).message);
+                        void rebalanceAmcFund(fund.id, rotated).then((result) =>
+                          setMessage(result.message),
+                        );
                       }}
                       className="rounded-xl border border-cyan-400/40 px-4 py-2 text-sm font-bold text-cyan-200"
                     >
@@ -491,9 +577,10 @@ export default function AssetManagerPage() {
       </section>
 
       <section className="rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">
-        <h2 className="text-lg font-bold">새 ETF 설정</h2>
+        <h2 className="text-lg font-bold">새 ETF 설정 · 공유 상장</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 개수 제한 없음
+          기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 설정 즉시
+          전 계정 마켓에 상장
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="펀드명">
@@ -590,17 +677,101 @@ export default function AssetManagerPage() {
         </div>
         <button
           type="button"
-          onClick={handleCreateFund}
-          disabled={selectedIds.length < AMC_MIN_HOLDINGS}
+          onClick={() => void handleCreateFund()}
+          disabled={creating || selectedIds.length < AMC_MIN_HOLDINGS}
           className="mt-4 min-h-12 w-full rounded-2xl bg-cyan-500 px-5 text-sm font-black text-white disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
         >
-          ETF 설정 (시드 10% 소각)
+          {creating ? "상장 중…" : "ETF 설정 · 공유 상장 (시드 10% 소각)"}
         </button>
       </section>
 
       {message && (
         <p className="mt-4 rounded-xl bg-[var(--surface)] p-3 text-xs text-[var(--muted)]">
           {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ListedFundCard({
+  fund,
+  holdingsQty,
+  priceOf,
+  initialPriceOf,
+  qty,
+  onQty,
+  busy,
+  onBuy,
+  onSell,
+}: {
+  fund: ListedAmcFund;
+  holdingsQty: number;
+  priceOf: (stockId: string) => number;
+  initialPriceOf: (stockId: string) => number;
+  qty: string;
+  onQty: (value: string) => void;
+  busy: boolean;
+  onBuy: () => void;
+  onSell: () => void;
+}) {
+  const state = listedFundToAmcState(fund);
+  const nav = computeAmcFundNavPerShare(state, priceOf, initialPriceOf);
+  const aum = Math.round(nav * fund.totalShares);
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] text-[var(--muted)]">
+            {fund.managerName} · {fund.style === "active" ? "액티브" : "패시브"} ·
+            회차 {(fund.feeRate * 100).toFixed(2)}%
+          </p>
+          <h3 className="text-base font-black">
+            {fund.name}{" "}
+            <span className="text-xs font-semibold text-[var(--muted)]">
+              {fund.ticker}
+            </span>
+          </h3>
+          <p className="mt-1 text-xs text-[var(--muted)]">{fund.managerTagline}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
+          <p className="font-black tabular-nums">{formatPrice(nav)}</p>
+          <p className="text-[11px] text-[var(--muted)]">
+            AUM {formatCompactMoney(aum)} · 보유{" "}
+            {holdingsQty.toLocaleString("ko-KR")}좌
+          </p>
+        </div>
+      </div>
+      {fund.status !== "grace" && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <input
+            value={qty}
+            onChange={(event) => onQty(event.target.value)}
+            className="w-24 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            placeholder="수량"
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onBuy}
+            className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            매수
+          </button>
+          <button
+            type="button"
+            disabled={busy || holdingsQty <= 0}
+            onClick={onSell}
+            className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm font-bold disabled:opacity-60"
+          >
+            매도
+          </button>
+        </div>
+      )}
+      {fund.status === "grace" && (
+        <p className="mt-3 text-xs text-amber-300">
+          유예 기간 — 신규 매수 불가 · 보유분은 매도 가능
         </p>
       )}
     </div>
