@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "옵션 수량 입력 개선 — 큰 계약 수를 입력해도 1.21e+21 같은 지수 표기로 바뀌거나 다음 숫자 입력 때 값이 깨지지 않도록 주식 주문창과 같은 문자열 입력 방식으로 변경했습니다. (@asset_management)",
       "계좌 롤백 피해 보상 — 특정 시점으로 계좌가 돌아가 주식·현금이 사라진 제보 계정에 요청 금액 $600T를 중복 없이 한 번만 지급했습니다.",
       "모바일 내비게이션 개편 — 11칸 하단바를 시장·계좌·회사·ETF·전체 5칸으로 정리하고, 나머지 기능은 PC와 같은 핵심·성장·투자 도구·라운지·서비스 묶음의 전체 메뉴에서 제공합니다.",
       "ETF 캐릭터 판정 보정 — 금·단기채는 호감도에 영향을 주지 않으며, 한 캐릭터와 금·단기채만 담은 ETF는 단일 캐릭터 테마로 인정합니다.",
@@ -184,6 +185,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "개선",
+    title: "옵션 대규모 수량 입력 개선",
+    detail:
+      "옵션 주문 수량을 입력할 때 값을 매번 숫자로 변환하던 방식을 주식 주문창과 같은 문자열 입력 방식으로 바꿨습니다. 21자리 이상의 큰 계약 수도 입력 중에는 지수 표기로 바뀌지 않고 뒤에 숫자를 계속 붙일 수 있으며, 주문 시점에만 1 이상의 정수인지 검증합니다. 입력칸을 넓히고 보유 옵션 계약 수도 천 단위 구분으로 표시합니다. (@asset_management)",
+  },
   {
     date: "2026-07-23",
     tag: "수정",

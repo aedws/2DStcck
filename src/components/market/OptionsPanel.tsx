@@ -31,6 +31,14 @@ function zeroDteRemainingLabel(now: number): string {
   return mins >= 1 ? `약 ${mins}분 남음` : "곧 마감";
 }
 
+function cleanIntegerInput(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function formatContractQuantity(quantity: number): string {
+  return quantity.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
+}
+
 export function OptionsPanel({ stock }: { stock: StockState }) {
   const [mounted, setMounted] = useState(false);
   const onboarded = useSettingsStore((s) => s.onboarded);
@@ -57,8 +65,17 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
   const closeOption = useMarketStore((s) => s.closeOption);
   const getRateLevel = useMarketStore((s) => s.getRateLevel);
 
-  const [qty, setQty] = useState(1);
+  // 입력 중에는 문자열을 그대로 유지한다. number 상태로 왕복시키면 1e21 이상에서
+  // 브라우저가 지수 표기로 바꾸고, 다음 숫자 입력 때 값이 훼손된다.
+  const [quantityInput, setQuantityInput] = useState("1");
   const [msg, setMsg] = useState<string | null>(null);
+
+  const quantity = Number(quantityInput);
+  const validQuantity =
+    quantityInput.length > 0 &&
+    Number.isFinite(quantity) &&
+    Number.isInteger(quantity) &&
+    quantity >= 1;
 
   const now = Date.now();
   const session = Math.floor(now / SESSION_DURATION_MS);
@@ -79,6 +96,19 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
     setMsg(r.message);
     toastResult(r);
     playResultSound(r, "buy");
+  }
+
+  function actWithQuantity(
+    fn: (orderQuantity: number) => { success: boolean; message: string },
+  ) {
+    if (!validQuantity) {
+      act(() => ({
+        success: false,
+        message: "수량은 1 이상의 정수로 입력해 주세요.",
+      }));
+      return;
+    }
+    act(() => fn(quantity));
   }
 
   const daysToExpiry = activeExpiry - session;
@@ -151,16 +181,27 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
             </button>
           );
         })}
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="text-xs text-[var(--muted)]">수량</span>
+        <div className="ml-auto min-w-[12rem] flex-1 sm:max-w-[17rem]">
+          <label
+            htmlFor="option-order-quantity"
+            className="mb-1 block text-xs text-[var(--muted)]"
+          >
+            주문 수량
+          </label>
           <input
+            id="option-order-quantity"
             inputMode="numeric"
-            value={qty}
-            onChange={(e) =>
-              setQty(Math.max(1, parseInt(e.target.value.replace(/\D/g, "")) || 1))
+            autoComplete="off"
+            aria-invalid={!validQuantity}
+            value={quantityInput}
+            onChange={(event) =>
+              setQuantityInput(cleanIntegerInput(event.target.value))
             }
-            className="w-16 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-right text-sm tabular-nums outline-none"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-right text-sm tabular-nums outline-none focus:border-[var(--accent)]"
           />
+          <p className="mt-1 text-right text-[10px] text-[var(--muted)]">
+            숫자를 그대로 이어서 입력할 수 있습니다
+          </p>
         </div>
       </div>
 
@@ -232,20 +273,28 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
                     label="콜"
                     premium={call}
                     onBuy={() =>
-                      act(() => buyOption(stock.id, "call", strike, activeExpiry, qty))
+                      actWithQuantity((orderQuantity) =>
+                        buyOption(stock.id, "call", strike, activeExpiry, orderQuantity),
+                      )
                     }
                     onWrite={() =>
-                      act(() => writeOption(stock.id, "call", strike, activeExpiry, qty))
+                      actWithQuantity((orderQuantity) =>
+                        writeOption(stock.id, "call", strike, activeExpiry, orderQuantity),
+                      )
                     }
                   />
                   <ChainCell
                     label="풋"
                     premium={put}
                     onBuy={() =>
-                      act(() => buyOption(stock.id, "put", strike, activeExpiry, qty))
+                      actWithQuantity((orderQuantity) =>
+                        buyOption(stock.id, "put", strike, activeExpiry, orderQuantity),
+                      )
                     }
                     onWrite={() =>
-                      act(() => writeOption(stock.id, "put", strike, activeExpiry, qty))
+                      actWithQuantity((orderQuantity) =>
+                        writeOption(stock.id, "put", strike, activeExpiry, orderQuantity),
+                      )
                     }
                   />
                 </div>
@@ -286,7 +335,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
                       )}
                     </p>
                     <p className="text-xs text-[var(--muted)]">
-                      {pos.quantity}계약 ·{" "}
+                      {formatContractQuantity(pos.quantity)}계약 ·{" "}
                       {posZeroDte
                         ? "오늘 마감"
                         : `만기 ${pos.expirySession - session}거래일 후`}{" "}
