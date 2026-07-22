@@ -2536,7 +2536,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 자산운용사: 공유 AUM 동기화 · 패시브 자동 리밸 · 액티브 준수 · 운용료 · 상폐 환급
         let assetManager = state.assetManager;
-        let listedAmcFunds = state.listedAmcFunds;
+        const listedAmcFunds = state.listedAmcFunds;
         const priceOfAmc = (stockId: string) =>
           combinedStocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOfAmc = (stockId: string) =>
