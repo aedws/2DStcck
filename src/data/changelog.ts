@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "유저 ETF 구매·계좌 표시 복구 — 생성·구매에 사용한 현금이 재접속 후 되돌아오지 않도록 서버 원장과 즉시 맞추고, 보유한 유저 ETF를 내 계좌와 계좌 사이드바에서 NAV 기준 평가액·수익률과 함께 표시합니다.",
       "옵션 수량 입력 개선 — 큰 계약 수를 입력해도 1.21e+21 같은 지수 표기로 바뀌거나 다음 숫자 입력 때 값이 깨지지 않도록 주식 주문창과 같은 문자열 입력 방식으로 변경했습니다. (@asset_management)",
       "계좌 롤백 피해 보상 — 특정 시점으로 계좌가 돌아가 주식·현금이 사라진 제보 계정에 요청 금액 $600T를 중복 없이 한 번만 지급했습니다.",
       "모바일 내비게이션 개편 — 11칸 하단바를 시장·계좌·회사·ETF·전체 5칸으로 정리하고, 나머지 기능은 PC와 같은 핵심·성장·투자 도구·라운지·서비스 묶음의 전체 메뉴에서 제공합니다.",
@@ -185,6 +186,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "수정",
+    title: "유저 ETF 구매 자산 차감·계좌 표시 복구",
+    detail:
+      "유저 ETF 생성 직후 시드 출자금과 보유좌수를 클라우드에 즉시 저장하고, 이후 저장 데이터가 낡아도 서버 거래 원장의 현금 잔액을 우선 반영해 구매 전 자산으로 되돌아가지 않도록 수정했습니다. 보유한 유저 ETF는 내 계좌 보유 종목과 계좌 사이드바에 현재 NAV·평가액·수익률과 함께 표시됩니다. 기존 정책대로 유저 ETF 평가액은 순자산 랭킹에는 합산하지 않습니다.",
+  },
   {
     date: "2026-07-23",
     tag: "개선",
