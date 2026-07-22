@@ -16,6 +16,12 @@ export interface ChangelogDaySummary {
 }
 
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
+  "2026-07-23": {
+    highlights:
+      "모바일 내비게이션 개편 — 11칸 하단바를 시장·계좌·회사·ETF·전체 5칸으로 정리하고, 나머지 기능은 PC와 같은 핵심·성장·투자 도구·라운지·서비스 묶음의 전체 메뉴에서 제공합니다.",
+    intent:
+      "PC 정보 구조는 유지하면서 모바일의 터치 영역과 가독성을 확보하고, 자주 쓰는 회사·ETF 화면에는 한 번에 진입할 수 있게 했습니다.",
+  },
   "2026-07-22": {
     highlights: [
       "ETF 캐릭터 판정 보정 — 금·단기채는 호감도에 영향을 주지 않으며, 한 캐릭터와 금·단기채만 담은 ETF는 단일 캐릭터 테마로 인정합니다.",
@@ -176,6 +182,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "개선",
+    title: "모바일 하단바·전체 메뉴 개편",
+    detail:
+      "PC에서 정리한 주요 메뉴와 그룹 구조를 모바일에도 맞췄습니다. 화면을 11칸으로 잘게 나누던 하단바는 시장·계좌·회사·ETF·전체 5개로 줄여 터치 영역을 넓혔고, 전체 메뉴는 핵심·성장·투자 도구·라운지·서비스 그룹의 큰 카드로 모든 화면을 제공합니다. 메뉴는 화면 이동·배경 터치·닫기 버튼·ESC에서 닫히며 안전 영역을 포함해 콘텐츠를 가리지 않습니다.",
+  },
   {
     date: "2026-07-22",
     tag: "개선",

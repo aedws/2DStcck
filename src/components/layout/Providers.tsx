@@ -18,7 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <StoreHydration>
-      <div className="min-h-screen bg-[var(--background)] pb-14 text-[var(--foreground)] md:pb-0">
+      <div className="min-h-screen bg-[var(--background)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0">
         <TossHeader />
         <main className={fullWidth ? "" : "mx-auto max-w-6xl px-4 py-6"}>
           {children}
