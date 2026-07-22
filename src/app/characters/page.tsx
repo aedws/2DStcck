@@ -17,12 +17,15 @@ import {
 } from "@/lib/market/characterProgress";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import { getActivePreferredShares } from "@/lib/player/preferredShares";
+import { mergeAmcPortfolioFunds } from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 
 const CARD_STYLE: Record<CharacterRelationStatus, string> = {
   leverage: "border-pink-400/60 bg-pink-500/10",
   hostile: "border-red-500/60 bg-red-500/10",
   "covered-call": "border-amber-400/60 bg-amber-400/10",
   direct: "border-sky-400/60 bg-sky-500/10",
+  bonded: "border-violet-400/60 bg-violet-500/10",
   locked: "border-[var(--border)] bg-[var(--surface)] opacity-65",
 };
 
@@ -31,6 +34,7 @@ const BADGE_STYLE: Record<CharacterRelationStatus, string> = {
   hostile: "bg-red-500/20 text-red-400",
   "covered-call": "bg-amber-500/20 text-amber-300",
   direct: "bg-sky-500/20 text-sky-300",
+  bonded: "bg-violet-500/20 text-violet-300",
   locked: "bg-[var(--background)] text-[var(--muted)]",
 };
 
@@ -40,6 +44,8 @@ export default function CharactersPage() {
   const getEquity = useMarketStore((state) => state.getEquity);
   const characterProgress = useMarketStore((state) => state.characterProgress);
   const preferredShares = useMarketStore((state) => state.preferredShares);
+  const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const preferredByCharacter = useMemo(
     () => new Set(preferredShares.map((share) => share.characterId)),
     [preferredShares],
@@ -59,9 +65,49 @@ export default function CharactersPage() {
         .filter((entry): entry is { company: StockDefinition; ceo: Character } => Boolean(entry.ceo)),
     [],
   );
+  const userEtfFunds = useMemo(
+    () =>
+      mergeAmcPortfolioFunds(
+        assetManager?.funds ?? [],
+        listedAmcFunds.map(listedFundToAmcState),
+      ),
+    [assetManager, listedAmcFunds],
+  );
   const relations = useMemo(
-    () => new Map(entries.map(({ company }) => [company.id, getCharacterRelation(company.id, holdings)])),
-    [entries, holdings],
+    () =>
+      new Map(
+        entries.map(({ company, ceo }) => {
+          const progress = getCharacterProgress(characterProgress, ceo.id);
+          return [
+            company.id,
+            getCharacterRelation(company.id, holdings, {
+              stocks,
+              funds: userEtfFunds,
+              permanentlyUnlocked:
+                progress.bondedAtSession !== undefined || progress.affinity >= 100,
+            }),
+          ];
+        }),
+      ),
+    [entries, holdings, stocks, userEtfFunds, characterProgress],
+  );
+  const sortedEntries = useMemo(
+    () =>
+      entries
+        .map((entry, index) => ({ entry, index }))
+        .sort((a, b) => {
+          const relationA = relations.get(a.entry.company.id)!;
+          const relationB = relations.get(b.entry.company.id)!;
+          return (
+            Number(relationB.currentlyHeld) - Number(relationA.currentlyHeld) ||
+            Number(relationB.unlocked) - Number(relationA.unlocked) ||
+            getCharacterProgress(characterProgress, b.entry.ceo.id).affinity -
+              getCharacterProgress(characterProgress, a.entry.ceo.id).affinity ||
+            a.index - b.index
+          );
+        })
+        .map(({ entry }) => entry),
+    [entries, relations, characterProgress],
   );
   const discovered = entries.filter(
     ({ company }) => relations.get(company.id)?.unlocked,
@@ -86,17 +132,20 @@ export default function CharactersPage() {
         <SummaryStat label="활성 우선주 🎖️" value={`${activePreferred.length}좌`} tone="text-emerald-400" />
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
-        일반 주식·레버리지·커버드콜을 보유하면 도감이 활성화됩니다. 인버스만 보유하면 상세 정보는 잠긴 채 적대 관계로 표시됩니다.
+        일반 주식·레버리지·커버드콜과 유저 ETF의 우호 구성 자산을 보유하면 도감이
+        활성화됩니다. 호감도 100을 한 번 달성한 캐릭터는 관련 자산을 팔아도 영구
+        해금되며, 현재 보유 중인 캐릭터가 위에 표시됩니다.
       </p>
       <div className="mb-5 flex flex-wrap gap-2 text-[11px]">
         <Legend color="bg-pink-400" label="레버리지 동맹 · 최우선" />
         <Legend color="bg-red-500" label="인버스 적대" />
         <Legend color="bg-amber-400" label="커버드콜" />
         <Legend color="bg-sky-400" label="일반 보유" />
+        <Legend color="bg-violet-400" label="관계 영구 해금" />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {entries.map(({ company, ceo }) => {
+        {sortedEntries.map(({ company, ceo }) => {
           const relation = relations.get(company.id)!;
           const progress = getCharacterProgress(characterProgress, ceo.id);
           const content = (

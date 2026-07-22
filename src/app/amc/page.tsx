@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import {
@@ -934,6 +935,12 @@ export default function AssetManagerPage() {
                     </p>
                   </div>
                 </div>
+                <Link
+                  href={`/amc/trade?id=${encodeURIComponent(fund.id)}`}
+                  className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-cyan-400/35 bg-cyan-400/10 px-4 text-xs font-bold text-cyan-200"
+                >
+                  차트·상세 매매 →
+                </Link>
                 <p className="mt-3 text-xs text-[var(--muted)]">
                   구성{" "}
                   {fund.holdings
@@ -1860,6 +1867,12 @@ function ListedFundCard({
       </div>
       {fund.status !== "grace" && (
         <div className="mt-3 flex flex-wrap items-end gap-2">
+          <Link
+            href={`/amc/trade?id=${encodeURIComponent(fund.id)}`}
+            className="rounded-xl border border-cyan-400/35 bg-cyan-400/10 px-3 py-2 text-sm font-bold text-cyan-200"
+          >
+            차트·상세
+          </Link>
           <input
             value={qty}
             onChange={(event) => onQty(event.target.value)}
@@ -1885,9 +1898,17 @@ function ListedFundCard({
         </div>
       )}
       {fund.status === "grace" && (
-        <p className="mt-3 text-xs text-amber-300">
-          유예 기간 — 신규 매수 불가 · 보유분은 매도 가능
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Link
+            href={`/amc/trade?id=${encodeURIComponent(fund.id)}`}
+            className="rounded-xl border border-cyan-400/35 bg-cyan-400/10 px-3 py-2 text-sm font-bold text-cyan-200"
+          >
+            차트·매도
+          </Link>
+          <p className="text-xs text-amber-300">
+            유예 기간 — 신규 매수 불가 · 보유분은 매도 가능
+          </p>
+        </div>
       )}
     </div>
   );

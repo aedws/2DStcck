@@ -239,7 +239,7 @@ export default function PortfolioPage() {
           : 0,
       payoutAmount: 0,
       payoutDays: null,
-      href: "/amc",
+      href: `/amc/trade?id=${encodeURIComponent(position.fund.id)}`,
       userEtf: true,
     }));
     const rows = [...regularRows, ...userEtfRows];

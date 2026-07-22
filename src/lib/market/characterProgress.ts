@@ -149,8 +149,10 @@ export const AFFINITY_WEIGHT_COMMON = 1;
 export const AFFINITY_WEIGHT_COVERED_CALL = 0.5;
 /** 여러 캐릭터를 담은 유저 ETF는 보통주와 같은 속도로 구성원 전원의 호감도가 오른다. */
 export const AFFINITY_WEIGHT_USER_ETF = 1;
-/** 단일 캐릭터 테마 ETF 보유는 보통주보다 약간 높은 속도로 오른다. */
-export const AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF = 1.5;
+/** 단일 캐릭터 테마 ETF 보유는 5거래일마다 호감도 +5를 받는다. */
+export const AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF = 2.5;
+/** 단일 캐릭터 테마 ETF 장기 보유 시 5거래일마다 받는 신뢰도. */
+export const TRUST_REWARD_SINGLE_CHARACTER_ETF = 2;
 /** 단일 캐릭터 테마 ETF를 처음 설정할 때 즉시 주는 호감도. */
 export const SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY = 20;
 /** 가중치를 정수 상승폭으로 바꾸는 단위(×2). 보통주=+2로 기존과 동일. */
@@ -165,21 +167,74 @@ export interface CharacterLinkedEtfHolding {
 /** 캐릭터와 무관한 ETF 구성 자산. 호감도·단일 캐릭터 판정에서 항상 제외한다. */
 export const CHARACTER_NEUTRAL_ETF_STOCK_IDS = new Set(["gldx", "sbnd"]);
 
-function resolveStockCharacterId(
+export type EtfCharacterExposureKind =
+  | "direct"
+  | "leverage"
+  | "covered-call"
+  | "hostile";
+
+export interface EtfCharacterExposure {
+  characterId: string;
+  kind: EtfCharacterExposureKind;
+  /** 인버스 -2, 곱버스 -4. 우호 노출은 0. */
+  affinityRate: number;
+}
+
+/** ETF 구성 상품을 최종 기초 캐릭터와 우호·적대 방향으로 해석한다. */
+export function resolveStockCharacterExposure(
   stockId: string,
   stockById: Map<string, StockState>,
-): string | undefined {
+): EtfCharacterExposure | undefined {
   if (CHARACTER_NEUTRAL_ETF_STOCK_IDS.has(stockId)) return undefined;
   let stock = stockById.get(stockId);
   const visited = new Set<string>();
+  let kind: EtfCharacterExposureKind = "direct";
+  let affinityRate = 0;
   while (stock && !visited.has(stock.id)) {
     visited.add(stock.id);
-    if (stock.ceoId) return stock.ceoId;
-    const underlyingId =
-      stock.coveredCallUnderlyingId ?? stock.leverageUnderlyingId;
-    stock = underlyingId ? stockById.get(underlyingId) : undefined;
+    if (stock.coveredCallUnderlyingId) {
+      if (kind === "direct") kind = "covered-call";
+      stock = stockById.get(stock.coveredCallUnderlyingId);
+      continue;
+    }
+    if (stock.leverageUnderlyingId) {
+      if ((stock.leverage ?? 0) < 0) {
+        kind = "hostile";
+        affinityRate = (stock.leverage ?? 0) <= -2 ? -4 : -2;
+      } else if (kind !== "hostile") {
+        kind = "leverage";
+      }
+      stock = stockById.get(stock.leverageUnderlyingId);
+      continue;
+    }
+    if (stock.ceoId) {
+      return { characterId: stock.ceoId, kind, affinityRate };
+    }
+    return undefined;
   }
   return undefined;
+}
+
+/** 같은 캐릭터의 여러 상품도 방향별 한 번씩만 반환한다. */
+export function resolveEtfCharacterExposures(
+  holdings: { stockId: string }[],
+  stocks: StockState[],
+): EtfCharacterExposure[] {
+  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+  const byKey = new Map<string, EtfCharacterExposure>();
+  for (const holding of holdings) {
+    const exposure = resolveStockCharacterExposure(holding.stockId, stockById);
+    if (!exposure) continue;
+    const key = `${exposure.characterId}:${exposure.kind}`;
+    const current = byKey.get(key);
+    if (
+      !current ||
+      (exposure.kind === "hostile" && exposure.affinityRate < current.affinityRate)
+    ) {
+      byKey.set(key, exposure);
+    }
+  }
+  return [...byKey.values()];
 }
 
 /** 파생상품은 기초기업까지 따라가고, 같은 캐릭터는 한 번만 반환한다. */
@@ -187,14 +242,26 @@ export function resolveEtfCharacterIds(
   holdings: { stockId: string }[],
   stocks: StockState[],
 ): string[] {
-  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
   return [
     ...new Set(
-      holdings
-        .map((holding) => resolveStockCharacterId(holding.stockId, stockById))
-        .filter((characterId): characterId is string => Boolean(characterId)),
+      resolveEtfCharacterExposures(holdings, stocks).map(
+        (exposure) => exposure.characterId,
+      ),
     ),
   ];
+}
+
+/** 적대 상품 없이 한 캐릭터만 담은 장기 우호 테마 ETF인지 판정한다. */
+export function resolveSingleCharacterLongEtfId(
+  holdings: { stockId: string }[],
+  stocks: StockState[],
+): string | undefined {
+  const exposures = resolveEtfCharacterExposures(holdings, stocks);
+  if (!exposures.length || exposures.some((exposure) => exposure.kind === "hostile")) {
+    return undefined;
+  }
+  const characterIds = [...new Set(exposures.map((exposure) => exposure.characterId))];
+  return characterIds.length === 1 ? characterIds[0] : undefined;
 }
 
 /**
@@ -221,6 +288,9 @@ export function accrueLongHoldingAffinity(
   const posWeight = new Map<string, number>();
   const posValue = new Map<string, number>();
   const hostile = new Map<string, number>();
+  const etfHostile = new Map<string, number>();
+  const etfHostileValue = new Map<string, number>();
+  const trustRate = new Map<string, number>();
   const bump = (map: Map<string, number>, key: string, value: number) => {
     map.set(key, (map.get(key) ?? 0) + value);
   };
@@ -233,17 +303,52 @@ export function accrueLongHoldingAffinity(
     bump(posValue, share.characterId, share.faceValue * share.shares);
   }
   for (const etf of userEtfHoldings) {
-    if (!(etf.value > 0)) continue;
-    const characterIds = resolveEtfCharacterIds(etf.holdings, stocks);
+    if (
+      !(etf.value > 0) ||
+      etf.value / equity < LONG_HOLD_MIN_EQUITY_RATIO
+    ) {
+      continue;
+    }
+    const exposures = resolveEtfCharacterExposures(etf.holdings, stocks);
+    const characterIds = [...new Set(exposures.map((item) => item.characterId))];
     if (!characterIds.length) continue;
-    const weight =
-      characterIds.length === 1
-        ? AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF
-        : AFFINITY_WEIGHT_USER_ETF;
-    for (const characterId of characterIds) {
+    const singleCharacterId = resolveSingleCharacterLongEtfId(
+      etf.holdings,
+      stocks,
+    );
+    const positiveIds = new Set(
+      exposures
+        .filter((exposure) => exposure.kind !== "hostile")
+        .map((exposure) => exposure.characterId),
+    );
+    for (const characterId of positiveIds) {
       // ETF 자체가 계좌의 3% 이상이면 구성 캐릭터 전원을 보유한 것으로 본다.
-      raiseWeight(characterId, weight);
+      raiseWeight(
+        characterId,
+        characterId === singleCharacterId
+          ? AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF
+          : AFFINITY_WEIGHT_USER_ETF,
+      );
       bump(posValue, characterId, etf.value);
+      if (characterId === singleCharacterId) {
+        trustRate.set(
+          characterId,
+          Math.max(
+            trustRate.get(characterId) ?? 0,
+            TRUST_REWARD_SINGLE_CHARACTER_ETF,
+          ),
+        );
+      }
+    }
+    for (const exposure of exposures) {
+      if (exposure.kind !== "hostile" || positiveIds.has(exposure.characterId)) {
+        continue;
+      }
+      const currentRate = etfHostile.get(exposure.characterId);
+      if (currentRate === undefined || exposure.affinityRate < currentRate) {
+        etfHostile.set(exposure.characterId, exposure.affinityRate);
+      }
+      bump(etfHostileValue, exposure.characterId, etf.value);
     }
   }
   for (const stock of stocks) {
@@ -296,6 +401,14 @@ export function accrueLongHoldingAffinity(
   for (const [ceoId, hostileRate] of hostile) {
     if (!rateByCharacter.has(ceoId)) rateByCharacter.set(ceoId, hostileRate);
   }
+  for (const [ceoId, hostileRate] of etfHostile) {
+    if (
+      !rateByCharacter.has(ceoId) &&
+      (etfHostileValue.get(ceoId) ?? 0) / equity >= LONG_HOLD_MIN_EQUITY_RATIO
+    ) {
+      rateByCharacter.set(ceoId, hostileRate);
+    }
+  }
 
   let next = progress;
   const characters = new Set<string>([
@@ -331,10 +444,18 @@ export function accrueLongHoldingAffinity(
     const total = current.holdingSessions + elapsed;
     const rewards = Math.floor(total / LONG_HOLD_SESSIONS);
     const affinity = clampAffinity(current.affinity + rewards * rate);
+    const trust = Math.max(
+      0,
+      Math.min(
+        MAX_CHARACTER_TRUST,
+        current.trust + rewards * (trustRate.get(characterId) ?? 0),
+      ),
+    );
     next = {
       ...next,
       [characterId]: {
         ...current,
+        trust,
         affinity,
         holdingSessions: total % LONG_HOLD_SESSIONS,
         lastHoldingSession: currentSession,

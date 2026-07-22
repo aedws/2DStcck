@@ -209,7 +209,7 @@ import {
   getCharacterProgress,
   getRelationshipTier,
   normalizeCharacterProgressMap,
-  resolveEtfCharacterIds,
+  resolveSingleCharacterLongEtfId,
   SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY,
   settleMissionRelationship,
 } from "@/lib/market/characterProgress";
@@ -4602,12 +4602,10 @@ export const useMarketStore = create<MarketStore>()(
             amcShareMultiplier: 1,
           },
         ];
-        const fundCharacterIds = resolveEtfCharacterIds(
+        const issuanceCharacterId = resolveSingleCharacterLongEtfId(
           result.fund.holdings,
           state.stocks,
         );
-        const issuanceCharacterId =
-          fundCharacterIds.length === 1 ? fundCharacterIds[0] : undefined;
         const characterProgress = issuanceCharacterId
           ? addCharacterProgress(
               state.characterProgress,

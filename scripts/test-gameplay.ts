@@ -91,7 +91,9 @@ import {
   addStorySupportAffinity,
   canUseBondChoice,
   getCharacterProgress,
+  resolveEtfCharacterExposures,
   resolveEtfCharacterIds,
+  resolveSingleCharacterLongEtfId,
   settleMissionRelationship,
 } from "../src/lib/market/characterProgress";
 import {
@@ -958,6 +960,14 @@ const singleCharacterDerivative = {
   leverage: 2,
   leverageUnderlyingId: relationshipStock.id,
 };
+const singleCharacterInverse = {
+  ...relationshipStock,
+  id: `${relationshipStock.id}-inverse-test`,
+  ticker: "RELINV",
+  ceoId: undefined,
+  leverage: -1,
+  leverageUnderlyingId: relationshipStock.id,
+};
 const neutralGoldEtf = {
   ...relationshipStock,
   id: "gldx",
@@ -987,6 +997,71 @@ assert.deepEqual(
   ),
   [relationshipCharacter.id],
   "single-character ETF should ignore gold and short bonds",
+);
+assert.equal(
+  resolveSingleCharacterLongEtfId(
+    [
+      { stockId: relationshipStock.id },
+      { stockId: singleCharacterDerivative.id },
+      { stockId: neutralGoldEtf.id },
+    ],
+    [relationshipStock, singleCharacterDerivative, neutralGoldEtf],
+  ),
+  relationshipCharacter.id,
+);
+assert.equal(
+  resolveSingleCharacterLongEtfId(
+    [{ stockId: singleCharacterInverse.id }],
+    [relationshipStock, singleCharacterInverse],
+  ),
+  undefined,
+  "an inverse-only theme must not receive the single-character issuance bonus",
+);
+assert.deepEqual(
+  resolveEtfCharacterExposures(
+    [{ stockId: singleCharacterInverse.id }],
+    [relationshipStock, singleCharacterInverse],
+  ).map(({ characterId, kind, affinityRate }) => ({ characterId, kind, affinityRate })),
+  [{ characterId: relationshipCharacter.id, kind: "hostile", affinityRate: -2 }],
+  "inverse holdings inside a user ETF should stay hostile",
+);
+
+const relationEtfHolding = [{
+  stockId: "amc:relationship-test",
+  quantity: 1,
+  averagePrice: relationshipStock.currentPrice,
+}];
+assert.equal(
+  getCharacterRelation(relationshipStock.id, relationEtfHolding, {
+    stocks: [relationshipStock, singleCharacterDerivative],
+    funds: [{
+      id: "relationship-test",
+      status: "active",
+      holdings: [{ stockId: singleCharacterDerivative.id, weight: 1 }],
+    }],
+  }).status,
+  "leverage",
+  "a user ETF should unlock its underlying character collection entry",
+);
+assert.equal(
+  getCharacterRelation(relationshipStock.id, relationEtfHolding, {
+    stocks: [relationshipStock, singleCharacterInverse],
+    funds: [{
+      id: "relationship-test",
+      status: "active",
+      holdings: [{ stockId: singleCharacterInverse.id, weight: 1 }],
+    }],
+  }).unlocked,
+  false,
+  "an inverse-only user ETF should not unlock a character",
+);
+assert.equal(
+  getCharacterRelation(relationshipStock.id, [], {
+    stocks: [relationshipStock],
+    permanentlyUnlocked: true,
+  }).status,
+  "bonded",
+  "a character that reached 100 affinity should stay unlocked without assets",
 );
 
 let diversifiedEtfProgress = accrueLongHoldingAffinity(
@@ -1061,8 +1136,43 @@ singleCharacterEtfProgress = accrueLongHoldingAffinity(
 );
 assert.equal(
   getCharacterProgress(singleCharacterEtfProgress, relationshipCharacter.id).affinity,
-  3,
-  "single-character ETF holdings should gain affinity slightly faster",
+  5,
+  "single-character ETF holdings should gain substantially more affinity",
+);
+assert.equal(
+  getCharacterProgress(singleCharacterEtfProgress, relationshipCharacter.id).trust,
+  2,
+  "single-character ETF holdings should also gain trust",
+);
+
+let inverseEtfProgress = accrueLongHoldingAffinity(
+  {},
+  [],
+  [relationshipStock, singleCharacterInverse],
+  relationshipStock.currentPrice * 10,
+  windowStart,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterInverse.id, weight: 1 }],
+  }],
+);
+inverseEtfProgress = accrueLongHoldingAffinity(
+  inverseEtfProgress,
+  [],
+  [relationshipStock, singleCharacterInverse],
+  relationshipStock.currentPrice * 10,
+  windowStart + 5,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterInverse.id, weight: 1 }],
+  }],
+);
+assert.equal(
+  getCharacterProgress(inverseEtfProgress, relationshipCharacter.id).affinity,
+  -2,
+  "inverse exposure inside a user ETF should reduce affinity",
 );
 
 const messageProgress = addCharacterProgress(

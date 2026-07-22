@@ -88,7 +88,7 @@ export function AccountSidebar() {
             cost > 0
               ? ((position.evaluation - cost) / cost) * 100
               : 0,
-          href: "/amc",
+          href: `/amc/trade?id=${encodeURIComponent(position.fund.id)}`,
           userEtf: true,
         };
       },

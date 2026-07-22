@@ -16,6 +16,8 @@ import {
 } from "@/lib/market/characterProgress";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import { isPreferredActive } from "@/lib/player/preferredShares";
+import { mergeAmcPortfolioFunds } from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { useMarketStore } from "@/store/marketStore";
 
 export function CharacterDetailClient({ id }: { id: string }) {
@@ -28,6 +30,8 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const holdings = useMarketStore((state) => state.holdings);
   const events = useMarketStore((s) => s.events);
   const characterProgress = useMarketStore((s) => s.characterProgress);
+  const assetManager = useMarketStore((s) => s.assetManager);
+  const listedAmcFunds = useMarketStore((s) => s.listedAmcFunds);
   const preferredShares = useMarketStore((s) => s.preferredShares);
   const preferredIssuedCharacterIds = useMarketStore(
     (s) => s.preferredIssuedCharacterIds,
@@ -51,8 +55,17 @@ export function CharacterDetailClient({ id }: { id: string }) {
     );
   }
 
-  const relation = getCharacterRelation(id, holdings);
   const progress = getCharacterProgress(characterProgress, ceo.id);
+  const userEtfFunds = mergeAmcPortfolioFunds(
+    assetManager?.funds ?? [],
+    listedAmcFunds.map(listedFundToAmcState),
+  );
+  const relation = getCharacterRelation(id, holdings, {
+    stocks: allStocks,
+    funds: userEtfFunds,
+    permanentlyUnlocked:
+      progress.bondedAtSession !== undefined || progress.affinity >= 100,
+  });
   const tier = getRelationshipTier(progress.affinity);
   const preferredShare = preferredShares.find((s) => s.characterId === ceo.id);
   const untilAlly = Math.max(0, PREFERRED_SHARE_AFFINITY - progress.affinity);
@@ -77,7 +90,8 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <p className="text-4xl">{relation.status === "hostile" ? "⚔️" : "🔒"}</p>
           <h1 className="mt-3 text-xl font-bold">{relation.label}</h1>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            일반 주식·레버리지·커버드콜을 보유하면 캐릭터 상세 정보가 활성화됩니다.
+            일반 주식·레버리지·커버드콜 또는 해당 캐릭터를 담은 유저 ETF를
+            보유하면 캐릭터 상세 정보가 활성화됩니다.
           </p>
         </div>
         <div className="mt-4">
@@ -106,7 +120,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold">{ceo.name}</h1>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${relation.status === "leverage" ? "bg-pink-500/20 text-pink-300" : relation.status === "hostile" ? "bg-red-500/20 text-red-400" : relation.status === "covered-call" ? "bg-amber-500/20 text-amber-300" : "bg-sky-500/20 text-sky-300"}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${relation.status === "leverage" ? "bg-pink-500/20 text-pink-300" : relation.status === "hostile" ? "bg-red-500/20 text-red-400" : relation.status === "covered-call" ? "bg-amber-500/20 text-amber-300" : relation.status === "bonded" ? "bg-violet-500/20 text-violet-300" : "bg-sky-500/20 text-sky-300"}`}>
               {relation.label}
             </span>
             <span className="rounded-full bg-pink-500/15 px-2 py-0.5 text-[10px] font-semibold text-pink-300">

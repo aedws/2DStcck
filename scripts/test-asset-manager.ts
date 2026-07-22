@@ -36,6 +36,7 @@ import {
 } from "../src/lib/supabase/amcEtfListingRequests";
 import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
 import {
+  getAmcFundPriceHistory,
   getAmcPortfolioPositions,
   getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
@@ -394,6 +395,21 @@ assert.equal(portfolioPositions[0]!.fund.ticker, listed.ticker);
 assert.equal(
   getAmcPortfolioValue([founderHolding], portfolioFunds, portfolioStocks),
   portfolioPositions[0]!.evaluation,
+);
+const chartStocks = Object.entries(prices).map(([id, initialPrice]) => ({
+  id,
+  initialPrice,
+  priceHistory: [
+    { timestamp: created.fund!.createdAt, price: initialPrice },
+    { timestamp: created.fund!.createdAt + 30_000, price: initialPrice * 2 },
+  ],
+}));
+const fundChart = getAmcFundPriceHistory(created.fund!, chartStocks);
+assert.equal(fundChart.length, 2);
+assert.equal(
+  fundChart[1]!.price,
+  Math.round((created.fund!.seedNavValue / created.fund!.totalShares) * 2),
+  "user ETF chart should synthesize NAV from constituent histories",
 );
 const merged = mergeListedAumIntoManager(created.manager!, [listed]);
 assert.equal(merged.funds[0]!.totalShares, created.fund!.totalShares + 5_000);
