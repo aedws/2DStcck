@@ -1827,14 +1827,24 @@ export const useMarketStore = create<MarketStore>()(
           // 구세대 클라우드가 로컬을 다시 오염시키지 않도록 적용하지 않는다.
           // 실제 이전 클라우드 지갑을 버리는 경우(전체 초기화)엔 리셋 보상으로
           // 마스터 프레임을 지급한다 — 다른 기기 로컬이 새것이어도 보상이 붙게.
-          if (wallet && wallet.walletEpoch !== undefined) {
+          if (wallet) {
+            // 지갑 세대 리셋은 현금·거래만 초기화한다. 서버 허가를 거쳐 만든 회사와
+            // 운용사까지 버리면 관리자 신청 기록과 실제 화면이 갈라지므로 보존한다.
+            const legacyPlayerCompany = normalizePlayerCompany(wallet.playerCompany);
+            const legacyAssetManager = normalizeAssetManager(wallet.assetManager);
             set((state) => ({
-              unlockedSeasonRewardIds: mergeSeasonRewards(
-                state.unlockedSeasonRewardIds,
-                "master",
-              ),
-              selectedSeasonFrameId:
-                state.selectedSeasonFrameId ?? "season-frame-master",
+              ...(wallet.walletEpoch !== undefined
+                ? {
+                    unlockedSeasonRewardIds: mergeSeasonRewards(
+                      state.unlockedSeasonRewardIds,
+                      "master",
+                    ),
+                    selectedSeasonFrameId:
+                      state.selectedSeasonFrameId ?? "season-frame-master",
+                  }
+                : {}),
+              playerCompany: state.playerCompany ?? legacyPlayerCompany,
+              assetManager: state.assetManager ?? legacyAssetManager,
             }));
           }
           await get().refreshServerPlayerCompany();
