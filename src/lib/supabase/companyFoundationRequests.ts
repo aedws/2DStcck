@@ -155,6 +155,29 @@ export async function listMyCompanyFoundationRequests(): Promise<
     );
 }
 
+/** 반려된 회사 설립 허가 신청의 사유를 신청자에게 전달하기 위한 회신. */
+export interface CompanyFoundationResponse {
+  id: string;
+  title: string;
+  status: "rejected";
+  message: string | null;
+}
+
+/** (유저) 반려된 내 회사 설립 허가 신청의 사유를 가져온다. */
+export async function listMyCompanyFoundationResponses(): Promise<
+  CompanyFoundationResponse[]
+> {
+  const requests = await listMyCompanyFoundationRequests();
+  return requests
+    .filter((request) => request.status === "rejected")
+    .map((request) => ({
+      id: request.id,
+      title: `${request.company.name} (${request.company.ticker})`,
+      status: "rejected" as const,
+      message: request.adminNote,
+    }));
+}
+
 export async function verifyCompanyFoundationApproval(
   requestId: string,
   input: FoundPlayerCompanyInput,

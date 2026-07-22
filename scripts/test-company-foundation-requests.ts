@@ -58,4 +58,14 @@ assert.deepEqual(Object.keys(COMPANY_FOUNDATION_STATUS_LABEL).sort(), [
   "shipped",
 ]);
 
+const rejectedRow: StockRequestRow = {
+  ...row,
+  status: "rejected",
+  admin_note: "티커가 기존 상장사와 혼동됩니다.",
+};
+const rejected = parseCompanyFoundationRequest(rejectedRow);
+assert.ok(rejected);
+assert.equal(rejected.status, "rejected");
+assert.equal(rejected.adminNote, "티커가 기존 상장사와 혼동됩니다.");
+
 console.log("company foundation request serialize/parse scenarios passed");

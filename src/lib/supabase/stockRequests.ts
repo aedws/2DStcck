@@ -201,7 +201,11 @@ export async function listMyStockRequests(): Promise<StockRequestRow[]> {
 export async function listMyStockRequestResponses(): Promise<StockRequestResponse[]> {
   const rows = await listMyStockRequests();
   return rows
-    .filter((r) => r.status === "rejected")
+    .filter(
+      (r) =>
+        r.status === "rejected" &&
+        !(r.description ?? "").startsWith("[PLAYER_COMPANY_FOUNDATION]"),
+    )
     .map((r) => ({
       id: r.id,
       title: r.name,

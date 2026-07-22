@@ -14,11 +14,15 @@ import {
   listMyStockRequestResponses,
   STOCK_REQUEST_STATUS_LABEL,
 } from "@/lib/supabase/stockRequests";
+import {
+  COMPANY_FOUNDATION_STATUS_LABEL,
+  listMyCompanyFoundationResponses,
+} from "@/lib/supabase/companyFoundationRequests";
 import { formatPrice } from "@/lib/market/engine";
 
-/** 모달 큐에 쌓이는 통합 회신 아이템(버그·피드백 공통). */
+/** 모달 큐에 쌓이는 통합 회신 아이템(버그·피드백·IPO·회사 설립 공통). */
 interface QueuedResponse {
-  source: "bug" | "feedback" | "stock";
+  source: "bug" | "feedback" | "stock" | "company";
   id: string;
   title: string;
   statusLabel: string;
@@ -28,9 +32,9 @@ interface QueuedResponse {
 }
 
 /**
- * 로그인한 유저의 버그 리포트·피드백·IPO 요청 중 운영자가 처리한 건을 감지해,
- * 보상 또는 IPO 반려 환불을 지급하고 운영자 회신을 모달로 전달한다. 처리 id 는
- * 지갑에 기록돼 다시 뜨거나 중복 지급되지 않는다.
+ * 로그인한 유저의 버그 리포트·피드백·IPO·회사 설립 허가 중 운영자가 처리한 건을
+ * 감지해, 보상 또는 IPO 반려 환불을 지급하고 운영자 회신을 모달로 전달한다.
+ * 처리 id 는 지갑에 기록돼 다시 뜨거나 중복 지급되지 않는다.
  */
 export function BugResponseWatcher() {
   const userId = useMarketStore((s) => s.userId);
@@ -46,10 +50,11 @@ export function BugResponseWatcher() {
 
   const check = useCallback(async () => {
     if (!userId) return;
-    const [bugs, feedback, stocks] = await Promise.all([
+    const [bugs, feedback, stocks, companies] = await Promise.all([
       listMyBugResponses(),
       listMyFeedbackResponses(),
       listMyStockRequestResponses(),
+      listMyCompanyFoundationResponses(),
     ]);
 
     const queued: QueuedResponse[] = [];
@@ -92,6 +97,26 @@ export function BugResponseWatcher() {
         });
       }
     }
+    if (companies.length > 0) {
+      // 회사 설립 허가는 신청 비용이 없어 환불 없이 사유만 전달한다.
+      // 동일 stock_requests id 공간을 쓰므로 resolvedStockRequestIds 로 멱등 처리한다.
+      for (const r of resolveStockRequestResponses(
+        companies.map((response) => ({
+          ...response,
+          refundCents: 0,
+        })),
+      )) {
+        queued.push({
+          source: "company",
+          id: r.id,
+          title: r.title,
+          statusLabel: COMPANY_FOUNDATION_STATUS_LABEL.rejected,
+          reward: false,
+          rewardCents: 0,
+          message: r.message,
+        });
+      }
+    }
     if (queued.length > 0) setQueue((prev) => [...prev, ...queued]);
   }, [
     userId,
@@ -116,26 +141,46 @@ export function BugResponseWatcher() {
   const current = queue[0];
   const isBug = current.source === "bug";
   const isStock = current.source === "stock";
+  const isCompany = current.source === "company";
   const rewarded = current.reward && current.rewardCents > 0;
   const dismiss = () => setQueue((prev) => prev.slice(1));
 
-  const heading = isStock
-    ? "IPO 신청 반려 — 비용 환불"
-    : rewarded
-      ? isBug
-      ? "버그 수정 완료 — 보상 지급"
-      : "피드백 반영 — 보상 지급"
-      : isBug
-        ? "버그 리포트 회신"
-        : "피드백 회신";
-  const emoji = isStock ? "📈" : rewarded ? (isBug ? "🛠️" : "💡") : "📮";
-  const closing = isStock
-    ? "반려 사유를 확인해 주세요. 사용한 IPO 신청 비용은 전액 돌려드렸습니다."
-    : rewarded
-      ? isBug
-      ? "제보해 주셔서 고맙습니다. 여러분의 제보가 게임을 더 단단하게 만듭니다."
-      : "제안해 주셔서 고맙습니다. 여러분의 아이디어가 게임을 키웁니다."
-      : "소중한 의견 고맙습니다. 다음에 더 좋은 소식으로 찾아뵐게요.";
+  const heading = isCompany
+    ? "회사 설립 허가 반려"
+    : isStock
+      ? "IPO 신청 반려 — 비용 환불"
+      : rewarded
+        ? isBug
+          ? "버그 수정 완료 — 보상 지급"
+          : "피드백 반영 — 보상 지급"
+        : isBug
+          ? "버그 리포트 회신"
+          : "피드백 회신";
+  const emoji = isCompany
+    ? "🏢"
+    : isStock
+      ? "📈"
+      : rewarded
+        ? isBug
+          ? "🛠️"
+          : "💡"
+        : "📮";
+  const closing = isCompany
+    ? "반려 사유를 확인해 주세요. 내용을 수정한 뒤 다시 허가 신청할 수 있습니다."
+    : isStock
+      ? "반려 사유를 확인해 주세요. 사용한 IPO 신청 비용은 전액 돌려드렸습니다."
+      : rewarded
+        ? isBug
+          ? "제보해 주셔서 고맙습니다. 여러분의 제보가 게임을 더 단단하게 만듭니다."
+          : "제안해 주셔서 고맙습니다. 여러분의 아이디어가 게임을 키웁니다."
+        : "소중한 의견 고맙습니다. 다음에 더 좋은 소식으로 찾아뵐게요.";
+  const sourceLabel = isBug
+    ? "🐞 버그"
+    : isStock
+      ? "📈 IPO 요청"
+      : isCompany
+        ? "🏢 회사 설립"
+        : "💡 피드백";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
@@ -144,13 +189,12 @@ export function BugResponseWatcher() {
         <h2 className="mt-3 text-lg font-bold">{heading}</h2>
         <span
           className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            rewarded && !isStock
+            rewarded && !isStock && !isCompany
               ? "bg-emerald-500/15 text-emerald-400"
               : "bg-rose-500/15 text-rose-400"
           }`}
         >
-          {isBug ? "🐞 버그" : isStock ? "📈 IPO 요청" : "💡 피드백"} ·{" "}
-          {current.statusLabel}
+          {sourceLabel} · {current.statusLabel}
         </span>
 
         <p className="mt-3 text-sm font-medium text-[var(--foreground)]">
