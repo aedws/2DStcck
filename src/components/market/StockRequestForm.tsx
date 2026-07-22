@@ -19,6 +19,7 @@ import {
   type StockRequestStatus,
 } from "@/lib/supabase/stockRequests";
 import { isCompanyFoundationRequestRow } from "@/lib/supabase/companyFoundationRequests";
+import { isAmcFoundationRequestRow } from "@/lib/supabase/amcFoundationRequests";
 
 const REQUEST_STATUS_STYLE: Record<StockRequestStatus, string> = {
   pending: "bg-slate-500/15 text-[var(--muted)]",
@@ -59,7 +60,9 @@ export function StockRequestForm({
   const refreshMyRequests = useCallback(async () => {
     setMyRequests(
       (await listMyStockRequests()).filter(
-        (request) => !isCompanyFoundationRequestRow(request),
+        (request) =>
+          !isCompanyFoundationRequestRow(request) &&
+          !isAmcFoundationRequestRow(request),
       ),
     );
   }, []);

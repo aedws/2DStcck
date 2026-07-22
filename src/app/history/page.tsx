@@ -75,6 +75,10 @@ export default function HistoryPage() {
                                   ? "운영 보상"
                                   : payment.kind === "company_capital"
                                     ? "회사 출자 소각"
+                                    : payment.kind === "amc_capital"
+                                      ? "운용사 소각"
+                                      : payment.kind === "management_fee"
+                                        ? "ETF 운용료"
                                   : "분기 배당"}
                   </td>
                   <td className="px-4 py-3">

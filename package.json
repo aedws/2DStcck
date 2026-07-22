@@ -26,6 +26,7 @@
     "test:company": "tsx scripts/test-player-company.ts",
     "test:company-foundation": "tsx scripts/test-company-foundation-requests.ts",
     "test:averaging": "tsx scripts/test-averaging-calculator.ts",
+    "test:amc": "tsx scripts/test-asset-manager.ts",
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
     "generate:market-checkpoint": "tsx scripts/generate-market-checkpoint.ts",

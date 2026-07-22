@@ -204,7 +204,8 @@ export async function listMyStockRequestResponses(): Promise<StockRequestRespons
     .filter(
       (r) =>
         r.status === "rejected" &&
-        !(r.description ?? "").startsWith("[PLAYER_COMPANY_FOUNDATION]"),
+        !(r.description ?? "").startsWith("[PLAYER_COMPANY_FOUNDATION]") &&
+        !(r.description ?? "").startsWith("[ASSET_MANAGER_FOUNDATION]"),
     )
     .map((r) => ({
       id: r.id,

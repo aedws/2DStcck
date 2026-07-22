@@ -298,6 +298,10 @@ export type CashPaymentKind =
   | "preferred_dividend"
   // 플레이어 회사 설립·자본 확충으로 영구 소각한 현금.
   | "company_capital"
+  // 자산운용사 설립·시드 소각.
+  | "amc_capital"
+  // 유저 ETF 운용료 수입 (NAV 차감분).
+  | "management_fee"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
   | "minigame"
   // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.

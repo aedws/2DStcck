@@ -27,6 +27,7 @@ const navGroups = [
     items: [
       { href: "/profile", label: "프로필" },
       { href: "/company", label: "회사" },
+      { href: "/amc", label: "자산운용사" },
       { href: "/mastery", label: "숙련도" },
       { href: "/achievements", label: "업적" },
       { href: "/missions", label: "의뢰" },

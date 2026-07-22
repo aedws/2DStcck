@@ -281,6 +281,23 @@ import {
   type FoundPlayerCompanyInput,
   type PlayerCompanyState,
 } from "@/lib/player/playerCompany";
+import {
+  amcFundStockId,
+  autoRebalancePassiveFunds,
+  computeAmcFundNavPerShare,
+  createAmcFund as createManagedFund,
+  evaluateAmcCompliance,
+  foundAssetManager as createAssetManager,
+  isAmcFundStockId,
+  normalizeAssetManager,
+  rebalanceAmcFund as rebalanceManagedFund,
+  settleAmcManagementFees,
+  type AmcHoldingWeight,
+  type AssetManagerState,
+  type CreateAmcFundInput,
+  type FoundAssetManagerInput,
+} from "@/lib/player/assetManager";
+import { verifyAmcFoundationApproval } from "@/lib/supabase/amcFoundationRequests";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -495,6 +512,19 @@ interface MarketStore extends MarketSnapshot {
   refusePlayerCompanyCapitalCall: () => OrderResult;
   resumePlayerCompany: () => OrderResult;
   markPlayerCompanyIpoRequested: () => OrderResult;
+  /** 자산운용사·유저 ETF. 펀드 좌는 순자산 랭킹에 합산하지 않는다. */
+  assetManager: AssetManagerState | null;
+  foundAssetManager: (
+    input: FoundAssetManagerInput,
+    approvalRequestId: string,
+  ) => Promise<OrderResult>;
+  createAmcFund: (input: CreateAmcFundInput) => OrderResult;
+  rebalanceAmcFund: (
+    fundId: string,
+    holdings: AmcHoldingWeight[],
+  ) => OrderResult;
+  buyAmcFund: (fundId: string, quantity: number) => OrderResult;
+  sellAmcFund: (fundId: string, quantity: number) => OrderResult;
   /** 마지막 종목 추가 요청 거래일 (쿨다운용). 없으면 미요청. */
   lastStockRequestSession?: number;
   /** 종목 추가 요청 가능 여부(현금·쿨다운) */
@@ -602,6 +632,7 @@ function createInitialState(): MarketSnapshot & {
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
   playerCompany: PlayerCompanyState | null;
+  assetManager: AssetManagerState | null;
 } {
   const now = Date.now();
   const initialMarket = hydrateMarketCheckpoint(getBundledMarketCheckpoint());
@@ -687,6 +718,7 @@ function createInitialState(): MarketSnapshot & {
     storyDecision: null,
     storyDecisionHistory: [],
     playerCompany: null,
+    assetManager: null,
   };
 }
 
@@ -700,6 +732,7 @@ function latestWalletActivityMs(wallet: {
   storyDecision?: StoryDecision | null;
   storyDecisionHistory?: StoryDecision[];
   playerCompany?: PlayerCompanyState | null;
+  assetManager?: AssetManagerState | null;
 }): number {
   const candidates = [
     wallet.trades?.[0]?.timestamp,
@@ -707,6 +740,7 @@ function latestWalletActivityMs(wallet: {
     wallet.storyDecision?.selectedAt,
     wallet.storyDecisionHistory?.[0]?.selectedAt,
     wallet.playerCompany?.lastActionAt,
+    wallet.assetManager?.lastActionAt,
   ];
   return candidates.reduce<number>(
     (max, value) =>
@@ -1455,6 +1489,7 @@ export const useMarketStore = create<MarketStore>()(
           ownedLuxuries: [],
           cashPayments: compensation,
           playerCompany: null,
+          assetManager: null,
         });
         settings.setAppliedAccountResetVersion(action.resetVersion);
         if (action.compensationAmount > 0) {
@@ -1955,6 +1990,7 @@ export const useMarketStore = create<MarketStore>()(
           storyDecision: cloudClockChanged ? null : wallet.storyDecision ?? null,
           storyDecisionHistory: wallet.storyDecisionHistory ?? [],
           playerCompany: normalizePlayerCompany(wallet.playerCompany),
+          assetManager: normalizeAssetManager(wallet.assetManager),
           marginEnabled: cloudRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(wallet.marginLeverage),
           recurringInvestments: normalizeRecurringInvestments(
@@ -2050,6 +2086,7 @@ export const useMarketStore = create<MarketStore>()(
           storyDecision: s.storyDecision,
           storyDecisionHistory: s.storyDecisionHistory,
           playerCompany: s.playerCompany,
+          assetManager: s.assetManager,
           marginEnabled: s.marginEnabled,
           marginLeverage: s.marginLeverage,
           recurringInvestments: s.recurringInvestments,
@@ -2117,6 +2154,12 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       placeOrder: async (stockId, quantity, orderType) => {
+        if (isAmcFundStockId(stockId)) {
+          return {
+            success: false,
+            message: "유저 ETF는 자산운용사 탭에서만 거래할 수 있습니다.",
+          };
+        }
         const sector = get().getStockById(stockId)?.sector;
         if (sector === "선물" || sector === "지수") {
           return {
@@ -2469,6 +2512,83 @@ export const useMarketStore = create<MarketStore>()(
           marginCallAt = now;
         }
 
+        // 자산운용사: 패시브 자동 리밸 · 액티브 준수 · 운용료 · 상폐 환급
+        let assetManager = state.assetManager;
+        if (assetManager) {
+          const priceOf = (stockId: string) =>
+            combinedStocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+          const initialPriceOf = (stockId: string) =>
+            combinedStocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+          assetManager = autoRebalancePassiveFunds(
+            assetManager,
+            currentSession,
+            now,
+          );
+          const compliance = evaluateAmcCompliance(
+            assetManager,
+            currentSession,
+            now,
+          );
+          assetManager = compliance.manager;
+          for (const fund of compliance.newlyDelisted) {
+            const stockId = amcFundStockId(fund.id);
+            const holding = holdings.find((item) => item.stockId === stockId);
+            if (holding && holding.quantity > 0) {
+              const nav = computeAmcFundNavPerShare(
+                { ...fund, status: "active" },
+                priceOf,
+                initialPriceOf,
+              );
+              const total = Math.round(nav * holding.quantity);
+              cash += total;
+              holdings = holdings.filter((item) => item.stockId !== stockId);
+              trades = [
+                {
+                  id: `amc-delist-${fund.id}-${currentSession}`,
+                  stockId,
+                  ticker: fund.ticker,
+                  type: "sell",
+                  quantity: holding.quantity,
+                  price: nav,
+                  total,
+                  timestamp: now,
+                },
+                ...trades,
+              ];
+              useToastStore.getState().push(
+                `📕 ${fund.ticker} 상장폐지 · NAV 환급 ${formatPrice(total)}`,
+                "info",
+              );
+            }
+          }
+          const feeSettle = settleAmcManagementFees(
+            assetManager,
+            currentSession,
+            priceOf,
+            initialPriceOf,
+            now,
+          );
+          assetManager = feeSettle.manager;
+          const paidIds = new Set(cashPayments.map((payment) => payment.id));
+          for (const fee of feeSettle.feePayments) {
+            if (paidIds.has(fee.id)) continue;
+            cash += fee.amount;
+            cashPayments = [
+              {
+                id: fee.id,
+                kind: "management_fee" as const,
+                sourceId: fee.fundId,
+                ticker: fee.ticker,
+                dueSession: fee.dueSession,
+                amount: fee.amount,
+                timestamp: now,
+              },
+              ...cashPayments,
+            ].slice(0, 200);
+            paidIds.add(fee.id);
+          }
+        }
+
         const netWorth = fullEquityOf({
           cash,
           holdings,
@@ -2794,6 +2914,7 @@ export const useMarketStore = create<MarketStore>()(
             settled.lastQuarterlyDividendSession,
           lastInterestSession,
           cashPayments,
+          assetManager,
         });
 
         get().checkAchievements();
@@ -3816,6 +3937,304 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: result.message };
       },
 
+      foundAssetManager: async (input, approvalRequestId) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 자산운용사를 설립할 수 있습니다.",
+          };
+        }
+        if (state.assetManager) {
+          return { success: false, message: "이미 자산운용사를 보유 중입니다." };
+        }
+        if (
+          !approvalRequestId ||
+          !(await verifyAmcFoundationApproval(approvalRequestId, input))
+        ) {
+          return {
+            success: false,
+            message: "관리자에게 허가된 운용사 설립 신청이 필요합니다.",
+          };
+        }
+        const approved = get();
+        if (approved.assetManager) {
+          return { success: false, message: "이미 자산운용사를 보유 중입니다." };
+        }
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const result = createAssetManager(
+          input,
+          approved.cash,
+          approved.getTotalAssets(),
+          approvalRequestId,
+          currentSession,
+          now,
+        );
+        if (!result.success || !result.manager || result.cash === undefined) {
+          return { success: false, message: result.message };
+        }
+        const payment: CashPayment = {
+          id: `amc-founding-${result.manager.id}`,
+          kind: "amc_capital",
+          sourceId: result.manager.id,
+          dueSession: currentSession,
+          amount: -(result.burned ?? 0),
+          timestamp: now,
+        };
+        set({
+          cash: result.cash,
+          assetManager: result.manager,
+          cashPayments: [payment, ...approved.cashPayments].slice(0, 200),
+        });
+        useToastStore.getState().push(result.message, "success");
+        playSound("cash");
+        return { success: true, message: result.message };
+      },
+
+      createAmcFund: (input) => {
+        const state = get();
+        if (!state.assetManager) {
+          return { success: false, message: "먼저 자산운용사를 설립해 주세요." };
+        }
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const priceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+        const initialPriceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const result = createManagedFund(
+          state.assetManager,
+          input,
+          state.cash,
+          currentSession,
+          priceOf,
+          initialPriceOf,
+          now,
+          state.stocks.map((stock) => stock.ticker),
+        );
+        if (
+          !result.success ||
+          !result.manager ||
+          !result.fund ||
+          result.cash === undefined
+        ) {
+          return { success: false, message: result.message };
+        }
+        const seedStockId = amcFundStockId(result.fund.id);
+        const seedQty = result.fund.totalShares;
+        const nav = computeAmcFundNavPerShare(
+          result.fund,
+          priceOf,
+          initialPriceOf,
+        );
+        const payments: CashPayment[] = [];
+        if ((result.burned ?? 0) > 0) {
+          payments.push({
+            id: `amc-seed-burn-${result.fund.id}`,
+            kind: "amc_capital",
+            sourceId: result.fund.id,
+            ticker: result.fund.ticker,
+            dueSession: currentSession,
+            amount: -(result.burned ?? 0),
+            timestamp: now,
+          });
+        }
+        const holdings = [
+          ...state.holdings.filter((item) => item.stockId !== seedStockId),
+          {
+            stockId: seedStockId,
+            quantity: seedQty,
+            averagePrice: nav,
+          },
+        ];
+        set({
+          cash: result.cash,
+          assetManager: result.manager,
+          holdings,
+          cashPayments: [...payments, ...state.cashPayments].slice(0, 200),
+          trades: [
+            {
+              id: `amc-seed-${result.fund.id}`,
+              stockId: seedStockId,
+              ticker: result.fund.ticker,
+              type: "buy",
+              quantity: seedQty,
+              price: nav,
+              total: nav * seedQty,
+              timestamp: now,
+            },
+            ...state.trades,
+          ].slice(0, 500) as Trade[],
+        });
+        useToastStore.getState().push(result.message, "success");
+        playSound("cash");
+        return { success: true, message: result.message };
+      },
+
+      rebalanceAmcFund: (fundId, holdingsInput) => {
+        const state = get();
+        if (!state.assetManager) {
+          return { success: false, message: "자산운용사가 없습니다." };
+        }
+        const now = Date.now();
+        const result = rebalanceManagedFund(
+          state.assetManager,
+          fundId,
+          holdingsInput,
+          Math.floor(now / SESSION_DURATION_MS),
+          now,
+        );
+        if (!result.success || !result.manager) {
+          return { success: false, message: result.message };
+        }
+        set({ assetManager: result.manager });
+        useToastStore.getState().push(result.message, "success");
+        return { success: true, message: result.message };
+      },
+
+      buyAmcFund: (fundId, quantity) => {
+        const state = get();
+        const fund = state.assetManager?.funds.find((item) => item.id === fundId);
+        if (!state.assetManager || !fund) {
+          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        }
+        if (fund.status === "delisted") {
+          return { success: false, message: "상장폐지된 펀드입니다." };
+        }
+        if (fund.status === "grace") {
+          return {
+            success: false,
+            message: "유예 기간에는 신규 매수가 불가합니다. 리밸런싱 후 재시도해 주세요.",
+          };
+        }
+        const qty = Number(quantity);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          return { success: false, message: "수량을 확인해 주세요." };
+        }
+        const priceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+        const initialPriceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
+        const total = Math.round(nav * qty);
+        if (state.cash < total) {
+          return { success: false, message: "현금이 부족합니다." };
+        }
+        const stockId = amcFundStockId(fund.id);
+        const existing = state.holdings.find((item) => item.stockId === stockId);
+        const newQty = (existing?.quantity ?? 0) + qty;
+        const newAvg = existing
+          ? (existing.averagePrice * existing.quantity + nav * qty) / newQty
+          : nav;
+        const now = Date.now();
+        const nextFund = {
+          ...fund,
+          totalShares: fund.totalShares + qty,
+        };
+        set({
+          cash: state.cash - total,
+          assetManager: {
+            ...state.assetManager,
+            funds: state.assetManager.funds.map((item) =>
+              item.id === fundId ? nextFund : item,
+            ),
+            lastActionAt: now,
+          },
+          holdings: existing
+            ? state.holdings.map((item) =>
+                item.stockId === stockId
+                  ? { ...item, quantity: newQty, averagePrice: newAvg }
+                  : item,
+              )
+            : [
+                ...state.holdings,
+                { stockId, quantity: qty, averagePrice: nav },
+              ],
+          trades: [
+            {
+              id: `amc-buy-${fund.id}-${now}`,
+              stockId,
+              ticker: fund.ticker,
+              type: "buy",
+              quantity: qty,
+              price: nav,
+              total,
+              timestamp: now,
+            },
+            ...state.trades,
+          ].slice(0, 500) as Trade[],
+        });
+        playSound("buy");
+        return { success: true, message: `${fund.ticker} ${qty}좌 매수` };
+      },
+
+      sellAmcFund: (fundId, quantity) => {
+        const state = get();
+        const fund = state.assetManager?.funds.find((item) => item.id === fundId);
+        if (!state.assetManager || !fund) {
+          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        }
+        if (fund.status === "delisted") {
+          return { success: false, message: "이미 상장폐지되어 환급된 펀드입니다." };
+        }
+        const qty = Number(quantity);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          return { success: false, message: "수량을 확인해 주세요." };
+        }
+        const stockId = amcFundStockId(fund.id);
+        const existing = state.holdings.find((item) => item.stockId === stockId);
+        if (!existing || existing.quantity < qty) {
+          return { success: false, message: "보유 좌수가 부족합니다." };
+        }
+        const priceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+        const initialPriceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
+        const total = Math.round(nav * qty);
+        const remaining = existing.quantity - qty;
+        const now = Date.now();
+        set({
+          cash: state.cash + total,
+          assetManager: {
+            ...state.assetManager,
+            funds: state.assetManager.funds.map((item) =>
+              item.id === fundId
+                ? {
+                    ...item,
+                    totalShares: Math.max(1, item.totalShares - qty),
+                  }
+                : item,
+            ),
+            lastActionAt: now,
+          },
+          holdings:
+            remaining > 1e-9
+              ? state.holdings.map((item) =>
+                  item.stockId === stockId
+                    ? { ...item, quantity: remaining }
+                    : item,
+                )
+              : state.holdings.filter((item) => item.stockId !== stockId),
+          trades: [
+            {
+              id: `amc-sell-${fund.id}-${now}`,
+              stockId,
+              ticker: fund.ticker,
+              type: "sell",
+              quantity: qty,
+              price: nav,
+              total,
+              timestamp: now,
+            },
+            ...state.trades,
+          ].slice(0, 500) as Trade[],
+        });
+        playSound("sell");
+        return { success: true, message: `${fund.ticker} ${qty}좌 매도` };
+      },
+
       canRequestStock: () => {
         const s = get();
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -3989,6 +4408,8 @@ export const useMarketStore = create<MarketStore>()(
           s.preferredShares,
           computeCharacterConcentration(s.holdings, s.stocks, equity),
         );
+        // 유저 ETF 좌는 stocks 시세에 없어 equity에 포함되지 않으며,
+        // 랭킹에서도 합산하지 않는다(의도된 미포함).
         return equity + getPreferredShareValue(active);
       },
 
@@ -4051,6 +4472,7 @@ export const useMarketStore = create<MarketStore>()(
         storyDecision: state.storyDecision,
         storyDecisionHistory: state.storyDecisionHistory.slice(0, 30),
         playerCompany: state.playerCompany,
+        assetManager: state.assetManager,
         marginEnabled: state.marginEnabled,
         marginLeverage: state.marginLeverage,
         recurringInvestments: state.recurringInvestments,
@@ -4450,6 +4872,9 @@ export const useMarketStore = create<MarketStore>()(
             : [],
           playerCompany: normalizePlayerCompany(
             (walletSource as Partial<MarketStore>).playerCompany,
+          ),
+          assetManager: normalizeAssetManager(
+            (walletSource as Partial<MarketStore>).assetManager,
           ),
           marginEnabled: overflowRepair.marginEnabled,
           marginLeverage: normalizeMarginLeverage(
