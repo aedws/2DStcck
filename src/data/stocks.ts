@@ -1,6 +1,7 @@
 import type { EventTemplate, StockDefinition } from "@/lib/types/market";
 import { CSV_COMPANIES } from "@/data/generated";
 import { IPO_SCHEDULE } from "@/data/ipoSchedule";
+import { instrumentTypeOf } from "@/lib/market/taxonomy";
 
 export const INITIAL_CASH = 10_000_000;
 
@@ -123,6 +124,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "vnasdaq",
     ticker: "VNAS",
     name: "V-NASDAQ",
+    instrumentType: "index",
     sector: "지수",
     initialPrice: 21000,
     volatility: 0.012,
@@ -136,6 +138,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "vnasfut",
     ticker: "VNSF",
     name: "V-NASDAQ 선물",
+    instrumentType: "future",
     sector: "선물",
     initialPrice: 21200,
     volatility: 0.02,
@@ -149,6 +152,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "vnsl2",
     ticker: "VNSL2",
     name: "V-NASDAQ Leverage 2x",
+    instrumentType: "strategy",
+    strategyType: "leverage",
     sector: "ETF",
     initialPrice: 10000,
     volatility: 0.01,
@@ -163,6 +168,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "vnsi",
     ticker: "VNSI",
     name: "V-NASDAQ Inverse",
+    instrumentType: "strategy",
+    strategyType: "inverse",
     sector: "ETF",
     initialPrice: 10000,
     volatility: 0.01,
@@ -176,6 +183,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "vnsi2",
     ticker: "VNSI2",
     name: "V-NASDAQ Inverse 2x",
+    instrumentType: "strategy",
+    strategyType: "inverse-2x",
     sector: "ETF",
     initialPrice: 10000,
     volatility: 0.01,
@@ -190,6 +199,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "vncc",
     ticker: "VNCC",
     name: "V-NASDAQ Covered Call",
+    instrumentType: "strategy",
+    strategyType: "covered-call",
     sector: "ETF",
     initialPrice: 10000,
     volatility: 0.01,
@@ -207,6 +218,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "sbnd",
     ticker: "SBND",
     name: "단기채 ETF",
+    instrumentType: "etf",
+    fundType: "bond",
     sector: "ETF",
     subsector: "단기채 ETF",
     initialPrice: 10000,
@@ -221,6 +234,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "gldx",
     ticker: "GLDX",
     name: "금 ETF",
+    instrumentType: "etf",
+    fundType: "commodity",
     sector: "ETF",
     subsector: "금 ETF",
     initialPrice: 18000,
@@ -236,8 +251,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "bahina",
     ticker: "BAAKO",
     name: "선도부 방위산업",
-    sector: "PMC",
+    instrumentType: "company",
+    sector: "방산·치안",
     subsector: "치안 서비스",
+    marketTags: ["PMC"],
     initialPrice: 142000,
     volatility: 0.038,
     drift: 0.0009,
@@ -254,8 +271,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "udnge",
     ticker: "UDGE",
     name: "레이센 제약",
-    sector: "바이오",
+    instrumentType: "company",
+    sector: "헬스케어",
     subsector: "제약",
+    marketTags: ["바이오"],
     initialPrice: 38000,
     volatility: 0.042,
     drift: 0.0006,
@@ -273,8 +292,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "dante",
     ticker: "DNTE",
     name: "단테 정밀시계",
-    sector: "명품",
+    instrumentType: "company",
+    sector: "소비재·서비스",
     subsector: "고급 시계",
+    marketTags: ["명품"],
     initialPrice: 95000,
     volatility: 0.03,
     drift: 0.0006,
@@ -292,8 +313,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "hinafg",
     ticker: "HINA",
     name: "소라사키 히나 금융지주",
+    instrumentType: "company",
     sector: "금융",
     subsector: "금융지주",
+    marketTags: ["금융"],
     initialPrice: 52000,
     volatility: 0.024,
     drift: 0.0007,
@@ -311,8 +334,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "gsck",
     ticker: "GSCK",
     name: "키보토스 총학생회 금융지주",
+    instrumentType: "company",
     sector: "금융",
     subsector: "행정 지주회사",
+    marketTags: ["금융"],
     initialPrice: 88000,
     volatility: 0.02,
     drift: 0.0007,
@@ -330,8 +355,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "yisang",
     ticker: "YSAN",
     name: "이상 연구소",
+    instrumentType: "company",
     sector: "기술",
     subsector: "특허 라이선싱",
+    marketTags: ["기술"],
     initialPrice: 73000,
     volatility: 0.036,
     drift: 0.0009,
@@ -350,8 +377,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "nagusa",
     ticker: "NGSA",
     name: "나구사 야키토리&닭꼬치 주식회사",
-    sector: "식품",
+    instrumentType: "company",
+    sector: "식품·외식",
     subsector: "닭꼬치 제조·외식",
+    marketTags: ["식품"],
     initialPrice: 24500,
     volatility: 0.06,
     drift: 0.0005,
@@ -370,8 +399,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     id: "minori",
     ticker: "MNRI",
     name: "미노리 용역",
-    sector: "건설",
+    instrumentType: "company",
+    sector: "산업재",
     subsector: "건설 용역·사보타주",
+    marketTags: ["건설"],
     initialPrice: 31000,
     volatility: 0.075,
     drift: -0.0014,
@@ -422,8 +453,7 @@ const existingDerivativeKeys = new Set(
 /** 기존 합성상품을 제외한 모든 상장 기초자산에 -1배·-2배·+2배 상품을 제공한다. */
 const UNIVERSAL_DERIVATIVES: StockDefinition[] =
   DISPLAY_BASE_STOCK_DEFINITIONS.filter(
-    (stock) =>
-      stock.leverage === undefined && !stock.coveredCallUnderlyingId,
+    (stock) => instrumentTypeOf(stock) !== "strategy",
   ).flatMap((underlying) =>
     DERIVATIVE_FACTORS.filter(
       ({ leverage }) =>
@@ -432,6 +462,13 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
       id: `${underlying.id}-${idSuffix}`,
       ticker: `${underlying.ticker}${tickerSuffix}`,
       name: `${underlying.name} ${name}`,
+      instrumentType: "strategy",
+      strategyType:
+        leverage === -1
+          ? "inverse"
+          : leverage === -2
+            ? "inverse-2x"
+            : "leverage",
       sector: "ETF",
       subsector:
         leverage === -1
@@ -467,15 +504,13 @@ function deterministicCoveredCallYield(stockId: string): number {
 /** 캐릭터가 있는 실제 기업마다 ±0.7배 단일 종목 커버드콜을 제공한다. */
 const SINGLE_STOCK_COVERED_CALLS: StockDefinition[] =
   DISPLAY_BASE_STOCK_DEFINITIONS.filter(
-    (stock) =>
-      stock.sector !== "지수" &&
-      stock.sector !== "선물" &&
-      stock.sector !== "ETF" &&
-      Boolean(stock.ceoId),
+    (stock) => instrumentTypeOf(stock) === "company" && Boolean(stock.ceoId),
   ).map((underlying) => ({
     id: `${underlying.id}-covered-call`,
     ticker: `${underlying.ticker}CC`,
     name: `${underlying.name} 커버드콜`,
+    instrumentType: "strategy",
+    strategyType: "covered-call",
     sector: "ETF",
     subsector: "단일 종목 커버드콜",
     initialPrice: 10_000,
@@ -500,8 +535,8 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
 
 /** 지수·선물·ETF를 제외한 실제 기업 목록 (company 이벤트 대상) */
 export function getCompanyDefinitions(): StockDefinition[] {
-  return STOCK_DEFINITIONS.filter(
-    (d) => d.sector !== "지수" && d.sector !== "선물" && d.sector !== "ETF",
+  return STOCK_DEFINITIONS.filter((definition) =>
+    instrumentTypeOf(definition) === "company"
   );
 }
 

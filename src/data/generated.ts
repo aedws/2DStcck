@@ -10,7 +10,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baridc",
     "ticker": "BARIDC",
     "name": "RIO Defense Corporation",
-    "sector": "방산",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "방산"
+    ],
     "initialPrice": 98000,
     "volatility": 0.03,
     "drift": 0.0005,
@@ -26,6 +30,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baqqq",
     "ticker": "BAQQQ",
     "name": "Millennium Tech 100",
+    "instrumentType": "etf",
+    "fundType": "growth",
     "sector": "ETF",
     "initialPrice": 32000,
     "volatility": 0.012,
@@ -84,7 +90,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bamlb",
     "ticker": "BAMLB",
     "name": "Millennium Academy Bond",
+    "instrumentType": "company",
     "sector": "채권",
+    "marketTags": [
+      "채권"
+    ],
     "initialPrice": 10200,
     "volatility": 0.006,
     "drift": 0.0004,
@@ -102,7 +112,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bagdi",
     "ticker": "BAGDI",
     "name": "GameDev Interactive",
-    "sector": "게임",
+    "instrumentType": "company",
+    "sector": "미디어·콘텐츠",
+    "marketTags": [
+      "게임"
+    ],
     "initialPrice": 45000,
     "volatility": 0.042,
     "drift": 0.0007,
@@ -118,7 +132,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bavts",
     "ticker": "BAVTS",
     "name": "Veritas Security",
-    "sector": "보안",
+    "instrumentType": "company",
+    "sector": "기술",
+    "marketTags": [
+      "보안"
+    ],
     "initialPrice": 88000,
     "volatility": 0.03,
     "drift": 0.0008,
@@ -134,7 +152,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "banru",
     "ticker": "BANRU",
     "name": "NERU Tactical Group",
-    "sector": "PMC",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "PMC"
+    ],
     "initialPrice": 52000,
     "volatility": 0.045,
     "drift": 0.0006,
@@ -150,7 +172,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bahbk",
     "ticker": "BAHBK",
     "name": "Hibiki Ordnance Systems",
-    "sector": "방산",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "방산"
+    ],
     "initialPrice": 120000,
     "volatility": 0.032,
     "drift": 0.0006,
@@ -166,7 +192,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "basmr",
     "ticker": "BASMR",
     "name": "Millennium Medical",
+    "instrumentType": "company",
     "sector": "헬스케어",
+    "marketTags": [
+      "헬스케어"
+    ],
     "initialPrice": 63000,
     "volatility": 0.022,
     "drift": 0.0005,
@@ -181,6 +211,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baspy",
     "ticker": "BASPY",
     "name": "Kivotos Composite Index",
+    "instrumentType": "etf",
+    "fundType": "broad",
     "sector": "ETF",
     "initialPrice": 54000,
     "volatility": 0.01,
@@ -288,7 +320,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bakaya",
     "ticker": "BAKAYA",
     "name": "Shiranui Heavy Industries",
-    "sector": "방산",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "방산"
+    ],
     "initialPrice": 97000,
     "volatility": 0.03,
     "drift": 0.0005,
@@ -303,7 +339,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bakvb",
     "ticker": "BAKVB",
     "name": "Kivotos Municipal Bond",
+    "instrumentType": "company",
     "sector": "채권",
+    "marketTags": [
+      "채권"
+    ],
     "initialPrice": 10100,
     "volatility": 0.005,
     "drift": 0.0003,
@@ -321,7 +361,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baabs",
     "ticker": "BAABS",
     "name": "Abydos Security",
-    "sector": "PMC",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "PMC"
+    ],
     "initialPrice": 38000,
     "volatility": 0.05,
     "drift": 0.0008,
@@ -337,7 +381,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baabb",
     "ticker": "BAABB",
     "name": "Abydos Academy Bond",
+    "instrumentType": "company",
     "sector": "채권",
+    "marketTags": [
+      "채권"
+    ],
     "initialPrice": 9400,
     "volatility": 0.015,
     "drift": 0.0008,
@@ -355,7 +403,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "ba68",
     "ticker": "BA68",
     "name": "Problem Solver 68",
-    "sector": "PMC",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "PMC"
+    ],
     "initialPrice": 21000,
     "volatility": 0.055,
     "drift": 0.0004,
@@ -371,7 +423,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bahrn",
     "ticker": "BAHRN",
     "name": "Gourmet Research Dining",
-    "sector": "요식업",
+    "instrumentType": "company",
+    "sector": "식품·외식",
+    "marketTags": [
+      "요식업"
+    ],
     "initialPrice": 47000,
     "volatility": 0.028,
     "drift": 0.0005,
@@ -386,7 +442,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bafka",
     "ticker": "BAFKA",
     "name": "Gehenna Kitchen Foods",
-    "sector": "요식업",
+    "instrumentType": "company",
+    "sector": "식품·외식",
+    "marketTags": [
+      "요식업"
+    ],
     "initialPrice": 26000,
     "volatility": 0.03,
     "drift": 0.0004,
@@ -401,7 +461,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "basena",
     "ticker": "BASENA",
     "name": "Rescue Knights Biotech",
-    "sector": "바이오",
+    "instrumentType": "company",
+    "sector": "헬스케어",
+    "marketTags": [
+      "바이오"
+    ],
     "initialPrice": 71000,
     "volatility": 0.048,
     "drift": 0.0006,
@@ -417,7 +481,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baksm",
     "ticker": "BAKSM",
     "name": "Kasumi Construction",
-    "sector": "건설",
+    "instrumentType": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "건설"
+    ],
     "initialPrice": 33000,
     "volatility": 0.028,
     "drift": 0.0004,
@@ -432,7 +500,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bakrr",
     "ticker": "BAKRR",
     "name": "Kirara Cosmetics",
-    "sector": "화장품",
+    "instrumentType": "company",
+    "sector": "소비재·서비스",
+    "marketTags": [
+      "화장품"
+    ],
     "initialPrice": 41000,
     "volatility": 0.032,
     "drift": 0.0005,
@@ -447,7 +519,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baghb",
     "ticker": "BAGHB",
     "name": "Gehenna Academy Bond",
+    "instrumentType": "company",
     "sector": "채권",
+    "marketTags": [
+      "채권"
+    ],
     "initialPrice": 9700,
     "volatility": 0.012,
     "drift": 0.0006,
@@ -465,7 +541,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bahnk",
     "ticker": "BAHNK",
     "name": "Hanako Education Group",
-    "sector": "교육",
+    "instrumentType": "company",
+    "sector": "소비재·서비스",
+    "marketTags": [
+      "교육"
+    ],
     "initialPrice": 29000,
     "volatility": 0.02,
     "drift": 0.0005,
@@ -480,7 +560,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baszm",
     "ticker": "BASZM",
     "name": "Suzumi Guard Services",
-    "sector": "PMC",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "PMC"
+    ],
     "initialPrice": 24000,
     "volatility": 0.035,
     "drift": 0.0005,
@@ -495,7 +579,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baui",
     "ticker": "BAUI",
     "name": "Archive Mediaworks",
-    "sector": "미디어",
+    "instrumentType": "company",
+    "sector": "미디어·콘텐츠",
+    "marketTags": [
+      "미디어"
+    ],
     "initialPrice": 19000,
     "volatility": 0.03,
     "drift": 0.0003,
@@ -510,7 +598,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "baair",
     "ticker": "BAAIR",
     "name": "Airi Coffee Company",
-    "sector": "요식업",
+    "instrumentType": "company",
+    "sector": "식품·외식",
+    "marketTags": [
+      "요식업"
+    ],
     "initialPrice": 15000,
     "volatility": 0.025,
     "drift": 0.0004,
@@ -525,7 +617,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bamine",
     "ticker": "BAMINE",
     "name": "Mine Pharmaceuticals",
-    "sector": "바이오",
+    "instrumentType": "company",
+    "sector": "헬스케어",
+    "marketTags": [
+      "바이오"
+    ],
     "initialPrice": 58000,
     "volatility": 0.05,
     "drift": 0.0005,
@@ -541,7 +637,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "batrg",
     "ticker": "BATRG",
     "name": "Justice Task Force Security",
-    "sector": "PMC",
+    "instrumentType": "company",
+    "sector": "방산·치안",
+    "marketTags": [
+      "PMC"
+    ],
     "initialPrice": 31000,
     "volatility": 0.045,
     "drift": 0.0005,
@@ -557,7 +657,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bamari",
     "ticker": "BAMARI",
     "name": "Mari Pilgrim Tours",
-    "sector": "관광",
+    "instrumentType": "company",
+    "sector": "소비재·서비스",
+    "marketTags": [
+      "관광"
+    ],
     "initialPrice": 23000,
     "volatility": 0.026,
     "drift": 0.0004,
@@ -572,7 +676,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "batrb",
     "ticker": "BATRB",
     "name": "Trinity Academy Bond",
+    "instrumentType": "company",
     "sector": "채권",
+    "marketTags": [
+      "채권"
+    ],
     "initialPrice": 10300,
     "volatility": 0.006,
     "drift": 0.0004,
@@ -590,7 +698,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwjin",
     "ticker": "WWJIN",
     "name": "Jinzhou Financial Group",
+    "instrumentType": "company",
     "sector": "금융",
+    "marketTags": [
+      "금융"
+    ],
     "initialPrice": 18500,
     "volatility": 0.022,
     "drift": 0.0005,
@@ -606,7 +718,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwchl",
     "ticker": "WWCHL",
     "name": "Changli Energy Holdings",
-    "sector": "에너지",
+    "instrumentType": "company",
+    "sector": "에너지·인프라",
+    "marketTags": [
+      "에너지"
+    ],
     "initialPrice": 21000,
     "volatility": 0.028,
     "drift": 0.0004,
@@ -622,7 +738,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwxly",
     "ticker": "WWXLY",
     "name": "Xiangli Yao Laboratories",
+    "instrumentType": "company",
     "sector": "기술",
+    "marketTags": [
+      "기술"
+    ],
     "initialPrice": 43000,
     "volatility": 0.038,
     "drift": 0.0009,
@@ -637,7 +757,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwjyn",
     "ticker": "WWJYN",
     "name": "Qinglong Air Logistics",
-    "sector": "운송",
+    "instrumentType": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "운송"
+    ],
     "initialPrice": 16000,
     "volatility": 0.026,
     "drift": 0.0005,
@@ -652,7 +776,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwskp",
     "ticker": "WWSKP",
     "name": "Blackshore Telecom",
-    "sector": "통신",
+    "instrumentType": "company",
+    "sector": "에너지·인프라",
+    "marketTags": [
+      "통신"
+    ],
     "initialPrice": 12500,
     "volatility": 0.018,
     "drift": 0.0004,
@@ -668,7 +796,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwcam",
     "ticker": "WWCAM",
     "name": "Camellya Botanicals",
-    "sector": "농업",
+    "instrumentType": "company",
+    "sector": "식품·외식",
+    "marketTags": [
+      "농업"
+    ],
     "initialPrice": 9800,
     "volatility": 0.04,
     "drift": 0.0003,
@@ -684,7 +816,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkltr",
     "ticker": "NKLTR",
     "name": "Liter Development",
-    "sector": "부동산",
+    "instrumentType": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "부동산"
+    ],
     "initialPrice": 26500,
     "volatility": 0.024,
     "drift": 0.0005,
@@ -699,7 +835,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkvol",
     "ticker": "NKVOL",
     "name": "Volume Broadcasting",
-    "sector": "엔터",
+    "instrumentType": "company",
+    "sector": "미디어·콘텐츠",
+    "marketTags": [
+      "엔터"
+    ],
     "initialPrice": 14000,
     "volatility": 0.034,
     "drift": 0.0006,
@@ -715,7 +855,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkneo",
     "ticker": "NKNEO",
     "name": "Neon Megastore",
-    "sector": "유통",
+    "instrumentType": "company",
+    "sector": "소비재·서비스",
+    "marketTags": [
+      "유통"
+    ],
     "initialPrice": 11000,
     "volatility": 0.03,
     "drift": 0.0004,
@@ -731,7 +875,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkexa",
     "ticker": "NKEXA",
     "name": "Exia Interactive",
-    "sector": "게임",
+    "instrumentType": "company",
+    "sector": "미디어·콘텐츠",
+    "marketTags": [
+      "게임"
+    ],
     "initialPrice": 23500,
     "volatility": 0.045,
     "drift": 0.0007,
@@ -747,6 +895,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "pmcx",
     "ticker": "PMCX",
     "name": "Kivotos Security ETF",
+    "instrumentType": "etf",
+    "fundType": "sector",
     "sector": "ETF",
     "initialPrice": 15000,
     "volatility": 0.01,
@@ -784,6 +934,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "bndx",
     "ticker": "BNDX",
     "name": "Academy Bond ETF",
+    "instrumentType": "etf",
+    "fundType": "bond",
     "sector": "ETF",
     "initialPrice": 10000,
     "volatility": 0.005,
@@ -818,8 +970,12 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "aeyvn",
     "ticker": "AEYVN",
     "name": "Yvonne Microsystems",
-    "sector": "팹리스",
-    "subsector": "반도체",
+    "instrumentType": "company",
+    "sector": "반도체",
+    "subsector": "팹리스",
+    "marketTags": [
+      "팹리스"
+    ],
     "initialPrice": 72000,
     "volatility": 0.05,
     "drift": 0.0009,
@@ -835,7 +991,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkilg",
     "ticker": "NKILG",
     "name": "Elleg Power Grid",
-    "sector": "유틸리티",
+    "instrumentType": "company",
+    "sector": "에너지·인프라",
+    "marketTags": [
+      "유틸리티"
+    ],
     "initialPrice": 41000,
     "volatility": 0.014,
     "drift": 0.0004,
@@ -851,7 +1011,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "aegil",
     "ticker": "AEGIL",
     "name": "Gilberta Advanced Materials",
-    "sector": "소재",
+    "instrumentType": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "소재"
+    ],
     "initialPrice": 53000,
     "volatility": 0.03,
     "drift": 0.0005,
@@ -867,7 +1031,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwlne",
     "ticker": "WWLNE",
     "name": "Linne Mobility",
-    "sector": "모빌리티",
+    "instrumentType": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "모빌리티"
+    ],
     "initialPrice": 45000,
     "volatility": 0.036,
     "drift": 0.0006,
@@ -882,7 +1050,11 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "ersua",
     "ticker": "ERSUA",
     "name": "Sua Assurance",
-    "sector": "보험",
+    "instrumentType": "company",
+    "sector": "금융",
+    "marketTags": [
+      "보험"
+    ],
     "initialPrice": 57000,
     "volatility": 0.02,
     "drift": 0.0004,
@@ -898,8 +1070,12 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkmna",
     "ticker": "NKMNA",
     "name": "Mana Foundry",
-    "sector": "파운드리",
-    "subsector": "반도체",
+    "instrumentType": "company",
+    "sector": "반도체",
+    "subsector": "파운드리",
+    "marketTags": [
+      "파운드리"
+    ],
     "initialPrice": 85000,
     "volatility": 0.032,
     "drift": 0.0007,
@@ -915,8 +1091,12 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwmne",
     "ticker": "WWMNE",
     "name": "Monie Memory",
-    "sector": "메모리",
-    "subsector": "반도체",
+    "instrumentType": "company",
+    "sector": "반도체",
+    "subsector": "메모리",
+    "marketTags": [
+      "메모리"
+    ],
     "initialPrice": 48000,
     "volatility": 0.048,
     "drift": 0.0007,
@@ -932,8 +1112,12 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "wwlcl",
     "ticker": "WWLCL",
     "name": "Lucila Systems",
-    "sector": "시스템반도체",
-    "subsector": "반도체",
+    "instrumentType": "company",
+    "sector": "반도체",
+    "subsector": "시스템반도체",
+    "marketTags": [
+      "시스템반도체"
+    ],
     "initialPrice": 66000,
     "volatility": 0.028,
     "drift": 0.0005,
@@ -950,8 +1134,12 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "nkccl",
     "ticker": "NKCCL",
     "name": "Cecil Lithography",
-    "sector": "반도체장비",
-    "subsector": "반도체",
+    "instrumentType": "company",
+    "sector": "반도체",
+    "subsector": "반도체장비",
+    "marketTags": [
+      "반도체장비"
+    ],
     "initialPrice": 110000,
     "volatility": 0.04,
     "drift": 0.0008,
@@ -967,6 +1155,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "semix",
     "ticker": "SEMIX",
     "name": "Semiconductor Sector ETF",
+    "instrumentType": "etf",
+    "fundType": "sector",
     "sector": "ETF",
     "initialPrice": 20000,
     "volatility": 0.032,
@@ -1000,6 +1190,8 @@ export const CSV_COMPANIES: StockDefinition[] = [
     "id": "divx",
     "ticker": "DIVX",
     "name": "Guardian Dividend Income ETF",
+    "instrumentType": "etf",
+    "fundType": "income",
     "sector": "ETF",
     "initialPrice": 15000,
     "volatility": 0.012,

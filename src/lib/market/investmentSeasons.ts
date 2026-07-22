@@ -4,6 +4,7 @@ import type {
   StockState,
 } from "@/lib/types/market";
 import { MARKET_ERA_START_SESSION } from "@/lib/market/marketEras";
+import { instrumentTypeOf } from "@/lib/market/taxonomy";
 
 export const INVESTMENT_SEASON_SESSIONS = 20;
 export const MAX_SEASON_HISTORY = 20;
@@ -68,7 +69,7 @@ export const SEASON_GOALS: SeasonGoalDefinition[] = [
     name: "성장 집중",
     emoji: "🚀",
     description: "성장 업종과 정방향 레버리지 비중을 유지합니다.",
-    includedAssets: "기술·게임·바이오·엔터 기업, 정방향 레버리지",
+    includedAssets: "기술·반도체·헬스케어·콘텐츠 기업, 정방향 레버리지",
     targetWeights: [0.2, 0.35, 0.5],
   },
   {
@@ -457,7 +458,9 @@ export function calculateSeasonTraitScore(
 function stockMatchesGoal(goalId: SeasonGoalId, stock: StockState): boolean {
   if (goalId === "growth") {
     return (
-      ["기술", "게임", "바이오", "엔터"].includes(stock.sector) ||
+      ["기술", "반도체", "헬스케어", "미디어·콘텐츠"].includes(
+        stock.sector,
+      ) ||
       (stock.leverage ?? 0) > 0
     );
   }
@@ -471,19 +474,24 @@ function stockMatchesGoal(goalId: SeasonGoalId, stock: StockState): boolean {
     return stock.sector === "채권" || (stock.leverage ?? 0) < 0;
   }
   if (goalId === "direct") {
-    return Boolean(stock.ceoId) && !stock.universalDerivative;
+    return Boolean(stock.ceoId) && instrumentTypeOf(stock) === "company";
   }
   if (goalId === "index") {
     return (
-      stock.sector === "ETF" &&
+      instrumentTypeOf(stock) === "etf" &&
       Boolean(stock.etfHoldings?.length) &&
       stock.leverage === undefined &&
       stock.coveredCallAnnualYield === undefined
     );
   }
-  return ["방산", "PMC", "보안", "금융", "에너지", "관광", "요식업"].includes(
-    stock.sector,
-  );
+  return [
+    "방산·치안",
+    "산업재",
+    "금융",
+    "에너지·인프라",
+    "소비재·서비스",
+    "식품·외식",
+  ].includes(stock.sector);
 }
 
 export function calculateSeasonGoalAllocation(

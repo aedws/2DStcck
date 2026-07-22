@@ -20,6 +20,7 @@ import {
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { Sparkline } from "@/components/ui/Sparkline";
+import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { useMarketStore } from "@/store/marketStore";
 
 /** 우측 지수·종목 브라우저 (토스 지수·환율 패널) */
@@ -31,11 +32,11 @@ function IndexBrowser({
   currentId: string;
 }) {
   const router = useRouter();
-  const indices = stocks.filter(
-    (s) => s.sector === "지수" || s.sector === "선물" || s.sector === "ETF",
+  const indices = stocks.filter((stock) =>
+    ["index", "future", "etf"].includes(instrumentTypeOf(stock)),
   );
   const companies = stocks.filter(
-    (s) => s.sector !== "지수" && s.sector !== "선물" && s.sector !== "ETF",
+    (stock) => instrumentTypeOf(stock) === "company",
   );
 
   const renderRow = (s: StockState) => {

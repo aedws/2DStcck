@@ -1,4 +1,8 @@
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import {
+  economicSectorsForStock,
+  instrumentTypeOf,
+} from "@/lib/market/taxonomy";
 import type { Holding, StockState, Trade } from "@/lib/types/market";
 
 export type DailyOperationId =
@@ -185,12 +189,13 @@ function allocationMetrics(context: DailyOperationContext) {
     if (!stock) continue;
     const value = Math.max(0, holding.quantity * stock.currentPrice);
     invested += value;
-    if (!['지수', '선물', 'ETF'].includes(stock.sector)) sectors.add(stock.sector);
+    const economicSectors = economicSectorsForStock(stock, byId);
+    for (const sector of economicSectors) sectors.add(sector);
     if ((stock.coveredCallAnnualYield ?? 0) > 0 || (stock.quarterlyDividend ?? 0) > 0) {
       income += value;
     }
-    if (stock.sector === "채권" || (stock.leverage ?? 0) < 0) hedge += value;
-    if (stock.ceoId && !stock.universalDerivative) direct += value;
+    if (economicSectors.has("채권") || (stock.leverage ?? 0) < 0) hedge += value;
+    if (stock.ceoId && instrumentTypeOf(stock) === "company") direct += value;
   }
 
   const denominator = Math.max(1, context.equity);

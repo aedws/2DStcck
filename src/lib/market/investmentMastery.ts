@@ -1,5 +1,6 @@
 import { buildDailyScorecard } from "@/lib/market/dailyScorecard";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { economicSectorsForStock } from "@/lib/market/taxonomy";
 import type {
   CashPayment,
   Holding,
@@ -124,7 +125,12 @@ export function updateInvestmentMastery(
   }
 
   const minimumNotional = Math.max(50_000, input.initialCash * 0.005);
-  const growthSectors = new Set(["기술", "게임", "바이오", "헬스케어", "엔터"]);
+  const growthSectors = new Set([
+    "기술",
+    "반도체",
+    "헬스케어",
+    "미디어·콘텐츠",
+  ]);
   const stockById = new Map(input.stocks.map((stock) => [stock.id, stock]));
   for (const trade of input.trades) {
     if (Math.abs(trade.total) < minimumNotional) continue;
@@ -136,7 +142,12 @@ export function updateInvestmentMastery(
       changed = award(next, awarded, `mastery-short:${tradeSession}`, "short", 12) || changed;
     }
     const stock = stockById.get(trade.stockId);
-    if (trade.type === "buy" && stock && growthSectors.has(stock.sector)) {
+    const isGrowthStock =
+      stock &&
+      [...economicSectorsForStock(stock, stockById)].some((sector) =>
+        growthSectors.has(sector),
+      );
+    if (trade.type === "buy" && isGrowthStock) {
       changed = award(next, awarded, `mastery-growth:${tradeSession}`, "growth", 10) || changed;
     }
   }
@@ -156,9 +167,11 @@ export function updateInvestmentMastery(
     const qualifyingSectors = new Set<string>();
     for (const holding of input.holdings) {
       const stock = stockById.get(holding.stockId);
-      if (!stock || stock.sector === "ETF" || stock.sector === "지수" || stock.sector === "선물") continue;
+      if (!stock) continue;
       if ((holding.quantity * stock.currentPrice) / input.equity >= 0.02) {
-        qualifyingSectors.add(stock.sector);
+        for (const sector of economicSectorsForStock(stock, stockById)) {
+          qualifyingSectors.add(sector);
+        }
       }
     }
     if (qualifyingSectors.size >= 5) {

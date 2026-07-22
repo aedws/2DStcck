@@ -8,6 +8,7 @@ import { formatPrice, getDayChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 import { isPumpStock } from "@/lib/market/pumpStocks";
+import { marketClassificationLabel } from "@/lib/market/taxonomy";
 
 // 정체성: 수집·경쟁 메타가 주(主). 자주 가는 5개만 1차 탭으로 남기고,
 // 나머지는 성격별 드롭다운(성장·투자 도구·라운지)으로 묶는다.
@@ -305,8 +306,7 @@ function StockSearch() {
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {s.name}
                     <span className="ml-2 text-xs text-[var(--muted)]">
-                      {s.sector}
-                      {s.subsector ? ` · ${s.subsector}` : ""}
+                      {marketClassificationLabel(s)}
                     </span>
                   </span>
                   <span className="shrink-0 text-sm tabular-nums">

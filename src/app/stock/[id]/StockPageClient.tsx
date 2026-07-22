@@ -36,6 +36,7 @@ import {
 } from "@/lib/ui/marketColors";
 import { StockLogo } from "@/components/ui/StockLogo";
 import { isUpcomingIpo, listingCountdownLabel } from "@/lib/market/ipo";
+import { marketClassificationLabel } from "@/lib/market/taxonomy";
 import { useMarketStore } from "@/store/marketStore";
 
 const SUB_TABS = ["차트 · 호가", "옵션", "종목정보", "뉴스", "관련주"] as const;
@@ -157,15 +158,9 @@ function StockInfoTab({ stock }: { stock: StockState }) {
         <h3 className="mb-3 text-sm font-semibold">투자 지표</h3>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm md:grid-cols-3">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-[11px] text-[var(--muted)]">섹터</dt>
-            <dd>{stock.sector}</dd>
+            <dt className="text-[11px] text-[var(--muted)]">분류</dt>
+            <dd>{marketClassificationLabel(stock)}</dd>
           </div>
-          {stock.subsector && (
-            <div className="flex flex-col gap-0.5">
-              <dt className="text-[11px] text-[var(--muted)]">세부 섹터</dt>
-              <dd>{stock.subsector}</dd>
-            </div>
-          )}
           <div className="flex flex-col gap-0.5">
             <dt className="text-[11px] text-[var(--muted)]">상장가</dt>
             <dd className="tabular-nums">{formatPrice(stock.initialPrice)}</dd>
@@ -346,7 +341,7 @@ function UpcomingIpoView({ stock }: { stock: StockState }) {
         </div>
         <h1 className="mt-3 text-2xl font-bold">{stock.name}</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          {stock.ticker} · {stock.sector}
+          {stock.ticker} · {marketClassificationLabel(stock)}
         </p>
         <p className="mt-5 text-3xl font-black tabular-nums text-[var(--accent)]">
           {listingCountdownLabel(stock)}

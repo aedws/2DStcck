@@ -28,15 +28,19 @@ export interface PortfolioStrategyDefinition {
   buckets: PortfolioStrategyBucket[];
 }
 
-const GROWTH_SECTORS = new Set(["기술", "게임", "바이오", "엔터"]);
+const GROWTH_SECTORS = new Set([
+  "기술",
+  "반도체",
+  "헬스케어",
+  "미디어·콘텐츠",
+]);
 const CYCLICAL_SECTORS = new Set([
-  "방산",
-  "PMC",
-  "보안",
+  "방산·치안",
+  "산업재",
   "금융",
-  "에너지",
-  "관광",
-  "요식업",
+  "에너지·인프라",
+  "소비재·서비스",
+  "식품·외식",
 ]);
 
 const cashBucket = (targetWeight: number): PortfolioStrategyBucket => ({
@@ -79,7 +83,7 @@ const growthBucket = (targetWeight: number): PortfolioStrategyBucket => ({
   label: "성장 기업",
   emoji: "🚀",
   targetWeight,
-  description: "기술·게임·바이오·엔터 직접 투자",
+  description: "기술·반도체·헬스케어·콘텐츠 직접 투자",
   matches: (stock) => Boolean(stock.ceoId) && GROWTH_SECTORS.has(stock.sector),
 });
 

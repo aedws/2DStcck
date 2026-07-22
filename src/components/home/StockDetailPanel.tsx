@@ -16,6 +16,7 @@ import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { FuturesLeadBadge } from "@/components/market/FuturesLeadBadge";
 import { useChartSeries } from "@/components/market/useChartSeries";
 import { getCharacterById } from "@/data/characters";
+import { marketClassificationLabel } from "@/lib/market/taxonomy";
 import { useMarketStore } from "@/store/marketStore";
 
 interface StockDetailPanelProps {
@@ -49,8 +50,7 @@ export function StockDetailPanel({ stock, events }: StockDetailPanelProps) {
     <section className="hidden w-[400px] shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--background)] lg:flex">
       <div className="border-b border-[var(--border)] px-4 py-3">
         <p className="text-xs text-[var(--muted)]">
-          {stock.ticker} · {stock.sector}
-          {stock.subsector ? ` · ${stock.subsector}` : ""}
+          {stock.ticker} · {marketClassificationLabel(stock)}
         </p>
         <Link
           href={`/stock/${stock.id}`}

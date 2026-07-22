@@ -243,24 +243,29 @@ export function getActiveMarketCrisis(session: number): ActiveMarketCrisis | nul
 
 function themeExposure(
   active: ActiveMarketCrisis,
-  stock: Pick<StockDefinition, "sector" | "subsector" | "beta">,
+  stock: Pick<
+    StockDefinition,
+    "sector" | "subsector" | "beta" | "marketTags"
+  >,
 ): number {
   const { sector, subsector } = stock;
+  const hasMarketTag = (tag: string) =>
+    sector === tag || stock.marketTags?.includes(tag);
   const negativePhase = active.phase.marketReturnPerSession < 0;
   let exposure = stock.beta ?? (sector === "채권" ? -0.35 : 0.65);
 
   if (sector === "지수" || sector === "선물") exposure = stock.beta ?? 1;
 
   if (active.theme.id === "credit-crunch" || active.theme.id === "bank-run") {
-    if (sector === "금융") exposure *= 1.55;
+    if (hasMarketTag("금융")) exposure *= 1.55;
   } else if (active.theme.id === "tech-bubble") {
-    if (sector === "기술" || sector === "게임") exposure *= 1.5;
+    if (hasMarketTag("기술") || hasMarketTag("게임")) exposure *= 1.5;
   } else if (active.theme.id === "pandemic") {
-    if (sector === "관광" || sector === "요식업") exposure *= 1.6;
-    if (sector === "바이오") exposure *= 0.35;
+    if (hasMarketTag("관광") || hasMarketTag("요식업")) exposure *= 1.6;
+    if (hasMarketTag("바이오")) exposure *= 0.35;
   } else if (active.theme.id === "energy-shock") {
-    if (sector === "에너지") exposure *= negativePhase ? -0.45 : 0.65;
-    if (sector === "요식업" || sector === "관광") exposure *= 1.25;
+    if (hasMarketTag("에너지")) exposure *= negativePhase ? -0.45 : 0.65;
+    if (hasMarketTag("요식업") || hasMarketTag("관광")) exposure *= 1.25;
   }
 
   if (subsector?.includes("인버스")) exposure *= -1;
@@ -269,7 +274,10 @@ function themeExposure(
 
 export function crisisReturnForStock(
   active: ActiveMarketCrisis,
-  stock: Pick<StockDefinition, "sector" | "subsector" | "beta">,
+  stock: Pick<
+    StockDefinition,
+    "sector" | "subsector" | "beta" | "marketTags"
+  >,
   dtSeconds: number,
 ): number {
   return (

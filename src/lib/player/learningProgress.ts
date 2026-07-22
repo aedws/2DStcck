@@ -7,6 +7,10 @@ import type {
   StockState,
 } from "@/lib/types/market";
 import { getRelationshipTier } from "@/lib/market/characterProgress";
+import {
+  economicSectorsForStock,
+  instrumentTypeOf,
+} from "@/lib/market/taxonomy";
 import { LEARNING_LAYERS } from "@/data/learningJourney";
 
 export interface LearningSignals {
@@ -47,10 +51,19 @@ export function deriveLearningSignals(
     .map((h) => byId.get(h.stockId))
     .filter((stock): stock is StockState => Boolean(stock));
 
-  const distinctSectors = new Set(heldStocks.map((stock) => stock.sector)).size;
-  const hasEtfHolding = heldStocks.some((stock) => stock.sector === "ETF");
+  const economicSectors = new Set<string>();
+  for (const stock of heldStocks) {
+    for (const sector of economicSectorsForStock(stock, byId)) {
+      economicSectors.add(sector);
+    }
+  }
+  const distinctSectors = economicSectors.size;
+  const hasEtfHolding = heldStocks.some(
+    (stock) => instrumentTypeOf(stock) === "etf",
+  );
   const hasCharacterHolding = heldStocks.some(
-    (stock) => Boolean(stock.ceoId) && !stock.universalDerivative,
+    (stock) =>
+      Boolean(stock.ceoId) && instrumentTypeOf(stock) === "company",
   );
   const usedAdvanced =
     heldStocks.some(

@@ -7,7 +7,7 @@
  * CSV 규격 (UTF-8, 첫 줄 헤더):
  *   ticker      영문 대문자 1~6자, 고유 (id는 소문자 변환)
  *   name        회사명
- *   sector      섹터 (같은 문자열끼리 섹터 이벤트로 묶임)
+ *   industry    세부 산업 (상위 섹터와 시장 사건 태그를 자동 결정)
  *   subsector   선택형 세부 섹터 (표시·검색용)
  *   initialPrice 상장가, 양의 정수(원)
  *   volatility  틱당 변동성 계수, 0.01~0.06 권장
@@ -41,10 +41,56 @@ const quotesCsvPath = process.argv[3] ?? join(root, "data", "character-quotes.cs
 const outPath = join(root, "src", "data", "generated.ts");
 
 const HEADER = [
-  "ticker", "name", "sector", "initialPrice", "volatility", "drift", "beta",
+  "ticker", "name", "industry", "initialPrice", "volatility", "drift", "beta",
   "description", "logo", "eventBias", "ceoName", "ceoTitle", "ceoTraits", "ceoBio", "ceoEmoji",
   "etfHoldings", "quarterlyDividend", "subsector",
 ];
+
+const SECTOR_BY_INDUSTRY = {
+  "방산": "방산·치안",
+  "PMC": "방산·치안",
+  "건설": "산업재",
+  "부동산": "산업재",
+  "운송": "산업재",
+  "모빌리티": "산업재",
+  "소재": "산업재",
+  "팹리스": "반도체",
+  "파운드리": "반도체",
+  "메모리": "반도체",
+  "시스템반도체": "반도체",
+  "반도체장비": "반도체",
+  "명품": "소비재·서비스",
+  "화장품": "소비재·서비스",
+  "유통": "소비재·서비스",
+  "관광": "소비재·서비스",
+  "교육": "소비재·서비스",
+  "농업": "식품·외식",
+  "식품": "식품·외식",
+  "요식업": "식품·외식",
+  "채권": "채권",
+  "금융": "금융",
+  "보험": "금융",
+  "바이오": "헬스케어",
+  "헬스케어": "헬스케어",
+  "게임": "미디어·콘텐츠",
+  "미디어": "미디어·콘텐츠",
+  "엔터": "미디어·콘텐츠",
+  "기술": "기술",
+  "보안": "기술",
+  "에너지": "에너지·인프라",
+  "유틸리티": "에너지·인프라",
+  "통신": "에너지·인프라",
+  "ETF": "ETF",
+};
+
+const FUND_TYPE_BY_TICKER = {
+  BASPY: "broad",
+  BAQQQ: "growth",
+  SEMIX: "sector",
+  PMCX: "sector",
+  BNDX: "bond",
+  DIVX: "income",
+};
 
 /** 코드 관리 코어 종목 (구성종목 참조 검증용). bahina는 티커 변경(BAAKO) 때
  * 기존 보유·호감도의 id를 보존하려고 CSV에서 코드 관리로 옮겼다. */
@@ -138,9 +184,11 @@ rows.forEach((cols, idx) => {
   seenTickers.add(ticker);
 
   const name = get("name");
-  const sector = get("sector");
+  const industry = get("industry");
   const subsector = get("subsector");
-  if (!name || !sector) return fail(line, "name/sector는 필수");
+  if (!name || !industry) return fail(line, "name/industry는 필수");
+  const sector = SECTOR_BY_INDUSTRY[industry];
+  if (!sector) return fail(line, `알 수 없는 industry: "${industry}"`);
 
   const initialPrice = parseNumber(get("initialPrice"), "initialPrice", line, { integer: true });
   const volatility = parseNumber(get("volatility"), "volatility", line);
@@ -155,8 +203,13 @@ rows.forEach((cols, idx) => {
     id,
     ticker,
     name,
+    instrumentType: industry === "ETF" ? "etf" : "company",
+    ...(FUND_TYPE_BY_TICKER[ticker]
+      ? { fundType: FUND_TYPE_BY_TICKER[ticker] }
+      : {}),
     sector,
     ...(subsector ? { subsector } : {}),
+    ...(industry !== "ETF" ? { marketTags: [industry] } : {}),
     initialPrice,
     volatility,
     drift,

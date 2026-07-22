@@ -4,11 +4,18 @@ import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MarketEvent, StockState } from "@/lib/types/market";
 import {
-  ETF_FAMILY_ORDER,
   formatStockValue,
   getDayChangePercent,
-  stockCategory,
 } from "@/lib/market/engine";
+import {
+  COMPANY_SECTOR_ORDER,
+  FUND_FILTER_ORDER,
+  STRATEGY_FILTER_ORDER,
+  fundFilterLabel,
+  instrumentTypeOf,
+  productGroupLabel,
+  strategyFilterLabel,
+} from "@/lib/market/taxonomy";
 import {
   buyRatio,
   latestEventFor,
@@ -24,7 +31,8 @@ import { StockLogo } from "@/components/ui/StockLogo";
 import { stockHref } from "@/lib/ui/stockLink";
 import { useSettingsStore } from "@/store/settingsStore";
 
-const TABS = ["실시간 차트", "지금 뜨는 산업", "섹터별", "관심"];
+const TABS = ["기업", "ETF", "파생·전략", "지수·선물", "관심"] as const;
+type ProductTab = (typeof TABS)[number];
 const SORTS = ["급상승", "급하락", "거래대금"] as const;
 type SortMode = (typeof SORTS)[number];
 
@@ -35,9 +43,9 @@ interface StockListPanelProps {
 
 export function StockListPanel({ stocks, events }: StockListPanelProps) {
   const router = useRouter();
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState<ProductTab>("기업");
   const [sort, setSort] = useState<SortMode>("급상승");
-  const [sector, setSector] = useState("전체");
+  const [secondaryFilter, setSecondaryFilter] = useState("전체");
   const [expandedUnderlyings, setExpandedUnderlyings] = useState<Set<string>>(
     () => new Set(),
   );
@@ -103,30 +111,76 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     }, 0);
   };
 
-  // 필터 칩: ETF 안의 커버드콜·레버리지·인버스·곱버스를 분리한다.
-  const sectors = useMemo(() => {
-    const cats = Array.from(new Set(stocks.map((s) => stockCategory(s))));
-    const nonFamily = cats.filter((c) => !ETF_FAMILY_ORDER.includes(c));
-    const family = ETF_FAMILY_ORDER.filter((c) => cats.includes(c));
-    return ["전체", ...nonFamily, ...family];
-  }, [stocks]);
+  const stockById = useMemo(
+    () => new Map(stocks.map((stock) => [stock.id, stock])),
+    [stocks],
+  );
+
+  const secondaryFilters = useMemo(() => {
+    if (tab === "기업") {
+      const available = new Set(
+        stocks
+          .filter((stock) => instrumentTypeOf(stock) === "company")
+          .map((stock) => stock.sector),
+      );
+      return [
+        "전체",
+        ...COMPANY_SECTOR_ORDER.filter((sector) => available.has(sector)),
+      ];
+    }
+    if (tab === "ETF") {
+      const available = new Set(
+        stocks
+          .filter((stock) => instrumentTypeOf(stock) === "etf")
+          .map((stock) => fundFilterLabel(stock.fundType)),
+      );
+      return [
+        "전체",
+        ...FUND_FILTER_ORDER.filter((filter) => available.has(filter)),
+      ];
+    }
+    if (tab === "파생·전략") {
+      const available = new Set(
+        stocks
+          .filter((stock) => instrumentTypeOf(stock) === "strategy")
+          .map(strategyFilterLabel),
+      );
+      return [
+        "전체",
+        ...STRATEGY_FILTER_ORDER.filter((filter) => available.has(filter)),
+      ];
+    }
+    if (tab === "지수·선물") return ["전체", "지수", "선물"];
+    return ["전체"];
+  }, [stocks, tab]);
 
   const watchSet = useMemo(() => new Set(watchlist), [watchlist]);
 
   const sorted = useMemo(() => {
-    let list = [...stocks];
-    if (tab === 3) {
-      list = list.filter((s) => watchSet.has(s.id));
-    }
-    if (sector !== "전체") {
-      list = list.filter((s) => stockCategory(s) === sector);
+    let list = stocks.filter((stock) => {
+      const type = instrumentTypeOf(stock);
+      if (tab === "기업") return type === "company";
+      if (tab === "ETF") return type === "etf";
+      if (tab === "파생·전략") return type === "strategy";
+      if (tab === "지수·선물") return type === "index" || type === "future";
+      return watchSet.has(stock.id);
+    });
+
+    if (secondaryFilter !== "전체") {
+      list = list.filter((stock) => {
+        if (tab === "기업") return stock.sector === secondaryFilter;
+        if (tab === "ETF") {
+          return fundFilterLabel(stock.fundType) === secondaryFilter;
+        }
+        if (tab === "파생·전략") {
+          return strategyFilterLabel(stock) === secondaryFilter;
+        }
+        if (tab === "지수·선물") return stock.sector === secondaryFilter;
+        return true;
+      });
     }
 
-    if (tab === 1) {
-      list.sort((a, b) => b.volatility - a.volatility);
-    } else if (tab === 2) {
-      list.sort((a, b) => a.sector.localeCompare(b.sector));
-    } else if (sort === "급하락") {
+    if (sort === "급하락") {
       list.sort((a, b) => getDayChangePercent(a) - getDayChangePercent(b));
     } else if (sort === "거래대금") {
       list.sort((a, b) => pseudoVolume(b) - pseudoVolume(a));
@@ -134,10 +188,10 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
       list.sort((a, b) => getDayChangePercent(b) - getDayChangePercent(a));
     }
     return list;
-  }, [stocks, sector, tab, sort, watchSet]);
+  }, [secondaryFilter, sort, stocks, tab, watchSet]);
 
   const displayRows = useMemo(() => {
-    if (!groupDerivatives || sector !== "전체" || tab === 3) {
+    if (!groupDerivatives || tab === "파생·전략" || tab === "관심") {
       return sorted.map((stock, index) => ({
         stock,
         depth: 0,
@@ -147,7 +201,8 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
     }
 
     const childrenByUnderlying = new Map<string, StockState[]>();
-    for (const stock of sorted) {
+    for (const stock of stocks) {
+      if (instrumentTypeOf(stock) !== "strategy") continue;
       const underlyingId =
         stock.leverageUnderlyingId ?? stock.coveredCallUnderlyingId;
       if (!underlyingId) continue;
@@ -163,7 +218,15 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
       if (underlyingId) return [];
 
       baseRank += 1;
-      const children = childrenByUnderlying.get(stock.id) ?? [];
+      const children = [...(childrenByUnderlying.get(stock.id) ?? [])].sort(
+        (left, right) =>
+          STRATEGY_FILTER_ORDER.indexOf(
+            strategyFilterLabel(left) as (typeof STRATEGY_FILTER_ORDER)[number],
+          ) -
+          STRATEGY_FILTER_ORDER.indexOf(
+            strategyFilterLabel(right) as (typeof STRATEGY_FILTER_ORDER)[number],
+          ),
+      );
       const parent = {
         stock,
         depth: 0,
@@ -181,7 +244,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
         })),
       ];
     });
-  }, [expandedUnderlyings, groupDerivatives, sector, sorted, tab]);
+  }, [expandedUnderlyings, groupDerivatives, sorted, stocks, tab]);
 
   const toggleUnderlying = (stockId: string) => {
     setExpandedUnderlyings((current) => {
@@ -195,13 +258,16 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
   return (
     <section className="flex min-w-0 flex-1 flex-col border-r border-[var(--border)] bg-[var(--background)]">
       <div className="border-b border-[var(--border)] px-4 pt-3">
-        <div className="flex gap-4">
-          {TABS.map((label, i) => (
+        <div className="flex gap-4 overflow-x-auto scrollbar-hide">
+          {TABS.map((label) => (
             <button
               key={label}
-              onClick={() => setTab(i)}
-              className={`pb-2.5 text-sm transition ${
-                tab === i
+              onClick={() => {
+                setTab(label);
+                setSecondaryFilter("전체");
+              }}
+              className={`shrink-0 pb-2.5 text-sm transition ${
+                tab === label
                   ? "border-b-2 border-[var(--foreground)] font-semibold text-[var(--foreground)]"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
               }`}
@@ -230,34 +296,31 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
             isDraggingFilters ? "cursor-grabbing" : "cursor-grab"
           }`}
         >
-          {tab === 0 &&
-            SORTS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSort(s)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${
-                  sort === s
-                    ? "bg-[var(--surface-elevated)] font-semibold text-[var(--foreground)]"
-                    : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          {tab === 0 && (
-            <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" />
-          )}
-          {sectors.map((s) => (
+          {SORTS.map((sortOption) => (
             <button
-              key={s}
-              onClick={() => setSector(s)}
+              key={sortOption}
+              onClick={() => setSort(sortOption)}
               className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${
-                sector === s
+                sort === sortOption
+                  ? "bg-[var(--surface-elevated)] font-semibold text-[var(--foreground)]"
+                  : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {sortOption}
+            </button>
+          ))}
+          <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" />
+          {secondaryFilters.map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setSecondaryFilter(filter)}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${
+                secondaryFilter === filter
                   ? "bg-[var(--foreground)] text-[var(--background)]"
                   : "bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]"
               }`}
             >
-              {s}
+              {filter}
             </button>
           ))}
         </div>
@@ -291,6 +354,32 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
               const strongMove = Math.abs(change) >= 3;
               const buy = buyRatio(stock);
               const event = latestEventFor(stock.id, events);
+              const underlyingId =
+                stock.leverageUnderlyingId ?? stock.coveredCallUnderlyingId;
+              const underlying = underlyingId
+                ? stockById.get(underlyingId)
+                : undefined;
+              const type = instrumentTypeOf(stock);
+              const classification =
+                type === "strategy"
+                  ? {
+                      primary: strategyFilterLabel(stock),
+                      secondary: underlying?.sector,
+                    }
+                  : type === "etf"
+                    ? {
+                        primary: "ETF",
+                        secondary: fundFilterLabel(stock.fundType),
+                      }
+                    : type === "index" || type === "future"
+                      ? {
+                          primary: productGroupLabel(stock),
+                          secondary: stock.sector,
+                        }
+                      : {
+                          primary: stock.sector,
+                          secondary: stock.subsector,
+                        };
 
               return (
                 <tr
@@ -388,10 +477,10 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                     </div>
                   </td>
                   <td className="hidden px-2 py-3 text-[var(--muted)] lg:table-cell">
-                    <span className="block">{stock.sector}</span>
-                    {stock.subsector && (
+                    <span className="block">{classification.primary}</span>
+                    {classification.secondary && (
                       <span className="block text-[10px] text-[var(--muted)]">
-                        {stock.subsector}
+                        {classification.secondary}
                       </span>
                     )}
                   </td>
@@ -407,7 +496,7 @@ export function StockListPanel({ stocks, events }: StockListPanelProps) {
                 </tr>
               );
             })}
-            {tab === 3 && displayRows.length === 0 && (
+            {tab === "관심" && displayRows.length === 0 && (
               <tr>
                 <td
                   colSpan={8}

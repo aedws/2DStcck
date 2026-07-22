@@ -42,13 +42,42 @@ export interface CharacterQuoteEntry {
   quotes: string[];
 }
 
+export type InstrumentType =
+  | "company"
+  | "etf"
+  | "index"
+  | "future"
+  | "strategy";
+
+export type StrategyType =
+  | "leverage"
+  | "inverse"
+  | "inverse-2x"
+  | "covered-call";
+
+export type FundType =
+  | "broad"
+  | "growth"
+  | "sector"
+  | "bond"
+  | "commodity"
+  | "income";
+
 export interface StockDefinition {
   id: string;
   ticker: string;
   name: string;
+  /** 화면 1차 분류. 경제 섹터와 상품 구조를 섞지 않는다. */
+  instrumentType?: InstrumentType;
+  /** ETF의 운용 목적 분류. */
+  fundType?: FundType;
+  /** 레버리지·인버스·커버드콜 등 전략상품의 구조. */
+  strategyType?: StrategyType;
   sector: string;
   /** 선택형 세부 산업 분류. 비어 있으면 상위 섹터만 사용한다. */
   subsector?: string;
+  /** 기존 섹터 사건·위기 민감도를 보존하는 내부 시장 태그. */
+  marketTags?: string[];
   initialPrice: number;
   volatility: number;
   drift: number;
@@ -106,7 +135,7 @@ export interface EventTemplate {
   impact: number;
   /** macro: 고정 대상 종목 (생략 시 전 종목) */
   affectedStockIds?: string[];
-  /** sector: 해당 섹터 전 종목 대상 */
+  /** sector 이벤트의 내부 시장 태그(표시용 상위 섹터와 분리 가능) */
   sector?: string;
   /** company: 특정 기업 전용 사건이면 해당 종목 id로 대상을 고정 */
   companyId?: string;

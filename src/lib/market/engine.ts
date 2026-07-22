@@ -55,6 +55,7 @@ import {
 } from "@/lib/market/marketCrises";
 import { getMarketEra } from "@/lib/market/marketEras";
 import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
+import { strategyFilterLabel } from "@/lib/market/taxonomy";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -895,7 +896,9 @@ export function resolveEventTemplate(
     }
   } else if (template.category === "sector" && template.sector) {
     affectedStockIds = STOCK_DEFINITIONS.filter(
-      (d) => d.sector === template.sector,
+      (definition) =>
+        definition.sector === template.sector ||
+        definition.marketTags?.includes(template.sector!),
     ).map((d) => d.id);
   } else {
     affectedStockIds =
@@ -1064,15 +1067,12 @@ export function isIndexLike(sector: string): boolean {
 /** 목록 필터용 표시 카테고리: ETF 안의 레버리지·인버스·곱버스를 분리한다. */
 export function stockCategory(stock: {
   sector: string;
+  strategyType?: StockDefinition["strategyType"];
   leverage?: number;
   coveredCallUnderlyingId?: string;
 }): string {
-  if (stock.coveredCallUnderlyingId) return "커버드콜";
-  if (stock.leverage !== undefined) {
-    if (stock.leverage >= 2) return "레버리지";
-    if (stock.leverage === -1) return "인버스";
-    if (stock.leverage <= -2) return "곱버스";
-  }
+  const strategy = strategyFilterLabel(stock);
+  if (strategy !== "기타") return strategy;
   return stock.sector;
 }
 
