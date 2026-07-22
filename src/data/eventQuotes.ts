@@ -197,6 +197,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "약속한 보수를 외면한 대가는 의뢰주도 함께 치르게 될 것이다!",
     ],
   },
+  {
+    characterId: "chr_faust",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "그 결과는 이미 Faust의 계산에 포함되어 있었습니다.",
+      "만족스러울 필요는 없습니다. 정확하면 됩니다.",
+    ],
+  },
+  {
+    characterId: "chr_faust",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "해석의 오차였을 뿐입니다. 다음 정보는 다를 겁니다.",
+      "손실도 데이터입니다. Faust는 잊지 않습니다.",
+    ],
+  },
+  {
+    characterId: "chr_faust",
+    tag: "정보 매매",
+    direction: "positive",
+    quotes: [
+      "출처를 물을 필요는 없습니다. 수익이 답을 말하니까요.",
+    ],
+  },
+  {
+    characterId: "chr_faust",
+    tag: "정보 오판",
+    direction: "negative",
+    quotes: [
+      "거짓 정보였는지, 해석이 틀렸는지는… 곧 구분될 겁니다.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

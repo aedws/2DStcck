@@ -47,7 +47,7 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  종목 정의 메타데이터가 바뀌므로 전체 체크포인트를 재생성한다.
  *  v31: IPO 신규 상장 '붉은겨울 출판부(YKMO)'와 전용 잠입 판매·금서 검열 사건 추가 —
  *  종목 및 사건 구성이 바뀌어 전체 리플레이를 강제한다. */
-export const MARKET_SIM_VERSION = 31;
+export const MARKET_SIM_VERSION = 32;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

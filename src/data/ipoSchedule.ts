@@ -28,4 +28,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   yakumo: Date.UTC(2026, 6, 23, 9, 0),
   // 미노리 용역(MNRI) — 2026-07-24 15:00 KST 개장 (= 06:00 UTC)
   minori: Date.UTC(2026, 6, 24, 6, 0),
+  // 파우스트 투자증권(FAUS) — 2026-07-24 19:00 KST 개장 (= 10:00 UTC)
+  faust: Date.UTC(2026, 6, 24, 10, 0),
 };

@@ -68,6 +68,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "붉은겨울 연방학원의 공무부장이자 노동과 시위를 이끄는 현장 책임자. 건설 용역을 앞세운 미노리 용역에서는 과감한 사보타주와 자사주 소각으로 계약을 완수하며, 보수 문제에는 의뢰주까지 책임을 묻는다.",
     emoji: "🪧",
   },
+  {
+    id: "chr_faust",
+    name: "파우스트",
+    title: "파우스트 투자증권 대표",
+    traits: ["천재", "오만", "냉철"],
+    bio: "도시의 지식과 비밀을 도서관처럼 쌓아 둔다고 자처하는 천재. 출처를 밝히지 않는 정보를 바탕으로 공매도·옵션·경영권 인수를 지휘하며, 오판이 드러나도 흔들림 없는 어조로 다음 계산을 이어 간다.",
+    emoji: "🔬",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

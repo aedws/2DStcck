@@ -439,6 +439,28 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_minori",
   },
+  {
+    id: "faust",
+    ticker: "FAUS",
+    name: "파우스트 투자증권",
+    instrumentType: "company",
+    sector: "금융",
+    subsector: "증권",
+    marketTags: ["금융", "증권"],
+    initialPrice: 68000,
+    volatility: 0.052,
+    drift: 0.0006,
+    beta: 1.25,
+    quarterlyDividend: 360,
+    description:
+      "림버스 컴퍼니의 등장인물 파우스트가 대표로 있는 투자·증권사. 공매도·옵션·경영권 인수 등 다양한 포지션으로 수익을 내지만, 출처 불분명한 정보를 해석하다 회사가 휘청일 정도의 손실을 보기도 한다. 고위 임원 보수를 자사주와 현금 1:1로 지급해 영업이익의 상당 부분을 주주환원에 쓰는 고배당 구조다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      실적: 3,
+      스캔들: 3,
+      행보: 2,
+    },
+    ceoId: "chr_faust",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -904,5 +926,23 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "검열 강화와 금서 지정으로 주요 간행물 출고가 멈춰 섰습니다. 재고 회수와 설비 가동 우려가 커지며 출판주 매물이 쏟아집니다.",
     impact: -1.15,
+  },
+  {
+    category: "company",
+    companyId: "faust",
+    tag: "정보 매매",
+    title: "파우스트 투자증권, 출처 불명 정보로 대형 수익",
+    description:
+      "공매도·옵션·경영권 포지션이 동시에 맞아떨어지며 분기 트레이딩 손익이 폭증했습니다. 정보가 어디서 왔는지는 밝히지 않았지만, 주주환원 여력까지 커졌다는 기대가 매수세를 부릅니다.",
+    impact: 1.35,
+  },
+  {
+    category: "company",
+    companyId: "faust",
+    tag: "정보 오판",
+    title: "파우스트 투자증권, 정보 해석 실패로 대규모 손실",
+    description:
+      "출처 불분명한 정보를 바탕으로 쌓은 포지션이 한꺼번에 반대방향으로 움직였습니다. 회사가 휘청일 수준의 트레이딩 손실이 공개되며 매물이 쏟아집니다.",
+    impact: -1.25,
   },
 ];
