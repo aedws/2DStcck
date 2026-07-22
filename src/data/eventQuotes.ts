@@ -291,6 +291,74 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "우리 농장만 대풍작이라니… 시장 가격은 제가 지켜 볼게요.",
     ],
   },
+  {
+    characterId: "chr_asuna",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "우와, 또 잘됐네! 모두가 맛있게 먹어 주면 나도 기뻐!",
+      "걱정하지 마, 나쁜 일이 있으면 곧 좋은 방법도 찾을 수 있을 거야!",
+    ],
+  },
+  {
+    characterId: "chr_asuna",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "어라, 이번엔 운이 조금 늦나 봐. 그래도 금방 따라올 거야!",
+      "미안해. 목장부터 다시 확인하고 더 좋은 걸로 돌려줄게!",
+    ],
+  },
+  {
+    characterId: "chr_asuna",
+    tag: "악재 후 호재",
+    direction: "positive",
+    quotes: [
+      "봐, 좋은 일이 따라왔지? 이번에는 주주님에게도 좋은 소식이야!",
+    ],
+  },
+  {
+    characterId: "chr_asuna",
+    tag: "악재 후 호재",
+    direction: "negative",
+    quotes: [
+      "회사는 튼튼해졌는데 주식 수가 늘었네? 다음에는 모두에게 좋은 방법을 찾을게!",
+    ],
+  },
+  {
+    characterId: "chr_wakamo",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "후후, 제 직감이 이번에도 사랑하는 주주님을 향했답니다.",
+      "모두가 물러설 때 다가가는 것, 그것도 사랑의 방식이지요.",
+    ],
+  },
+  {
+    characterId: "chr_wakamo",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "마음이 앞서 버렸군요. 손실까지 사랑해 달라고 하진 않겠습니다.",
+      "현금이 부족하다면 더 과감히 벌어오면 될 뿐…이라고 생각했는데요.",
+    ],
+  },
+  {
+    characterId: "chr_wakamo",
+    tag: "역행 투자",
+    direction: "positive",
+    quotes: [
+      "세상이 등을 돌린 곳에서 보물을 찾았답니다. 주주님께 드릴 선물이에요.",
+    ],
+  },
+  {
+    characterId: "chr_wakamo",
+    tag: "엉뚱한 투자",
+    direction: "negative",
+    quotes: [
+      "그 자산이 너무 눈에 밟혀서 그만… 다음 배당은 꼭 지키겠습니다.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

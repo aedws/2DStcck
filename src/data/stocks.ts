@@ -506,6 +506,52 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_carrot",
   },
+  {
+    id: "asuna",
+    ticker: "ASNA",
+    name: "아스나 유업",
+    instrumentType: "company",
+    sector: "식품·외식",
+    subsector: "낙농·유제품",
+    marketTags: ["식품"],
+    initialPrice: 39000,
+    volatility: 0.048,
+    drift: 0.0007,
+    beta: 0.96,
+    description:
+      "밀레니엄 C&C의 이치노세 아스나가 운영하는 목축·유제품 기업. 같은 품종과 사육 환경에서도 유독 뛰어난 맛과 품질이 나온다는 소문으로 프리미엄을 얻는다. 악재가 발생하면 얼마 지나지 않아 회사 차원의 호재가 뒤따르는 경향이 있지만, 유상증자 흥행처럼 회사에는 이익이어도 기존 주주에게는 희석 손실이 되는 결말도 있다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      품질: 4,
+      "원유 리콜": 2,
+      실적: 2,
+      스캔들: 0.5,
+    },
+    ceoId: "chr_asuna",
+  },
+  {
+    id: "wakamo",
+    ticker: "KAMO",
+    name: "까모투자증권",
+    instrumentType: "company",
+    sector: "금융",
+    subsector: "투자증권·자산운용",
+    marketTags: ["금융", "증권"],
+    initialPrice: 62000,
+    volatility: 0.064,
+    drift: 0.0004,
+    beta: 1.45,
+    quarterlyDividend: 1500,
+    description:
+      "코사카 와카모가 대표로 있는 고변동 투자회사. 수감 시절의 인맥에서 얻은 내부 동향과 대표의 직감으로 시장을 앞서기도 하지만, 엉뚱한 대상에 빠져 섹터 호재 속 큰 손실을 내거나 섹터 악재 속 역행 수익을 내기도 한다. 자사주 매입 대신 높은 현금배당으로 주주 사랑을 표현하며, 낮은 현금 여력 때문에 하락장에서는 낙폭이 더 커진다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "역행 투자": 4,
+      "엉뚱한 투자": 4,
+      정보: 3,
+      실적: 2,
+      스캔들: 1.5,
+    },
+    ceoId: "chr_wakamo",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -1025,5 +1071,50 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "회사 소유 농장에 이례적인 대풍작이 발생해 시장 가격이 급락했습니다. 업계 전반의 채산성이 흔들리지만, 캬롯 농장은 쌓아 둔 유보금으로 손실을 방어합니다.",
     impact: -1.1,
+  },
+  {
+    category: "company",
+    companyId: "asuna",
+    tag: "품질",
+    title: "아스나 유업, 블라인드 품평회 압도적 1위",
+    description:
+      "동일 품종·동일 사료 조건의 유제품을 가린 채 진행한 품평회에서 아스나 유업이 맛과 신선도 모두 1위를 차지했습니다. 프리미엄 납품 계약 기대가 커집니다.",
+    impact: 1.2,
+  },
+  {
+    category: "company",
+    companyId: "asuna",
+    tag: "원유 리콜",
+    title: "아스나 유업, 원유 품질 검사 이상으로 일부 리콜",
+    description:
+      "정기 품질 검사에서 기준 밖 수치가 발견돼 일부 제품을 선제 회수합니다. 회사는 원인을 추적 중이지만 단기 매출과 브랜드 신뢰 우려가 커집니다.",
+    impact: -0.9,
+  },
+  {
+    category: "company",
+    companyId: "wakamo",
+    tag: "역행 투자",
+    title: "까모투자증권, 섹터 급락 속 역행 포지션 대박",
+    description:
+      "업종 전반이 급락한 가운데 까모투자증권이 홀로 반대 방향 포지션을 구축한 사실이 공개됐습니다. 예상 밖의 대규모 운용 수익에 매수세가 몰립니다.",
+    impact: 1.35,
+  },
+  {
+    category: "company",
+    companyId: "wakamo",
+    tag: "엉뚱한 투자",
+    title: "까모투자증권, 섹터 호황에도 엉뚱한 집중투자 손실",
+    description:
+      "금융주 전반이 강세를 보였지만 대표가 갑자기 꽂힌 비주력 자산에 자금을 집중해 대규모 평가손실이 발생했습니다. 낮은 현금 여력까지 부각됩니다.",
+    impact: -1.4,
+  },
+  {
+    category: "company",
+    companyId: "wakamo",
+    tag: "정보",
+    title: "까모투자증권, 수감 시절 인맥에서 얻은 동향 적중",
+    description:
+      "시장에 알려지기 전 포착한 기업 동향을 바탕으로 구축한 포지션이 적중했습니다. 수익은 급증했지만 정보 출처를 둘러싼 감시 위험도 함께 커집니다.",
+    impact: 1.05,
   },
 ];

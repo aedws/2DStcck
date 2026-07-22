@@ -931,6 +931,70 @@ export function resolveEventTemplate(
   return withCharacterQuote(event, rand);
 }
 
+const ASUNA_FOLLOW_UP_DELAY_MS = 60_000;
+const ASUNA_FOLLOW_UP_WINDOW_MS = 5 * 60_000;
+
+/**
+ * 아스나 유업은 악재가 발생한 뒤 1분 후 회사 차원의 호재가 이어진다.
+ * 일부 호재는 회사 자금 사정만 좋아지고 기존 주주에게 희석 손실을 준다.
+ */
+export function resolveAsunaAdversityFollowUp(
+  now: number,
+  events: MarketEvent[],
+  rand: () => number = Math.random,
+): MarketEvent | null {
+  const asuna = STOCK_DEFINITIONS.find((stock) => stock.id === "asuna");
+  if (!asuna || !isListed(asuna, now)) return null;
+
+  const trigger = events
+    .filter(
+      (event) =>
+        event.timestamp < now &&
+        event.impact < 0 &&
+        event.tag !== "악재 후 호재" &&
+        event.affectedStockIds.includes("asuna"),
+    )
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
+  if (!trigger) return null;
+
+  const elapsed = now - trigger.timestamp;
+  if (
+    elapsed < ASUNA_FOLLOW_UP_DELAY_MS ||
+    elapsed > ASUNA_FOLLOW_UP_WINDOW_MS
+  ) {
+    return null;
+  }
+  if (
+    events.some(
+      (event) =>
+        event.timestamp > trigger.timestamp &&
+        event.tag === "악재 후 호재" &&
+        event.affectedStockIds.includes("asuna"),
+    )
+  ) {
+    return null;
+  }
+
+  const dilution = rand() < 0.35;
+  return withCharacterQuote(
+    {
+      id: `asuna-follow-up-${trigger.id}`,
+      title: dilution
+        ? "아스나 유업, 악재 속 유상증자 대흥행"
+        : "아스나 유업, 악재 직후 대형 납품 계약 확보",
+      description: dilution
+        ? "악재로 흔들린 사이 신규 설비 자금을 마련하는 유상증자가 초과 청약에 성공했습니다. 회사의 현금 사정은 좋아졌지만 대규모 신주 발행으로 기존 주주 지분은 희석됩니다."
+        : "악재 대응 과정에서 개선한 품질 관리 체계가 대형 유통사의 장기 납품 계약으로 이어졌습니다. 앞선 충격의 상당 부분을 빠르게 만회합니다.",
+      affectedStockIds: ["asuna"],
+      impact: dilution ? -0.75 : 0.85,
+      timestamp: now,
+      category: "company",
+      tag: "악재 후 호재",
+    },
+    rand,
+  );
+}
+
 /** 뉴스 템포: 직전 이벤트 후 EVENT_MIN_GAP_MS 경과 전에는 발생하지 않고,
  * 경과 후에는 틱당 EVENT_CHANCE_PER_TICK 확률로 추첨 (틱 간격과 무관한 시간 기반 템포) */
 export function maybeGenerateEvent(
@@ -941,6 +1005,8 @@ export function maybeGenerateEvent(
 ): MarketEvent | null {
   const rand =
     simTick !== undefined ? seededRand(simTick, "event") : Math.random;
+  const asunaFollowUp = resolveAsunaAdversityFollowUp(now, events, rand);
+  if (asunaFollowUp) return asunaFollowUp;
   const lastEventAt = events.length
     ? Math.max(...events.map((e) => e.timestamp))
     : 0;

@@ -15,8 +15,10 @@ import {
 import {
   calculateTickPrice,
   createInitialStockState,
+  resolveAsunaAdversityFollowUp,
   resolveEventTemplate,
 } from "../src/lib/market/engine";
+import { corporateActionKindsForCompany } from "../src/lib/market/corporateActions";
 import { replayMarket } from "../src/lib/market/localSim";
 import {
   EARNINGS_INTERVAL_SESSIONS,
@@ -83,7 +85,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["carrot", "dante", "faust", "gsck", "hinafg", "miku", "minori", "nagusa", "udnge", "yakumo", "yisang"],
+  ["asuna", "carrot", "dante", "faust", "gsck", "hinafg", "miku", "minori", "nagusa", "udnge", "wakamo", "yakumo", "yisang"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -195,6 +197,82 @@ assert.ok(
   carrotFloor >= Math.round(carrotState.prevDayClose * 0.97),
   "캬롯 농장 하루 -3% 하한이 지켜지지 않음",
 );
+
+// 아스나 유업: 7/25 15:00 KST 개장과 악재 1분 후 회사 호재
+const asuna = getCompanyDefinitions().find((stock) => stock.id === "asuna");
+assert.ok(asuna, "아스나 유업 정의가 없음");
+const asunaListing = Date.UTC(2026, 6, 25, 6, 0);
+assert.equal(asuna.ticker, "ASNA");
+assert.equal(asuna.sector, "식품·외식");
+assert.deepEqual(asuna.marketTags, ["식품"]);
+assert.equal(asuna.listingEpochMs, asunaListing);
+assert.equal(isListed(asuna, asunaListing - 1), false);
+assert.equal(isListed(asuna, asunaListing), true);
+
+const asunaBadEvent = {
+  id: "asuna-bad-test",
+  title: "원유 리콜",
+  description: "품질 검사 이상",
+  category: "company" as const,
+  tag: "원유 리콜",
+  impact: -0.9,
+  affectedStockIds: ["asuna"],
+  timestamp: asunaListing,
+};
+assert.equal(
+  resolveAsunaAdversityFollowUp(asunaListing + 59_999, [asunaBadEvent]),
+  null,
+  "악재 직후 곧바로 후속 사건이 발생함",
+);
+const asunaRecovery = resolveAsunaAdversityFollowUp(
+  asunaListing + 60_000,
+  [asunaBadEvent],
+  () => 0.9,
+);
+assert.ok(asunaRecovery, "아스나 유업 악재 후속 호재가 없음");
+assert.equal(asunaRecovery.tag, "악재 후 호재");
+assert.ok(asunaRecovery.impact > 0, "납품 계약 후속 사건이 주가 호재가 아님");
+const asunaDilution = resolveAsunaAdversityFollowUp(
+  asunaListing + 60_000,
+  [asunaBadEvent],
+  () => 0.1,
+);
+assert.ok(asunaDilution, "아스나 유업 유상증자 후속 사건이 없음");
+assert.match(asunaDilution.title, /유상증자/);
+assert.ok(asunaDilution.impact < 0, "주주 희석 후속 사건이 주가 악재가 아님");
+assert.equal(
+  resolveAsunaAdversityFollowUp(
+    asunaListing + 120_000,
+    [asunaBadEvent, asunaRecovery],
+  ),
+  null,
+  "같은 악재의 후속 사건이 중복 발생함",
+);
+
+// 까모투자증권: 7/25 18:00 KST 개장, 고배당·고변동과 자사주 매입 제외
+const wakamo = getCompanyDefinitions().find((stock) => stock.id === "wakamo");
+assert.ok(wakamo, "까모투자증권 정의가 없음");
+const wakamoListing = Date.UTC(2026, 6, 25, 9, 0);
+assert.equal(wakamo.ticker, "KAMO");
+assert.equal(wakamo.sector, "금융");
+assert.deepEqual(wakamo.marketTags, ["금융", "증권"]);
+assert.equal(wakamo.listingEpochMs, wakamoListing);
+assert.ok((wakamo.quarterlyDividend ?? 0) >= 1500, "고배당 설정이 부족함");
+assert.ok(wakamo.volatility >= 0.06, "하락장 고변동 성향이 부족함");
+assert.ok((wakamo.beta ?? 0) >= 1.4, "시장 하락 민감도가 부족함");
+assert.equal(
+  corporateActionKindsForCompany("wakamo").includes("buyback"),
+  false,
+  "까모투자증권에 자사주 매입 기업행동이 허용됨",
+);
+const wakamoGain = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "wakamo" && template.tag === "역행 투자",
+);
+const wakamoLoss = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "wakamo" && template.tag === "엉뚱한 투자",
+);
+assert.ok(wakamoGain && wakamoGain.impact > 1, "역행 투자 급등 사건이 없음");
+assert.ok(wakamoLoss && wakamoLoss.impact < -1, "엉뚱한 투자 급락 사건이 없음");
 
 // 나구사 야키토리&닭꼬치: 7/23 15:00 KST 개장과 AI 급등·조류독감 급락 사건
 const nagusa = getCompanyDefinitions().find((stock) => stock.id === "nagusa");

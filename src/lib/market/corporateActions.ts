@@ -44,6 +44,15 @@ export function corporateActionWindowStart(session: number): number {
   );
 }
 
+/** 와카모는 설정상 자사주 매입 대신 현금배당을 택한다. */
+export function corporateActionKindsForCompany(
+  companyId: string,
+): CorporateActionKind[] {
+  return companyId === "wakamo"
+    ? ["acquisition", "rights_issue", "spin_off"]
+    : ["buyback", "acquisition", "rights_issue", "spin_off"];
+}
+
 export function getCorporateActionArcForWindow(
   windowStart: number,
 ): CorporateActionArc {
@@ -53,12 +62,7 @@ export function getCorporateActionArcForWindow(
   );
   const company =
     companies[Math.floor(rand() * companies.length)] ?? companies[0];
-  const kinds: CorporateActionKind[] = [
-    "buyback",
-    "acquisition",
-    "rights_issue",
-    "spin_off",
-  ];
+  const kinds = corporateActionKindsForCompany(company?.id ?? "");
   const kind = kinds[Math.floor(rand() * kinds.length)] ?? "buyback";
   const positiveChance: Record<CorporateActionKind, number> = {
     buyback: 0.68,

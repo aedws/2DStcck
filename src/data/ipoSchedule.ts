@@ -34,4 +34,8 @@ export const IPO_SCHEDULE: Record<string, number> = {
   miku: Date.UTC(2026, 6, 24, 12, 30),
   // 캬롯 농장(CROT) — 2026-07-25 12:00 KST 개장 (= 03:00 UTC)
   carrot: Date.UTC(2026, 6, 25, 3, 0),
+  // 아스나 유업(ASNA) — 2026-07-25 15:00 KST 개장 (= 06:00 UTC)
+  asuna: Date.UTC(2026, 6, 25, 6, 0),
+  // 까모투자증권(KAMO) — 2026-07-25 18:00 KST 개장 (= 09:00 UTC)
+  wakamo: Date.UTC(2026, 6, 25, 9, 0),
 };
