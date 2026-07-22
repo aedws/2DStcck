@@ -65,6 +65,7 @@ export function AveragingCalculator({
   const [addQuantityInput, setAddQuantityInput] = useState("");
   const [addAmountInput, setAddAmountInput] = useState("");
   const [targetAvgInput, setTargetAvgInput] = useState("");
+  const [targetRequested, setTargetRequested] = useState(false);
   const [markInput, setMarkInput] = useState(
     markPrice && markPrice > 0 ? (markPrice / 100).toFixed(2) : "",
   );
@@ -138,6 +139,34 @@ export function AveragingCalculator({
       }),
     [quantity, averagePrice, addPrice, targetAveragePrice],
   );
+
+  const targetMessage = useMemo(() => {
+    if (!targetAvgInput) return "목표 평단을 입력해 주세요.";
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return "상단의 보유 수량을 먼저 입력해 주세요.";
+    }
+    if (!Number.isFinite(averagePrice) || averagePrice <= 0) {
+      return "상단의 현재 평단을 먼저 입력해 주세요.";
+    }
+    if (!Number.isFinite(addPrice) || addPrice <= 0) {
+      return "상단의 추가 매수 단가를 먼저 입력해 주세요.";
+    }
+    if (!Number.isFinite(targetAveragePrice) || targetAveragePrice <= 0) {
+      return "0보다 큰 목표 평단을 입력해 주세요.";
+    }
+    if (targetAveragePrice === averagePrice) {
+      return "이미 현재 평단이 입력한 목표 평단과 같습니다.";
+    }
+    if (targetAveragePrice === addPrice) {
+      return "추가 매수 단가와 같은 평단은 유한한 수량으로 도달할 수 없습니다.";
+    }
+    const lowerBound = Math.min(averagePrice, addPrice);
+    const upperBound = Math.max(averagePrice, addPrice);
+    if (targetAveragePrice <= lowerBound || targetAveragePrice >= upperBound) {
+      return "목표 평단은 현재 평단과 추가 매수 단가 사이의 값이어야 합니다.";
+    }
+    return "입력값을 다시 확인해 주세요.";
+  }, [targetAvgInput, quantity, averagePrice, addPrice, targetAveragePrice]);
 
   const previewPnl =
     result.ok && Number.isFinite(mark) && mark > 0
@@ -284,35 +313,57 @@ export function AveragingCalculator({
         </p>
       )}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      <form
+        className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setTargetRequested(true);
+        }}
+      >
         <p className="text-sm font-bold">목표 평단 역산</p>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
           지금 추가 매수 단가로 평단을 목표까지 낮추거나 높이려면 필요한 수량·금액입니다.
         </p>
-        <div className="mt-3">
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
           <Field label="목표 평단($)">
             <input
               value={targetAvgInput}
-              onChange={(event) =>
-                setTargetAvgInput(cleanDecimal(event.target.value))
-              }
+              onChange={(event) => {
+                setTargetAvgInput(cleanDecimal(event.target.value));
+                setTargetRequested(false);
+              }}
               inputMode="decimal"
+              enterKeyHint="done"
               placeholder="예: 90.00"
               className={fieldClass}
             />
           </Field>
+          <button
+            type="submit"
+            className="min-h-10 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-white transition active:scale-[0.98]"
+          >
+            목표 평단 계산
+          </button>
         </div>
         {targetNeedQty !== null && targetNeedAmount !== null ? (
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div
+            className="mt-3 grid grid-cols-2 gap-2"
+            role="status"
+            aria-live="polite"
+          >
             <Stat label="필요 수량" value={`${formatQty(targetNeedQty)}주`} />
             <Stat label="필요 금액" value={formatPrice(targetNeedAmount)} />
           </div>
         ) : (
-          <p className="mt-3 text-xs text-[var(--muted)]">
-            목표 평단은 현재 평단과 추가 매수 단가 사이에 있어야 도달할 수 있습니다.
+          <p
+            className={`mt-3 text-xs ${targetRequested ? "text-amber-400" : "text-[var(--muted)]"}`}
+            role="status"
+            aria-live="polite"
+          >
+            {targetMessage}
           </p>
         )}
-      </div>
+      </form>
     </div>
   );
 }

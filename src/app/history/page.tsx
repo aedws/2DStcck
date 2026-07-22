@@ -38,8 +38,8 @@ export default function HistoryPage() {
           아직 현금 지급 내역이 없습니다.
         </div>
       ) : (
-        <div className="mb-8 overflow-hidden rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
+        <div className="mb-8 overflow-x-auto overscroll-x-contain rounded-xl border border-[var(--border)] [-webkit-overflow-scrolling:touch]">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface)] text-left text-[var(--muted)]">
                 <th className="px-4 py-3 font-medium">지급 시각</th>
@@ -115,8 +115,8 @@ export default function HistoryPage() {
           아직 거래 내역이 없습니다.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overscroll-x-contain rounded-xl border border-[var(--border)] [-webkit-overflow-scrolling:touch]">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface)] text-left text-[var(--muted)]">
                 <th className="px-4 py-3 font-medium">체결 시각</th>
