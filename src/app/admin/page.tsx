@@ -24,6 +24,11 @@ import {
   parseAmcFoundationRequest,
 } from "@/lib/supabase/amcFoundationRequests";
 import {
+  AMC_ETF_LISTING_STATUS_LABEL,
+  isAmcEtfListingRequestRow,
+  parseAmcEtfListingRequest,
+} from "@/lib/supabase/amcEtfListingRequests";
+import {
   listBugReports,
   updateBugReport,
   BUG_REPORT_STATUS_LABEL,
@@ -92,7 +97,7 @@ const FEEDBACK_STATUS_STYLE: Record<FeedbackStatus, string> = {
   declined: "bg-rose-500/15 text-rose-400",
 };
 
-type Tab = "companies" | "amc" | "stocks" | "bugs" | "feedback";
+type Tab = "companies" | "amc" | "etf" | "stocks" | "bugs" | "feedback";
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<"loading" | "denied" | "ready">("loading");
@@ -100,6 +105,7 @@ export default function AdminPage() {
   const [rows, setRows] = useState<StockRequestRow[]>([]);
   const [foundationRows, setFoundationRows] = useState<StockRequestRow[]>([]);
   const [amcRows, setAmcRows] = useState<StockRequestRow[]>([]);
+  const [etfRows, setEtfRows] = useState<StockRequestRow[]>([]);
   const [bugRows, setBugRows] = useState<BugReportRow[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<FeedbackRow[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -123,11 +129,14 @@ export default function AdminPage() {
     setRows(
       stocks.filter(
         (row) =>
-          !isCompanyFoundationRequestRow(row) && !isAmcFoundationRequestRow(row),
+          !isCompanyFoundationRequestRow(row) &&
+          !isAmcFoundationRequestRow(row) &&
+          !isAmcEtfListingRequestRow(row),
       ),
     );
     setFoundationRows(stocks.filter(isCompanyFoundationRequestRow));
     setAmcRows(stocks.filter(isAmcFoundationRequestRow));
+    setEtfRows(stocks.filter(isAmcEtfListingRequestRow));
     setBugRows(bugs);
     setFeedbackRows(feedback);
   }, []);
@@ -146,7 +155,7 @@ export default function AdminPage() {
 
   async function setStockStatus(id: string, status: StockRequestStatus) {
     const savedNote =
-      [...rows, ...foundationRows, ...amcRows].find((r) => r.id === id)
+      [...rows, ...foundationRows, ...amcRows, ...etfRows].find((r) => r.id === id)
         ?.admin_note ?? "";
     const note =
       status === "rejected"
@@ -160,27 +169,16 @@ export default function AdminPage() {
         ...(note !== undefined ? { adminNote: note } : {}),
       })
     ) {
-      setRows((prev) =>
+      const patch = (prev: StockRequestRow[]) =>
         prev.map((r) =>
           r.id === id
             ? { ...r, status, ...(note !== undefined ? { admin_note: note } : {}) }
             : r,
-        ),
-      );
-      setFoundationRows((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, status, ...(note !== undefined ? { admin_note: note } : {}) }
-            : r,
-        ),
-      );
-      setAmcRows((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, status, ...(note !== undefined ? { admin_note: note } : {}) }
-            : r,
-        ),
-      );
+        );
+      setRows(patch);
+      setFoundationRows(patch);
+      setAmcRows(patch);
+      setEtfRows(patch);
     }
     setSavingId(null);
   }
@@ -284,6 +282,7 @@ export default function AdminPage() {
     (r) => r.status === "pending",
   ).length;
   const pendingAmc = amcRows.filter((r) => r.status === "pending").length;
+  const pendingEtf = etfRows.filter((r) => r.status === "pending").length;
   const openBugs = bugRows.filter((r) => r.status === "open").length;
   const openFeedback = feedbackRows.filter((r) => r.status === "open").length;
 
@@ -323,6 +322,17 @@ export default function AdminPage() {
           }`}
         >
           📕 운용사 허가 {pendingAmc > 0 && `· ${pendingAmc}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("etf")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "etf"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          📈 ETF 상장 허가 {pendingEtf > 0 && `· ${pendingEtf}`}
         </button>
         <button
           type="button"
@@ -628,6 +638,160 @@ export default function AdminPage() {
                           onClick={() => setStockStatus(row.id, "rejected")}
                           disabled={savingId === row.id || !stockDraftOf(row).trim()}
                           className="mt-2 w-full rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                        >
+                          📮 반려 사유 전송
+                        </button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      ) : tab === "etf" ? (
+        <>
+          <p className="text-sm text-[var(--muted)]">
+            총 {etfRows.length}건 · 상장 대기 {pendingEtf}건 · 허가 후 운용사가
+            AMC 마켓에 올립니다
+          </p>
+          {etfRows.length === 0 ? (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-sm text-[var(--muted)]">
+              ETF 상장 허가 신청이 없습니다.
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {etfRows.map((row) => {
+                const request = parseAmcEtfListingRequest(row);
+                if (!request) return null;
+                const rejected = row.status === "rejected";
+                const terminal =
+                  row.status === "accepted" ||
+                  row.status === "rejected" ||
+                  row.status === "shipped";
+                const collapsed = terminal && !expandedBugIds.has(row.id);
+                if (collapsed) {
+                  return (
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleBugExpand(row.id)}
+                        className="flex w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)]/60 px-3 py-2 text-left"
+                      >
+                        <span className="text-[10px] text-[var(--muted)]">▶</span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${STOCK_STATUS_STYLE[row.status]}`}
+                        >
+                          {AMC_ETF_LISTING_STATUS_LABEL[row.status]}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                          {request.fundName} ({request.payload.ticker})
+                        </span>
+                        <span className="text-[10px] text-[var(--muted)]">
+                          @{request.gameId}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
+                return (
+                  <li
+                    key={row.id}
+                    className="rounded-2xl border border-cyan-400/20 bg-[var(--surface)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold">
+                          {request.fundName}{" "}
+                          <span className="text-sm text-[var(--muted)]">
+                            {request.payload.ticker}
+                          </span>
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                          @{request.gameId} · {request.payload.managerName} ·{" "}
+                          {new Date(request.createdAt).toLocaleString("ko-KR")}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${STOCK_STATUS_STYLE[row.status]}`}
+                        >
+                          {AMC_ETF_LISTING_STATUS_LABEL[row.status]}
+                        </span>
+                        {terminal && (
+                          <button
+                            type="button"
+                            onClick={() => toggleBugExpand(row.id)}
+                            className="rounded-lg border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--muted)]"
+                          >
+                            접기 ▲
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 rounded-xl bg-[var(--background)] p-3 text-xs">
+                      <p className="font-semibold">
+                        {request.payload.style === "active" ? "액티브" : "패시브"}{" "}
+                        · 회차 {(request.payload.feeRate * 100).toFixed(2)}% · 시드
+                        NAV {formatPrice(request.payload.seedNavValue)}
+                      </p>
+                      <p className="mt-1 text-[var(--muted)]">
+                        {request.payload.managerTagline}
+                      </p>
+                      <p className="mt-2 text-[var(--muted)]">
+                        구성{" "}
+                        {request.payload.holdings
+                          .map(
+                            (h) =>
+                              `${h.stockId} ${(h.weight * 100).toFixed(0)}%`,
+                          )
+                          .join(" · ")}
+                      </p>
+                    </div>
+                    {!rejected && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {FOUNDATION_STATUSES.map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            disabled={savingId === row.id || row.status === status}
+                            onClick={() => setStockStatus(row.id, status)}
+                            className={`rounded-lg px-2.5 py-1 text-[11px] font-medium disabled:opacity-40 ${
+                              row.status === status
+                                ? "bg-[var(--accent)] text-white"
+                                : "border border-[var(--border)] text-[var(--muted)]"
+                            }`}
+                          >
+                            {AMC_ETF_LISTING_STATUS_LABEL[status]}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {rejected && row.admin_note ? (
+                      <p className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3 text-xs">
+                        {row.admin_note}
+                      </p>
+                    ) : !rejected ? (
+                      <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+                        <textarea
+                          value={stockDraftOf(row)}
+                          onChange={(event) =>
+                            setNoteDrafts((previous) => ({
+                              ...previous,
+                              [row.id]: event.target.value.slice(0, 1000),
+                            }))
+                          }
+                          rows={2}
+                          placeholder="반려 사유"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-xs outline-none"
+                        />
+                        <button
+                          type="button"
+                          disabled={
+                            savingId === row.id || !stockDraftOf(row).trim()
+                          }
+                          onClick={() => setStockStatus(row.id, "rejected")}
+                          className="mt-2 rounded-lg bg-rose-500 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-40"
                         >
                           📮 반려 사유 전송
                         </button>

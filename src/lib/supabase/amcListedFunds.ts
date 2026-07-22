@@ -279,8 +279,10 @@ export async function syncAmcListedFundMeta(
     return { success: false, message: error.message };
   }
   if (!data) {
-    // 아직 미상장이면 전체 upsert
-    return publishAmcListedFund(fund, manager);
+    return {
+      success: false,
+      message: "아직 공유 상장되지 않은 펀드입니다.",
+    };
   }
   const parsed = parseListedAmcFundRow(data as AmcListedFundRow);
   return parsed

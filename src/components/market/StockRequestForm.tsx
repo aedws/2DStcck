@@ -20,6 +20,7 @@ import {
 } from "@/lib/supabase/stockRequests";
 import { isCompanyFoundationRequestRow } from "@/lib/supabase/companyFoundationRequests";
 import { isAmcFoundationRequestRow } from "@/lib/supabase/amcFoundationRequests";
+import { isAmcEtfListingRequestRow } from "@/lib/supabase/amcEtfListingRequests";
 
 const REQUEST_STATUS_STYLE: Record<StockRequestStatus, string> = {
   pending: "bg-slate-500/15 text-[var(--muted)]",
@@ -62,7 +63,8 @@ export function StockRequestForm({
       (await listMyStockRequests()).filter(
         (request) =>
           !isCompanyFoundationRequestRow(request) &&
-          !isAmcFoundationRequestRow(request),
+          !isAmcFoundationRequestRow(request) &&
+          !isAmcEtfListingRequestRow(request),
       ),
     );
   }, []);

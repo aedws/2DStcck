@@ -300,6 +300,11 @@ import {
 } from "@/lib/player/assetManager";
 import { verifyAmcFoundationApproval } from "@/lib/supabase/amcFoundationRequests";
 import {
+  markAmcEtfListingShipped,
+  submitAmcEtfListingRequest,
+  verifyAmcEtfListingApproval,
+} from "@/lib/supabase/amcEtfListingRequests";
+import {
   adjustAmcListedShares,
   applyAmcListedManagementFee,
   fetchListedAmcFundsByIds,
@@ -535,6 +540,10 @@ interface MarketStore extends MarketSnapshot {
     approvalRequestId: string,
   ) => Promise<OrderResult>;
   createAmcFund: (input: CreateAmcFundInput) => Promise<OrderResult>;
+  /** ETF 상장 허가 재신청 (반려·미신청). */
+  requestAmcFundListing: (fundId: string) => Promise<OrderResult>;
+  /** 상장 허가된 ETF를 공유 마켓에 올립니다. */
+  listAmcFundOnMarket: (fundId: string) => Promise<OrderResult>;
   rebalanceAmcFund: (
     fundId: string,
     holdings: AmcHoldingWeight[],
@@ -2606,9 +2615,10 @@ export const useMarketStore = create<MarketStore>()(
             const rebalanceChanged =
               prev && prev.lastRebalanceSession !== fund.lastRebalanceSession;
             if (
-              statusChanged ||
-              rebalanceChanged ||
-              compliance.newlyDelisted.some((item) => item.id === fund.id)
+              (statusChanged ||
+                rebalanceChanged ||
+                compliance.newlyDelisted.some((item) => item.id === fund.id)) &&
+              listedAmcFunds.some((item) => item.id === fund.id)
             ) {
               void syncAmcListedFundMeta(fund, assetManager).then((result) => {
                 if (result.fund) {
@@ -4138,7 +4148,7 @@ export const useMarketStore = create<MarketStore>()(
         if (!state.userId || !state.cloudSyncReady) {
           return {
             success: false,
-            message: "로그인한 계정에서만 ETF를 설정·상장할 수 있습니다.",
+            message: "로그인한 계정에서만 ETF를 설정·신청할 수 있습니다.",
           };
         }
         if (!state.assetManager) {
@@ -4174,30 +4184,40 @@ export const useMarketStore = create<MarketStore>()(
         ) {
           return { success: false, message: result.message };
         }
-        const published = await publishAmcListedFund(
+        const listing = await submitAmcEtfListingRequest(
           result.fund,
           result.manager,
         );
-        if (!published.success || !published.fund) {
+        if (!listing.success || !listing.requestId) {
           return {
             success: false,
-            message: published.message || "공유 상장에 실패했습니다.",
+            message: listing.message || "상장 허가 신청에 실패했습니다.",
           };
         }
-        const seedStockId = amcFundStockId(result.fund.id);
-        const seedQty = result.fund.totalShares;
+        const fundWithRequest = {
+          ...result.fund,
+          listingRequestId: listing.requestId,
+        };
+        const nextManager = {
+          ...result.manager,
+          funds: result.manager.funds.map((item) =>
+            item.id === fundWithRequest.id ? fundWithRequest : item,
+          ),
+        };
+        const seedStockId = amcFundStockId(fundWithRequest.id);
+        const seedQty = fundWithRequest.totalShares;
         const nav = computeAmcFundNavPerShare(
-          result.fund,
+          fundWithRequest,
           priceOf,
           initialPriceOf,
         );
         const payments: CashPayment[] = [];
         if ((result.burned ?? 0) > 0) {
           payments.push({
-            id: `amc-seed-burn-${result.fund.id}`,
+            id: `amc-seed-burn-${fundWithRequest.id}`,
             kind: "amc_capital",
-            sourceId: result.fund.id,
-            ticker: result.fund.ticker,
+            sourceId: fundWithRequest.id,
+            ticker: fundWithRequest.ticker,
             dueSession: currentSession,
             amount: -(result.burned ?? 0),
             timestamp: now,
@@ -4213,18 +4233,14 @@ export const useMarketStore = create<MarketStore>()(
         ];
         set({
           cash: result.cash,
-          assetManager: result.manager,
+          assetManager: nextManager,
           holdings,
           cashPayments: [...payments, ...state.cashPayments].slice(0, 200),
-          listedAmcFunds: upsertListedCache(
-            state.listedAmcFunds,
-            published.fund,
-          ),
           trades: [
             {
-              id: `amc-seed-${result.fund.id}`,
+              id: `amc-seed-${fundWithRequest.id}`,
               stockId: seedStockId,
-              ticker: result.fund.ticker,
+              ticker: fundWithRequest.ticker,
               type: "buy",
               quantity: seedQty,
               price: nav,
@@ -4234,9 +4250,108 @@ export const useMarketStore = create<MarketStore>()(
             ...state.trades,
           ].slice(0, 500) as Trade[],
         });
-        useToastStore.getState().push(result.message, "success");
+        const message = `${result.message} 상장 허가 신청이 접수되었습니다.`;
+        useToastStore.getState().push(message, "success");
         playSound("cash");
-        return { success: true, message: result.message };
+        return { success: true, message };
+      },
+
+      requestAmcFundListing: async (fundId) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady || !state.assetManager) {
+          return {
+            success: false,
+            message: "로그인한 운용사 계정에서만 신청할 수 있습니다.",
+          };
+        }
+        const fund = state.assetManager.funds.find((item) => item.id === fundId);
+        if (!fund) {
+          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        }
+        if (
+          state.listedAmcFunds.some(
+            (item) => item.id === fundId && item.status !== "delisted",
+          )
+        ) {
+          return { success: false, message: "이미 공유 마켓에 상장되어 있습니다." };
+        }
+        const listing = await submitAmcEtfListingRequest(
+          fund,
+          state.assetManager,
+        );
+        if (!listing.success || !listing.requestId) {
+          return {
+            success: false,
+            message: listing.message || "상장 허가 신청에 실패했습니다.",
+          };
+        }
+        set({
+          assetManager: {
+            ...state.assetManager,
+            funds: state.assetManager.funds.map((item) =>
+              item.id === fundId
+                ? { ...item, listingRequestId: listing.requestId }
+                : item,
+            ),
+            lastActionAt: Date.now(),
+          },
+        });
+        useToastStore.getState().push(listing.message, "success");
+        return { success: true, message: listing.message };
+      },
+
+      listAmcFundOnMarket: async (fundId) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 상장할 수 있습니다.",
+          };
+        }
+        if (!state.assetManager) {
+          return { success: false, message: "자산운용사가 없습니다." };
+        }
+        const fund = state.assetManager.funds.find((item) => item.id === fundId);
+        if (!fund) {
+          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        }
+        if (fund.status === "delisted") {
+          return { success: false, message: "상장폐지된 펀드입니다." };
+        }
+        if (state.listedAmcFunds.some((item) => item.id === fundId && item.status !== "delisted")) {
+          return { success: false, message: "이미 공유 마켓에 상장되어 있습니다." };
+        }
+        const requestId = fund.listingRequestId;
+        if (!requestId) {
+          return {
+            success: false,
+            message: "상장 허가 신청 기록이 없습니다. 다시 신청해 주세요.",
+          };
+        }
+        if (!(await verifyAmcEtfListingApproval(requestId, fund))) {
+          return {
+            success: false,
+            message: "관리자 상장 허가가 필요합니다.",
+          };
+        }
+        const published = await publishAmcListedFund(fund, state.assetManager);
+        if (!published.success || !published.fund) {
+          return {
+            success: false,
+            message: published.message || "공유 상장에 실패했습니다.",
+          };
+        }
+        await markAmcEtfListingShipped(requestId);
+        set({
+          listedAmcFunds: upsertListedCache(
+            state.listedAmcFunds,
+            published.fund,
+          ),
+        });
+        const message = `${fund.ticker}가 AMC 마켓에 상장되었습니다.`;
+        useToastStore.getState().push(message, "success");
+        playSound("cash");
+        return { success: true, message };
       },
 
       rebalanceAmcFund: async (fundId, holdingsInput) => {
@@ -4255,27 +4370,34 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.manager || !result.fund) {
           return { success: false, message: result.message };
         }
-        const synced = await syncAmcListedFundMeta(
-          result.fund,
-          result.manager,
+        const alreadyListed = state.listedAmcFunds.some(
+          (item) => item.id === fundId && item.status !== "delisted",
         );
-        if (!synced.success) {
-          return {
-            success: false,
-            message: synced.message || "공유 원장 동기화에 실패했습니다.",
-          };
+        if (alreadyListed) {
+          const synced = await syncAmcListedFundMeta(
+            result.fund,
+            result.manager,
+          );
+          if (!synced.success) {
+            return {
+              success: false,
+              message: synced.message || "공유 원장 동기화에 실패했습니다.",
+            };
+          }
+          set({
+            assetManager: result.manager,
+            ...(synced.fund
+              ? {
+                  listedAmcFunds: upsertListedCache(
+                    state.listedAmcFunds,
+                    synced.fund,
+                  ),
+                }
+              : {}),
+          });
+        } else {
+          set({ assetManager: result.manager });
         }
-        set({
-          assetManager: result.manager,
-          ...(synced.fund
-            ? {
-                listedAmcFunds: upsertListedCache(
-                  state.listedAmcFunds,
-                  synced.fund,
-                ),
-              }
-            : {}),
-        });
         useToastStore.getState().push(result.message, "success");
         return { success: true, message: result.message };
       },
@@ -4288,9 +4410,15 @@ export const useMarketStore = create<MarketStore>()(
             message: "로그인한 계정에서만 유저 ETF를 거래할 수 있습니다.",
           };
         }
-        const own = state.assetManager?.funds.find((item) => item.id === fundId);
         const listed = state.listedAmcFunds.find((item) => item.id === fundId);
-        const fund = own ?? (listed ? listedFundToAmcState(listed) : null);
+        if (!listed || listed.status === "delisted") {
+          return {
+            success: false,
+            message: "상장 허가 후 AMC 마켓에 오른 ETF만 거래할 수 있습니다.",
+          };
+        }
+        const own = state.assetManager?.funds.find((item) => item.id === fundId);
+        const fund = own ?? listedFundToAmcState(listed);
         if (!fund) {
           return {
             success: false,
@@ -4391,9 +4519,15 @@ export const useMarketStore = create<MarketStore>()(
             message: "로그인한 계정에서만 유저 ETF를 거래할 수 있습니다.",
           };
         }
-        const own = state.assetManager?.funds.find((item) => item.id === fundId);
         const listed = state.listedAmcFunds.find((item) => item.id === fundId);
-        const fund = own ?? (listed ? listedFundToAmcState(listed) : null);
+        if (!listed || listed.status === "delisted") {
+          return {
+            success: false,
+            message: "상장 허가 후 AMC 마켓에 오른 ETF만 거래할 수 있습니다.",
+          };
+        }
+        const own = state.assetManager?.funds.find((item) => item.id === fundId);
+        const fund = own ?? listedFundToAmcState(listed);
         if (!fund) {
           return { success: false, message: "펀드를 찾을 수 없습니다." };
         }

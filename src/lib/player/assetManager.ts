@@ -60,6 +60,8 @@ export interface AmcFundState {
   delistedSession?: number;
   navHistory: AmcNavPoint[];
   cumulativeFeesPaid: number;
+  /** stock_requests 상장 허가 신청 id (공유 마켓 상장 전) */
+  listingRequestId?: string;
 }
 
 export interface AssetManagerState {
@@ -709,5 +711,8 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
           .slice(-120)
       : [],
     cumulativeFeesPaid: finiteNonNegative(source.cumulativeFeesPaid),
+    ...(typeof source.listingRequestId === "string" && source.listingRequestId
+      ? { listingRequestId: source.listingRequestId }
+      : {}),
   };
 }

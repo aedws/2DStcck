@@ -27,6 +27,7 @@
     "test:company-foundation": "tsx scripts/test-company-foundation-requests.ts",
     "test:averaging": "tsx scripts/test-averaging-calculator.ts",
     "test:amc": "tsx scripts/test-asset-manager.ts",
+    "test:amc-listing": "tsx scripts/test-amc-etf-listing-requests.ts",
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
     "generate:market-checkpoint": "tsx scripts/generate-market-checkpoint.ts",

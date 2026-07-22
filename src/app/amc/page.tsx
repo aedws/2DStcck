@@ -20,6 +20,11 @@ import {
   type AmcFoundationRequest,
 } from "@/lib/supabase/amcFoundationRequests";
 import {
+  AMC_ETF_LISTING_STATUS_LABEL,
+  listMyAmcEtfListingRequests,
+  type AmcEtfListingRequest,
+} from "@/lib/supabase/amcEtfListingRequests";
+import {
   listedFundToAmcState,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
@@ -46,11 +51,18 @@ export default function AssetManagerPage() {
   const rebalanceAmcFund = useMarketStore((state) => state.rebalanceAmcFund);
   const buyAmcFund = useMarketStore((state) => state.buyAmcFund);
   const sellAmcFund = useMarketStore((state) => state.sellAmcFund);
+  const listAmcFundOnMarket = useMarketStore((state) => state.listAmcFundOnMarket);
+  const requestAmcFundListing = useMarketStore(
+    (state) => state.requestAmcFundListing,
+  );
   const refreshListedAmcFunds = useMarketStore(
     (state) => state.refreshListedAmcFunds,
   );
 
   const [requests, setRequests] = useState<AmcFoundationRequest[] | null>(null);
+  const [listingRequests, setListingRequests] = useState<AmcEtfListingRequest[]>(
+    [],
+  );
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [detail, setDetail] = useState("");
@@ -103,12 +115,18 @@ export default function AssetManagerPage() {
     setRequests(await listMyAmcFoundationRequests());
   };
 
+  const refreshListingRequests = async () => {
+    setListingRequests(await listMyAmcEtfListingRequests());
+  };
+
   useEffect(() => {
     if (!userId || !cloudSyncReady) {
       setRequests([]);
+      setListingRequests([]);
       return;
     }
     void refreshRequests();
+    void refreshListingRequests();
     void refreshListedAmcFunds();
   }, [userId, cloudSyncReady, refreshListedAmcFunds]);
 
@@ -213,6 +231,7 @@ export default function AssetManagerPage() {
       setFundName("");
       setFundTicker("");
       setSelectedIds([]);
+      void refreshListingRequests();
       void refreshListedAmcFunds();
     }
     setCreating(false);
@@ -471,6 +490,15 @@ export default function AssetManagerPage() {
                     AMC_GRACE_DAYS - (currentSession - fund.graceStartedSession),
                   )
                 : null;
+            const onMarket = listedAmcFunds.some(
+              (item) => item.id === fund.id && item.status !== "delisted",
+            );
+            const listing =
+              listingRequests.find(
+                (request) =>
+                  request.payload.fundId === fund.id ||
+                  request.id === fund.listingRequestId,
+              ) ?? null;
             return (
               <div
                 key={fund.id}
@@ -495,6 +523,13 @@ export default function AssetManagerPage() {
                         : ""}
                       {graceLeft != null ? ` · 유예 ${graceLeft}거래일` : ""}
                     </p>
+                    <p className="mt-1 text-xs font-semibold text-cyan-200">
+                      {onMarket
+                        ? "AMC 마켓 상장됨"
+                        : listing
+                          ? `상장 ${AMC_ETF_LISTING_STATUS_LABEL[listing.status]}`
+                          : "상장 미신청"}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
@@ -516,7 +551,53 @@ export default function AssetManagerPage() {
                     })
                     .join(" · ")}
                 </p>
-                {fund.status !== "delisted" && (
+                {!onMarket && fund.status !== "delisted" && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {listing?.status === "accepted" ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void listAmcFundOnMarket(fund.id).then((result) => {
+                            setMessage(result.message);
+                            if (result.success) {
+                              void refreshListingRequests();
+                              void refreshListedAmcFunds();
+                            }
+                          })
+                        }
+                        className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white"
+                      >
+                        AMC 마켓에 상장
+                      </button>
+                    ) : listing &&
+                      ["pending", "reviewing"].includes(listing.status) ? (
+                      <p className="text-xs text-[var(--muted)]">
+                        관리자 상장 허가를 기다리는 중입니다.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void requestAmcFundListing(fund.id).then((result) => {
+                            setMessage(result.message);
+                            if (result.success) void refreshListingRequests();
+                          })
+                        }
+                        className="rounded-xl border border-amber-400/40 px-4 py-2 text-sm font-bold text-amber-200"
+                      >
+                        {listing?.status === "rejected"
+                          ? "상장 허가 재신청"
+                          : "상장 허가 신청"}
+                      </button>
+                    )}
+                    {listing?.status === "rejected" && listing.adminNote && (
+                      <p className="w-full rounded-xl bg-rose-500/10 p-2 text-xs text-rose-200">
+                        반려: {listing.adminNote}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {onMarket && fund.status !== "delisted" && (
                   <div className="mt-4 flex flex-wrap items-end gap-2">
                     <input
                       value={tradeQty[fund.id] ?? "1"}
@@ -577,10 +658,10 @@ export default function AssetManagerPage() {
       </section>
 
       <section className="rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">
-        <h2 className="text-lg font-bold">새 ETF 설정 · 공유 상장</h2>
+        <h2 className="text-lg font-bold">새 ETF 설정 · 상장 신청</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 설정 즉시
-          전 계정 마켓에 상장
+          기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 관리자 허가
+          후 AMC 마켓에 올립니다
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="펀드명">
@@ -681,7 +762,7 @@ export default function AssetManagerPage() {
           disabled={creating || selectedIds.length < AMC_MIN_HOLDINGS}
           className="mt-4 min-h-12 w-full rounded-2xl bg-cyan-500 px-5 text-sm font-black text-white disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
         >
-          {creating ? "상장 중…" : "ETF 설정 · 공유 상장 (시드 10% 소각)"}
+          {creating ? "신청 중…" : "ETF 설정 · 상장 허가 신청 (시드 10% 소각)"}
         </button>
       </section>
 
