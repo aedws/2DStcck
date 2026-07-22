@@ -19,6 +19,7 @@ import {
   settleAmcDividends,
   settleAmcManagementFees,
   splitAmcSeed,
+  updateAmcShareAdjustmentSettings,
   validateAmcHoldingWeights,
 } from "../src/lib/player/assetManager";
 import {
@@ -135,6 +136,41 @@ assert.equal(created.fund!.splitRatio, 5);
 assert.equal(created.fund!.reverseSplitTriggerPrice, 5);
 assert.equal(created.fund!.reverseSplitRatio, 2);
 assert.equal(created.fund!.shareMultiplier, 1);
+
+const updatedAdjustment = updateAmcShareAdjustmentSettings(
+  created.manager!,
+  created.fund!.id,
+  {
+    splitTriggerPrice: 1_000,
+    splitRatio: 10,
+    reverseSplitTriggerPrice: 100,
+    reverseSplitRatio: 5,
+  },
+  1_700_000_100_000,
+);
+assert.equal(updatedAdjustment.success, true);
+assert.equal(updatedAdjustment.fund!.splitTriggerPrice, 1_000);
+assert.equal(updatedAdjustment.fund!.splitRatio, 10);
+assert.equal(updatedAdjustment.fund!.reverseSplitTriggerPrice, 100);
+assert.equal(updatedAdjustment.fund!.reverseSplitRatio, 5);
+
+const clearedAdjustment = updateAmcShareAdjustmentSettings(
+  updatedAdjustment.manager!,
+  created.fund!.id,
+  {},
+);
+assert.equal(clearedAdjustment.success, true);
+assert.equal(clearedAdjustment.fund!.splitTriggerPrice, undefined);
+assert.equal(clearedAdjustment.fund!.splitRatio, undefined);
+assert.equal(clearedAdjustment.fund!.reverseSplitTriggerPrice, undefined);
+assert.equal(clearedAdjustment.fund!.reverseSplitRatio, undefined);
+
+const invalidUpdatedAdjustment = updateAmcShareAdjustmentSettings(
+  created.manager!,
+  created.fund!.id,
+  { splitTriggerPrice: 100, reverseSplitTriggerPrice: 100 },
+);
+assert.equal(invalidUpdatedAdjustment.success, false);
 
 const invalidAdjustmentBand = createAmcFund(
   founded.manager!,

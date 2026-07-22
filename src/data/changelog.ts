@@ -18,6 +18,8 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-22": {
     highlights: [
+      "ETF 안전자산 편입 — 금 ETF(GLDX)와 단기채 ETF(SBND)를 유저 ETF 구성 종목으로 선택할 수 있습니다.",
+      "기존 ETF 액면조정 수정 — 생성·상장한 ETF도 자동 분할·병합 가격과 배수, 사용 여부를 운용 중에 바꿀 수 있습니다.",
       "유저 ETF 혼합 배당 주기 — 구성 종목의 지급 주기가 다르면 운용사가 1~240거래일 범위에서 N거래일을 직접 설정합니다.",
       "IPO 예고 — 캬롯 농장(CROT) 7/25(토) 12:00 상장 · 무배당 저변동 성장주, 대풍작 공급 과잉과 전일 대비 -3% 하한을 반영했습니다.",
       "내 계좌 종목 이동 — 보유 종목 행 전체를 누르면 상세 화면으로 이동하고, 별도 조작 없이 하단 주문 내역이 펼쳐지지 않도록 동작을 정리했습니다. (@tim0)",

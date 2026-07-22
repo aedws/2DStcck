@@ -163,6 +163,13 @@ export interface CreateAmcFundInput {
   reverseSplitRatio?: AmcShareAdjustmentRatio;
 }
 
+export interface UpdateAmcShareAdjustmentInput {
+  splitTriggerPrice?: number;
+  splitRatio?: AmcShareAdjustmentRatio;
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: AmcShareAdjustmentRatio;
+}
+
 export type AmcActionResult = {
   success: boolean;
   message: string;
@@ -722,6 +729,72 @@ export function createAmcFund(
     cash: cash - seedCash,
     burned,
     fund,
+  };
+}
+
+/** 생성 이후에도 자동 분할·병합 조건만 독립적으로 변경한다. */
+export function updateAmcShareAdjustmentSettings(
+  manager: AssetManagerState,
+  fundId: string,
+  input: UpdateAmcShareAdjustmentInput,
+  now = Date.now(),
+): AmcActionResult {
+  const fund = manager.funds.find((item) => item.id === fundId);
+  if (!fund) return { success: false, message: "펀드를 찾을 수 없습니다." };
+  if (fund.status === "delisted") {
+    return { success: false, message: "상장폐지된 펀드는 수정할 수 없습니다." };
+  }
+
+  const splitTriggerPrice = Math.round(
+    finiteNonNegative(input.splitTriggerPrice),
+  );
+  const reverseSplitTriggerPrice = Math.round(
+    finiteNonNegative(input.reverseSplitTriggerPrice),
+  );
+  if (
+    splitTriggerPrice > 0 &&
+    reverseSplitTriggerPrice > 0 &&
+    reverseSplitTriggerPrice >= splitTriggerPrice
+  ) {
+    return {
+      success: false,
+      message: "자동 병합 가격은 자동 분할 가격보다 낮아야 합니다.",
+    };
+  }
+
+  const baseFund: AmcFundState = { ...fund };
+  delete baseFund.splitTriggerPrice;
+  delete baseFund.splitRatio;
+  delete baseFund.reverseSplitTriggerPrice;
+  delete baseFund.reverseSplitRatio;
+  const updated: AmcFundState = {
+    ...baseFund,
+    ...(splitTriggerPrice > 0
+      ? {
+          splitTriggerPrice,
+          splitRatio: normalizeAmcShareAdjustmentRatio(input.splitRatio),
+        }
+      : {}),
+    ...(reverseSplitTriggerPrice > 0
+      ? {
+          reverseSplitTriggerPrice,
+          reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+            input.reverseSplitRatio,
+          ),
+        }
+      : {}),
+  };
+  return {
+    success: true,
+    message: "자동 분할·병합 설정을 수정했습니다.",
+    manager: {
+      ...manager,
+      funds: manager.funds.map((item) =>
+        item.id === fundId ? updated : item,
+      ),
+      lastActionAt: now,
+    },
+    fund: updated,
   };
 }
 

@@ -6,6 +6,7 @@ import {
   type AmcFundStyle,
   type AmcHoldingWeight,
   type AssetManagerState,
+  type UpdateAmcShareAdjustmentInput,
   normalizeAmcDividendInterval,
   normalizeAmcShareAdjustmentRatio,
   normalizeWeightsSafe,
@@ -481,6 +482,46 @@ export async function syncAmcListedFundMeta(
   return parsed
     ? { success: true, message: "동기화됨", fund: parsed }
     : { success: false, message: "동기화 응답 해석 실패" };
+}
+
+/** 운용사가 상장 후 자동 분할·병합 임계값을 수정한다. */
+export async function updateAmcListedFundShareAdjustment(
+  fundId: string,
+  input: UpdateAmcShareAdjustmentInput,
+): Promise<{ success: boolean; message: string; fund?: ListedAmcFund }> {
+  const auth = await getCurrentAuth();
+  if (!auth) {
+    return { success: false, message: "로그인 후 수정할 수 있습니다." };
+  }
+  const splitTriggerPrice = Math.round(Number(input.splitTriggerPrice) || 0);
+  const reverseSplitTriggerPrice = Math.round(
+    Number(input.reverseSplitTriggerPrice) || 0,
+  );
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "amc_update_share_adjustment_settings",
+    {
+      p_fund_id: fundId,
+      p_split_trigger_price:
+        splitTriggerPrice > 0 ? splitTriggerPrice : null,
+      p_split_ratio: normalizeAmcShareAdjustmentRatio(input.splitRatio),
+      p_reverse_split_trigger_price:
+        reverseSplitTriggerPrice > 0 ? reverseSplitTriggerPrice : null,
+      p_reverse_split_ratio: normalizeAmcShareAdjustmentRatio(
+        input.reverseSplitRatio,
+      ),
+    },
+  );
+  if (error || !data) {
+    return {
+      success: false,
+      message: error?.message || "자동 분할·병합 설정 수정에 실패했습니다.",
+    };
+  }
+  const parsed = parseListedAmcFundRow(data as AmcListedFundRow);
+  return parsed
+    ? { success: true, message: "자동 분할·병합 설정을 수정했습니다.", fund: parsed }
+    : { success: false, message: "설정 수정 응답을 해석하지 못했습니다." };
 }
 
 export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {

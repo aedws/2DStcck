@@ -303,6 +303,7 @@ import {
   normalizeAssetManager,
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
+  updateAmcShareAdjustmentSettings as updateManagedFundShareAdjustment,
   resolveAmcDividendPeriodRate,
   settleAmcManagementFees,
   settleAmcManagerDividends,
@@ -310,6 +311,7 @@ import {
   type AssetManagerState,
   type CreateAmcFundInput,
   type FoundAssetManagerInput,
+  type UpdateAmcShareAdjustmentInput,
 } from "@/lib/player/assetManager";
 import {
   listMyAmcFoundationRequests,
@@ -337,6 +339,7 @@ import {
   settleAmcListedFund,
   syncAmcListedFundMeta,
   tradeAmcListedFund,
+  updateAmcListedFundShareAdjustment,
   upsertListedCache,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
@@ -578,6 +581,10 @@ interface MarketStore extends MarketSnapshot {
   rebalanceAmcFund: (
     fundId: string,
     holdings: AmcHoldingWeight[],
+  ) => Promise<OrderResult>;
+  updateAmcFundShareAdjustment: (
+    fundId: string,
+    input: UpdateAmcShareAdjustmentInput,
   ) => Promise<OrderResult>;
   buyAmcFund: (fundId: string, quantity: number) => Promise<OrderResult>;
   sellAmcFund: (fundId: string, quantity: number) => Promise<OrderResult>;
@@ -4804,6 +4811,66 @@ export const useMarketStore = create<MarketStore>()(
             return {
               success: false,
               message: synced.message || "공유 원장 동기화에 실패했습니다.",
+            };
+          }
+          set({
+            assetManager: result.manager,
+            ...(synced.fund
+              ? {
+                  listedAmcFunds: upsertListedCache(
+                    state.listedAmcFunds,
+                    synced.fund,
+                  ),
+                }
+              : {}),
+          });
+        } else {
+          set({ assetManager: result.manager });
+        }
+        useToastStore.getState().push(result.message, "success");
+        return { success: true, message: result.message };
+      },
+
+      updateAmcFundShareAdjustment: async (fundId, input) => {
+        const state = get();
+        if (!state.assetManager) {
+          return { success: false, message: "자산운용사가 없습니다." };
+        }
+        const localFund = state.assetManager.funds.find(
+          (item) => item.id === fundId,
+        );
+        const listed = state.listedAmcFunds.find(
+          (item) => item.id === fundId && item.status !== "delisted",
+        );
+        const manager = localFund
+          ? state.assetManager
+          : listed
+            ? {
+                ...state.assetManager,
+                funds: [
+                  ...state.assetManager.funds,
+                  listedFundToAmcState(listed),
+                ],
+              }
+            : state.assetManager;
+        const result = updateManagedFundShareAdjustment(
+          manager,
+          fundId,
+          input,
+        );
+        if (!result.success || !result.manager || !result.fund) {
+          return { success: false, message: result.message };
+        }
+
+        if (listed) {
+          const synced = await updateAmcListedFundShareAdjustment(
+            fundId,
+            input,
+          );
+          if (!synced.success) {
+            return {
+              success: false,
+              message: synced.message || "공유 원장 설정 수정에 실패했습니다.",
             };
           }
           set({

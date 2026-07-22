@@ -60,6 +60,7 @@ const fieldClass =
 
 type AmcHoldingKind =
   | "company"
+  | "reserve"
   | "leverage"
   | "inverse"
   | "inverse2"
@@ -67,6 +68,7 @@ type AmcHoldingKind =
 
 const AMC_HOLDING_KIND_LABEL: Record<AmcHoldingKind, string> = {
   company: "기업",
+  reserve: "금·단기채",
   leverage: "레버리지",
   inverse: "인버스",
   inverse2: "곱버스",
@@ -79,6 +81,7 @@ const AMC_HOLDING_FILTERS: Array<{
 }> = [
   { value: "all", label: "전체" },
   { value: "company", label: "기업" },
+  { value: "reserve", label: "금·단기채" },
   { value: "leverage", label: "레버리지" },
   { value: "inverse", label: "인버스" },
   { value: "inverse2", label: "곱버스" },
@@ -86,14 +89,51 @@ const AMC_HOLDING_FILTERS: Array<{
 ];
 
 function amcHoldingKindOf(stock: {
+  id: string;
   coveredCallUnderlyingId?: string;
   leverage?: number;
 }): AmcHoldingKind {
+  if (stock.id === "gldx" || stock.id === "sbnd") return "reserve";
   if (stock.coveredCallUnderlyingId) return "covered-call";
   if (stock.leverage === -2) return "inverse2";
   if (stock.leverage === -1) return "inverse";
   if ((stock.leverage ?? 0) > 1) return "leverage";
   return "company";
+}
+
+interface ShareAdjustmentDraft {
+  autoSplit: boolean;
+  splitPriceDollars: string;
+  splitRatio: AmcShareAdjustmentRatio;
+  autoReverseSplit: boolean;
+  reverseSplitPriceDollars: string;
+  reverseSplitRatio: AmcShareAdjustmentRatio;
+}
+
+function shareAdjustmentDraftOf(fund: {
+  splitTriggerPrice?: number;
+  splitRatio?: number;
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: number;
+}): ShareAdjustmentDraft {
+  return {
+    autoSplit: Boolean(fund.splitTriggerPrice),
+    splitPriceDollars: String((fund.splitTriggerPrice ?? 500) / 100),
+    splitRatio: AMC_SHARE_ADJUSTMENT_RATIOS.includes(
+      fund.splitRatio as AmcShareAdjustmentRatio,
+    )
+      ? (fund.splitRatio as AmcShareAdjustmentRatio)
+      : 5,
+    autoReverseSplit: Boolean(fund.reverseSplitTriggerPrice),
+    reverseSplitPriceDollars: String(
+      (fund.reverseSplitTriggerPrice ?? 5) / 100,
+    ),
+    reverseSplitRatio: AMC_SHARE_ADJUSTMENT_RATIOS.includes(
+      fund.reverseSplitRatio as AmcShareAdjustmentRatio,
+    )
+      ? (fund.reverseSplitRatio as AmcShareAdjustmentRatio)
+      : 2,
+  };
 }
 
 function equalWeightPercentages(stockIds: string[]): Record<string, string> {
@@ -120,6 +160,9 @@ export default function AssetManagerPage() {
   const foundAssetManager = useMarketStore((state) => state.foundAssetManager);
   const createAmcFund = useMarketStore((state) => state.createAmcFund);
   const rebalanceAmcFund = useMarketStore((state) => state.rebalanceAmcFund);
+  const updateAmcFundShareAdjustment = useMarketStore(
+    (state) => state.updateAmcFundShareAdjustment,
+  );
   const buyAmcFund = useMarketStore((state) => state.buyAmcFund);
   const sellAmcFund = useMarketStore((state) => state.sellAmcFund);
   const listAmcFundOnMarket = useMarketStore((state) => state.listAmcFundOnMarket);
@@ -196,6 +239,15 @@ export default function AssetManagerPage() {
   const [rebalanceDraft, setRebalanceDraft] = useState<
     Record<string, Record<string, string>>
   >({});
+  const [shareAdjustmentEditorId, setShareAdjustmentEditorId] = useState<
+    string | null
+  >(null);
+  const [shareAdjustmentDrafts, setShareAdjustmentDrafts] = useState<
+    Record<string, ShareAdjustmentDraft>
+  >({});
+  const [shareAdjustmentSavingId, setShareAdjustmentSavingId] = useState<
+    string | null
+  >(null);
 
   const netWorth = getTotalAssets();
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -231,6 +283,9 @@ export default function AssetManagerPage() {
     return stocks.filter((stock) => {
       if (!(stock.currentPrice > 0)) return false;
       if (companyIds.has(stock.id)) return true;
+      if ((stock.id === "gldx" || stock.id === "sbnd") && isListed(stock)) {
+        return true;
+      }
       return Boolean(
         (stock.leverageUnderlyingId &&
           companyIds.has(stock.leverageUnderlyingId)) ||
@@ -806,6 +861,21 @@ export default function AssetManagerPage() {
                   request.payload.fundId === fund.id ||
                   request.id === fund.listingRequestId,
               ) ?? null;
+            const adjustmentDraft =
+              shareAdjustmentDrafts[fund.id] ?? shareAdjustmentDraftOf(fund);
+            const adjustmentSplitCents = Math.round(
+              Number(adjustmentDraft.splitPriceDollars) * 100,
+            );
+            const adjustmentReverseSplitCents = Math.round(
+              Number(adjustmentDraft.reverseSplitPriceDollars) * 100,
+            );
+            const adjustmentInvalid =
+              (adjustmentDraft.autoSplit && !(adjustmentSplitCents > 0)) ||
+              (adjustmentDraft.autoReverseSplit &&
+                !(adjustmentReverseSplitCents > 0)) ||
+              (adjustmentDraft.autoSplit &&
+                adjustmentDraft.autoReverseSplit &&
+                adjustmentReverseSplitCents >= adjustmentSplitCents);
             return (
               <div
                 key={fund.id}
@@ -873,6 +943,204 @@ export default function AssetManagerPage() {
                     })
                     .join(" · ")}
                 </p>
+                {fund.status !== "delisted" && (
+                  <div className="mt-3 rounded-2xl border border-violet-400/25 bg-violet-400/5 p-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (shareAdjustmentEditorId === fund.id) {
+                          setShareAdjustmentEditorId(null);
+                          return;
+                        }
+                        setShareAdjustmentDrafts((prev) => ({
+                          ...prev,
+                          [fund.id]: shareAdjustmentDraftOf(fund),
+                        }));
+                        setShareAdjustmentEditorId(fund.id);
+                      }}
+                      className="text-xs font-bold text-violet-200"
+                    >
+                      {shareAdjustmentEditorId === fund.id
+                        ? "분할·병합 설정 닫기"
+                        : "분할·병합 설정 수정"}
+                    </button>
+                    {shareAdjustmentEditorId === fund.id && (
+                      <div className="mt-3 space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+                            <label className="flex items-center gap-2 text-xs font-bold">
+                              <input
+                                type="checkbox"
+                                checked={adjustmentDraft.autoSplit}
+                                onChange={(event) =>
+                                  setShareAdjustmentDrafts((prev) => ({
+                                    ...prev,
+                                    [fund.id]: {
+                                      ...adjustmentDraft,
+                                      autoSplit: event.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              일정 가격 이상 자동 분할
+                            </label>
+                            <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                              <input
+                                value={adjustmentDraft.splitPriceDollars}
+                                onChange={(event) =>
+                                  setShareAdjustmentDrafts((prev) => ({
+                                    ...prev,
+                                    [fund.id]: {
+                                      ...adjustmentDraft,
+                                      splitPriceDollars: event.target.value.replace(
+                                        /[^0-9.]/g,
+                                        "",
+                                      ),
+                                    },
+                                  }))
+                                }
+                                disabled={!adjustmentDraft.autoSplit}
+                                aria-label={`${fund.ticker} 자동 분할 가격`}
+                                placeholder="가격 ($)"
+                                className={fieldClass}
+                              />
+                              <select
+                                value={adjustmentDraft.splitRatio}
+                                onChange={(event) =>
+                                  setShareAdjustmentDrafts((prev) => ({
+                                    ...prev,
+                                    [fund.id]: {
+                                      ...adjustmentDraft,
+                                      splitRatio: Number(
+                                        event.target.value,
+                                      ) as AmcShareAdjustmentRatio,
+                                    },
+                                  }))
+                                }
+                                disabled={!adjustmentDraft.autoSplit}
+                                aria-label={`${fund.ticker} 자동 분할 배수`}
+                                className={fieldClass}
+                              >
+                                {AMC_SHARE_ADJUSTMENT_RATIOS.map((ratio) => (
+                                  <option key={ratio} value={ratio}>
+                                    {ratio}:1
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+                            <label className="flex items-center gap-2 text-xs font-bold">
+                              <input
+                                type="checkbox"
+                                checked={adjustmentDraft.autoReverseSplit}
+                                onChange={(event) =>
+                                  setShareAdjustmentDrafts((prev) => ({
+                                    ...prev,
+                                    [fund.id]: {
+                                      ...adjustmentDraft,
+                                      autoReverseSplit: event.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              일정 가격 이하 자동 병합
+                            </label>
+                            <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                              <input
+                                value={adjustmentDraft.reverseSplitPriceDollars}
+                                onChange={(event) =>
+                                  setShareAdjustmentDrafts((prev) => ({
+                                    ...prev,
+                                    [fund.id]: {
+                                      ...adjustmentDraft,
+                                      reverseSplitPriceDollars:
+                                        event.target.value.replace(
+                                          /[^0-9.]/g,
+                                          "",
+                                        ),
+                                    },
+                                  }))
+                                }
+                                disabled={!adjustmentDraft.autoReverseSplit}
+                                aria-label={`${fund.ticker} 자동 병합 가격`}
+                                placeholder="가격 ($)"
+                                className={fieldClass}
+                              />
+                              <select
+                                value={adjustmentDraft.reverseSplitRatio}
+                                onChange={(event) =>
+                                  setShareAdjustmentDrafts((prev) => ({
+                                    ...prev,
+                                    [fund.id]: {
+                                      ...adjustmentDraft,
+                                      reverseSplitRatio: Number(
+                                        event.target.value,
+                                      ) as AmcShareAdjustmentRatio,
+                                    },
+                                  }))
+                                }
+                                disabled={!adjustmentDraft.autoReverseSplit}
+                                aria-label={`${fund.ticker} 자동 병합 배수`}
+                                className={fieldClass}
+                              >
+                                {AMC_SHARE_ADJUSTMENT_RATIOS.map((ratio) => (
+                                  <option key={ratio} value={ratio}>
+                                    1:{ratio}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                        {adjustmentInvalid && (
+                          <p className="text-xs font-semibold text-rose-300">
+                            가격을 확인해 주세요. 병합 가격은 분할 가격보다 낮아야
+                            합니다.
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          disabled={
+                            adjustmentInvalid ||
+                            shareAdjustmentSavingId === fund.id
+                          }
+                          onClick={() => {
+                            setShareAdjustmentSavingId(fund.id);
+                            void updateAmcFundShareAdjustment(fund.id, {
+                              ...(adjustmentDraft.autoSplit
+                                ? {
+                                    splitTriggerPrice: adjustmentSplitCents,
+                                    splitRatio: adjustmentDraft.splitRatio,
+                                  }
+                                : {}),
+                              ...(adjustmentDraft.autoReverseSplit
+                                ? {
+                                    reverseSplitTriggerPrice:
+                                      adjustmentReverseSplitCents,
+                                    reverseSplitRatio:
+                                      adjustmentDraft.reverseSplitRatio,
+                                  }
+                                : {}),
+                            }).then((result) => {
+                              setMessage(result.message);
+                              setShareAdjustmentSavingId(null);
+                              if (result.success) {
+                                setShareAdjustmentEditorId(null);
+                                void refreshListedAmcFunds();
+                              }
+                            });
+                          }}
+                          className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                        >
+                          {shareAdjustmentSavingId === fund.id
+                            ? "저장 중…"
+                            : "분할·병합 설정 저장"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {!onMarket && fund.status !== "delisted" && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {listing?.status === "accepted" ? (
@@ -1082,8 +1350,8 @@ export default function AssetManagerPage() {
           <div>
             <h2 className="text-lg font-bold">새 ETF 설정 · 상장 신청</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              기업·기업 파생상품 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90%
-              NAV · 관리자 허가 후 AMC 마켓에 올립니다
+              기업·기업 파생상품·금·단기채 {AMC_MIN_HOLDINGS}개 이상 · 시드 10%
+              소각 / 90% NAV · 관리자 허가 후 AMC 마켓에 올립니다
             </p>
           </div>
           <button
@@ -1353,7 +1621,7 @@ export default function AssetManagerPage() {
               {mixedDividendCadences && (
                 <span className="mt-1 block text-amber-200">
                   구성에 {holdingCadences.join("·")}거래일 인컴이 섞여 있습니다.
-                  위에서 펀드 배당 주기(5/20/60)를 고르세요.
+                  위에서 운용할 N거래일 배당 주기를 직접 정하세요.
                 </span>
               )}
             </div>
