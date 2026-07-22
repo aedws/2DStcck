@@ -76,6 +76,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "도시의 지식과 비밀을 도서관처럼 쌓아 둔다고 자처하는 천재. 출처를 밝히지 않는 정보를 바탕으로 공매도·옵션·경영권 인수를 지휘하며, 오판이 드러나도 흔들림 없는 어조로 다음 계산을 이어 간다.",
     emoji: "🔬",
   },
+  {
+    id: "chr_miku",
+    name: "하츠네 미쿠",
+    title: "미쿠 엔터테인먼트 대표 아티스트",
+    traits: ["아이돌", "창작", "친화력"],
+    bio: "버추얼 싱어 IP의 얼굴. 신곡과 라이브, 굿즈·콜라보를 통해 팬덤과 브랜드를 동시에 움직이며, 무대 위의 청록 트윈테일로 콘텐츠 매출의 중심을 지킨다.",
+    emoji: "🎤",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

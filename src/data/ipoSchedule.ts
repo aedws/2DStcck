@@ -30,4 +30,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   minori: Date.UTC(2026, 6, 24, 6, 0),
   // 파우스트 투자증권(FAUS) — 2026-07-24 19:00 KST 개장 (= 10:00 UTC)
   faust: Date.UTC(2026, 6, 24, 10, 0),
+  // 미쿠 엔터테인먼트(MIKU) — 2026-07-24 21:30 KST 개장 (= 12:30 UTC)
+  miku: Date.UTC(2026, 6, 24, 12, 30),
 };

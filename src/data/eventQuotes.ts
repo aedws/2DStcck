@@ -231,6 +231,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "거짓 정보였는지, 해석이 틀렸는지는… 곧 구분될 겁니다.",
     ],
   },
+  {
+    characterId: "chr_miku",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "모두가 불러 준 덕분에, 다음 무대도 준비할 수 있어요!",
+      "신곡이 닿았다니… 오늘은 조금만 더 연습해 볼게요.",
+    ],
+  },
+  {
+    characterId: "chr_miku",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "공연이 미뤄져도… 팬 여러분의 목소리는 기억할게요.",
+      "라이선스 문제는 어렵지만, 노래는 멈추지 않을 거예요.",
+    ],
+  },
+  {
+    characterId: "chr_miku",
+    tag: "월드투어",
+    direction: "positive",
+    quotes: [
+      "월드투어 전석 매진이라니… 청록 불빛 아래에서 만나요!",
+    ],
+  },
+  {
+    characterId: "chr_miku",
+    tag: "라이선스 분쟁",
+    direction: "negative",
+    quotes: [
+      "콜라보가 꼬여도, 제가 부를 수 있는 노래는 남아 있어요.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

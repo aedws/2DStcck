@@ -461,6 +461,28 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_faust",
   },
+  {
+    id: "miku",
+    ticker: "MIKU",
+    name: "미쿠 엔터테인먼트",
+    instrumentType: "company",
+    sector: "미디어·콘텐츠",
+    subsector: "버추얼 싱어 IP",
+    marketTags: ["미디어", "콘텐츠"],
+    initialPrice: 42000,
+    volatility: 0.055,
+    drift: 0.0007,
+    beta: 1.12,
+    description:
+      "하츠네 미쿠로 대표되는 버추얼 싱어·캐릭터 IP를 중심으로 음악, 굿즈, 라이브 공연, 콜라보레이션을 전개하는 콘텐츠 기업. 신곡·월드투어·대형 브랜드 협업이 히트하면 테마주로 급등하고, 라이선스 분쟁이나 공연 차질이 나면 급락하는 IP 콘텐츠 성향을 보인다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      신제품: 4,
+      행보: 3,
+      실적: 2,
+      스캔들: 2,
+    },
+    ceoId: "chr_miku",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -944,5 +966,23 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "출처 불분명한 정보를 바탕으로 쌓은 포지션이 한꺼번에 반대방향으로 움직였습니다. 회사가 휘청일 수준의 트레이딩 손실이 공개되며 매물이 쏟아집니다.",
     impact: -1.25,
+  },
+  {
+    category: "company",
+    companyId: "miku",
+    tag: "월드투어",
+    title: "미쿠 엔터테인먼트, 월드투어·신곡 동시 히트",
+    description:
+      "홀로그램 라이브 월드투어 매진과 신곡 차트 석권이 겹치며 굿즈·음원·티켓 매출 기대가 폭증했습니다. 버추얼 싱어 IP 테마로 매수세가 몰립니다.",
+    impact: 1.3,
+  },
+  {
+    category: "company",
+    companyId: "miku",
+    tag: "라이선스 분쟁",
+    title: "미쿠 엔터테인먼트, 콜라보 라이선스 분쟁",
+    description:
+      "대형 브랜드 콜라보 계약의 판권·사용 범위를 둘러싼 분쟁이 불거졌습니다. 공연·굿즈 일정 차질 우려에 매물이 쏟아집니다.",
+    impact: -1.2,
   },
 ];
