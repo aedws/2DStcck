@@ -396,6 +396,28 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     ceoId: "chr_nagusa",
   },
   {
+    id: "yakumo",
+    ticker: "YKMO",
+    name: "붉은겨울 출판부",
+    instrumentType: "company",
+    sector: "미디어·콘텐츠",
+    subsector: "인쇄·출판·유통",
+    marketTags: ["미디어"],
+    initialPrice: 22800,
+    volatility: 0.06,
+    drift: 0.0005,
+    beta: 1.05,
+    description:
+      "아라마키 야쿠모가 이끄는 붉은겨울 연방학원 출판 독점 기업. 학원 인쇄물의 생산·관리·판매를 도맡으며 잡지 「레드베어」 편집까지 겸한다. 타 학원 잠입 판매나 특별호가 히트하면 급등하고, 금서·검열 파동이나 인쇄 설비 마비가 나면 급락하는 콘텐츠·유통 테마주 성향을 보인다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      신제품: 3,
+      행보: 3,
+      실적: 2,
+      스캔들: 2,
+    },
+    ceoId: "chr_yakumo",
+  },
+  {
     id: "minori",
     ticker: "MNRI",
     name: "미노리 용역",
@@ -863,6 +885,24 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     title: "조류독감 확산, 닭고기 공급망 비상",
     description:
       "조류독감 확산으로 원료육 수급 차질과 매장 휴업 우려가 커졌습니다. 닭꼬치 생산 원가와 공급 불확실성이 동시에 부각되며 매물이 쏟아집니다.",
+    impact: -1.15,
+  },
+  {
+    category: "company",
+    companyId: "yakumo",
+    tag: "잠입 판매",
+    title: "붉은겨울 출판부, 타 학원 잠입 판매 대성공",
+    description:
+      "트리니티 등 타 학원에 잠입한 특별 판매가 완판되며 「레드베어」와 학원 인쇄물 수요가 폭증했습니다. 유통 확장 기대가 겹치며 매수세가 몰립니다.",
+    impact: 1.25,
+  },
+  {
+    category: "company",
+    companyId: "yakumo",
+    tag: "금서 검열",
+    title: "금서·검열 파동, 인쇄·출고 전면 중단",
+    description:
+      "검열 강화와 금서 지정으로 주요 간행물 출고가 멈춰 섰습니다. 재고 회수와 설비 가동 우려가 커지며 출판주 매물이 쏟아집니다.",
     impact: -1.15,
   },
 ];

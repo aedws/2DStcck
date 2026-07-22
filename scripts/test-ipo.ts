@@ -82,7 +82,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["dante", "gsck", "hinafg", "minori", "nagusa", "udnge", "yisang"],
+  ["dante", "gsck", "hinafg", "minori", "nagusa", "udnge", "yakumo", "yisang"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -180,6 +180,38 @@ assert.deepEqual(
   resolveEventTemplate(nagusaAi, nagusaListing, () => 0.5)?.affectedStockIds,
   ["nagusa"],
   "나구사 전용 사건이 다른 종목에 배정됨",
+);
+
+// 붉은겨울 출판부: 7/23 18:00 KST 개장과 잠입 판매 급등·금서 검열 급락 사건
+const yakumo = getCompanyDefinitions().find((stock) => stock.id === "yakumo");
+assert.ok(yakumo, "붉은겨울 출판부 정의가 없음");
+const yakumoListing = Date.UTC(2026, 6, 23, 9, 0);
+assert.equal(yakumo.ticker, "YKMO");
+assert.equal(yakumo.sector, "미디어·콘텐츠");
+assert.deepEqual(yakumo.marketTags, ["미디어"]);
+assert.equal(yakumo.listingEpochMs, yakumoListing);
+assert.equal(isListed(yakumo, yakumoListing - 1), false);
+assert.equal(isListed(yakumo, yakumoListing), true);
+
+const yakumoSale = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "yakumo" && template.tag === "잠입 판매",
+);
+assert.ok(yakumoSale, "붉은겨울 출판부 잠입 판매 급등 사건이 없음");
+assert.ok(yakumoSale.impact >= 1, "잠입 판매 급등 강도가 부족함");
+const yakumoCensor = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "yakumo" && template.tag === "금서 검열",
+);
+assert.ok(yakumoCensor, "붉은겨울 출판부 금서 검열 급락 사건이 없음");
+assert.ok(yakumoCensor.impact <= -1, "금서 검열 급락 강도가 부족함");
+assert.equal(
+  resolveEventTemplate(yakumoSale, yakumoListing - 1, () => 0.5),
+  null,
+  "상장 전 붉은겨울 출판부 전용 사건이 발생함",
+);
+assert.deepEqual(
+  resolveEventTemplate(yakumoSale, yakumoListing, () => 0.5)?.affectedStockIds,
+  ["yakumo"],
+  "붉은겨울 출판부 전용 사건이 다른 종목에 배정됨",
 );
 
 // 실적 캘린더: 상장 예정(IPO) 기업은 상장 세션 전에는 노출되지 않는다.

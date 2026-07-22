@@ -130,6 +130,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
     ],
   },
   {
+    characterId: "chr_yakumo",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "출판, 증쇄, 유통. 그야말로 출판부의 모토죠. 이번 호는 완판입니다.",
+      "이익이 난다면, 그 길이 곧 올바른 길입니다. 다음 노선도 열어 두죠.",
+    ],
+  },
+  {
+    characterId: "chr_yakumo",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "인쇄가 멈춘다고 출판부가 멈추는 건 아닙니다. 다른 루트부터 확보하죠.",
+      "한 번 정한 계획은 접지 않습니다. 손실은 다음 특별호로 만회하겠습니다.",
+    ],
+  },
+  {
+    characterId: "chr_yakumo",
+    tag: "잠입 판매",
+    direction: "positive",
+    quotes: [
+      "타 학원에서도 레드베어가 팔립니다. 이거야말로 출판부의 승리죠.",
+    ],
+  },
+  {
+    characterId: "chr_yakumo",
+    tag: "금서 검열",
+    direction: "negative",
+    quotes: [
+      "검열에 굴복할 수는 없습니다. 인쇄와 유통 경로를 다시 짜겠습니다.",
+    ],
+  },
+  {
     characterId: "chr_minori",
     tag: "*",
     direction: "positive",
