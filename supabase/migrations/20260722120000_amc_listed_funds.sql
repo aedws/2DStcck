@@ -77,7 +77,12 @@ begin
   if auth.uid() is null then
     raise exception 'not_authenticated';
   end if;
-  if p_delta = 0 or p_delta is null or not finite(p_delta) then
+  -- NaN/±Inf/null/0 거부 (Postgres에 finite() 없음)
+  if p_delta is null
+     or p_delta = 0
+     or p_delta <> p_delta
+     or p_delta = 'Infinity'::double precision
+     or p_delta = '-Infinity'::double precision then
     raise exception 'invalid_delta';
   end if;
   if p_cash_delta is null then

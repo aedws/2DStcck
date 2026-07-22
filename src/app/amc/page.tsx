@@ -118,6 +118,10 @@ export default function AssetManagerPage() {
   const [seedDollars, setSeedDollars] = useState("1000");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [tradeQty, setTradeQty] = useState<Record<string, string>>({});
+  /** 액티브 손바꿈 초안: fundId → stockId → 비중% 문자열 */
+  const [rebalanceDraft, setRebalanceDraft] = useState<
+    Record<string, Record<string, string>>
+  >({});
 
   const netWorth = getTotalAssets();
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -648,9 +652,17 @@ export default function AssetManagerPage() {
                       </span>
                     </h3>
                     <p className="mt-1 text-xs text-[var(--muted)]">
-                      상태 {fund.status}
+                      상태{" "}
+                      {fund.status === "active"
+                        ? "운영중"
+                        : fund.status === "grace"
+                          ? "유예"
+                          : "상장폐지"}
                       {fund.style === "active" && fund.status === "active"
                         ? ` · 손바꿈 잔여 ${sessionsLeft}거래일`
+                        : ""}
+                      {fund.style === "passive"
+                        ? " · 목표가중 자동유지"
                         : ""}
                       {graceLeft != null ? ` · 유예 ${graceLeft}거래일` : ""}
                     </p>
@@ -729,57 +741,116 @@ export default function AssetManagerPage() {
                   </div>
                 )}
                 {onMarket && fund.status !== "delisted" && (
-                  <div className="mt-4 flex flex-wrap items-end gap-2">
-                    <input
-                      value={tradeQty[fund.id] ?? "1"}
-                      onChange={(event) =>
-                        setTradeQty((prev) => ({
-                          ...prev,
-                          [fund.id]: event.target.value.replace(/[^0-9.]/g, ""),
-                        }))
-                      }
-                      className="w-28 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
-                      placeholder="수량"
-                    />
-                    <button
-                      type="button"
-                      disabled={tradingId === fund.id}
-                      onClick={() => void handleTrade(fund.id, "buy")}
-                      className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-                    >
-                      매수
-                    </button>
-                    <button
-                      type="button"
-                      disabled={tradingId === fund.id}
-                      onClick={() => void handleTrade(fund.id, "sell")}
-                      className="rounded-xl bg-[var(--background)] px-4 py-2 text-sm font-bold disabled:opacity-60"
-                    >
-                      매도
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const rotated = [...fund.holdings];
-                        if (rotated.length >= 2) {
-                          const first = rotated[0]!;
-                          rotated[0] = {
-                            ...first,
-                            weight: Math.max(0.05, first.weight - 0.05),
-                          };
-                          rotated[1] = {
-                            ...rotated[1]!,
-                            weight: rotated[1]!.weight + 0.05,
-                          };
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap items-end gap-2">
+                      <input
+                        value={tradeQty[fund.id] ?? "1"}
+                        onChange={(event) =>
+                          setTradeQty((prev) => ({
+                            ...prev,
+                            [fund.id]: event.target.value.replace(/[^0-9.]/g, ""),
+                          }))
                         }
-                        void rebalanceAmcFund(fund.id, rotated).then((result) =>
-                          setMessage(result.message),
-                        );
-                      }}
-                      className="rounded-xl border border-cyan-400/40 px-4 py-2 text-sm font-bold text-cyan-200"
-                    >
-                      5%p 손바꿈
-                    </button>
+                        className="w-28 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
+                        placeholder="수량"
+                      />
+                      <button
+                        type="button"
+                        disabled={tradingId === fund.id}
+                        onClick={() => void handleTrade(fund.id, "buy")}
+                        className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                      >
+                        매수
+                      </button>
+                      <button
+                        type="button"
+                        disabled={tradingId === fund.id}
+                        onClick={() => void handleTrade(fund.id, "sell")}
+                        className="rounded-xl bg-[var(--background)] px-4 py-2 text-sm font-bold disabled:opacity-60"
+                      >
+                        매도
+                      </button>
+                    </div>
+                    {fund.style === "active" ? (
+                      <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-3">
+                        <p className="text-xs font-bold text-cyan-200">
+                          액티브 비중 조절 (합 100% · 한 종목 5%p 이상 변경)
+                        </p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {fund.holdings.map((row) => {
+                            const stock = stocks.find(
+                              (item) => item.id === row.stockId,
+                            );
+                            const draft =
+                              rebalanceDraft[fund.id]?.[row.stockId] ??
+                              String(Math.round(row.weight * 1000) / 10);
+                            return (
+                              <label
+                                key={row.stockId}
+                                className="flex items-center gap-2 text-xs"
+                              >
+                                <span className="min-w-0 flex-1 truncate font-semibold">
+                                  {stock?.ticker ?? row.stockId}
+                                </span>
+                                <input
+                                  value={draft}
+                                  onChange={(event) => {
+                                    const value = event.target.value.replace(
+                                      /[^0-9.]/g,
+                                      "",
+                                    );
+                                    setRebalanceDraft((prev) => ({
+                                      ...prev,
+                                      [fund.id]: {
+                                        ...(prev[fund.id] ?? {}),
+                                        [row.stockId]: value,
+                                      },
+                                    }));
+                                  }}
+                                  className="w-16 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-right tabular-nums"
+                                />
+                                <span className="text-[var(--muted)]">%</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-3 rounded-xl border border-cyan-400/40 px-4 py-2 text-sm font-bold text-cyan-200"
+                          onClick={() => {
+                            const draft = rebalanceDraft[fund.id] ?? {};
+                            const next = fund.holdings.map((row) => {
+                              const raw =
+                                draft[row.stockId] ??
+                                String(Math.round(row.weight * 1000) / 10);
+                              const pct = Number(raw);
+                              return {
+                                stockId: row.stockId,
+                                weight: Number.isFinite(pct) ? pct / 100 : row.weight,
+                              };
+                            });
+                            void rebalanceAmcFund(fund.id, next).then(
+                              (result) => {
+                                setMessage(result.message);
+                                if (result.success) {
+                                  setRebalanceDraft((prev) => {
+                                    const copy = { ...prev };
+                                    delete copy[fund.id];
+                                    return copy;
+                                  });
+                                }
+                              },
+                            );
+                          }}
+                        >
+                          비중 적용 · 손바꿈
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[var(--muted)]">
+                        패시브는 수동 손바꿈이 없습니다. 목표가중은 자동 유지됩니다.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

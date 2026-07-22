@@ -570,6 +570,13 @@ export function rebalanceAmcFund(
   if (fund.status === "delisted") {
     return { success: false, message: "상장폐지된 펀드는 변경할 수 없습니다." };
   }
+  if (fund.style === "passive") {
+    return {
+      success: false,
+      message:
+        "패시브 ETF는 수동 손바꿈이 없습니다. 목표가중은 자동으로 유지됩니다.",
+    };
+  }
   const holdings = normalizeWeights(nextHoldings);
   if (!holdings) {
     return {
@@ -594,16 +601,13 @@ export function rebalanceAmcFund(
   }
   const turnoverOk =
     compositionChanged || maxDelta + 1e-12 >= AMC_TURNOVER_THRESHOLD;
-  if (fund.style === "active" && !turnoverOk) {
+  if (!turnoverOk) {
     return {
       success: false,
       message: "액티브 손바꿈은 비중 5%p 이상 조정 또는 편입/편출이 필요합니다.",
     };
   }
-  if (fund.style === "passive" && !compositionChanged && maxDelta > 1e-9) {
-    // 패시브는 추가/제거 또는 자동 리밸만 — 수동 미세 비중 튜닝은 허용하되
-    // 자동 리밸과 동일하게 기록한다(구상: 둘 다 가능).
-  }
+  // status "active" = 운영중(유예 해제). style(액티브/패시브)과는 별개.
   const updated: AmcFundState = {
     ...fund,
     holdings,
@@ -613,9 +617,7 @@ export function rebalanceAmcFund(
   };
   return {
     success: true,
-    message: turnoverOk
-      ? "리밸런싱을 반영했습니다."
-      : "구성을 업데이트했습니다.",
+    message: "리밸런싱을 반영했습니다.",
     manager: {
       ...manager,
       funds: manager.funds.map((item) => (item.id === fundId ? updated : item)),

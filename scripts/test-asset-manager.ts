@@ -291,4 +291,17 @@ assert.ok(
   passiveDivs.funds[0]!.seedNavValue < passiveCreated.fund!.seedNavValue,
 );
 
+const passiveRebalanceBlocked = rebalanceAmcFund(
+  passiveCreated.manager!,
+  passiveCreated.fund!.id,
+  [
+    { stockId: "a", weight: 0.5 },
+    { stockId: "b", weight: 0.25 },
+    { stockId: "c", weight: 0.25 },
+  ],
+  110,
+);
+assert.equal(passiveRebalanceBlocked.success, false);
+assert.ok(passiveRebalanceBlocked.message.includes("패시브"));
+
 console.log("asset manager founding · fee · compliance scenarios passed");
