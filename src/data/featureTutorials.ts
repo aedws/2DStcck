@@ -336,12 +336,12 @@ export const AMC_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const AMC_ETF_TUTORIAL_VERSION = 3;
+export const AMC_ETF_TUTORIAL_VERSION = 4;
 export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🧺",
     title: "유저 ETF 만들기",
-    body: "기업 종목을 3개 이상 골라 바스켓을 만듭니다. 패시브는 낮은 운용료·자동 리밸(수동 손바꿈 없음), 액티브는 높은 운용료 대신 30거래일마다 비중을 직접 조절해 5%p 이상 손바꿈해야 합니다.",
+    body: "기업 종목을 3개 이상 골라 바스켓을 만듭니다. 비중은 금액(가치) 비율이며 동일 좌수가 아닙니다. 패시브는 낮은 운용료로 비중을 자유롭게 고치거나 ‘동일 비중 유지’로 맞출 수 있고, 액티브는 30거래일마다 5%p 이상 손바꿈이 필요합니다.",
   },
   {
     emoji: "🌱",
@@ -371,6 +371,6 @@ export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "⚠️",
     title: "액티브 미이행 시 상폐",
-    body: "액티브는 종목별 비중(%)을 고쳐 ‘비중 적용·손바꿈’으로 반영합니다. 기한을 지키지 않으면 유예 후 상장폐지되고 보유자에게는 당시 NAV로 현금 환급됩니다. 패시브는 수동 손바꿈이 없고 목표가중만 유지됩니다. ‘운영중’은 스타일(액티브/패시브)이 아니라 펀드 상태입니다.",
+    body: "액티브는 종목별 금액 비중(%)을 고쳐 ‘비중 적용·손바꿈’으로 반영합니다. 기한을 지키지 않으면 유예 후 상장폐지되고 보유자에게는 당시 NAV로 현금 환급됩니다. 패시브는 5%p 의무 없이 비중을 자유롭게 수정하거나 ‘동일 비중 유지’로 맞출 수 있습니다. ‘운영중’은 스타일(액티브/패시브)이 아니라 펀드 상태입니다.",
   },
 ];

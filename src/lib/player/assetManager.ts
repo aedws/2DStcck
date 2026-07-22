@@ -601,13 +601,6 @@ export function rebalanceAmcFund(
   if (fund.status === "delisted") {
     return { success: false, message: "상장폐지된 펀드는 변경할 수 없습니다." };
   }
-  if (fund.style === "passive") {
-    return {
-      success: false,
-      message:
-        "패시브 ETF는 수동 손바꿈이 없습니다. 목표가중은 자동으로 유지됩니다.",
-    };
-  }
   const holdings = normalizeWeights(nextHoldings);
   if (!holdings) {
     return {
@@ -632,7 +625,8 @@ export function rebalanceAmcFund(
   }
   const turnoverOk =
     compositionChanged || maxDelta + 1e-12 >= AMC_TURNOVER_THRESHOLD;
-  if (!turnoverOk) {
+  // 액티브만 5%p 손바꿈 의무. 패시브는 금액 비중을 자유롭게 수정.
+  if (fund.style === "active" && !turnoverOk) {
     return {
       success: false,
       message: "액티브 손바꿈은 비중 5%p 이상 조정 또는 편입/편출이 필요합니다.",
@@ -648,7 +642,10 @@ export function rebalanceAmcFund(
   };
   return {
     success: true,
-    message: "리밸런싱을 반영했습니다.",
+    message:
+      fund.style === "passive"
+        ? "패시브 목표가중(금액 비중)을 반영했습니다."
+        : "리밸런싱을 반영했습니다.",
     manager: {
       ...manager,
       funds: manager.funds.map((item) => (item.id === fundId ? updated : item)),
@@ -656,6 +653,24 @@ export function rebalanceAmcFund(
     },
     fund: updated,
   };
+}
+
+/** 구성 종목 금액(가치) 동일 비중. 동일 좌수가 아님. */
+export function equalWeightHoldings(
+  holdings: { stockId: string }[],
+): AmcHoldingWeight[] | null {
+  const ids = [
+    ...new Set(
+      holdings
+        .map((row) => String(row.stockId ?? "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (ids.length < AMC_MIN_HOLDINGS || ids.length > AMC_MAX_HOLDINGS) {
+    return null;
+  }
+  const weight = 1 / ids.length;
+  return ids.map((stockId) => ({ stockId, weight }));
 }
 
 /** 패시브 고정비중 자동 복원 — 시세 드리프트 후 weight 재정규화는 목표 비중 유지로 처리(보유 비중 테이블이 곧 목표). */

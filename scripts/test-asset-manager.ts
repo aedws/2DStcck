@@ -8,6 +8,7 @@ import {
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
   createAmcFund,
+  equalWeightHoldings,
   evaluateAmcCompliance,
   foundAssetManager,
   hasMixedDividendCadences,
@@ -292,7 +293,7 @@ assert.ok(
   passiveDivs.funds[0]!.seedNavValue < passiveCreated.fund!.seedNavValue,
 );
 
-const passiveRebalanceBlocked = rebalanceAmcFund(
+const passiveRebalance = rebalanceAmcFund(
   passiveCreated.manager!,
   passiveCreated.fund!.id,
   [
@@ -302,8 +303,26 @@ const passiveRebalanceBlocked = rebalanceAmcFund(
   ],
   110,
 );
-assert.equal(passiveRebalanceBlocked.success, false);
-assert.ok(passiveRebalanceBlocked.message.includes("패시브"));
+assert.equal(passiveRebalance.success, true);
+assert.ok(passiveRebalance.fund);
+assert.equal(
+  Math.round(passiveRebalance.fund!.holdings.find((h) => h.stockId === "a")!.weight * 100),
+  50,
+);
+
+const equalized = equalWeightHoldings(passiveRebalance.fund!.holdings);
+assert.ok(equalized);
+assert.ok(equalized!.every((row) => Math.abs(row.weight - 1 / 3) < 1e-9));
+const passiveEqual = rebalanceAmcFund(
+  passiveRebalance.manager!,
+  passiveCreated.fund!.id,
+  equalized!,
+  111,
+);
+assert.equal(passiveEqual.success, true);
+assert.ok(
+  passiveEqual.fund!.holdings.every((row) => Math.abs(row.weight - 1 / 3) < 1e-9),
+);
 
 // 생성/환매는 장부가 기준 — relative≠1 이어도 NAV·seed/shares 불변 (사팔 AUM 붕괴 방지)
 {

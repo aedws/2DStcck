@@ -21,6 +21,7 @@ import {
   collectHoldingDividendCadences,
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
+  equalWeightHoldings,
   maxFeeRateForStyle,
   type AmcDividendIntervalDays,
   type AmcFundStyle,
@@ -662,7 +663,7 @@ export default function AssetManagerPage() {
                         ? ` · 손바꿈 잔여 ${sessionsLeft}거래일`
                         : ""}
                       {fund.style === "passive"
-                        ? " · 목표가중 자동유지"
+                        ? " · 금액 비중 목표"
                         : ""}
                       {graceLeft != null ? ` · 유예 ${graceLeft}거래일` : ""}
                     </p>
@@ -771,10 +772,16 @@ export default function AssetManagerPage() {
                         매도
                       </button>
                     </div>
-                    {fund.style === "active" ? (
+                    {fund.style === "active" || fund.style === "passive" ? (
                       <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-3">
                         <p className="text-xs font-bold text-cyan-200">
-                          액티브 비중 조절 (합 100% · 한 종목 5%p 이상 변경)
+                          {fund.style === "active"
+                            ? "액티브 금액 비중 조절 (합 100% · 한 종목 5%p 이상 변경)"
+                            : "패시브 금액 비중 조절 (합 100% · 동일 좌수 아님)"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[var(--muted)]">
+                          비중은 구성 종목의 금액(가치) 목표 비율입니다. 주당 매수
+                          수량이 아닙니다.
                         </p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           {fund.holdings.map((row) => {
@@ -814,43 +821,72 @@ export default function AssetManagerPage() {
                             );
                           })}
                         </div>
-                        <button
-                          type="button"
-                          className="mt-3 rounded-xl border border-cyan-400/40 px-4 py-2 text-sm font-bold text-cyan-200"
-                          onClick={() => {
-                            const draft = rebalanceDraft[fund.id] ?? {};
-                            const next = fund.holdings.map((row) => {
-                              const raw =
-                                draft[row.stockId] ??
-                                String(Math.round(row.weight * 1000) / 10);
-                              const pct = Number(raw);
-                              return {
-                                stockId: row.stockId,
-                                weight: Number.isFinite(pct) ? pct / 100 : row.weight,
-                              };
-                            });
-                            void rebalanceAmcFund(fund.id, next).then(
-                              (result) => {
-                                setMessage(result.message);
-                                if (result.success) {
-                                  setRebalanceDraft((prev) => {
-                                    const copy = { ...prev };
-                                    delete copy[fund.id];
-                                    return copy;
-                                  });
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {fund.style === "passive" && (
+                            <button
+                              type="button"
+                              className="rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-bold text-emerald-200"
+                              onClick={() => {
+                                const equal = equalWeightHoldings(fund.holdings);
+                                if (!equal) {
+                                  setMessage("구성 종목 수를 확인해 주세요.");
+                                  return;
                                 }
-                              },
-                            );
-                          }}
-                        >
-                          비중 적용 · 손바꿈
-                        </button>
+                                void rebalanceAmcFund(fund.id, equal).then(
+                                  (result) => {
+                                    setMessage(result.message);
+                                    if (result.success) {
+                                      setRebalanceDraft((prev) => {
+                                        const copy = { ...prev };
+                                        delete copy[fund.id];
+                                        return copy;
+                                      });
+                                    }
+                                  },
+                                );
+                              }}
+                            >
+                              동일 비중 유지
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="rounded-xl border border-cyan-400/40 px-4 py-2 text-sm font-bold text-cyan-200"
+                            onClick={() => {
+                              const draft = rebalanceDraft[fund.id] ?? {};
+                              const next = fund.holdings.map((row) => {
+                                const raw =
+                                  draft[row.stockId] ??
+                                  String(Math.round(row.weight * 1000) / 10);
+                                const pct = Number(raw);
+                                return {
+                                  stockId: row.stockId,
+                                  weight: Number.isFinite(pct)
+                                    ? pct / 100
+                                    : row.weight,
+                                };
+                              });
+                              void rebalanceAmcFund(fund.id, next).then(
+                                (result) => {
+                                  setMessage(result.message);
+                                  if (result.success) {
+                                    setRebalanceDraft((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[fund.id];
+                                      return copy;
+                                    });
+                                  }
+                                },
+                              );
+                            }}
+                          >
+                            {fund.style === "active"
+                              ? "비중 적용 · 손바꿈"
+                              : "비중 적용"}
+                          </button>
+                        </div>
                       </div>
-                    ) : (
-                      <p className="text-xs text-[var(--muted)]">
-                        패시브는 수동 손바꿈이 없습니다. 목표가중은 자동 유지됩니다.
-                      </p>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -1020,7 +1056,7 @@ export default function AssetManagerPage() {
         </div>
         <div className="mt-4">
           <p className="mb-2 text-xs font-semibold text-[var(--muted)]">
-            구성 종목 선택 ({selectedIds.length} · 동일가중)
+            구성 종목 선택 ({selectedIds.length} · 금액 동일비중)
           </p>
           <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
             {companyStocks.slice(0, 60).map((stock) => {
