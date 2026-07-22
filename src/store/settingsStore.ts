@@ -57,6 +57,18 @@ interface SettingsState {
   setSeasonTutorialSeen: (value: boolean) => void;
   seasonTutorialVersion: number;
   setSeasonTutorialVersion: (value: number) => void;
+  companyTutorialSeen: boolean;
+  setCompanyTutorialSeen: (value: boolean) => void;
+  companyTutorialVersion: number;
+  setCompanyTutorialVersion: (value: number) => void;
+  amcTutorialSeen: boolean;
+  setAmcTutorialSeen: (value: boolean) => void;
+  amcTutorialVersion: number;
+  setAmcTutorialVersion: (value: number) => void;
+  amcEtfTutorialSeen: boolean;
+  setAmcEtfTutorialSeen: (value: boolean) => void;
+  amcEtfTutorialVersion: number;
+  setAmcEtfTutorialVersion: (value: number) => void;
   /** 체결·현금 효과음 사용 여부 */
   soundEnabled: boolean;
   setSoundEnabled: (value: boolean) => void;
@@ -130,6 +142,23 @@ export const useSettingsStore = create<SettingsState>()(
       seasonTutorialVersion: 0,
       setSeasonTutorialVersion: (seasonTutorialVersion) =>
         set({ seasonTutorialVersion }),
+      companyTutorialSeen: false,
+      setCompanyTutorialSeen: (companyTutorialSeen) =>
+        set({ companyTutorialSeen }),
+      companyTutorialVersion: 0,
+      setCompanyTutorialVersion: (companyTutorialVersion) =>
+        set({ companyTutorialVersion }),
+      amcTutorialSeen: false,
+      setAmcTutorialSeen: (amcTutorialSeen) => set({ amcTutorialSeen }),
+      amcTutorialVersion: 0,
+      setAmcTutorialVersion: (amcTutorialVersion) =>
+        set({ amcTutorialVersion }),
+      amcEtfTutorialSeen: false,
+      setAmcEtfTutorialSeen: (amcEtfTutorialSeen) =>
+        set({ amcEtfTutorialSeen }),
+      amcEtfTutorialVersion: 0,
+      setAmcEtfTutorialVersion: (amcEtfTutorialVersion) =>
+        set({ amcEtfTutorialVersion }),
       soundEnabled: true,
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
       watchlist: [],

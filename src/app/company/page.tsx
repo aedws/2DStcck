@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import {
+  COMPANY_TUTORIAL_STEPS,
+  COMPANY_TUTORIAL_VERSION,
+} from "@/data/featureTutorials";
 import {
   formatCompactMoney,
   formatPrice,
@@ -24,6 +29,7 @@ import {
 import { submitStockRequest } from "@/lib/supabase/stockRequests";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 const FOUNDATION_STATUS_STYLE: Record<
   CompanyFoundationRequest["status"],
@@ -47,6 +53,21 @@ export default function CompanyPage() {
   const cash = useMarketStore((state) => state.cash);
   const userId = useMarketStore((state) => state.userId);
   const cloudSyncReady = useMarketStore((state) => state.cloudSyncReady);
+  const [mounted, setMounted] = useState(false);
+  const [manualTutorial, setManualTutorial] = useState(false);
+  const onboarded = useSettingsStore((state) => state.onboarded);
+  const companyTutorialSeen = useSettingsStore((state) => state.companyTutorialSeen);
+  const setCompanyTutorialSeen = useSettingsStore(
+    (state) => state.setCompanyTutorialSeen,
+  );
+  const companyTutorialVersion = useSettingsStore(
+    (state) => state.companyTutorialVersion,
+  );
+  const setCompanyTutorialVersion = useSettingsStore(
+    (state) => state.setCompanyTutorialVersion,
+  );
+  useEffect(() => setMounted(true), []);
+
   const getTotalAssets = useMarketStore((state) => state.getTotalAssets);
   const foundCompany = useMarketStore((state) => state.foundPlayerCompany);
   const prepareCapitalCall = useMarketStore(
@@ -266,9 +287,27 @@ export default function CompanyPage() {
   if (!playerCompany) {
     const eligible = netWorth >= PLAYER_COMPANY_MIN_NET_WORTH;
     const hasCash = cash >= foundingCost;
+    const showCompanyTutorial =
+      mounted &&
+      onboarded &&
+      (manualTutorial ||
+        !companyTutorialSeen ||
+        companyTutorialVersion < COMPANY_TUTORIAL_VERSION);
     return (
       <div className="mx-auto max-w-3xl pb-24">
+        {showCompanyTutorial && (
+          <FeatureTutorialModal
+            steps={COMPANY_TUTORIAL_STEPS}
+            onFinish={() => {
+              setCompanyTutorialSeen(true);
+              setCompanyTutorialVersion(COMPANY_TUTORIAL_VERSION);
+              setManualTutorial(false);
+            }}
+          />
+        )}
         <header className="mb-6 rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-500/10 to-fuchsia-500/5 p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
           <p className="text-xs font-bold text-amber-300">초고액 자금 소각 콘텐츠</p>
           <h1 className="mt-1 text-3xl font-black">🏢 회사 설립</h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
@@ -276,6 +315,15 @@ export default function CompanyPage() {
             비상장 회사를 설립합니다. 회사 가치는 순자산 랭킹에 합산되지 않으며,
             성장 성과는 프레스티지로 기록됩니다.
           </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setManualTutorial(true)}
+              className="shrink-0 rounded-xl border border-amber-400/40 px-3 py-2 text-xs font-bold text-amber-200"
+            >
+              튜토리얼
+            </button>
+          </div>
         </header>
 
         <section className="mb-5 grid gap-3 sm:grid-cols-3">

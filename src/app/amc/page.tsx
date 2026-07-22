@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import {
+  AMC_ETF_TUTORIAL_STEPS,
+  AMC_ETF_TUTORIAL_VERSION,
+  AMC_TUTORIAL_STEPS,
+  AMC_TUTORIAL_VERSION,
+} from "@/data/featureTutorials";
 import {
   AMC_ACTIVE_MAX_FEE_RATE,
   AMC_FOUNDING_BURN,
@@ -33,6 +40,7 @@ import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { isListed } from "@/lib/market/ipo";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
+import { useSettingsStore } from "@/store/settingsStore";
 
 const fieldClass =
   "w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70";
@@ -58,6 +66,28 @@ export default function AssetManagerPage() {
   const refreshListedAmcFunds = useMarketStore(
     (state) => state.refreshListedAmcFunds,
   );
+  const [mounted, setMounted] = useState(false);
+  const [manualAmcTutorial, setManualAmcTutorial] = useState(false);
+  const [manualEtfTutorial, setManualEtfTutorial] = useState(false);
+  const onboarded = useSettingsStore((state) => state.onboarded);
+  const amcTutorialSeen = useSettingsStore((state) => state.amcTutorialSeen);
+  const setAmcTutorialSeen = useSettingsStore((state) => state.setAmcTutorialSeen);
+  const amcTutorialVersion = useSettingsStore((state) => state.amcTutorialVersion);
+  const setAmcTutorialVersion = useSettingsStore(
+    (state) => state.setAmcTutorialVersion,
+  );
+  const amcEtfTutorialSeen = useSettingsStore((state) => state.amcEtfTutorialSeen);
+  const setAmcEtfTutorialSeen = useSettingsStore(
+    (state) => state.setAmcEtfTutorialSeen,
+  );
+  const amcEtfTutorialVersion = useSettingsStore(
+    (state) => state.amcEtfTutorialVersion,
+  );
+  const setAmcEtfTutorialVersion = useSettingsStore(
+    (state) => state.setAmcEtfTutorialVersion,
+  );
+  useEffect(() => setMounted(true), []);
+
 
   const [requests, setRequests] = useState<AmcFoundationRequest[] | null>(null);
   const [listingRequests, setListingRequests] = useState<AmcEtfListingRequest[]>(
@@ -310,9 +340,27 @@ export default function AssetManagerPage() {
   if (!assetManager) {
     const eligible = netWorth >= AMC_MIN_NET_WORTH;
     const formLocked = Boolean(activeRequest);
+    const showAmcTutorial =
+      mounted &&
+      onboarded &&
+      (manualAmcTutorial ||
+        !amcTutorialSeen ||
+        amcTutorialVersion < AMC_TUTORIAL_VERSION);
     return (
       <div className="mx-auto max-w-3xl pb-24">
+        {showAmcTutorial && (
+          <FeatureTutorialModal
+            steps={AMC_TUTORIAL_STEPS}
+            onFinish={() => {
+              setAmcTutorialSeen(true);
+              setAmcTutorialVersion(AMC_TUTORIAL_VERSION);
+              setManualAmcTutorial(false);
+            }}
+          />
+        )}
         <header className="mb-6 rounded-3xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
           <p className="text-xs font-bold text-emerald-300">유저 ETF · 운용료 인컴</p>
           <h1 className="mt-1 text-3xl font-black">📕 자산운용사</h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
@@ -320,6 +368,15 @@ export default function AssetManagerPage() {
             설립 즉시 $10,000가 소각되며, 상장 ETF는 이 탭에서만 보이고
             거래됩니다.
           </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setManualAmcTutorial(true)}
+              className="shrink-0 rounded-xl border border-emerald-400/40 px-3 py-2 text-xs font-bold text-emerald-200"
+            >
+              튜토리얼
+            </button>
+          </div>
         </header>
 
         {marketplaceSection}
@@ -421,9 +478,27 @@ export default function AssetManagerPage() {
   const maxFeePct =
     maxFeeRateForStyle(fundStyle) === AMC_ACTIVE_MAX_FEE_RATE ? 3 : 0.5;
 
+  const showEtfTutorial =
+    mounted &&
+    onboarded &&
+    (manualEtfTutorial ||
+      !amcEtfTutorialSeen ||
+      amcEtfTutorialVersion < AMC_ETF_TUTORIAL_VERSION);
   return (
     <div className="mx-auto max-w-4xl pb-24">
+      {showEtfTutorial && (
+        <FeatureTutorialModal
+          steps={AMC_ETF_TUTORIAL_STEPS}
+          onFinish={() => {
+            setAmcEtfTutorialSeen(true);
+            setAmcEtfTutorialVersion(AMC_ETF_TUTORIAL_VERSION);
+            setManualEtfTutorial(false);
+          }}
+        />
+      )}
       <header className="mb-5 rounded-3xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-sky-500/5 p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
         <p className="text-xs font-bold text-emerald-300">ASSET MANAGER</p>
         <h1 className="mt-1 text-3xl font-black">{assetManager.name}</h1>
         <p className="mt-2 text-sm font-semibold">{assetManager.tagline}</p>
@@ -432,6 +507,15 @@ export default function AssetManagerPage() {
             {assetManager.detail}
           </p>
         )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setManualEtfTutorial(true)}
+            className="shrink-0 rounded-xl border border-cyan-400/40 px-3 py-2 text-xs font-bold text-cyan-200"
+          >
+            ETF 튜토리얼
+          </button>
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Summary
             label="누적 소각"
@@ -658,11 +742,22 @@ export default function AssetManagerPage() {
       </section>
 
       <section className="rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">
-        <h2 className="text-lg font-bold">새 ETF 설정 · 상장 신청</h2>
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 관리자 허가
-          후 AMC 마켓에 올립니다
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold">새 ETF 설정 · 상장 신청</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 관리자 허가
+              후 AMC 마켓에 올립니다
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setManualEtfTutorial(true)}
+            className="rounded-xl border border-cyan-400/40 px-3 py-1.5 text-xs font-bold text-cyan-200"
+          >
+            가이드
+          </button>
+        </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="펀드명">
             <input

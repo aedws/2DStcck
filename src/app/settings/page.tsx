@@ -17,6 +17,12 @@ import {
   MARKET_ERA_TUTORIAL_STEPS,
   PUMP_TUTORIAL_STEPS,
   PUMP_TUTORIAL_VERSION,
+  COMPANY_TUTORIAL_STEPS,
+  COMPANY_TUTORIAL_VERSION,
+  AMC_TUTORIAL_STEPS,
+  AMC_TUTORIAL_VERSION,
+  AMC_ETF_TUTORIAL_STEPS,
+  AMC_ETF_TUTORIAL_VERSION,
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 import { SupportForms } from "@/components/market/SupportForms";
@@ -30,7 +36,10 @@ type TutorialKind =
   | "strategy"
   | "stress"
   | "market_era"
-  | "pump";
+  | "pump"
+  | "company"
+  | "amc"
+  | "amc_etf";
 
 export default function SettingsPage() {
   const [openTutorial, setOpenTutorial] = useState<TutorialKind | null>(null);
@@ -75,6 +84,22 @@ export default function SettingsPage() {
   const setPumpTutorialVersion = useSettingsStore(
     (state) => state.setPumpTutorialVersion,
   );
+  const setCompanyTutorialSeen = useSettingsStore(
+    (state) => state.setCompanyTutorialSeen,
+  );
+  const setCompanyTutorialVersion = useSettingsStore(
+    (state) => state.setCompanyTutorialVersion,
+  );
+  const setAmcTutorialSeen = useSettingsStore((state) => state.setAmcTutorialSeen);
+  const setAmcTutorialVersion = useSettingsStore(
+    (state) => state.setAmcTutorialVersion,
+  );
+  const setAmcEtfTutorialSeen = useSettingsStore(
+    (state) => state.setAmcEtfTutorialSeen,
+  );
+  const setAmcEtfTutorialVersion = useSettingsStore(
+    (state) => state.setAmcEtfTutorialVersion,
+  );
   const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   const setSoundEnabled = useSettingsStore((state) => state.setSoundEnabled);
 
@@ -97,7 +122,13 @@ export default function SettingsPage() {
                 ? MARKET_ERA_TUTORIAL_STEPS
                 : openTutorial === "pump"
                   ? PUMP_TUTORIAL_STEPS
-                  : null;
+                  : openTutorial === "company"
+                    ? COMPANY_TUTORIAL_STEPS
+                    : openTutorial === "amc"
+                      ? AMC_TUTORIAL_STEPS
+                      : openTutorial === "amc_etf"
+                        ? AMC_ETF_TUTORIAL_STEPS
+                        : null;
 
   function showTutorial(kind: TutorialKind) {
     if (kind === "mission") {
@@ -121,6 +152,15 @@ export default function SettingsPage() {
     } else if (kind === "pump") {
       setPumpTutorialSeen(false);
       setPumpTutorialVersion(0);
+    } else if (kind === "company") {
+      setCompanyTutorialSeen(false);
+      setCompanyTutorialVersion(0);
+    } else if (kind === "amc") {
+      setAmcTutorialSeen(false);
+      setAmcTutorialVersion(0);
+    } else if (kind === "amc_etf") {
+      setAmcEtfTutorialSeen(false);
+      setAmcEtfTutorialVersion(0);
     }
     setOpenTutorial(kind);
   }
@@ -147,6 +187,15 @@ export default function SettingsPage() {
     } else if (openTutorial === "pump") {
       setPumpTutorialSeen(true);
       setPumpTutorialVersion(PUMP_TUTORIAL_VERSION);
+    } else if (openTutorial === "company") {
+      setCompanyTutorialSeen(true);
+      setCompanyTutorialVersion(COMPANY_TUTORIAL_VERSION);
+    } else if (openTutorial === "amc") {
+      setAmcTutorialSeen(true);
+      setAmcTutorialVersion(AMC_TUTORIAL_VERSION);
+    } else if (openTutorial === "amc_etf") {
+      setAmcEtfTutorialSeen(true);
+      setAmcEtfTutorialVersion(AMC_ETF_TUTORIAL_VERSION);
     }
     setOpenTutorial(null);
   }
@@ -378,6 +427,54 @@ export default function SettingsPage() {
             <span className="block text-sm font-medium">급등주 튜토리얼</span>
             <span className="mt-1 block text-xs text-[var(--muted)]">
               급등주 위험과 차트·정밀주문·빠른 버튼 사용법을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("company")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-t border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🏢</span>
+            <span>
+            <span className="block text-sm font-medium">회사 설립 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              허가·20% 소각·캐피털 콜·IPO 흐름을 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("amc")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-t border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>📕</span>
+            <span>
+            <span className="block text-sm font-medium">자산운용사 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              설립 허가·$10K 소각·유저 ETF 마켓 구조를 다시 안내합니다.
+            </span>
+            </span>
+          </span>
+          <span className="text-[var(--muted)]">›</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => showTutorial("amc_etf")}
+          className="relative z-10 flex min-h-16 w-full touch-manipulation items-center justify-between border-t border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span className="text-xl" aria-hidden>🧺</span>
+            <span>
+            <span className="block text-sm font-medium">유저 ETF 생성 튜토리얼</span>
+            <span className="mt-1 block text-xs text-[var(--muted)]">
+              시드·상장 허가·AUM·운용료·랭킹 제외를 다시 안내합니다.
             </span>
             </span>
           </span>
