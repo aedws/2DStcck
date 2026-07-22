@@ -8,18 +8,38 @@ import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import { formatPrice, formatTradeTime } from "@/lib/market/engine";
 import {
+  AMC_TRADING_SESSIONS_PER_YEAR,
   amcFundStockId,
+  computePassiveAmcAnnualDividendYield,
   computeAmcFundNavPerShare,
+  resolveAmcDividendPeriodRate,
+  type AmcHoldingWeight,
 } from "@/lib/player/assetManager";
 import {
   getAmcFundPriceHistory,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
+import type { StockState } from "@/lib/types/market";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 
-const TABS = ["차트 · 구성", "펀드정보", "거래내역"] as const;
+const TABS = ["차트 · 종목정보", "펀드정보", "거래내역"] as const;
+
+const HOLDING_COLORS = [
+  "#3182f6",
+  "#f04452",
+  "#f2b94b",
+  "#2dd4bf",
+  "#a78bfa",
+  "#fb923c",
+  "#4ade80",
+  "#f472b6",
+  "#94a3b8",
+  "#38bdf8",
+  "#facc15",
+  "#c084fc",
+] as const;
 
 function validQuantity(value: string): number {
   const quantity = Number(value);
@@ -76,6 +96,21 @@ export function AmcTradeClient() {
     stockById.get(stockId)?.initialPrice ?? 0;
   const nav = fund
     ? computeAmcFundNavPerShare(fund, priceOf, initialPriceOf)
+    : 0;
+  const stockOf = (stockId: string) => stockById.get(stockId);
+  const periodDividendRate = fund
+    ? resolveAmcDividendPeriodRate(fund, priceOf, stockOf)
+    : 0;
+  const annualDividendRate = fund
+    ? fund.style === "active"
+      ? periodDividendRate *
+        (AMC_TRADING_SESSIONS_PER_YEAR /
+          Math.max(1, fund.dividendIntervalDays))
+      : computePassiveAmcAnnualDividendYield(
+          fund.holdings,
+          priceOf,
+          stockOf,
+        )
     : 0;
   const history = useMemo(
     () => (fund ? getAmcFundPriceHistory(fund, stocks) : []),
@@ -190,34 +225,54 @@ export function AmcTradeClient() {
                 averagePrice={holding?.averagePrice}
                 prevDayClose={previousPrice}
               />
-              <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+              <section
+                aria-labelledby="amc-stock-info-title"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-sm font-bold">구성 종목</h2>
+                    <h2 id="amc-stock-info-title" className="text-sm font-bold">
+                      종목 정보
+                    </h2>
                     <p className="text-[11px] text-[var(--muted)]">
-                      NAV는 아래 구성 종목의 시세와 목표 비중을 합성합니다.
+                      배당과 구성 종목 목표 비중을 현재 시세 기준으로 표시합니다.
                     </p>
                   </div>
                   <span className="text-xs text-[var(--muted)]">{fund.holdings.length}종목</span>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {fund.holdings.map((row) => {
-                    const stock = stockById.get(row.stockId);
-                    return (
-                      <Link
-                        key={row.stockId}
-                        href={`/stock/${row.stockId}`}
-                        className="flex items-center justify-between rounded-xl bg-[var(--background)] px-3 py-2 text-xs hover:ring-1 hover:ring-cyan-400/50"
-                      >
-                        <span className="min-w-0 truncate font-semibold">
-                          {stock?.name ?? row.stockId} · {stock?.ticker ?? row.stockId}
-                        </span>
-                        <span className="ml-2 tabular-nums text-cyan-300">
-                          {(row.weight * 100).toFixed(1)}%
-                        </span>
-                      </Link>
-                    );
-                  })}
+                <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
+                  <div className="rounded-xl bg-[var(--background)] p-4">
+                    <p className="text-xs font-semibold text-[var(--muted)]">배당 정보</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <DividendStat
+                        label="예상 연 배당률"
+                        value={formatRate(annualDividendRate)}
+                      />
+                      <DividendStat
+                        label="회차 지급률"
+                        value={formatRate(periodDividendRate)}
+                      />
+                    </div>
+                    <div className="mt-4 space-y-2 border-t border-[var(--border)] pt-3 text-xs">
+                      <InfoRow
+                        label="지급 주기"
+                        value={`${fund.dividendIntervalDays}거래일`}
+                      />
+                      <InfoRow
+                        label="산정 방식"
+                        value={fund.style === "active" ? "운용사 설정" : "구성 종목 가중"}
+                      />
+                    </div>
+                    <p className="mt-3 text-[11px] leading-relaxed text-[var(--muted)]">
+                      {fund.style === "active"
+                        ? "예상 연 배당률은 회차 설정률을 연간 거래일 기준으로 단순 환산한 값입니다."
+                        : "예상 연 배당률은 구성 종목의 배당·인컴 수익률을 목표 비중으로 가중한 값입니다."}
+                    </p>
+                  </div>
+                  <AmcHoldingsDonut
+                    holdings={fund.holdings}
+                    stockById={stockById}
+                  />
                 </div>
               </section>
             </div>
@@ -228,6 +283,8 @@ export function AmcTradeClient() {
               <InfoRow label="상태" value={fund.status === "active" ? "정상 거래" : fund.status === "grace" ? "유예 기간" : "상장폐지"} />
               <InfoRow label="운용 보수" value={`20거래일당 ${(fund.feeRate * 100).toFixed(2)}%`} />
               <InfoRow label="배당 주기" value={`${fund.dividendIntervalDays}거래일`} />
+              <InfoRow label="예상 연 배당률" value={formatRate(annualDividendRate)} />
+              <InfoRow label="회차 지급률" value={formatRate(periodDividendRate)} />
               <InfoRow label="유통 좌수" value={`${fund.totalShares.toLocaleString("ko-KR")}좌`} />
               <InfoRow label="내 보유" value={`${(holding?.quantity ?? 0).toLocaleString("ko-KR")}좌`} />
               <p className="border-t border-[var(--border)] pt-3 text-xs leading-relaxed text-[var(--muted)]">
@@ -314,6 +371,135 @@ export function AmcTradeClient() {
         <AccountSidebar />
       </div>
       <BottomTicker stocks={stocks} />
+    </div>
+  );
+}
+
+function formatRate(rate: number): string {
+  return `${(Math.max(0, Number.isFinite(rate) ? rate : 0) * 100).toFixed(2)}%`;
+}
+
+function DividendStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] text-[var(--muted)]">{label}</p>
+      <p className="mt-1 text-xl font-black tabular-nums text-cyan-300">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AmcHoldingsDonut({
+  holdings,
+  stockById,
+}: {
+  holdings: AmcHoldingWeight[];
+  stockById: ReadonlyMap<string, StockState>;
+}) {
+  const items = [...holdings]
+    .filter((holding) => Number.isFinite(holding.weight) && holding.weight > 0)
+    .sort((a, b) => b.weight - a.weight)
+    .map((holding, index) => ({
+      ...holding,
+      stock: stockById.get(holding.stockId),
+      color: HOLDING_COLORS[index % HOLDING_COLORS.length],
+    }));
+  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const segments = items.map((item) => {
+    const normalizedWeight = totalWeight > 0 ? item.weight / totalWeight : 0;
+    const segment = {
+      ...item,
+      dash: normalizedWeight * circumference,
+      offset,
+    };
+    offset += segment.dash;
+    return segment;
+  });
+
+  return (
+    <div className="rounded-xl bg-[var(--background)] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-[var(--muted)]">보유 비중</p>
+        <p className="text-[11px] text-[var(--muted)]">목표 비중 · 합계 100%</p>
+      </div>
+      <div className="mt-3 flex flex-col items-center gap-4 xl:flex-row xl:items-start">
+        <svg
+          width="144"
+          height="144"
+          viewBox="0 0 144 144"
+          role="img"
+          aria-label={`ETF 구성 종목 ${items.length}개의 목표 보유 비중 도넛 차트`}
+          className="shrink-0"
+        >
+          <circle
+            cx="72"
+            cy="72"
+            r={radius}
+            fill="none"
+            stroke="var(--border)"
+            strokeWidth="18"
+          />
+          <g transform="rotate(-90 72 72)">
+            {segments.map((segment) => (
+              <circle
+                key={segment.stockId}
+                cx="72"
+                cy="72"
+                r={radius}
+                fill="none"
+                stroke={segment.color}
+                strokeWidth="18"
+                strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
+                strokeDashoffset={-segment.offset}
+              />
+            ))}
+          </g>
+          <text
+            x="72"
+            y="69"
+            textAnchor="middle"
+            className="fill-[var(--foreground)] text-[18px] font-black"
+          >
+            {items.length}
+          </text>
+          <text
+            x="72"
+            y="87"
+            textAnchor="middle"
+            className="fill-[var(--muted)] text-[10px]"
+          >
+            구성 종목
+          </text>
+        </svg>
+        <ul className="grid min-w-0 flex-1 gap-1.5 self-stretch sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          {items.map((item) => (
+            <li key={item.stockId}>
+              <Link
+                href={`/stock/${item.stockId}`}
+                className="flex min-h-8 items-center gap-2 rounded-lg px-2 text-xs hover:bg-[var(--surface)]"
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="min-w-0 flex-1 truncate font-semibold">
+                  {item.stock?.name ?? item.stockId}
+                  <span className="ml-1 font-normal text-[var(--muted)]">
+                    {item.stock?.ticker ?? item.stockId}
+                  </span>
+                </span>
+                <span className="shrink-0 tabular-nums text-cyan-300">
+                  {(item.weight * 100).toFixed(1)}%
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
