@@ -4,6 +4,7 @@ import {
   candleVolumes,
   deterministicCandleVolume,
   exponentialMovingAverage,
+  resolvePreviousSessionClose,
   simpleMovingAverage,
   volumeWeightedAveragePrice,
 } from "../src/lib/market/chartIndicators";
@@ -14,6 +15,34 @@ const SESSION_MS = 60 * 60 * 1000;
 function candle(ts: number, o: number, h: number, l: number, c: number): Candle {
   return { timestamp: ts, open: o, high: h, low: l, close: c };
 }
+
+// 전일선은 현재 60분 거래일의 종가가 움직여도 고정되고, 다음 거래일에만 롤오버된다.
+const session10 = candle(10 * SESSION_MS, 100, 130, 90, 120);
+const session11 = candle(11 * SESSION_MS, 120, 220, 110, 200);
+assert.equal(
+  resolvePreviousSessionClose([session10, session11], SESSION_MS, 999),
+  120,
+);
+const movedSession11 = { ...session11, close: 250 };
+assert.equal(
+  resolvePreviousSessionClose([session10, movedSession11], SESSION_MS, 999),
+  120,
+  "30초 틱이 현재 일봉 종가를 바꿔도 전일선은 움직이지 않아야 한다",
+);
+assert.equal(
+  resolvePreviousSessionClose(
+    [session10, movedSession11, candle(12 * SESSION_MS, 250, 260, 240, 255)],
+    SESSION_MS,
+    999,
+  ),
+  250,
+  "새 60분 거래일이 시작될 때만 전일선이 직전 거래일 종가로 바뀌어야 한다",
+);
+assert.equal(
+  resolvePreviousSessionClose([session10], SESSION_MS, 999),
+  999,
+  "직전 거래일 봉이 없으면 저장된 전일 종가를 사용한다",
+);
 
 // ── 결정론 거래량: 같은 캔들 → 항상 같은 값, 항상 양수 ──
 const c1 = candle(1_000, 10_000, 10_200, 9_900, 10_100);

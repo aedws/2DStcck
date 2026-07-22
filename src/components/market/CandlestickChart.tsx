@@ -21,6 +21,7 @@ import {
   candleVolumes,
   exponentialMovingAverage,
   relativeStrengthIndex,
+  resolvePreviousSessionClose,
   simpleMovingAverage,
   volumeWeightedAveragePrice,
 } from "@/lib/market/chartIndicators";
@@ -266,6 +267,15 @@ export function CandlestickChart({
     };
   }, [visibleCandles]);
   const hasData = data.length > 0;
+  const chartPrevDayClose = useMemo(
+    () =>
+      resolvePreviousSessionClose(
+        dailyCandles ?? [],
+        SESSION_DURATION_MS,
+        prevDayClose,
+      ),
+    [dailyCandles, prevDayClose],
+  );
 
   const indicatorToggles: IndicatorToggle[] = [
     { key: "ma5", label: "이평5", active: showMa5, onToggle: () => setShowMa5((v) => !v) },
@@ -602,9 +612,9 @@ export function CandlestickChart({
       series.removePriceLine(prevCloseLineRef.current);
       prevCloseLineRef.current = null;
     }
-    if (prevDayClose && prevDayClose > 0) {
+    if (chartPrevDayClose && chartPrevDayClose > 0) {
       prevCloseLineRef.current = series.createPriceLine({
-        price: prevDayClose,
+        price: chartPrevDayClose,
         color: "#8b95a1",
         lineWidth: 1,
         lineStyle: LineStyle.Dotted,
@@ -612,7 +622,7 @@ export function CandlestickChart({
         title: "전일",
       });
     }
-  }, [averagePrice, prevDayClose, hasData]);
+  }, [averagePrice, chartPrevDayClose, hasData]);
 
   if (!hasData) {
     return (

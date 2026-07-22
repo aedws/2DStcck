@@ -18,6 +18,44 @@ export interface VolumePoint {
   up: boolean;
 }
 
+/**
+ * 가장 최근 거래일 봉은 장중 계속 움직이므로 그 직전 거래일의 마지막 종가만 반환한다.
+ * 차트 주기가 30초여도 전일선은 거래일(sessionMs) 경계에서만 한 번 갱신된다.
+ */
+export function resolvePreviousSessionClose(
+  dailyCandles: readonly Candle[],
+  sessionMs: number,
+  fallback?: number,
+): number | undefined {
+  if (!(sessionMs > 0)) return fallback;
+
+  let latestSession = Number.NEGATIVE_INFINITY;
+  const closes = new Map<number, { timestamp: number; close: number }>();
+  for (const candle of dailyCandles) {
+    if (
+      !Number.isFinite(candle.timestamp) ||
+      !Number.isFinite(candle.close) ||
+      !(candle.close > 0)
+    ) {
+      continue;
+    }
+    const session = Math.floor(candle.timestamp / sessionMs);
+    latestSession = Math.max(latestSession, session);
+    const saved = closes.get(session);
+    if (!saved || candle.timestamp >= saved.timestamp) {
+      closes.set(session, { timestamp: candle.timestamp, close: candle.close });
+    }
+  }
+
+  let previousSession = Number.NEGATIVE_INFINITY;
+  for (const session of closes.keys()) {
+    if (session < latestSession && session > previousSession) {
+      previousSession = session;
+    }
+  }
+  return closes.get(previousSession)?.close ?? fallback;
+}
+
 /** FNV-1a → [0,1). 캔들 타임스탬프로 재현 가능한 값을 뽑는다. */
 function hashUnit(seed: number): number {
   let hash = 2166136261;
