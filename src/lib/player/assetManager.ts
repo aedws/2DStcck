@@ -18,6 +18,11 @@ export const AMC_TURNOVER_THRESHOLD = 0.05;
 export const AMC_MIN_HOLDINGS = 3;
 export const AMC_MAX_HOLDINGS = 30;
 export const AMC_FUND_ID_PREFIX = "amc:" as const;
+export const AMC_DIVIDEND_INTERVALS = [5, 20, 60] as const;
+export type AmcDividendIntervalDays = (typeof AMC_DIVIDEND_INTERVALS)[number];
+/** 액티브 회차당 AUM 대비 배당률 상한 */
+export const AMC_ACTIVE_MAX_DIVIDEND_RATE = 0.05;
+export const AMC_TRADING_SESSIONS_PER_YEAR = 240;
 
 export type AmcFundStyle = "active" | "passive";
 export type AmcFundStatus = "active" | "grace" | "delisted";
@@ -33,6 +38,14 @@ export interface AmcNavPoint {
   nav: number;
   /** 벤치마크 좌당 환산(액티브, 센트). 패시브는 생략 가능 */
   benchmarkNav?: number;
+}
+
+export interface AmcDividendPoint {
+  session: number;
+  /** 좌당 배당 (센트) */
+  perShare: number;
+  /** 펀드 전체 배당 총액 (센트) — NAV 차감분 */
+  total: number;
 }
 
 export interface AmcFundState {
@@ -54,6 +67,16 @@ export interface AmcFundState {
   createdSession: number;
   lastFeeSession: number;
   lastRebalanceSession: number;
+  /** 배당 지급 주기 (5/20/60 거래일) */
+  dividendIntervalDays: AmcDividendIntervalDays;
+  /**
+   * 액티브: 회차당 AUM 대비 배당률 (0이면 배당 없음).
+   * 패시브: 무시 — 구성 종목 평균 배당률로 산출.
+   */
+  dividendRate: number;
+  lastDividendSession: number;
+  cumulativeDividendsPaid: number;
+  dividendHistory: AmcDividendPoint[];
   /** 유예 진입 세션 (없으면 null) */
   graceStartedSession: number | null;
   delistedAt?: number;
@@ -95,6 +118,10 @@ export interface CreateAmcFundInput {
   holdings: AmcHoldingWeight[];
   /** 시드 현금(센트). 10% 소각, 90% NAV */
   seedCash: number;
+  /** 배당 주기. 기본 60 */
+  dividendIntervalDays?: AmcDividendIntervalDays;
+  /** 액티브 회차 배당률. 패시브는 무시 */
+  dividendRate?: number;
 }
 
 export type AmcActionResult = {
@@ -163,6 +190,119 @@ export function maxFeeRateForStyle(style: AmcFundStyle): number {
   return style === "active"
     ? AMC_ACTIVE_MAX_FEE_RATE
     : AMC_PASSIVE_MAX_FEE_RATE;
+}
+
+export function normalizeAmcDividendInterval(
+  value: unknown,
+  fallback: AmcDividendIntervalDays = 60,
+): AmcDividendIntervalDays {
+  const number = Math.floor(Number(value));
+  if (number === 5 || number === 20 || number === 60) return number;
+  return fallback;
+}
+
+/** 구성 종목의 배당·인컴 주기(5/20/60). 배당 없으면 null. */
+export function holdingDividendCadence(stock: {
+  quarterlyDividend?: number;
+  coveredCallAnnualYield?: number;
+  coveredCallDistributionIntervalDays?: number;
+}): AmcDividendIntervalDays | null {
+  if ((stock.quarterlyDividend ?? 0) > 0) return 60;
+  if ((stock.coveredCallAnnualYield ?? 0) > 0) {
+    return normalizeAmcDividendInterval(
+      stock.coveredCallDistributionIntervalDays,
+      20,
+    );
+  }
+  return null;
+}
+
+export function collectHoldingDividendCadences(
+  holdings: AmcHoldingWeight[],
+  stockOf: (stockId: string) =>
+    | {
+        quarterlyDividend?: number;
+        coveredCallAnnualYield?: number;
+        coveredCallDistributionIntervalDays?: number;
+      }
+    | undefined,
+): AmcDividendIntervalDays[] {
+  const set = new Set<AmcDividendIntervalDays>();
+  for (const row of holdings) {
+    const cadence = holdingDividendCadence(stockOf(row.stockId) ?? {});
+    if (cadence != null) set.add(cadence);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+export function hasMixedDividendCadences(
+  holdings: AmcHoldingWeight[],
+  stockOf: (stockId: string) =>
+    | {
+        quarterlyDividend?: number;
+        coveredCallAnnualYield?: number;
+        coveredCallDistributionIntervalDays?: number;
+      }
+    | undefined,
+): boolean {
+  return collectHoldingDividendCadences(holdings, stockOf).length > 1;
+}
+
+/** 구성 비중 가중 연율 배당·인컴 수익률 (소수, 예: 0.04 = 4%). */
+export function computePassiveAmcAnnualDividendYield(
+  holdings: AmcHoldingWeight[],
+  priceOf: (stockId: string) => number,
+  stockOf: (stockId: string) =>
+    | {
+        quarterlyDividend?: number;
+        coveredCallAnnualYield?: number;
+      }
+    | undefined,
+): number {
+  let total = 0;
+  for (const row of holdings) {
+    const stock = stockOf(row.stockId);
+    const price = priceOf(row.stockId);
+    if (!stock || !(price > 0)) continue;
+    let annual = 0;
+    const quarterly = stock.quarterlyDividend ?? 0;
+    if (quarterly > 0) {
+      annual +=
+        (quarterly * (AMC_TRADING_SESSIONS_PER_YEAR / 60)) / price;
+    }
+    const cc = stock.coveredCallAnnualYield ?? 0;
+    if (cc > 0) annual += cc / 100;
+    total += row.weight * annual;
+  }
+  return Math.max(0, total);
+}
+
+/** 회차 배당률 (AUM 대비). 패시브는 평균 연율→회차 환산, 액티브는 설정값. */
+export function resolveAmcDividendPeriodRate(
+  fund: AmcFundState,
+  priceOf: (stockId: string) => number,
+  stockOf: (stockId: string) =>
+    | {
+        quarterlyDividend?: number;
+        coveredCallAnnualYield?: number;
+      }
+    | undefined,
+): number {
+  if (fund.style === "active") {
+    return Math.min(
+      AMC_ACTIVE_MAX_DIVIDEND_RATE,
+      Math.max(0, fund.dividendRate),
+    );
+  }
+  const annual = computePassiveAmcAnnualDividendYield(
+    fund.holdings,
+    priceOf,
+    stockOf,
+  );
+  return (
+    annual *
+    (fund.dividendIntervalDays / AMC_TRADING_SESSIONS_PER_YEAR)
+  );
 }
 
 /** 시드 Y → 소각액·NAV 편입액 */
@@ -351,6 +491,20 @@ export function createAmcFund(
       return { success: false, message: "액티브 펀드는 벤치마크 1개가 필요합니다." };
     }
   }
+  const dividendIntervalDays = normalizeAmcDividendInterval(
+    input.dividendIntervalDays,
+    60,
+  );
+  let dividendRate = 0;
+  if (input.style === "active") {
+    dividendRate = finiteNonNegative(input.dividendRate);
+    if (dividendRate > AMC_ACTIVE_MAX_DIVIDEND_RATE + 1e-12) {
+      return {
+        success: false,
+        message: "액티브 회차 배당률은 최대 5%입니다.",
+      };
+    }
+  }
   const seedCash = Math.round(finiteNonNegative(input.seedCash));
   if (seedCash < 100_00) {
     return { success: false, message: "시드는 최소 $100 이상이어야 합니다." };
@@ -379,6 +533,11 @@ export function createAmcFund(
     createdSession: currentSession,
     lastFeeSession: currentSession,
     lastRebalanceSession: currentSession,
+    dividendIntervalDays,
+    dividendRate,
+    lastDividendSession: currentSession,
+    cumulativeDividendsPaid: 0,
+    dividendHistory: [],
     graceStartedSession: null,
     navHistory: [{ t: now, nav: navPerShare }],
     cumulativeFeesPaid: 0,
@@ -597,6 +756,121 @@ export function settleAmcManagementFees(
   };
 }
 
+export type AmcDividendPayment = {
+  id: string;
+  fundId: string;
+  ticker: string;
+  dueSession: number;
+  perShare: number;
+  /** 펀드 전체 NAV 차감액 */
+  total: number;
+};
+
+/**
+ * 유저 ETF 배당 정산 — NAV(seedNavValue)에서 차감.
+ * 액티브는 설정 회차율, 패시브는 구성 평균 연율÷주기로 산출.
+ */
+export function settleAmcDividends(
+  funds: AmcFundState[],
+  currentSession: number,
+  priceOf: (stockId: string) => number,
+  initialPriceOf: (stockId: string) => number,
+  stockOf: (stockId: string) =>
+    | {
+        quarterlyDividend?: number;
+        coveredCallAnnualYield?: number;
+      }
+    | undefined,
+  now = Date.now(),
+): { funds: AmcFundState[]; dividendPayments: AmcDividendPayment[] } {
+  const dividendPayments: AmcDividendPayment[] = [];
+  const nextFunds = funds.map((fund) => {
+    if (fund.status === "delisted" || fund.status === "grace") return fund;
+    const interval = fund.dividendIntervalDays;
+    const elapsed = currentSession - fund.lastDividendSession;
+    const periods = Math.min(3, Math.floor(Math.max(0, elapsed) / interval));
+    if (periods <= 0) return fund;
+    let next = fund;
+    const history = [...fund.dividendHistory];
+    for (let i = 1; i <= periods; i++) {
+      const dueSession = fund.lastDividendSession + i * interval;
+      const rate = resolveAmcDividendPeriodRate(next, priceOf, stockOf);
+      if (!(rate > 0)) continue;
+      const nav = computeAmcFundNavPerShare(next, priceOf, initialPriceOf);
+      const aum = nav * next.totalShares;
+      const total = Math.max(0, Math.round(aum * rate));
+      if (total <= 0 || next.totalShares <= 0) continue;
+      const perShare = Math.max(0, Math.floor(total / next.totalShares));
+      const paidTotal = perShare * next.totalShares;
+      if (perShare <= 0 || paidTotal <= 0) continue;
+      next = {
+        ...next,
+        seedNavValue: Math.max(0, next.seedNavValue - paidTotal),
+        cumulativeDividendsPaid: next.cumulativeDividendsPaid + paidTotal,
+      };
+      history.push({ session: dueSession, perShare, total: paidTotal });
+      dividendPayments.push({
+        id: `amc-div-${next.id}-${dueSession}`,
+        fundId: next.id,
+        ticker: next.ticker,
+        dueSession,
+        perShare,
+        total: paidTotal,
+      });
+    }
+    return {
+      ...next,
+      lastDividendSession:
+        fund.lastDividendSession + periods * interval,
+      dividendHistory: history.slice(-12),
+      navHistory: [
+        ...next.navHistory,
+        {
+          t: now,
+          nav: computeAmcFundNavPerShare(next, priceOf, initialPriceOf),
+        },
+      ].slice(-120),
+    };
+  });
+  return { funds: nextFunds, dividendPayments };
+}
+
+export function settleAmcManagerDividends(
+  manager: AssetManagerState,
+  currentSession: number,
+  priceOf: (stockId: string) => number,
+  initialPriceOf: (stockId: string) => number,
+  stockOf: (stockId: string) =>
+    | {
+        quarterlyDividend?: number;
+        coveredCallAnnualYield?: number;
+      }
+    | undefined,
+  now = Date.now(),
+): {
+  manager: AssetManagerState;
+  dividendPayments: AmcDividendPayment[];
+} {
+  const settled = settleAmcDividends(
+    manager.funds,
+    currentSession,
+    priceOf,
+    initialPriceOf,
+    stockOf,
+    now,
+  );
+  return {
+    manager: {
+      ...manager,
+      funds: settled.funds,
+      lastActionAt: settled.dividendPayments.length
+        ? now
+        : manager.lastActionAt,
+    },
+    dividendPayments: settled.dividendPayments,
+  };
+}
+
 export function normalizeAssetManager(value: unknown): AssetManagerState | null {
   if (!value || typeof value !== "object") return null;
   const source = value as Partial<AssetManagerState>;
@@ -678,6 +952,35 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
     lastRebalanceSession: Math.floor(
       finiteNonNegative(source.lastRebalanceSession),
     ),
+    dividendIntervalDays: normalizeAmcDividendInterval(
+      source.dividendIntervalDays,
+      60,
+    ),
+    dividendRate: Math.min(
+      AMC_ACTIVE_MAX_DIVIDEND_RATE,
+      finiteNonNegative(source.dividendRate),
+    ),
+    lastDividendSession: Math.floor(
+      finiteNonNegative(
+        source.lastDividendSession,
+        finiteNonNegative(source.createdSession),
+      ),
+    ),
+    cumulativeDividendsPaid: finiteNonNegative(source.cumulativeDividendsPaid),
+    dividendHistory: Array.isArray(source.dividendHistory)
+      ? source.dividendHistory
+          .map((point) => {
+            if (!point || typeof point !== "object") return null;
+            const row = point as AmcDividendPoint;
+            const perShare = Math.floor(finiteNonNegative(row.perShare));
+            const total = Math.round(finiteNonNegative(row.total));
+            const session = Math.floor(finiteNonNegative(row.session));
+            if (perShare <= 0 || total <= 0) return null;
+            return { session, perShare, total };
+          })
+          .filter((point): point is AmcDividendPoint => point !== null)
+          .slice(-12)
+      : [],
     graceStartedSession:
       source.graceStartedSession == null
         ? null

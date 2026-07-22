@@ -293,6 +293,7 @@ import {
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
   settleAmcManagementFees,
+  settleAmcManagerDividends,
   type AmcHoldingWeight,
   type AssetManagerState,
   type CreateAmcFundInput,
@@ -306,6 +307,7 @@ import {
 } from "@/lib/supabase/amcEtfListingRequests";
 import {
   adjustAmcListedShares,
+  applyAmcListedDividend,
   applyAmcListedManagementFee,
   fetchListedAmcFundsByIds,
   fetchLiveListedAmcFunds,
@@ -2709,6 +2711,102 @@ export const useMarketStore = create<MarketStore>()(
                   }));
                 }
               });
+            }
+          }
+          const stockOfAmc = (stockId: string) =>
+            combinedStocks.find((stock) => stock.id === stockId);
+          const divSettle = settleAmcManagerDividends(
+            assetManager,
+            currentSession,
+            priceOfAmc,
+            initialPriceOfAmc,
+            stockOfAmc,
+            now,
+          );
+          assetManager = divSettle.manager;
+          for (const div of divSettle.dividendPayments) {
+            const stockId = amcFundStockId(div.fundId);
+            const holding = holdings.find((item) => item.stockId === stockId);
+            const amount = Math.round((holding?.quantity ?? 0) * div.perShare);
+            if (amount > 0 && !paidIds.has(div.id)) {
+              cash += amount;
+              cashPayments = [
+                {
+                  id: div.id,
+                  kind: "amc_dividend" as const,
+                  sourceId: div.fundId,
+                  ticker: div.ticker,
+                  dueSession: div.dueSession,
+                  quantity: holding?.quantity,
+                  amountPerShare: div.perShare,
+                  amount,
+                  timestamp: now,
+                },
+                ...cashPayments,
+              ].slice(0, 200);
+              paidIds.add(div.id);
+            }
+            const settledFund = assetManager.funds.find(
+              (item) => item.id === div.fundId,
+            );
+            if (settledFund) {
+              void applyAmcListedDividend({
+                fundId: div.fundId,
+                dueSession: div.dueSession,
+                perShare: div.perShare,
+                total: div.total,
+                newSeedNavValue: settledFund.seedNavValue,
+                newLastDividendSession: settledFund.lastDividendSession,
+                newCumulativeDividendsPaid: settledFund.cumulativeDividendsPaid,
+                dividendHistory: settledFund.dividendHistory,
+              }).then((result) => {
+                if (result.fund) {
+                  set((prev) => ({
+                    listedAmcFunds: upsertListedCache(
+                      prev.listedAmcFunds,
+                      result.fund!,
+                    ),
+                  }));
+                }
+              });
+            }
+          }
+        }
+
+        // 타 계정 상장 ETF 배당 수령 (dividendHistory 기준, 멱등)
+        {
+          const paidIds = new Set(cashPayments.map((payment) => payment.id));
+          for (const holding of holdings) {
+            const fundId = parseAmcFundId(holding.stockId);
+            if (!fundId || !(holding.quantity > 0)) continue;
+            const own = assetManager?.funds.find((item) => item.id === fundId);
+            const listed = listedAmcFunds.find((item) => item.id === fundId);
+            const history =
+              own?.dividendHistory ??
+              listed?.dividendHistory ??
+              [];
+            const ticker = own?.ticker ?? listed?.ticker;
+            for (const entry of history) {
+              const id = `amc-div-${fundId}-${entry.session}`;
+              if (paidIds.has(id)) continue;
+              const amount = Math.round(holding.quantity * entry.perShare);
+              if (amount <= 0) continue;
+              cash += amount;
+              cashPayments = [
+                {
+                  id,
+                  kind: "amc_dividend" as const,
+                  sourceId: fundId,
+                  ticker,
+                  dueSession: entry.session,
+                  quantity: holding.quantity,
+                  amountPerShare: entry.perShare,
+                  amount,
+                  timestamp: now,
+                },
+                ...cashPayments,
+              ].slice(0, 200);
+              paidIds.add(id);
             }
           }
         }

@@ -9,15 +9,20 @@ import {
   AMC_TUTORIAL_VERSION,
 } from "@/data/featureTutorials";
 import {
+  AMC_ACTIVE_MAX_DIVIDEND_RATE,
   AMC_ACTIVE_MAX_FEE_RATE,
+  AMC_DIVIDEND_INTERVALS,
   AMC_FOUNDING_BURN,
   AMC_GRACE_DAYS,
   AMC_MIN_HOLDINGS,
   AMC_MIN_NET_WORTH,
   AMC_REBALANCE_WINDOW_DAYS,
   amcFundStockId,
+  collectHoldingDividendCadences,
   computeAmcFundNavPerShare,
+  computePassiveAmcAnnualDividendYield,
   maxFeeRateForStyle,
+  type AmcDividendIntervalDays,
   type AmcFundStyle,
 } from "@/lib/player/assetManager";
 import {
@@ -106,6 +111,9 @@ export default function AssetManagerPage() {
   const [fundTicker, setFundTicker] = useState("");
   const [fundStyle, setFundStyle] = useState<AmcFundStyle>("passive");
   const [feeRatePct, setFeeRatePct] = useState("0.5");
+  const [dividendIntervalDays, setDividendIntervalDays] =
+    useState<AmcDividendIntervalDays>(60);
+  const [dividendRatePct, setDividendRatePct] = useState("0");
   const [benchmarkId, setBenchmarkId] = useState("");
   const [seedDollars, setSeedDollars] = useState("1000");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -205,6 +213,35 @@ export default function AssetManagerPage() {
     );
   }, [listedAmcFunds, assetManager]);
 
+  const selectedHoldings = useMemo(
+    () =>
+      selectedIds.map((stockId) => ({
+        stockId,
+        weight: 1 / Math.max(selectedIds.length, 1),
+      })),
+    [selectedIds],
+  );
+
+  const stockOfSelected = (stockId: string) =>
+    stocks.find((stock) => stock.id === stockId);
+
+  const holdingCadences = useMemo(
+    () => collectHoldingDividendCadences(selectedHoldings, stockOfSelected),
+    [selectedHoldings, stocks],
+  );
+
+  const mixedDividendCadences =
+    fundStyle === "passive" && holdingCadences.length > 1;
+
+  useEffect(() => {
+    if (fundStyle !== "passive") return;
+    if (holdingCadences.length === 1) {
+      setDividendIntervalDays(holdingCadences[0]!);
+    } else if (holdingCadences.length === 0) {
+      setDividendIntervalDays(60);
+    }
+  }, [fundStyle, holdingCadences]);
+
   const handleSubmitRequest = async () => {
     setSubmitting(true);
     setMessage("");
@@ -255,12 +292,16 @@ export default function AssetManagerPage() {
       benchmarkStockId: fundStyle === "active" ? benchmarkId : undefined,
       holdings: selectedIds.map((stockId) => ({ stockId, weight: equal })),
       seedCash: Math.round(Number(seedDollars) * 100),
+      dividendIntervalDays,
+      dividendRate:
+        fundStyle === "active" ? Number(dividendRatePct) / 100 : 0,
     });
     setMessage(result.message);
     if (result.success) {
       setFundName("");
       setFundTicker("");
       setSelectedIds([]);
+      setDividendRatePct("0");
       void refreshListingRequests();
       void refreshListedAmcFunds();
     }
@@ -592,7 +633,13 @@ export default function AssetManagerPage() {
                   <div>
                     <p className="text-xs text-[var(--muted)]">
                       {fund.style === "active" ? "액티브" : "패시브"} · 회차{" "}
-                      {(fund.feeRate * 100).toFixed(2)}%
+                      {(fund.feeRate * 100).toFixed(2)}% · 배당{" "}
+                      {fund.dividendIntervalDays}거래일
+                      {fund.style === "active"
+                        ? fund.dividendRate > 0
+                          ? ` · ${(fund.dividendRate * 100).toFixed(2)}%`
+                          : " · 없음"
+                        : ""}
                     </p>
                     <h3 className="text-xl font-black">
                       {fund.name}{" "}
@@ -826,6 +873,79 @@ export default function AssetManagerPage() {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
             />
           </Field>
+          {(fundStyle === "active" || mixedDividendCadences) && (
+            <Field
+              label={
+                mixedDividendCadences
+                  ? "배당 주기 (거래일 · 혼재 시 선택)"
+                  : "배당 주기 (거래일)"
+              }
+            >
+              <select
+                value={dividendIntervalDays}
+                onChange={(event) =>
+                  setDividendIntervalDays(
+                    Number(event.target.value) as AmcDividendIntervalDays,
+                  )
+                }
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+              >
+                {AMC_DIVIDEND_INTERVALS.map((days) => (
+                  <option key={days} value={days}>
+                    {days}거래일
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {fundStyle === "passive" && !mixedDividendCadences && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-xs text-[var(--muted)]">
+              배당 주기{" "}
+              <span className="font-bold text-[var(--foreground)]">
+                {dividendIntervalDays}거래일
+              </span>
+              {holdingCadences.length === 1
+                ? " (구성 인컴 주기에 맞춤)"
+                : " (배당·인컴 종목 없음 · 기본)"}
+            </div>
+          )}
+          {fundStyle === "active" ? (
+            <Field
+              label={`회차 배당률 % (NAV·≤${AMC_ACTIVE_MAX_DIVIDEND_RATE * 100}, 0=없음)`}
+            >
+              <input
+                value={dividendRatePct}
+                onChange={(event) =>
+                  setDividendRatePct(event.target.value.replace(/[^0-9.]/g, ""))
+                }
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+              />
+            </Field>
+          ) : (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-xs text-[var(--muted)] sm:col-span-2">
+              패시브 배당은 구성 종목 평균 연율로 NAV에서 지급됩니다.
+              {selectedIds.length >= AMC_MIN_HOLDINGS && (
+                <>
+                  {" "}
+                  예상 연율{" "}
+                  {(
+                    computePassiveAmcAnnualDividendYield(
+                      selectedHoldings,
+                      priceOf,
+                      stockOfSelected,
+                    ) * 100
+                  ).toFixed(2)}
+                  %.
+                </>
+              )}
+              {mixedDividendCadences && (
+                <span className="mt-1 block text-amber-200">
+                  구성에 {holdingCadences.join("·")}거래일 인컴이 섞여 있습니다.
+                  위에서 펀드 배당 주기(5/20/60)를 고르세요.
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="mt-4">
           <p className="mb-2 text-xs font-semibold text-[var(--muted)]">
@@ -900,7 +1020,8 @@ function ListedFundCard({
         <div>
           <p className="text-[11px] text-[var(--muted)]">
             {fund.managerName} · {fund.style === "active" ? "액티브" : "패시브"} ·
-            회차 {(fund.feeRate * 100).toFixed(2)}%
+            회차 {(fund.feeRate * 100).toFixed(2)}% · 배당{" "}
+            {fund.dividendIntervalDays}거래일
           </p>
           <h3 className="text-base font-black">
             {fund.name}{" "}

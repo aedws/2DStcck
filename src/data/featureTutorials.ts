@@ -336,7 +336,7 @@ export const AMC_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const AMC_ETF_TUTORIAL_VERSION = 1;
+export const AMC_ETF_TUTORIAL_VERSION = 2;
 export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🧺",
@@ -349,14 +349,24 @@ export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
     body: "시드 현금의 10%는 바로 소각되고, 90%가 펀드 NAV(순자산)로 들어갑니다. 설정과 동시에 상장 허가 신청이 들어가며, 허가 전엔 AMC 마켓에 안 뜹니다.",
   },
   {
+    emoji: "💵",
+    title: "배당은 NAV에서 지급",
+    body: "액티브는 회차 배당률(최대 5%)을 직접 설정할 수 있고, 패시브는 구성 종목의 평균 배당·인컴 연율을 따릅니다. 배당금은 펀드 NAV에서 빠져 보유자 현금으로 들어갑니다.",
+  },
+  {
+    emoji: "🗓️",
+    title: "배당 주기 5·20·60 거래일",
+    body: "펀드 배당 주기를 5/20/60거래일 중 고를 수 있습니다. 패시브에서 단기 인컴(5일)과 분기 배당(60일)이 섞이면 주기를 직접 고르고, 한 종류만 있으면 그 주기에 맞춥니다. 미지급분은 접속 시 최근 회차까지 정산됩니다.",
+  },
+  {
     emoji: "✅",
     title: "허가 → 마켓 상장 → 매매",
-    body: "관리자가 상장을 허가하면 ‘AMC 마켓에 상장’ 버튼이 열립니다. 상장 후에야 본인·다른 유저가 좌를 사고팔 수 있고, 그때부터 공유 AUM이 움직입니다.",
+    body: "관리자가 상장을 허가하면 ‘AMC 마켓에 상장’ 버튼이 열립니다. 상장 후에야 본인·다른 유저가 좌를 사고팔 수 있고, 그때부터 공유 AUM·배당이 함께 움직입니다.",
   },
   {
     emoji: "📉",
     title: "유저 ETF 좌는 랭킹 제외",
-    body: "보유한 유저 ETF 평가액은 순자산 랭킹에 넣지 않습니다. 운용료 인컴과 바스켓 성과를 노리는 별도 상품으로 생각하세요.",
+    body: "보유한 유저 ETF 평가액은 순자산 랭킹에 넣지 않습니다. 운용료·배당 인컴과 바스켓 성과를 노리는 별도 상품으로 생각하세요.",
   },
   {
     emoji: "⚠️",

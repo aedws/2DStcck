@@ -1,8 +1,10 @@
-import type {
-  AmcFundState,
-  AmcFundStyle,
-  AmcHoldingWeight,
-  AssetManagerState,
+import {
+  normalizeAmcDividendInterval,
+  type AmcDividendIntervalDays,
+  type AmcFundState,
+  type AmcFundStyle,
+  type AmcHoldingWeight,
+  type AssetManagerState,
 } from "@/lib/player/assetManager";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -34,6 +36,8 @@ export interface AmcEtfListingPayload {
   totalShares: number;
   managerName: string;
   managerTagline: string;
+  dividendIntervalDays: AmcDividendIntervalDays;
+  dividendRate: number;
 }
 
 export interface AmcEtfListingRequest {
@@ -65,6 +69,8 @@ export function serializeAmcEtfListingRequest(
     totalShares: fund.totalShares,
     managerName: manager.name,
     managerTagline: manager.tagline,
+    dividendIntervalDays: fund.dividendIntervalDays,
+    dividendRate: fund.dividendRate,
   };
   return `${AMC_ETF_LISTING_REQUEST_MARKER}\n${JSON.stringify(payload)}`;
 }
@@ -127,6 +133,11 @@ export function parseAmcEtfListingRequest(
           typeof payload.managerTagline === "string"
             ? payload.managerTagline.trim().slice(0, 80)
             : "",
+        dividendIntervalDays: normalizeAmcDividendInterval(
+          payload.dividendIntervalDays,
+          60,
+        ),
+        dividendRate: Math.max(0, Number(payload.dividendRate) || 0),
       },
       adminNote: row.admin_note,
       createdAt: row.created_at,

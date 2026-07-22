@@ -79,6 +79,8 @@ export default function HistoryPage() {
                                       ? "운용사 소각"
                                       : payment.kind === "management_fee"
                                         ? "ETF 운용료"
+                                        : payment.kind === "amc_dividend"
+                                          ? "유저 ETF 배당"
                                   : "분기 배당"}
                   </td>
                   <td className="px-4 py-3">

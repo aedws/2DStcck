@@ -302,6 +302,8 @@ export type CashPaymentKind =
   | "amc_capital"
   // 유저 ETF 운용료 수입 (NAV 차감분).
   | "management_fee"
+  // 유저 ETF 배당 (NAV 차감 → 보유자 현금).
+  | "amc_dividend"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
   | "minigame"
   // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.

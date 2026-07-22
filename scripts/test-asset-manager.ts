@@ -3,12 +3,16 @@ import {
   AMC_FOUNDING_BURN,
   AMC_MIN_NET_WORTH,
   amcFundStockId,
+  collectHoldingDividendCadences,
   computeAmcFundNavPerShare,
+  computePassiveAmcAnnualDividendYield,
   createAmcFund,
   evaluateAmcCompliance,
   foundAssetManager,
+  hasMixedDividendCadences,
   isAmcFundStockId,
   rebalanceAmcFund,
+  settleAmcDividends,
   settleAmcManagementFees,
   splitAmcSeed,
 } from "../src/lib/player/assetManager";
@@ -150,6 +154,11 @@ const listed: ListedAmcFund = {
   graceStartedSession: null,
   createdSession: created.fund!.createdSession,
   cumulativeFeesPaid: 0,
+  dividendIntervalDays: 60,
+  dividendRate: 0,
+  lastDividendSession: created.fund!.createdSession,
+  cumulativeDividendsPaid: 0,
+  dividendHistory: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -165,6 +174,121 @@ const feesOnSharedAum = settleAmcManagementFees(
 );
 assert.ok(
   feesOnSharedAum.feePayments[0]!.amount > fees.feePayments[0]!.amount,
+);
+
+const annual = computePassiveAmcAnnualDividendYield(
+  [
+    { stockId: "a", weight: 0.5 },
+    { stockId: "b", weight: 0.5 },
+  ],
+  priceOf,
+  (id) =>
+    id === "a"
+      ? { quarterlyDividend: 100 }
+      : { quarterlyDividend: 200 },
+);
+assert.ok(annual > 0);
+
+assert.deepEqual(
+  collectHoldingDividendCadences(
+    [
+      { stockId: "a", weight: 0.5 },
+      { stockId: "b", weight: 0.5 },
+    ],
+    (id) =>
+      id === "a"
+        ? { quarterlyDividend: 100 }
+        : {
+            coveredCallAnnualYield: 12,
+            coveredCallDistributionIntervalDays: 5,
+          },
+  ),
+  [5, 60],
+);
+assert.equal(
+  hasMixedDividendCadences(
+    [
+      { stockId: "a", weight: 0.5 },
+      { stockId: "b", weight: 0.5 },
+    ],
+    (id) =>
+      id === "a"
+        ? { quarterlyDividend: 100 }
+        : {
+            coveredCallAnnualYield: 12,
+            coveredCallDistributionIntervalDays: 5,
+          },
+  ),
+  true,
+);
+
+// 액티브: 회차율 설정 → NAV 차감 (좌당 1¢ 이상 되도록 충분한 요율)
+const withDiv = {
+  ...created.fund!,
+  dividendIntervalDays: 60 as const,
+  dividendRate: 0.05,
+  lastDividendSession: 100,
+  cumulativeDividendsPaid: 0,
+  dividendHistory: [],
+};
+const divs = settleAmcDividends(
+  [withDiv],
+  160,
+  priceOf,
+  initialOf,
+  () => ({ quarterlyDividend: 0 }),
+);
+assert.ok(divs.dividendPayments.length >= 1);
+assert.ok(divs.funds[0]!.seedNavValue < withDiv.seedNavValue);
+assert.ok(divs.funds[0]!.dividendHistory.length >= 1);
+assert.ok(divs.dividendPayments[0]!.perShare >= 1);
+
+// 패시브: 구성 평균 연율 → 주기 환산 배당
+const passiveCreated = createAmcFund(
+  founded.manager!,
+  {
+    name: "북방패시브",
+    ticker: "NPAS",
+    style: "passive",
+    feeRate: 0.005,
+    holdings: [
+      { stockId: "a", weight: 1 / 3 },
+      { stockId: "b", weight: 1 / 3 },
+      { stockId: "c", weight: 1 / 3 },
+    ],
+    seedCash: 5_000_000,
+    dividendIntervalDays: 5,
+  },
+  10_000_000,
+  100,
+  priceOf,
+  initialOf,
+);
+assert.equal(passiveCreated.success, true);
+const passiveDivs = settleAmcDividends(
+  [
+    {
+      ...passiveCreated.fund!,
+      lastDividendSession: 100,
+      dividendHistory: [],
+    },
+  ],
+  105,
+  priceOf,
+  initialOf,
+  (id) =>
+    id === "a"
+      ? { quarterlyDividend: 500 }
+      : id === "b"
+        ? {
+            coveredCallAnnualYield: 24,
+            coveredCallDistributionIntervalDays: 5,
+          }
+        : { quarterlyDividend: 300 },
+);
+assert.ok(passiveDivs.dividendPayments.length >= 1);
+assert.ok(
+  passiveDivs.funds[0]!.seedNavValue < passiveCreated.fund!.seedNavValue,
 );
 
 console.log("asset manager founding · fee · compliance scenarios passed");

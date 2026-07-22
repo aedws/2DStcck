@@ -1,9 +1,12 @@
 import {
+  type AmcDividendIntervalDays,
+  type AmcDividendPoint,
   type AmcFundState,
   type AmcFundStatus,
   type AmcFundStyle,
   type AmcHoldingWeight,
   type AssetManagerState,
+  normalizeAmcDividendInterval,
   normalizeWeightsSafe,
 } from "@/lib/player/assetManager";
 import { createClient } from "@/lib/supabase/client";
@@ -30,6 +33,11 @@ export interface ListedAmcFund {
   graceStartedSession: number | null;
   createdSession: number;
   cumulativeFeesPaid: number;
+  dividendIntervalDays: AmcDividendIntervalDays;
+  dividendRate: number;
+  lastDividendSession: number;
+  cumulativeDividendsPaid: number;
+  dividendHistory: AmcDividendPoint[];
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +63,11 @@ interface AmcListedFundRow {
   grace_started_session: number | null;
   created_session: number;
   cumulative_fees_paid: number;
+  dividend_interval_days?: number | null;
+  dividend_rate?: number | null;
+  last_dividend_session?: number | null;
+  cumulative_dividends_paid?: number | null;
+  dividend_history?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +85,22 @@ function parseHoldings(value: unknown): AmcHoldingWeight[] | null {
     })
     .filter((row): row is AmcHoldingWeight => row !== null);
   return normalizeWeightsSafe(rows);
+}
+
+function parseDividendHistory(value: unknown): AmcDividendPoint[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((point) => {
+      if (!point || typeof point !== "object") return null;
+      const row = point as { session?: unknown; perShare?: unknown; total?: unknown };
+      const session = Math.floor(Number(row.session));
+      const perShare = Math.floor(Number(row.perShare));
+      const total = Math.round(Number(row.total));
+      if (!Number.isFinite(session) || perShare <= 0 || total <= 0) return null;
+      return { session, perShare, total };
+    })
+    .filter((point): point is AmcDividendPoint => point !== null)
+    .slice(-12);
 }
 
 export function parseListedAmcFundRow(
@@ -121,6 +150,19 @@ export function parseListedAmcFundRow(
       0,
       Math.round(Number(row.cumulative_fees_paid) || 0),
     ),
+    dividendIntervalDays: normalizeAmcDividendInterval(
+      row.dividend_interval_days,
+      60,
+    ),
+    dividendRate: Math.max(0, Number(row.dividend_rate) || 0),
+    lastDividendSession: Math.floor(
+      Number(row.last_dividend_session ?? row.created_session) || 0,
+    ),
+    cumulativeDividendsPaid: Math.max(
+      0,
+      Math.round(Number(row.cumulative_dividends_paid) || 0),
+    ),
+    dividendHistory: parseDividendHistory(row.dividend_history),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -144,6 +186,11 @@ export function listedFundToAmcState(fund: ListedAmcFund): AmcFundState {
     createdSession: fund.createdSession,
     lastFeeSession: fund.lastFeeSession,
     lastRebalanceSession: fund.lastRebalanceSession,
+    dividendIntervalDays: fund.dividendIntervalDays,
+    dividendRate: fund.dividendRate,
+    lastDividendSession: fund.lastDividendSession,
+    cumulativeDividendsPaid: fund.cumulativeDividendsPaid,
+    dividendHistory: fund.dividendHistory,
     graceStartedSession: fund.graceStartedSession,
     navHistory: [],
     cumulativeFeesPaid: fund.cumulativeFeesPaid,
@@ -178,6 +225,11 @@ function fundToRow(
     grace_started_session: fund.graceStartedSession,
     created_session: fund.createdSession,
     cumulative_fees_paid: fund.cumulativeFeesPaid,
+    dividend_interval_days: fund.dividendIntervalDays,
+    dividend_rate: fund.dividendRate,
+    last_dividend_session: fund.lastDividendSession,
+    cumulative_dividends_paid: fund.cumulativeDividendsPaid,
+    dividend_history: fund.dividendHistory,
   };
 }
 
@@ -269,6 +321,8 @@ export async function syncAmcListedFundMeta(
       last_rebalance_session: fund.lastRebalanceSession,
       grace_started_session: fund.graceStartedSession,
       benchmark_stock_id: fund.benchmarkStockId ?? null,
+      dividend_interval_days: fund.dividendIntervalDays,
+      dividend_rate: fund.dividendRate,
       updated_at: new Date().toISOString(),
     })
     .eq("id", fund.id)
@@ -362,6 +416,45 @@ export async function applyAmcListedManagementFee(input: {
   return { success: true, message: "ok", fund: parsed };
 }
 
+
+export async function applyAmcListedDividend(input: {
+  fundId: string;
+  dueSession: number;
+  perShare: number;
+  total: number;
+  newSeedNavValue: number;
+  newLastDividendSession: number;
+  newCumulativeDividendsPaid: number;
+  dividendHistory: AmcDividendPoint[];
+}): Promise<{ success: boolean; message: string; fund?: ListedAmcFund }> {
+  const auth = await getCurrentAuth();
+  if (!auth) {
+    return { success: false, message: "로그인 후 배당을 반영할 수 있습니다." };
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("amc_apply_dividend", {
+    p_fund_id: input.fundId,
+    p_due_session: input.dueSession,
+    p_per_share: input.perShare,
+    p_total: input.total,
+    p_new_seed_nav_value: input.newSeedNavValue,
+    p_new_last_dividend_session: input.newLastDividendSession,
+    p_new_cumulative_dividends_paid: input.newCumulativeDividendsPaid,
+    p_dividend_history: input.dividendHistory,
+  });
+  if (error || !data) {
+    return {
+      success: false,
+      message: error?.message || "배당 공유 반영에 실패했습니다.",
+    };
+  }
+  const parsed = parseListedAmcFundRow(data as AmcListedFundRow);
+  if (!parsed) {
+    return { success: false, message: "배당 응답을 해석하지 못했습니다." };
+  }
+  return { success: true, message: "ok", fund: parsed };
+}
+
 /** 로컬 운용 상태를 공유 AUM(좌수·시드 NAV·수수료 회차)에 맞춘다. */
 export function mergeListedAumIntoManager(
   manager: AssetManagerState,
@@ -382,6 +475,20 @@ export function mergeListedAumIntoManager(
         fund.cumulativeFeesPaid,
         remote.cumulativeFeesPaid,
       ),
+      dividendIntervalDays: remote.dividendIntervalDays ?? fund.dividendIntervalDays,
+      dividendRate: remote.dividendRate ?? fund.dividendRate,
+      lastDividendSession: Math.max(
+        fund.lastDividendSession,
+        remote.lastDividendSession ?? 0,
+      ),
+      cumulativeDividendsPaid: Math.max(
+        fund.cumulativeDividendsPaid,
+        remote.cumulativeDividendsPaid ?? 0,
+      ),
+      dividendHistory:
+        (remote.dividendHistory?.length ?? 0) >= fund.dividendHistory.length
+          ? remote.dividendHistory ?? fund.dividendHistory
+          : fund.dividendHistory,
       status:
         remote.status === "delisted"
           ? ("delisted" as const)
@@ -398,7 +505,12 @@ export function mergeListedAumIntoManager(
       next.seedNavValue !== fund.seedNavValue ||
       next.lastFeeSession !== fund.lastFeeSession ||
       next.status !== fund.status ||
-      next.cumulativeFeesPaid !== fund.cumulativeFeesPaid
+      next.cumulativeFeesPaid !== fund.cumulativeFeesPaid ||
+      next.lastDividendSession !== fund.lastDividendSession ||
+      next.cumulativeDividendsPaid !== fund.cumulativeDividendsPaid ||
+      next.dividendIntervalDays !== fund.dividendIntervalDays ||
+      next.dividendRate !== fund.dividendRate ||
+      next.dividendHistory.length !== fund.dividendHistory.length
     ) {
       changed = true;
     }

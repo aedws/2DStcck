@@ -120,7 +120,7 @@ export function updateInvestmentMastery(
   }
 
   for (const payment of input.cashPayments) {
-    if (payment.amount <= 0 || (payment.kind !== "covered_call" && payment.kind !== "dividend")) continue;
+    if (payment.amount <= 0 || (payment.kind !== "covered_call" && payment.kind !== "dividend" && payment.kind !== "amc_dividend")) continue;
     changed = award(next, awarded, `mastery-income:${payment.id}`, "income", 15) || changed;
   }
 
