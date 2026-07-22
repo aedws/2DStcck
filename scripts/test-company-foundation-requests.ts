@@ -9,6 +9,7 @@ import {
 import type { StockRequestRow } from "../src/lib/supabase/stockRequests";
 import { recoverPlayerCompanyFromServerRecords } from "../src/lib/player/serverEntityRecovery";
 import type { CashPayment } from "../src/lib/types/market";
+import { parsePublicPlayerCompany } from "../src/lib/supabase/publicPlayerCompanies";
 
 const input = {
   name: "오로라 캐피털",
@@ -94,5 +95,34 @@ assert.equal(recovered.entity.id, "player-company-123");
 assert.equal(recovered.entity.name, input.name);
 assert.equal(recovered.entity.foundingCost, 20_000_000_000);
 assert.equal(recovered.shouldMarkShipped, true);
+
+const publicCompany = parsePublicPlayerCompany({
+  founder_game_id: "founder_01",
+  company_id: "player-company-123",
+  company_name: "오로라 캐피털",
+  ticker: "aura",
+  sector: "금융",
+  subsector: "자산 운용",
+  description: "공개 회사 소개",
+  company_status: "active",
+  founded_at: "1784682000000",
+});
+assert.ok(publicCompany);
+assert.equal(publicCompany.founderGameId, "founder_01");
+assert.equal(publicCompany.ticker, "AURA");
+assert.equal(
+  parsePublicPlayerCompany({
+    founder_game_id: "",
+    company_id: "broken",
+    company_name: "누락",
+    ticker: "NONE",
+    sector: "금융",
+    subsector: null,
+    description: null,
+    company_status: "active",
+    founded_at: null,
+  }),
+  null,
+);
 
 console.log("company foundation request serialize/parse scenarios passed");

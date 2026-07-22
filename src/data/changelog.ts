@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-22": {
     highlights: [
+      "플레이어 회사 공개 명부 — 회사 탭에서 설립자 게임 ID와 회사명·티커·업종·소개를 함께 확인합니다.",
       "회사·운용사·ETF 자동 복구 — 관리자에는 남아 있지만 실제 화면에서 사라진 설립·상장 내용을 서버 신청·결제 원장에서 되살립니다.",
       "유저 ETF 서버 정산 원장 — 운용사 미접속 중에도 운용료·배당·상폐를 처리하고 다중 기기 거래의 보유좌수·현금을 일치시킵니다.",
       "유저 ETF NAV·배당 보정 — 상장·리밸런싱 전 가격 변동과 이미 지난 배당이 뒤늦게 소급 반영되지 않도록 기준점을 고정했습니다.",
@@ -161,6 +162,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-22",
+    tag: "신규",
+    title: "플레이어 회사 공개 명부",
+    detail:
+      "회사 탭에 모든 플레이어 회사를 모아 보는 공개 명부를 추가했습니다. 설립자 게임 ID와 회사명·티커·상위/세부 업종·회사 소개·운영 상태·설립일을 보여주며, 비공개 지갑과 자산 정보는 노출하지 않습니다.",
+  },
   {
     date: "2026-07-22",
     tag: "수정",

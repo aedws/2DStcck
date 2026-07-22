@@ -27,6 +27,10 @@ import {
   type CompanyFoundationRequest,
 } from "@/lib/supabase/companyFoundationRequests";
 import { submitStockRequest } from "@/lib/supabase/stockRequests";
+import {
+  listPublicPlayerCompanies,
+  type PublicPlayerCompany,
+} from "@/lib/supabase/publicPlayerCompanies";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -101,6 +105,9 @@ export default function CompanyPage() {
   >(null);
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const [founding, setFounding] = useState(false);
+  const [publicCompanies, setPublicCompanies] = useState<
+    PublicPlayerCompany[] | null
+  >(null);
 
   const refreshFoundationRequests = async () => {
     setFoundationRequests(await listMyCompanyFoundationRequests());
@@ -113,6 +120,16 @@ export default function CompanyPage() {
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void listPublicPlayerCompanies().then((companies) => {
+      if (active) setPublicCompanies(companies);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -518,6 +535,7 @@ export default function CompanyPage() {
             </p>
           )}
         </section>
+        <PublicCompanyDirectory companies={publicCompanies} />
       </div>
     );
   }
@@ -699,7 +717,83 @@ export default function CompanyPage() {
         </p>
       )}
 
+      <PublicCompanyDirectory companies={publicCompanies} />
+
     </div>
+  );
+}
+
+function PublicCompanyDirectory({
+  companies,
+}: {
+  companies: PublicPlayerCompany[] | null;
+}) {
+  return (
+    <section className="mt-5 rounded-3xl border border-cyan-400/25 bg-[var(--surface)] p-5">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-xs font-bold text-cyan-300">PUBLIC COMPANY DIRECTORY</p>
+          <h2 className="mt-1 text-xl font-black">플레이어 회사 명부</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            누가 어떤 회사를 설립했는지 모든 이용자에게 공개됩니다.
+          </p>
+        </div>
+        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
+          {companies === null ? "불러오는 중" : `${companies.length}개 회사`}
+        </span>
+      </div>
+
+      {companies === null ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-[var(--border)] p-5 text-center text-sm text-[var(--muted)]">
+          공개 회사 명부를 불러오는 중…
+        </p>
+      ) : companies.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-[var(--border)] p-5 text-center text-sm text-[var(--muted)]">
+          아직 공개된 플레이어 회사가 없습니다.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {companies.map((company) => (
+            <article
+              key={`${company.founderGameId}:${company.companyId}`}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-cyan-300">
+                    창업주 @{company.founderGameId}
+                  </p>
+                  <h3 className="mt-1 truncate text-lg font-black">{company.name}</h3>
+                  <p className="mt-0.5 text-xs text-[var(--muted)]">
+                    {company.sector}
+                    {company.subsector ? ` · ${company.subsector}` : ""}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-lg bg-cyan-400/10 px-2.5 py-1 text-xs font-black text-cyan-200">
+                  {company.ticker}
+                </span>
+              </div>
+              {company.description && (
+                <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-[var(--muted)]">
+                  {company.description}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                <span>{STATUS_LABEL[company.status]}</span>
+                {company.foundedAt && (
+                  <>
+                    <span>·</span>
+                    <span>
+                      {new Date(company.foundedAt).toLocaleDateString("ko-KR")} 설립
+                    </span>
+                  </>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
