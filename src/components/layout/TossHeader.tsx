@@ -38,6 +38,7 @@ const navGroups = [
     items: [
       { href: "/calendar", label: "실적 캘린더" },
       { href: "/strategy", label: "전략" },
+      { href: "/averaging", label: "물타기/불타기" },
       { href: "/ipo", label: "IPO" },
       { href: "/history", label: "주문내역" },
     ],

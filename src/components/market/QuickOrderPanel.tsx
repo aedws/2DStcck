@@ -14,6 +14,8 @@ import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { toastResult } from "@/store/toastStore";
 import { playResultSound } from "@/lib/ui/sound";
+import { AveragingCalculator } from "@/components/market/AveragingCalculator";
+import Link from "next/link";
 
 const TABS = ["빠른주문", "지정가", "모으기", "주문내역"] as const;
 const LEVERAGES: MarginLeverage[] = [2, 3, 4, 5];
@@ -40,6 +42,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const [recurringInterval, setRecurringInterval] = useState<1 | 5 | 20>(5);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showAveraging, setShowAveraging] = useState(false);
 
   const buyMarket = useMarketStore((s) => s.buyMarket);
   const sellMarket = useMarketStore((s) => s.sellMarket);
@@ -525,24 +528,65 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
 
         {message && <p className="mt-3 text-center text-xs text-[var(--muted)]">{message}</p>}
 
-        {holding && holding.quantity > 0 && (
-          <div className="mt-5 space-y-2 border-t border-[var(--border)] pt-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-[var(--muted)]">보유 수량</span>
-              <span>{formatQuantity(holding.quantity)}주</span>
+        <div className="mt-5 border-t border-[var(--border)] pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold">물타기 / 불타기</p>
+              <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                추가 매수 전 새 평단을 미리 계산
+              </p>
             </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--muted)]">평균 매수가</span>
-              <span>{formatPrice(holding.averagePrice)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--muted)]">평가 손익</span>
-              <span className={upDownClass(profit)}>
-                {formatSignedMoney(profit)} {formatSignedPercent(profitPct)}
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowAveraging((open) => !open)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                showAveraging
+                  ? "bg-sky-400 text-black"
+                  : "bg-[var(--surface)] text-[var(--muted)]"
+              }`}
+            >
+              {showAveraging ? "닫기" : "계산기"}
+            </button>
           </div>
-        )}
+
+          {holding && holding.quantity > 0 && (
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-[var(--muted)]">보유 수량</span>
+                <span>{formatQuantity(holding.quantity)}주</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--muted)]">평균 매수가</span>
+                <span>{formatPrice(holding.averagePrice)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--muted)]">평가 손익</span>
+                <span className={upDownClass(profit)}>
+                  {formatSignedMoney(profit)} {formatSignedPercent(profitPct)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {showAveraging && (
+            <div className="mt-3 rounded-2xl border border-sky-400/30 bg-sky-400/5 p-3">
+              <AveragingCalculator
+                compact
+                initialQuantity={holding?.quantity}
+                initialAveragePrice={holding?.averagePrice}
+                initialAddPrice={liveStock.currentPrice}
+                markPrice={liveStock.currentPrice}
+                stockLabel={`${liveStock.name} (${liveStock.ticker})`}
+              />
+              <Link
+                href="/averaging"
+                className="mt-3 block text-center text-[11px] font-semibold text-sky-300"
+              >
+                전체 화면 계산기 →
+              </Link>
+            </div>
+          )}
+        </div>
 
         <p className="mt-4 text-center text-[11px] text-[var(--muted)]">
           현금 {formatPrice(cash)} · 매수여력 {formatPrice(buyingPower)}
