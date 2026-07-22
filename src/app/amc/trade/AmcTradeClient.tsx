@@ -21,7 +21,7 @@ import {
   type AmcHoldingWeight,
 } from "@/lib/player/assetManager";
 import {
-  getAmcFundPriceHistory,
+  getAmcFundChartSeries,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
@@ -204,13 +204,20 @@ export function AmcTradeClient() {
           stockOf,
         )
     : 0;
-  const history = useMemo(
-    () => (fund ? getAmcFundPriceHistory(fund, stocks) : []),
+  const chartSeries = useMemo(
+    () =>
+      fund
+        ? getAmcFundChartSeries(fund, stocks)
+        : {
+            candles: [],
+            dailyCandles: [],
+            history: [],
+            previousSessionClose: 0,
+          },
     [fund, stocks],
   );
-  const previousPrice = history.length > 1
-    ? history[history.length - 2]!.price
-    : history[0]?.price ?? nav;
+  const history = chartSeries.history;
+  const previousPrice = chartSeries.previousSessionClose;
   const fundTrades = trades.filter(
     (trade) => trade.stockId === amcFundStockId(fundId),
   );
@@ -304,6 +311,8 @@ export function AmcTradeClient() {
           {tab === 0 && (
             <div className="space-y-4">
               <CandlestickChart
+                candles={chartSeries.candles}
+                dailyCandles={chartSeries.dailyCandles}
                 history={history}
                 height={360}
                 mobileHeight={260}

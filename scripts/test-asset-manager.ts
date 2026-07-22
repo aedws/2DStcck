@@ -36,6 +36,7 @@ import {
 } from "../src/lib/supabase/amcEtfListingRequests";
 import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
 import {
+  getAmcFundChartSeries,
   getAmcFundPriceHistory,
   getAmcPortfolioPositions,
   getAmcPortfolioValue,
@@ -411,6 +412,75 @@ assert.equal(
   Math.round((created.fund!.seedNavValue / created.fund!.totalShares) * 2),
   "user ETF chart should synthesize NAV from constituent histories",
 );
+
+// 일반 종목과 같은 고정 OHLC를 사용 — 최근 틱 배열이 밀려도 완성 캔들과 전일선은 불변.
+{
+  const fund = created.fund!;
+  const dayStart = Math.floor(fund.createdAt / 3_600_000) * 3_600_000;
+  const fixedChartStocks = Object.entries(prices).map(([id, initialPrice]) => ({
+    id,
+    initialPrice,
+    priceHistory: [
+      { timestamp: fund.createdAt, price: initialPrice },
+      { timestamp: fund.createdAt + 1_000, price: initialPrice * 2 },
+    ],
+    candles: [
+      {
+        timestamp: fund.createdAt + 30_000,
+        open: initialPrice,
+        high: initialPrice * 1.1,
+        low: initialPrice * 0.9,
+        close: initialPrice,
+      },
+      {
+        timestamp: fund.createdAt + 60_000,
+        open: initialPrice,
+        high: initialPrice * 2.1,
+        low: initialPrice,
+        close: initialPrice * 2,
+      },
+    ],
+    dailyCandles: [
+      {
+        timestamp: dayStart,
+        open: initialPrice,
+        high: initialPrice * 1.3,
+        low: initialPrice * 0.9,
+        close: initialPrice * 1.2,
+      },
+      {
+        timestamp: dayStart + 3_600_000,
+        open: initialPrice * 1.2,
+        high: initialPrice * 2.1,
+        low: initialPrice * 1.1,
+        close: initialPrice * 2,
+      },
+    ],
+  }));
+  const series = getAmcFundChartSeries(fund, fixedChartStocks);
+  assert.equal(series.candles.length, 2);
+  assert.equal(series.dailyCandles.length, 2);
+  assert.equal(
+    series.previousSessionClose,
+    Math.round((fund.seedNavValue / fund.totalShares) * 1.2),
+  );
+
+  const movedHistory = fixedChartStocks.map((stock) => ({
+    ...stock,
+    priceHistory: [
+      ...stock.priceHistory.slice(1),
+      {
+        timestamp: fund.createdAt + 2_000,
+        price: stock.initialPrice * 3,
+      },
+    ],
+  }));
+  assert.deepEqual(
+    getAmcFundChartSeries(fund, movedHistory).candles,
+    series.candles,
+    "rolling recent ticks must not rewrite completed user ETF candles",
+  );
+}
 const merged = mergeListedAumIntoManager(created.manager!, [listed]);
 assert.equal(merged.funds[0]!.totalShares, created.fund!.totalShares + 5_000);
 const asState = listedFundToAmcState(listed);
