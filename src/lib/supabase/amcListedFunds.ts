@@ -520,6 +520,37 @@ export function mergeListedAumIntoManager(
   return changed ? { ...manager, funds } : manager;
 }
 
+/**
+ * 지갑에서 빠진 내 ETF를 상장 원장에서 복구한다.
+ * (클라우드 저장 경합 등으로 assetManager.funds 가 비어도 마켓에는 남는 경우)
+ */
+export function reconcileOwnedListedFundsIntoManager(
+  manager: AssetManagerState,
+  listed: ListedAmcFund[],
+  managerUserId: string | null | undefined,
+): AssetManagerState {
+  if (!managerUserId || !listed.length) return manager;
+  const owned = listed.filter(
+    (fund) =>
+      fund.managerUserId === managerUserId && fund.status !== "delisted",
+  );
+  if (!owned.length) return manager;
+  const existing = new Set(manager.funds.map((fund) => fund.id));
+  const missing = owned.filter((fund) => !existing.has(fund.id));
+  if (!missing.length) {
+    return mergeListedAumIntoManager(manager, listed);
+  }
+  const restored = missing.map(listedFundToAmcState);
+  return mergeListedAumIntoManager(
+    {
+      ...manager,
+      funds: [...manager.funds, ...restored],
+      lastActionAt: Date.now(),
+    },
+    listed,
+  );
+}
+
 export function upsertListedCache(
   list: ListedAmcFund[],
   fund: ListedAmcFund,

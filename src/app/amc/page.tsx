@@ -214,9 +214,12 @@ export default function AssetManagerPage() {
   const marketplaceFunds = useMemo(() => {
     const ownIds = new Set(assetManager?.funds.map((fund) => fund.id) ?? []);
     return listedAmcFunds.filter(
-      (fund) => fund.status !== "delisted" && !ownIds.has(fund.id),
+      (fund) =>
+        fund.status !== "delisted" &&
+        !ownIds.has(fund.id) &&
+        fund.managerUserId !== userId,
     );
-  }, [listedAmcFunds, assetManager]);
+  }, [listedAmcFunds, assetManager, userId]);
 
   const selectedHoldings = useMemo(
     () =>

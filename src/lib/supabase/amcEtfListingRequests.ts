@@ -6,6 +6,7 @@ import {
   type AmcHoldingWeight,
   type AssetManagerState,
 } from "@/lib/player/assetManager";
+import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { createClient } from "@/lib/supabase/client";
 import {
   getCurrentAuth,
@@ -150,6 +151,63 @@ export function parseAmcEtfListingRequest(
 
 export function isAmcEtfListingRequestRow(row: StockRequestRow): boolean {
   return parseAmcEtfListingRequest(row) !== null;
+}
+
+/** 상장 신청 페이로드로 지갑에서 사라진 펀드를 복구한다. */
+export function listingRequestToAmcState(
+  request: AmcEtfListingRequest,
+): AmcFundState {
+  const payload = request.payload;
+  const createdAt = Date.parse(request.createdAt) || Date.now();
+  const createdSession = Math.floor(createdAt / SESSION_DURATION_MS);
+  return {
+    id: payload.fundId,
+    name: request.fundName.slice(0, 40),
+    ticker: payload.ticker,
+    style: payload.style,
+    status: "active",
+    feeRate: payload.feeRate,
+    ...(payload.benchmarkStockId
+      ? { benchmarkStockId: payload.benchmarkStockId }
+      : {}),
+    holdings: payload.holdings,
+    totalShares: payload.totalShares,
+    seedNavValue: payload.seedNavValue,
+    createdAt,
+    createdSession,
+    lastFeeSession: createdSession,
+    lastRebalanceSession: createdSession,
+    dividendIntervalDays: payload.dividendIntervalDays,
+    dividendRate: payload.dividendRate,
+    lastDividendSession: createdSession,
+    cumulativeDividendsPaid: 0,
+    dividendHistory: [],
+    graceStartedSession: null,
+    navHistory: [],
+    cumulativeFeesPaid: 0,
+    listingRequestId: request.id,
+  };
+}
+
+export function reconcileOwnedListingRequestsIntoManager(
+  manager: AssetManagerState,
+  requests: AmcEtfListingRequest[],
+): AssetManagerState {
+  if (!requests.length) return manager;
+  const existing = new Set(manager.funds.map((fund) => fund.id));
+  const restored: AmcFundState[] = [];
+  for (const request of requests) {
+    if (existing.has(request.payload.fundId)) continue;
+    if (request.status === "rejected") continue;
+    restored.push(listingRequestToAmcState(request));
+    existing.add(request.payload.fundId);
+  }
+  if (!restored.length) return manager;
+  return {
+    ...manager,
+    funds: [...manager.funds, ...restored],
+    lastActionAt: Date.now(),
+  };
 }
 
 export async function submitAmcEtfListingRequest(

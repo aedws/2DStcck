@@ -726,7 +726,11 @@ export function evaluateAmcCompliance(
     return delisted;
   });
   return {
-    manager: { ...manager, funds, lastActionAt: now },
+    manager:
+      newlyDelisted.length ||
+      funds.some((fund, index) => fund !== manager.funds[index])
+        ? { ...manager, funds, lastActionAt: now }
+        : manager,
     newlyDelisted,
   };
 }

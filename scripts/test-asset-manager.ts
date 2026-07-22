@@ -21,8 +21,14 @@ import {
 import {
   listedFundToAmcState,
   mergeListedAumIntoManager,
+  reconcileOwnedListedFundsIntoManager,
   type ListedAmcFund,
 } from "../src/lib/supabase/amcListedFunds";
+import {
+  listingRequestToAmcState,
+  reconcileOwnedListingRequestsIntoManager,
+  type AmcEtfListingRequest,
+} from "../src/lib/supabase/amcEtfListingRequests";
 
 assert.deepEqual(splitAmcSeed(100_000), { burned: 10_000, navValue: 90_000 });
 
@@ -392,6 +398,80 @@ assert.ok(
   );
   const coldSold = applyAmcShareCreationRedemption(coldBought, -50_000)!;
   assert.equal(coldSold.seedNavValue, baseFund.seedNavValue);
+}
+
+// 지갑에서 빠진 내 ETF를 상장 원장·신청 페이로드에서 복구
+{
+  const emptyManager = { ...created.manager!, funds: [] };
+  const orphanListed: ListedAmcFund = {
+    id: created.fund!.id,
+    managerUserId: "owner-1",
+    managerGameId: "g1",
+    managerName: "북방운용",
+    managerTagline: "규칙을 지키는 바스켓",
+    name: created.fund!.name,
+    ticker: created.fund!.ticker,
+    style: "active",
+    feeRate: created.fund!.feeRate,
+    benchmarkStockId: "bench",
+    holdings: created.fund!.holdings,
+    totalShares: created.fund!.totalShares,
+    seedNavValue: created.fund!.seedNavValue,
+    status: "active",
+    lastFeeSession: created.fund!.lastFeeSession,
+    lastRebalanceSession: created.fund!.lastRebalanceSession,
+    graceStartedSession: null,
+    createdSession: created.fund!.createdSession,
+    cumulativeFeesPaid: 0,
+    dividendIntervalDays: 60,
+    dividendRate: 0,
+    lastDividendSession: created.fund!.createdSession,
+    cumulativeDividendsPaid: 0,
+    dividendHistory: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const restored = reconcileOwnedListedFundsIntoManager(
+    emptyManager,
+    [orphanListed],
+    "owner-1",
+  );
+  assert.equal(restored.funds.length, 1);
+  assert.equal(restored.funds[0]!.id, created.fund!.id);
+
+  const request: AmcEtfListingRequest = {
+    id: "req-restore",
+    userId: "owner-1",
+    gameId: "g1",
+    status: "pending",
+    fundName: "복구펀드",
+    payload: {
+      fundId: "missing-fund",
+      ticker: "RSTR",
+      style: "passive",
+      feeRate: 0.005,
+      holdings: [
+        { stockId: "a", weight: 1 / 3 },
+        { stockId: "b", weight: 1 / 3 },
+        { stockId: "c", weight: 1 / 3 },
+      ],
+      seedNavValue: 900_000,
+      totalShares: 10_000,
+      managerName: "북방운용",
+      managerTagline: "규칙을 지키는 바스켓",
+      dividendIntervalDays: 60,
+      dividendRate: 0,
+    },
+    adminNote: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const fromRequest = reconcileOwnedListingRequestsIntoManager(emptyManager, [
+    request,
+  ]);
+  assert.equal(fromRequest.funds.length, 1);
+  assert.equal(fromRequest.funds[0]!.ticker, "RSTR");
+  assert.equal(listingRequestToAmcState(request).listingRequestId, "req-restore");
 }
 
 console.log("asset manager founding · fee · compliance scenarios passed");

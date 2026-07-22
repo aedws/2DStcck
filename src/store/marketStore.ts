@@ -301,7 +301,9 @@ import {
 } from "@/lib/player/assetManager";
 import { verifyAmcFoundationApproval } from "@/lib/supabase/amcFoundationRequests";
 import {
+  listMyAmcEtfListingRequests,
   markAmcEtfListingShipped,
+  reconcileOwnedListingRequestsIntoManager,
   submitAmcEtfListingRequest,
   verifyAmcEtfListingApproval,
 } from "@/lib/supabase/amcEtfListingRequests";
@@ -314,6 +316,7 @@ import {
   listedFundToAmcState,
   mergeListedAumIntoManager,
   publishAmcListedFund,
+  reconcileOwnedListedFundsIntoManager,
   syncAmcListedFundMeta,
   upsertListedCache,
   type ListedAmcFund,
@@ -4181,7 +4184,22 @@ export const useMarketStore = create<MarketStore>()(
         }
         let assetManager = state.assetManager;
         if (assetManager) {
-          assetManager = mergeListedAumIntoManager(assetManager, merged);
+          // 지갑에서 빠진 내 상장 ETF 복구
+          assetManager = reconcileOwnedListedFundsIntoManager(
+            assetManager,
+            merged,
+            state.userId,
+          );
+          // 아직 미상장이지만 신청만 남은 ETF도 복구
+          try {
+            const requests = await listMyAmcEtfListingRequests();
+            assetManager = reconcileOwnedListingRequestsIntoManager(
+              assetManager,
+              requests,
+            );
+          } catch {
+            // 신청 목록 실패해도 상장 원장 복구는 유지
+          }
         }
         set({ listedAmcFunds: merged, assetManager });
       },
@@ -4282,40 +4300,21 @@ export const useMarketStore = create<MarketStore>()(
         ) {
           return { success: false, message: result.message };
         }
-        const listing = await submitAmcEtfListingRequest(
-          result.fund,
-          result.manager,
-        );
-        if (!listing.success || !listing.requestId) {
-          return {
-            success: false,
-            message: listing.message || "상장 허가 신청에 실패했습니다.",
-          };
-        }
-        const fundWithRequest = {
-          ...result.fund,
-          listingRequestId: listing.requestId,
-        };
-        const nextManager = {
-          ...result.manager,
-          funds: result.manager.funds.map((item) =>
-            item.id === fundWithRequest.id ? fundWithRequest : item,
-          ),
-        };
-        const seedStockId = amcFundStockId(fundWithRequest.id);
-        const seedQty = fundWithRequest.totalShares;
+        // 상장 신청 전에 지갑에 먼저 반영 — 신청 대기 중 유실 방지
+        const seedStockId = amcFundStockId(result.fund.id);
+        const seedQty = result.fund.totalShares;
         const nav = computeAmcFundNavPerShare(
-          fundWithRequest,
+          result.fund,
           priceOf,
           initialPriceOf,
         );
         const payments: CashPayment[] = [];
         if ((result.burned ?? 0) > 0) {
           payments.push({
-            id: `amc-seed-burn-${fundWithRequest.id}`,
+            id: `amc-seed-burn-${result.fund.id}`,
             kind: "amc_capital",
-            sourceId: fundWithRequest.id,
-            ticker: fundWithRequest.ticker,
+            sourceId: result.fund.id,
+            ticker: result.fund.ticker,
             dueSession: currentSession,
             amount: -(result.burned ?? 0),
             timestamp: now,
@@ -4331,14 +4330,14 @@ export const useMarketStore = create<MarketStore>()(
         ];
         set({
           cash: result.cash,
-          assetManager: nextManager,
+          assetManager: result.manager,
           holdings,
           cashPayments: [...payments, ...state.cashPayments].slice(0, 200),
           trades: [
             {
-              id: `amc-seed-${fundWithRequest.id}`,
+              id: `amc-seed-${result.fund.id}`,
               stockId: seedStockId,
-              ticker: fundWithRequest.ticker,
+              ticker: result.fund.ticker,
               type: "buy",
               quantity: seedQty,
               price: nav,
@@ -4348,6 +4347,35 @@ export const useMarketStore = create<MarketStore>()(
             ...state.trades,
           ].slice(0, 500) as Trade[],
         });
+        const listing = await submitAmcEtfListingRequest(
+          result.fund,
+          result.manager,
+        );
+        if (!listing.success || !listing.requestId) {
+          useToastStore.getState().push(
+            `${result.message} (상장 신청 실패: ${listing.message || "다시 신청해 주세요."})`,
+            "info",
+          );
+          return {
+            success: true,
+            message: `${result.message} 상장 허가 신청은 실패했습니다. 펀드 카드에서 다시 신청해 주세요.`,
+          };
+        }
+        const fundWithRequest = {
+          ...result.fund,
+          listingRequestId: listing.requestId,
+        };
+        const latest = get();
+        if (latest.assetManager) {
+          set({
+            assetManager: {
+              ...latest.assetManager,
+              funds: latest.assetManager.funds.map((item) =>
+                item.id === fundWithRequest.id ? fundWithRequest : item,
+              ),
+            },
+          });
+        }
         const message = `${result.message} 상장 허가 신청이 접수되었습니다.`;
         useToastStore.getState().push(message, "success");
         playSound("cash");
