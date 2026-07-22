@@ -201,6 +201,8 @@ export interface Holding {
   averagePrice: number;
   /** 유저 ETF에서 마지막으로 확인·수령한 배당 회차. 과거 배당 소급 지급 방지용. */
   amcDividendCursorSession?: number;
+  /** 유저 ETF 보유분에 마지막으로 반영한 누적 자동 분할·병합 배수. */
+  amcShareMultiplier?: number;
   /**
    * 레버리지·인버스 ETF 보유분에 마지막으로 적용된 액면분할·병합 배수.
    * 시세가 밴드를 벗어나 배수가 바뀌면 좌수 ×(신/구)·평단 ÷(신/구)로 정산한다.

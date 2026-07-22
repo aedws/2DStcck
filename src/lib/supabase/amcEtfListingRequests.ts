@@ -1,5 +1,6 @@
 import {
   normalizeAmcDividendInterval,
+  normalizeAmcShareAdjustmentRatio,
   type AmcDividendIntervalDays,
   type AmcFundState,
   type AmcFundStyle,
@@ -40,6 +41,10 @@ export interface AmcEtfListingPayload {
   managerTagline: string;
   dividendIntervalDays: AmcDividendIntervalDays;
   dividendRate: number;
+  splitTriggerPrice?: number;
+  splitRatio?: number;
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: number;
 }
 
 export interface AmcEtfListingRequest {
@@ -74,6 +79,18 @@ export function serializeAmcEtfListingRequest(
     managerTagline: manager.tagline,
     dividendIntervalDays: fund.dividendIntervalDays,
     dividendRate: fund.dividendRate,
+    ...(fund.splitTriggerPrice
+      ? {
+          splitTriggerPrice: fund.splitTriggerPrice,
+          splitRatio: fund.splitRatio,
+        }
+      : {}),
+    ...(fund.reverseSplitTriggerPrice
+      ? {
+          reverseSplitTriggerPrice: fund.reverseSplitTriggerPrice,
+          reverseSplitRatio: fund.reverseSplitRatio,
+        }
+      : {}),
   };
   return `${AMC_ETF_LISTING_REQUEST_MARKER}\n${JSON.stringify(payload)}`;
 }
@@ -146,6 +163,22 @@ export function parseAmcEtfListingRequest(
           60,
         ),
         dividendRate: Math.max(0, Number(payload.dividendRate) || 0),
+        ...(Number(payload.splitTriggerPrice) > 0
+          ? {
+              splitTriggerPrice: Math.round(Number(payload.splitTriggerPrice)),
+              splitRatio: normalizeAmcShareAdjustmentRatio(payload.splitRatio),
+            }
+          : {}),
+        ...(Number(payload.reverseSplitTriggerPrice) > 0
+          ? {
+              reverseSplitTriggerPrice: Math.round(
+                Number(payload.reverseSplitTriggerPrice),
+              ),
+              reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+                payload.reverseSplitRatio,
+              ),
+            }
+          : {}),
       },
       adminNote: row.admin_note,
       createdAt: row.created_at,
@@ -193,6 +226,21 @@ export function listingRequestToAmcState(
     graceStartedSession: null,
     navHistory: [],
     cumulativeFeesPaid: 0,
+    ...(payload.splitTriggerPrice
+      ? {
+          splitTriggerPrice: payload.splitTriggerPrice,
+          splitRatio: normalizeAmcShareAdjustmentRatio(payload.splitRatio),
+        }
+      : {}),
+    ...(payload.reverseSplitTriggerPrice
+      ? {
+          reverseSplitTriggerPrice: payload.reverseSplitTriggerPrice,
+          reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+            payload.reverseSplitRatio,
+          ),
+        }
+      : {}),
+    shareMultiplier: 1,
     listingRequestId: request.id,
   };
 }

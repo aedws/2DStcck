@@ -7,6 +7,7 @@ import {
   type AmcHoldingWeight,
   type AssetManagerState,
   normalizeAmcDividendInterval,
+  normalizeAmcShareAdjustmentRatio,
   normalizeWeightsSafe,
 } from "@/lib/player/assetManager";
 import { createClient } from "@/lib/supabase/client";
@@ -39,6 +40,12 @@ export interface ListedAmcFund {
   lastDividendSession: number;
   cumulativeDividendsPaid: number;
   dividendHistory: AmcDividendPoint[];
+  splitTriggerPrice?: number;
+  splitRatio?: number;
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: number;
+  shareMultiplier?: number;
+  lastShareAdjustmentSession?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,6 +123,12 @@ interface AmcListedFundRow {
   last_dividend_session?: number | null;
   cumulative_dividends_paid?: number | null;
   dividend_history?: unknown;
+  split_trigger_price?: number | null;
+  split_ratio?: number | null;
+  reverse_split_trigger_price?: number | null;
+  reverse_split_ratio?: number | null;
+  share_multiplier?: number | null;
+  last_share_adjustment_session?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -221,6 +234,28 @@ export function parseListedAmcFundRow(
       Math.round(Number(row.cumulative_dividends_paid) || 0),
     ),
     dividendHistory: parseDividendHistory(row.dividend_history),
+    ...(Number(row.split_trigger_price) > 0
+      ? { splitTriggerPrice: Math.round(Number(row.split_trigger_price)) }
+      : {}),
+    splitRatio: normalizeAmcShareAdjustmentRatio(row.split_ratio),
+    ...(Number(row.reverse_split_trigger_price) > 0
+      ? {
+          reverseSplitTriggerPrice: Math.round(
+            Number(row.reverse_split_trigger_price),
+          ),
+        }
+      : {}),
+    reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+      row.reverse_split_ratio,
+    ),
+    shareMultiplier: Math.max(0.000001, Number(row.share_multiplier) || 1),
+    ...(row.last_share_adjustment_session != null
+      ? {
+          lastShareAdjustmentSession: Math.floor(
+            Number(row.last_share_adjustment_session) || 0,
+          ),
+        }
+      : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -253,6 +288,24 @@ export function listedFundToAmcState(fund: ListedAmcFund): AmcFundState {
     graceStartedSession: fund.graceStartedSession,
     navHistory: [],
     cumulativeFeesPaid: fund.cumulativeFeesPaid,
+    ...(fund.splitTriggerPrice
+      ? {
+          splitTriggerPrice: fund.splitTriggerPrice,
+          splitRatio: normalizeAmcShareAdjustmentRatio(fund.splitRatio),
+        }
+      : {}),
+    ...(fund.reverseSplitTriggerPrice
+      ? {
+          reverseSplitTriggerPrice: fund.reverseSplitTriggerPrice,
+          reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+            fund.reverseSplitRatio,
+          ),
+        }
+      : {}),
+    shareMultiplier: fund.shareMultiplier ?? 1,
+    ...(fund.lastShareAdjustmentSession != null
+      ? { lastShareAdjustmentSession: fund.lastShareAdjustmentSession }
+      : {}),
   };
 }
 
@@ -290,6 +343,14 @@ function fundToRow(
     last_dividend_session: fund.lastDividendSession,
     cumulative_dividends_paid: fund.cumulativeDividendsPaid,
     dividend_history: fund.dividendHistory,
+    split_trigger_price: fund.splitTriggerPrice ?? null,
+    split_ratio: normalizeAmcShareAdjustmentRatio(fund.splitRatio),
+    reverse_split_trigger_price: fund.reverseSplitTriggerPrice ?? null,
+    reverse_split_ratio: normalizeAmcShareAdjustmentRatio(
+      fund.reverseSplitRatio,
+    ),
+    share_multiplier: Math.max(0.000001, fund.shareMultiplier ?? 1),
+    last_share_adjustment_session: fund.lastShareAdjustmentSession ?? null,
   };
 }
 
@@ -566,6 +627,30 @@ export async function settleAmcListedFund(input: {
   });
   if (error || !data) {
     console.warn("[amcListedFunds] settle failed", error?.message);
+    return null;
+  }
+  const fund = (data as { fund?: unknown }).fund;
+  return fund && typeof fund === "object"
+    ? parseListedAmcFundRow(fund as AmcListedFundRow)
+    : null;
+}
+
+export async function adjustAmcListedFundShares(input: {
+  fundId: string;
+  currentSession: number;
+  priceFactor: number;
+}): Promise<ListedAmcFund | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "amc_apply_auto_share_adjustment",
+    {
+      p_fund_id: input.fundId,
+      p_current_session: input.currentSession,
+      p_price_factor: input.priceFactor,
+    },
+  );
+  if (error || !data) {
+    console.warn("[amcListedFunds] share adjustment failed", error?.message);
     return null;
   }
   const fund = (data as { fund?: unknown }).fund;

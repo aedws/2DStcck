@@ -20,6 +20,9 @@ export const AMC_MAX_HOLDINGS = 30;
 export const AMC_FUND_ID_PREFIX = "amc:" as const;
 export const AMC_DIVIDEND_INTERVALS = [5, 20, 60] as const;
 export type AmcDividendIntervalDays = (typeof AMC_DIVIDEND_INTERVALS)[number];
+export const AMC_SHARE_ADJUSTMENT_RATIOS = [2, 5, 10] as const;
+export type AmcShareAdjustmentRatio =
+  (typeof AMC_SHARE_ADJUSTMENT_RATIOS)[number];
 /** 액티브 회차당 AUM 대비 배당률 상한 */
 export const AMC_ACTIVE_MAX_DIVIDEND_RATE = 0.05;
 export const AMC_TRADING_SESSIONS_PER_YEAR = 240;
@@ -102,6 +105,15 @@ export interface AmcFundState {
   delistedSession?: number;
   navHistory: AmcNavPoint[];
   cumulativeFeesPaid: number;
+  /** 좌당 NAV가 이 가격(센트) 이상이면 자동 분할. 없으면 비활성. */
+  splitTriggerPrice?: number;
+  splitRatio?: AmcShareAdjustmentRatio;
+  /** 좌당 NAV가 이 가격(센트) 이하이면 자동 병합. 없으면 비활성. */
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: AmcShareAdjustmentRatio;
+  /** 설립 이후 누적 좌수 배수. 2:1 분할은 ×2, 1:2 병합은 ÷2. */
+  shareMultiplier?: number;
+  lastShareAdjustmentSession?: number;
   /** stock_requests 상장 허가 신청 id (공유 마켓 상장 전) */
   listingRequestId?: string;
 }
@@ -141,6 +153,10 @@ export interface CreateAmcFundInput {
   dividendIntervalDays?: AmcDividendIntervalDays;
   /** 액티브 회차 배당률. 패시브는 무시 */
   dividendRate?: number;
+  splitTriggerPrice?: number;
+  splitRatio?: AmcShareAdjustmentRatio;
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: AmcShareAdjustmentRatio;
 }
 
 export type AmcActionResult = {
@@ -159,6 +175,18 @@ const finiteNonNegative = (value: unknown, fallback = 0) => {
 };
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+export function normalizeAmcShareAdjustmentRatio(
+  value: unknown,
+  fallback: AmcShareAdjustmentRatio = 2,
+): AmcShareAdjustmentRatio {
+  const ratio = Number(value);
+  return AMC_SHARE_ADJUSTMENT_RATIOS.includes(
+    ratio as AmcShareAdjustmentRatio,
+  )
+    ? (ratio as AmcShareAdjustmentRatio)
+    : fallback;
+}
 
 export function isAmcFundStockId(stockId: string | undefined | null): boolean {
   return Boolean(stockId && stockId.startsWith(AMC_FUND_ID_PREFIX));
@@ -594,6 +622,22 @@ export function createAmcFund(
     priceOf,
     initialPriceOf,
   );
+  const splitTriggerPrice = Math.round(
+    finiteNonNegative(input.splitTriggerPrice),
+  );
+  const reverseSplitTriggerPrice = Math.round(
+    finiteNonNegative(input.reverseSplitTriggerPrice),
+  );
+  if (
+    splitTriggerPrice > 0 &&
+    reverseSplitTriggerPrice > 0 &&
+    reverseSplitTriggerPrice >= splitTriggerPrice
+  ) {
+    return {
+      success: false,
+      message: "자동 병합 가격은 자동 분할 가격보다 낮아야 합니다.",
+    };
+  }
   const fund: AmcFundState = {
     id: fundId,
     name,
@@ -620,6 +664,21 @@ export function createAmcFund(
     graceStartedSession: null,
     navHistory: [{ t: now, nav: navPerShare }],
     cumulativeFeesPaid: 0,
+    ...(splitTriggerPrice > 0
+      ? {
+          splitTriggerPrice,
+          splitRatio: normalizeAmcShareAdjustmentRatio(input.splitRatio),
+        }
+      : {}),
+    ...(reverseSplitTriggerPrice > 0
+      ? {
+          reverseSplitTriggerPrice,
+          reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+            input.reverseSplitRatio,
+          ),
+        }
+      : {}),
+    shareMultiplier: 1,
   };
   const nextManager: AssetManagerState = {
     ...manager,
@@ -1178,6 +1237,32 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
           .slice(-120)
       : [],
     cumulativeFeesPaid: finiteNonNegative(source.cumulativeFeesPaid),
+    ...(finiteNonNegative(source.splitTriggerPrice) > 0
+      ? {
+          splitTriggerPrice: Math.round(
+            finiteNonNegative(source.splitTriggerPrice),
+          ),
+          splitRatio: normalizeAmcShareAdjustmentRatio(source.splitRatio),
+        }
+      : {}),
+    ...(finiteNonNegative(source.reverseSplitTriggerPrice) > 0
+      ? {
+          reverseSplitTriggerPrice: Math.round(
+            finiteNonNegative(source.reverseSplitTriggerPrice),
+          ),
+          reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+            source.reverseSplitRatio,
+          ),
+        }
+      : {}),
+    shareMultiplier: Math.max(0.000001, finiteNonNegative(source.shareMultiplier, 1)),
+    ...(source.lastShareAdjustmentSession != null
+      ? {
+          lastShareAdjustmentSession: Math.floor(
+            finiteNonNegative(source.lastShareAdjustmentSession),
+          ),
+        }
+      : {}),
     ...(typeof source.listingRequestId === "string" && source.listingRequestId
       ? { listingRequestId: source.listingRequestId }
       : {}),

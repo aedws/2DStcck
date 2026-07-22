@@ -99,6 +99,10 @@ const created = createAmcFund(
       { stockId: "c", weight: 0.3 },
     ],
     seedCash: 1_000_000,
+    splitTriggerPrice: 500,
+    splitRatio: 5,
+    reverseSplitTriggerPrice: 5,
+    reverseSplitRatio: 2,
   },
   founded.cash!,
   100,
@@ -109,6 +113,34 @@ assert.equal(created.success, true);
 assert.ok(created.fund);
 assert.equal(created.burned, 100_000);
 assert.ok(isAmcFundStockId(amcFundStockId(created.fund!.id)));
+assert.equal(created.fund!.splitTriggerPrice, 500);
+assert.equal(created.fund!.splitRatio, 5);
+assert.equal(created.fund!.reverseSplitTriggerPrice, 5);
+assert.equal(created.fund!.reverseSplitRatio, 2);
+assert.equal(created.fund!.shareMultiplier, 1);
+
+const invalidAdjustmentBand = createAmcFund(
+  founded.manager!,
+  {
+    name: "잘못된 액면조정",
+    ticker: "BADB",
+    style: "passive",
+    feeRate: 0.005,
+    holdings: [
+      { stockId: "a", weight: 1 / 3 },
+      { stockId: "b", weight: 1 / 3 },
+      { stockId: "c", weight: 1 / 3 },
+    ],
+    seedCash: 100_000,
+    splitTriggerPrice: 100,
+    reverseSplitTriggerPrice: 100,
+  },
+  founded.cash!,
+  100,
+  priceOf,
+  initialOf,
+);
+assert.equal(invalidAdjustmentBand.success, false);
 
 const nav = computeAmcFundNavPerShare(created.fund!, priceOf, initialOf);
 assert.ok(nav > 0);

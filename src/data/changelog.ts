@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-22": {
     highlights: [
+      "유저 ETF 설정 개선 — 기업 인버스·레버리지·곱버스·커버드콜을 구성 종목으로 고르고, 가격 기준 자동 분할·병합을 설정할 수 있습니다.",
       "플레이어 회사 공개 명부 — 회사 탭에서 설립자 게임 ID와 회사명·티커·업종·소개를 함께 확인합니다.",
       "회사·운용사·ETF 자동 복구 — 관리자에는 남아 있지만 실제 화면에서 사라진 설립·상장 내용을 서버 신청·결제 원장에서 되살립니다.",
       "유저 ETF 서버 정산 원장 — 운용사 미접속 중에도 운용료·배당·상폐를 처리하고 다중 기기 거래의 보유좌수·현금을 일치시킵니다.",
@@ -162,6 +163,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-22",
+    tag: "개선",
+    title: "유저 ETF 구성·자동 액면조정 개선",
+    detail:
+      "ETF 구성 화면에 기업 원주뿐 아니라 해당 기업의 인버스·2배 레버리지·곱버스·커버드콜 상품도 표시합니다. 티커·회사명·업종 검색, 상품 유형 필터, 선택 종목 칩과 초기화를 추가해 최대 30개 구성 종목을 빠르게 고를 수 있습니다. ETF별로 좌당 NAV가 설정 가격 이상이면 2·5·10대 1 자동 분할, 이하이면 1대 2·5·10 자동 병합하도록 선택할 수 있습니다. 조정 시 서버가 발행좌수와 모든 계정의 보유좌수를 한 트랜잭션에서 같은 배수로 바꿔 평가금액을 보존하며, 운용사가 접속하지 않아도 정산 작업이 조건을 확인합니다.",
+  },
   {
     date: "2026-07-22",
     tag: "신규",

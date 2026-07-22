@@ -40,6 +40,10 @@ const created = createAmcFund(
       { stockId: "c", weight: 1 / 3 },
     ],
     seedCash: 100_000,
+    splitTriggerPrice: 500,
+    splitRatio: 5,
+    reverseSplitTriggerPrice: 5,
+    reverseSplitRatio: 2,
   },
   founded.cash!,
   100,
@@ -73,6 +77,10 @@ assert.ok(parsed);
 assert.equal(parsed!.payload.fundId, created.fund!.id);
 assert.equal(parsed!.payload.ticker, "APRV");
 assert.equal(parsed!.status, "accepted");
+assert.equal(parsed!.payload.splitTriggerPrice, 500);
+assert.equal(parsed!.payload.splitRatio, 5);
+assert.equal(parsed!.payload.reverseSplitTriggerPrice, 5);
+assert.equal(parsed!.payload.reverseSplitRatio, 2);
 
 const foundationRequest: AmcFoundationRequest = {
   id: "amc-foundation-1",
@@ -94,6 +102,8 @@ assert.ok(recoveredManager);
 assert.equal(recoveredManager.entity.name, "허가운용");
 assert.equal(recoveredManager.entity.funds.length, 1);
 assert.equal(recoveredManager.entity.funds[0]!.ticker, "APRV");
+assert.equal(recoveredManager.entity.funds[0]!.splitTriggerPrice, 500);
+assert.equal(recoveredManager.entity.funds[0]!.reverseSplitTriggerPrice, 5);
 assert.equal(recoveredManager.shouldMarkShipped, true);
 
 console.log("amc etf listing request serialize/parse passed");

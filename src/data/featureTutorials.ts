@@ -336,8 +336,18 @@ export const AMC_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const AMC_ETF_TUTORIAL_VERSION = 4;
+export const AMC_ETF_TUTORIAL_VERSION = 5;
 export const AMC_ETF_TUTORIAL_STEPS: FeatureTutorialStep[] = [
+  {
+    emoji: "🔎",
+    title: "기업 파생상품도 한 번에 선택",
+    body: "기업 원주와 그 기업의 인버스·레버리지·곱버스·커버드콜을 검색과 상품 유형 필터로 골라 담을 수 있습니다. 선택한 종목은 위쪽 칩에서 바로 빼거나 한 번에 초기화하세요.",
+  },
+  {
+    emoji: "⚖️",
+    title: "가격 기준 자동 분할·병합",
+    body: "설정 단계에서 자동 액면조정을 켜면 좌당 NAV가 지정한 상단 가격에 닿을 때 분할하고 하단 가격에 닿을 때 병합합니다. 발행좌수와 모든 보유자의 좌수를 같은 비율로 바꾸므로 조정 직전과 직후의 평가금액은 같습니다.",
+  },
   {
     emoji: "🧺",
     title: "유저 ETF 만들기",

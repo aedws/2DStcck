@@ -321,6 +321,7 @@ import {
   verifyAmcEtfListingApproval,
 } from "@/lib/supabase/amcEtfListingRequests";
 import {
+  adjustAmcListedFundShares,
   bootstrapAmcPosition,
   fetchMyAmcLedger,
   fetchListedAmcFundsByIds,
@@ -4158,6 +4159,41 @@ export const useMarketStore = create<MarketStore>()(
             state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
           const stockOf = (stockId: string) =>
             state.stocks.find((stock) => stock.id === stockId);
+          const adjustmentFunds = merged.filter((fund) => {
+            if (
+              fund.status === "delisted" ||
+              fund.lastShareAdjustmentSession === currentSession
+            ) {
+              return false;
+            }
+            const nav = computeAmcFundNavPerShare(
+              listedFundToAmcState(fund),
+              priceOf,
+              initialPriceOf,
+            );
+            return (
+              (Boolean(fund.splitTriggerPrice) &&
+                nav >= (fund.splitTriggerPrice ?? Number.POSITIVE_INFINITY)) ||
+              (Boolean(fund.reverseSplitTriggerPrice) &&
+                nav <= (fund.reverseSplitTriggerPrice ?? 0))
+            );
+          });
+          const adjustedFunds = await Promise.all(
+            adjustmentFunds.map((fund) =>
+              adjustAmcListedFundShares({
+                fundId: fund.id,
+                currentSession,
+                priceFactor: computeAmcFundBasketPriceFactor(
+                  fund.holdings,
+                  priceOf,
+                  initialPriceOf,
+                ),
+              }),
+            ),
+          );
+          for (const adjusted of adjustedFunds) {
+            if (adjusted) merged = upsertListedCache(merged, adjusted);
+          }
           const dueFunds = merged.filter(
             (fund) =>
               fund.status !== "delisted" &&
@@ -4223,7 +4259,23 @@ export const useMarketStore = create<MarketStore>()(
             existingAmcIds.add(fundId);
             if (!ledgerById.has(fundId)) return [holding];
             const quantity = ledgerById.get(fundId) ?? 0;
-            return quantity > 1e-9 ? [{ ...holding, quantity }] : [];
+            const shareMultiplier =
+              merged.find((fund) => fund.id === fundId)?.shareMultiplier ?? 1;
+            const appliedMultiplier = holding.amcShareMultiplier ?? 1;
+            const adjustmentRatio =
+              shareMultiplier > 0 && appliedMultiplier > 0
+                ? shareMultiplier / appliedMultiplier
+                : 1;
+            return quantity > 1e-9
+              ? [
+                  {
+                    ...holding,
+                    quantity,
+                    averagePrice: holding.averagePrice / adjustmentRatio,
+                    amcShareMultiplier: shareMultiplier,
+                  },
+                ]
+              : [];
           });
           for (const position of ledger.positions) {
             if (!(position.quantity > 1e-9) || existingAmcIds.has(position.fundId)) {
@@ -4245,6 +4297,7 @@ export const useMarketStore = create<MarketStore>()(
               stockId: amcFundStockId(position.fundId),
               quantity: position.quantity,
               averagePrice: nav,
+              amcShareMultiplier: fund.shareMultiplier ?? 1,
               ...(Number.isFinite(cursor)
                 ? { amcDividendCursorSession: cursor }
                 : {}),
@@ -4509,6 +4562,7 @@ export const useMarketStore = create<MarketStore>()(
             quantity: seedQty,
             averagePrice: nav,
             amcDividendCursorSession: currentSession,
+            amcShareMultiplier: 1,
           },
         ];
         set({
@@ -4875,7 +4929,12 @@ export const useMarketStore = create<MarketStore>()(
           holdings: existing
             ? state.holdings.map((item) =>
                 item.stockId === stockId
-                  ? { ...item, quantity: newQty, averagePrice: newAvg }
+                  ? {
+                      ...item,
+                      quantity: newQty,
+                      averagePrice: newAvg,
+                      amcShareMultiplier: traded.fund!.shareMultiplier ?? 1,
+                    }
                   : item,
               )
             : [
@@ -4883,7 +4942,8 @@ export const useMarketStore = create<MarketStore>()(
                 {
                   stockId,
                   quantity: qty,
-                  averagePrice: nav,
+                  averagePrice: traded.navPerShare,
+                  amcShareMultiplier: traded.fund.shareMultiplier ?? 1,
                   ...(Number.isFinite(dividendCursorSession)
                     ? { amcDividendCursorSession: dividendCursorSession }
                     : {}),
@@ -5048,7 +5108,11 @@ export const useMarketStore = create<MarketStore>()(
             remaining > 1e-9
               ? state.holdings.map((item) =>
                   item.stockId === stockId
-                    ? { ...item, quantity: remaining }
+                    ? {
+                        ...item,
+                        quantity: remaining,
+                        amcShareMultiplier: traded.fund!.shareMultiplier ?? 1,
+                      }
                     : item,
                 )
               : state.holdings.filter((item) => item.stockId !== stockId),

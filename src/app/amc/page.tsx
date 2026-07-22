@@ -14,9 +14,11 @@ import {
   AMC_DIVIDEND_INTERVALS,
   AMC_FOUNDING_BURN,
   AMC_GRACE_DAYS,
+  AMC_MAX_HOLDINGS,
   AMC_MIN_HOLDINGS,
   AMC_MIN_NET_WORTH,
   AMC_REBALANCE_WINDOW_DAYS,
+  AMC_SHARE_ADJUSTMENT_RATIOS,
   amcFundStockId,
   collectHoldingDividendCadences,
   computeAmcFundNavPerShare,
@@ -25,6 +27,7 @@ import {
   maxFeeRateForStyle,
   type AmcDividendIntervalDays,
   type AmcFundStyle,
+  type AmcShareAdjustmentRatio,
 } from "@/lib/player/assetManager";
 import {
   AMC_FOUNDATION_STATUS_LABEL,
@@ -50,6 +53,44 @@ import { useSettingsStore } from "@/store/settingsStore";
 
 const fieldClass =
   "w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70";
+
+type AmcHoldingKind =
+  | "company"
+  | "leverage"
+  | "inverse"
+  | "inverse2"
+  | "covered-call";
+
+const AMC_HOLDING_KIND_LABEL: Record<AmcHoldingKind, string> = {
+  company: "기업",
+  leverage: "레버리지",
+  inverse: "인버스",
+  inverse2: "곱버스",
+  "covered-call": "커버드콜",
+};
+
+const AMC_HOLDING_FILTERS: Array<{
+  value: "all" | AmcHoldingKind;
+  label: string;
+}> = [
+  { value: "all", label: "전체" },
+  { value: "company", label: "기업" },
+  { value: "leverage", label: "레버리지" },
+  { value: "inverse", label: "인버스" },
+  { value: "inverse2", label: "곱버스" },
+  { value: "covered-call", label: "커버드콜" },
+];
+
+function amcHoldingKindOf(stock: {
+  coveredCallUnderlyingId?: string;
+  leverage?: number;
+}): AmcHoldingKind {
+  if (stock.coveredCallUnderlyingId) return "covered-call";
+  if (stock.leverage === -2) return "inverse2";
+  if (stock.leverage === -1) return "inverse";
+  if ((stock.leverage ?? 0) > 1) return "leverage";
+  return "company";
+}
 
 export default function AssetManagerPage() {
   const assetManager = useMarketStore((state) => state.assetManager);
@@ -118,6 +159,18 @@ export default function AssetManagerPage() {
   const [benchmarkId, setBenchmarkId] = useState("");
   const [seedDollars, setSeedDollars] = useState("1000");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [holdingSearch, setHoldingSearch] = useState("");
+  const [holdingKind, setHoldingKind] = useState<
+    "all" | AmcHoldingKind
+  >("all");
+  const [autoSplit, setAutoSplit] = useState(false);
+  const [splitPriceDollars, setSplitPriceDollars] = useState("5");
+  const [splitRatio, setSplitRatio] =
+    useState<AmcShareAdjustmentRatio>(5);
+  const [autoReverseSplit, setAutoReverseSplit] = useState(false);
+  const [reverseSplitPriceDollars, setReverseSplitPriceDollars] = useState("0.05");
+  const [reverseSplitRatio, setReverseSplitRatio] =
+    useState<AmcShareAdjustmentRatio>(2);
   const [tradeQty, setTradeQty] = useState<Record<string, string>>({});
   /** 액티브 손바꿈 초안: fundId → stockId → 비중% 문자열 */
   const [rebalanceDraft, setRebalanceDraft] = useState<
@@ -126,17 +179,58 @@ export default function AssetManagerPage() {
 
   const netWorth = getTotalAssets();
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
-
-  const companyStocks = useMemo(
-    () =>
-      stocks.filter(
-        (stock) =>
-          instrumentTypeOf(stock) === "company" &&
-          stock.currentPrice > 0 &&
-          isListed(stock),
-      ),
-    [stocks],
+  const seedCents = Math.round(Number(seedDollars) * 100);
+  const estimatedSeedNavValue = Math.round(seedCents * 0.9);
+  const estimatedInitialNav =
+    estimatedSeedNavValue > 0
+      ? Math.max(
+          1,
+          Math.round(
+            estimatedSeedNavValue /
+              Math.min(10_000, Math.max(1, estimatedSeedNavValue)),
+          ),
+        )
+      : 0;
+  const splitTriggerCents = Math.round(Number(splitPriceDollars) * 100);
+  const reverseSplitTriggerCents = Math.round(
+    Number(reverseSplitPriceDollars) * 100,
   );
+  const shareAdjustmentInvalid =
+    (autoSplit && !(splitTriggerCents > 0)) ||
+    (autoReverseSplit && !(reverseSplitTriggerCents > 0)) ||
+    (autoSplit &&
+      autoReverseSplit &&
+      reverseSplitTriggerCents >= splitTriggerCents);
+
+  const eligibleHoldingStocks = useMemo(() => {
+    const companyIds = new Set(
+      stocks
+        .filter((stock) => instrumentTypeOf(stock) === "company" && isListed(stock))
+        .map((stock) => stock.id),
+    );
+    return stocks.filter((stock) => {
+      if (!(stock.currentPrice > 0)) return false;
+      if (companyIds.has(stock.id)) return true;
+      return Boolean(
+        (stock.leverageUnderlyingId &&
+          companyIds.has(stock.leverageUnderlyingId)) ||
+          (stock.coveredCallUnderlyingId &&
+            companyIds.has(stock.coveredCallUnderlyingId)),
+      );
+    });
+  }, [stocks]);
+
+  const visibleHoldingStocks = useMemo(() => {
+    const query = holdingSearch.trim().toLowerCase();
+    return eligibleHoldingStocks.filter((stock) => {
+      const kind = amcHoldingKindOf(stock);
+      if (holdingKind !== "all" && kind !== holdingKind) return false;
+      if (!query) return true;
+      return `${stock.ticker} ${stock.name} ${stock.sector} ${stock.subsector ?? ""}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [eligibleHoldingStocks, holdingKind, holdingSearch]);
 
   const benchmarkOptions = useMemo(
     () =>
@@ -306,7 +400,7 @@ export default function AssetManagerPage() {
     setSelectedIds((prev) =>
       prev.includes(stockId)
         ? prev.filter((id) => id !== stockId)
-        : prev.length >= 12
+        : prev.length >= AMC_MAX_HOLDINGS
           ? prev
           : [...prev, stockId],
     );
@@ -323,10 +417,22 @@ export default function AssetManagerPage() {
       feeRate,
       benchmarkStockId: fundStyle === "active" ? benchmarkId : undefined,
       holdings: selectedIds.map((stockId) => ({ stockId, weight: equal })),
-      seedCash: Math.round(Number(seedDollars) * 100),
+      seedCash: seedCents,
       dividendIntervalDays,
       dividendRate:
         fundStyle === "active" ? Number(dividendRatePct) / 100 : 0,
+      ...(autoSplit
+        ? {
+            splitTriggerPrice: splitTriggerCents,
+            splitRatio,
+          }
+        : {}),
+      ...(autoReverseSplit
+        ? {
+            reverseSplitTriggerPrice: reverseSplitTriggerCents,
+            reverseSplitRatio,
+          }
+        : {}),
     });
     setMessage(result.message);
     if (result.success) {
@@ -701,6 +807,7 @@ export default function AssetManagerPage() {
                           ? `상장 ${AMC_ETF_LISTING_STATUS_LABEL[listing.status]}`
                           : "상장 미신청"}
                     </p>
+                    <ShareAdjustmentLabel fund={fund} />
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
@@ -927,8 +1034,8 @@ export default function AssetManagerPage() {
           <div>
             <h2 className="text-lg font-bold">새 ETF 설정 · 상장 신청</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              기업 종목 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90% NAV · 관리자 허가
-              후 AMC 마켓에 올립니다
+              기업·기업 파생상품 {AMC_MIN_HOLDINGS}개 이상 · 시드 10% 소각 / 90%
+              NAV · 관리자 허가 후 AMC 마켓에 올립니다
             </p>
           </div>
           <button
@@ -1007,6 +1114,110 @@ export default function AssetManagerPage() {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
             />
           </Field>
+          <div className="rounded-2xl border border-violet-400/25 bg-violet-400/5 p-4 sm:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-bold">자동 액면조정</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  예상 최초 NAV {formatPrice(estimatedInitialNav)} · 분할·병합 시 전체
+                  보유좌수만 같은 배수로 조정되고 평가금액은 유지됩니다.
+                </p>
+              </div>
+              <span className="rounded-lg bg-violet-400/10 px-2.5 py-1 text-[11px] font-bold text-violet-200">
+                선택 옵션
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+                <label className="flex items-center gap-2 text-xs font-bold">
+                  <input
+                    type="checkbox"
+                    checked={autoSplit}
+                    onChange={(event) => setAutoSplit(event.target.checked)}
+                  />
+                  일정 가격 이상 자동 분할
+                </label>
+                <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                  <input
+                    value={splitPriceDollars}
+                    onChange={(event) =>
+                      setSplitPriceDollars(
+                        event.target.value.replace(/[^0-9.]/g, ""),
+                      )
+                    }
+                    disabled={!autoSplit}
+                    aria-label="자동 분할 가격"
+                    placeholder="가격 ($)"
+                    className={fieldClass}
+                  />
+                  <select
+                    value={splitRatio}
+                    onChange={(event) =>
+                      setSplitRatio(
+                        Number(event.target.value) as AmcShareAdjustmentRatio,
+                      )
+                    }
+                    disabled={!autoSplit}
+                    aria-label="자동 분할 배수"
+                    className={fieldClass}
+                  >
+                    {AMC_SHARE_ADJUSTMENT_RATIOS.map((ratio) => (
+                      <option key={ratio} value={ratio}>
+                        {ratio}:1
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+                <label className="flex items-center gap-2 text-xs font-bold">
+                  <input
+                    type="checkbox"
+                    checked={autoReverseSplit}
+                    onChange={(event) => setAutoReverseSplit(event.target.checked)}
+                  />
+                  일정 가격 이하 자동 병합
+                </label>
+                <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
+                  <input
+                    value={reverseSplitPriceDollars}
+                    onChange={(event) =>
+                      setReverseSplitPriceDollars(
+                        event.target.value.replace(/[^0-9.]/g, ""),
+                      )
+                    }
+                    disabled={!autoReverseSplit}
+                    aria-label="자동 병합 가격"
+                    placeholder="가격 ($)"
+                    className={fieldClass}
+                  />
+                  <select
+                    value={reverseSplitRatio}
+                    onChange={(event) =>
+                      setReverseSplitRatio(
+                        Number(event.target.value) as AmcShareAdjustmentRatio,
+                      )
+                    }
+                    disabled={!autoReverseSplit}
+                    aria-label="자동 병합 배수"
+                    className={fieldClass}
+                  >
+                    {AMC_SHARE_ADJUSTMENT_RATIOS.map((ratio) => (
+                      <option key={ratio} value={ratio}>
+                        1:{ratio}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {shareAdjustmentInvalid && (
+              <p className="mt-2 text-xs font-semibold text-rose-300">
+                가격은 0보다 커야 하며, 자동 병합 가격은 자동 분할 가격보다 낮아야
+                합니다.
+              </p>
+            )}
+          </div>
           {(fundStyle === "active" || mixedDividendCadences) && (
             <Field
               label={
@@ -1082,33 +1293,102 @@ export default function AssetManagerPage() {
           )}
         </div>
         <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold text-[var(--muted)]">
-            구성 종목 선택 ({selectedIds.length} · 금액 동일비중)
-          </p>
-          <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
-            {companyStocks.slice(0, 60).map((stock) => {
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-[var(--muted)]">
+              구성 종목 선택 ({selectedIds.length}/{AMC_MAX_HOLDINGS} · 금액 동일비중)
+            </p>
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-bold text-[var(--muted)]"
+              >
+                선택 초기화
+              </button>
+            )}
+          </div>
+          <input
+            value={holdingSearch}
+            onChange={(event) => setHoldingSearch(event.target.value)}
+            placeholder="티커·회사명·업종 검색"
+            className={`${fieldClass} mt-2`}
+          />
+          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+            {AMC_HOLDING_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() => setHoldingKind(filter.value)}
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${
+                  holdingKind === filter.value
+                    ? "bg-cyan-500 text-white"
+                    : "border border-[var(--border)] bg-[var(--background)] text-[var(--muted)]"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+          {selectedIds.length > 0 && (
+            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+              {selectedIds.map((stockId) => {
+                const stock = stocks.find((item) => item.id === stockId);
+                if (!stock) return null;
+                return (
+                  <button
+                    key={stockId}
+                    type="button"
+                    onClick={() => toggleHolding(stockId)}
+                    className="shrink-0 rounded-lg bg-cyan-400/10 px-2.5 py-1 text-[11px] font-bold text-cyan-200"
+                  >
+                    {stock.ticker} ×
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-2 grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+            {visibleHoldingStocks.map((stock) => {
               const on = selectedIds.includes(stock.id);
+              const kind = amcHoldingKindOf(stock);
               return (
                 <button
                   key={stock.id}
                   type="button"
                   onClick={() => toggleHolding(stock.id)}
-                  className={`rounded-xl border px-2 py-2 text-left text-xs ${
+                  className={`rounded-xl border px-3 py-2 text-left text-xs ${
                     on
                       ? "border-cyan-400 bg-cyan-400/15 font-bold"
                       : "border-[var(--border)] bg-[var(--background)]"
                   }`}
                 >
-                  {stock.ticker}
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-black">{stock.ticker}</span>
+                    <span className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
+                      {AMC_HOLDING_KIND_LABEL[kind]}
+                    </span>
+                  </span>
+                  <span className="mt-1 block truncate text-[11px] text-[var(--muted)]">
+                    {stock.name}
+                  </span>
                 </button>
               );
             })}
+            {visibleHoldingStocks.length === 0 && (
+              <p className="col-span-full rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--muted)]">
+                검색 조건에 맞는 구성 종목이 없습니다.
+              </p>
+            )}
           </div>
         </div>
         <button
           type="button"
           onClick={() => void handleCreateFund()}
-          disabled={creating || selectedIds.length < AMC_MIN_HOLDINGS}
+          disabled={
+            creating ||
+            selectedIds.length < AMC_MIN_HOLDINGS ||
+            shareAdjustmentInvalid
+          }
           className="mt-4 min-h-12 w-full rounded-2xl bg-cyan-500 px-5 text-sm font-black text-white disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
         >
           {creating ? "신청 중…" : "ETF 설정 · 상장 허가 신청 (시드 10% 소각)"}
@@ -1164,6 +1444,7 @@ function ListedFundCard({
             </span>
           </h3>
           <p className="mt-1 text-xs text-[var(--muted)]">{fund.managerTagline}</p>
+          <ShareAdjustmentLabel fund={fund} />
         </div>
         <div className="text-right">
           <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
@@ -1206,6 +1487,34 @@ function ListedFundCard({
         </p>
       )}
     </div>
+  );
+}
+
+function ShareAdjustmentLabel({
+  fund,
+}: {
+  fund: {
+    splitTriggerPrice?: number;
+    splitRatio?: number;
+    reverseSplitTriggerPrice?: number;
+    reverseSplitRatio?: number;
+  };
+}) {
+  if (!fund.splitTriggerPrice && !fund.reverseSplitTriggerPrice) return null;
+  return (
+    <p className="mt-1 text-[11px] font-semibold text-violet-300">
+      자동 액면조정 ·{" "}
+      {[
+        fund.splitTriggerPrice
+          ? `${formatPrice(fund.splitTriggerPrice)} 이상 ${fund.splitRatio ?? 2}:1 분할`
+          : "",
+        fund.reverseSplitTriggerPrice
+          ? `${formatPrice(fund.reverseSplitTriggerPrice)} 이하 1:${fund.reverseSplitRatio ?? 2} 병합`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+    </p>
   );
 }
 
