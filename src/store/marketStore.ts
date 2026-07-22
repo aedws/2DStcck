@@ -312,10 +312,12 @@ import {
   applyAmcListedDividend,
   applyAmcListedManagementFee,
   fetchListedAmcFundsByIds,
+  fetchListedAmcFundsByManager,
   fetchLiveListedAmcFunds,
   listedFundToAmcState,
   mergeListedAumIntoManager,
   publishAmcListedFund,
+  rebuildAssetManagerFromOwnedListed,
   reconcileOwnedListedFundsIntoManager,
   syncAmcListedFundMeta,
   upsertListedCache,
@@ -1811,9 +1813,9 @@ export const useMarketStore = create<MarketStore>()(
                 state.selectedSeasonFrameId ?? "season-frame-master",
             }));
           }
+          await get().refreshListedAmcFunds();
           set({ cloudSyncReady: true });
           await get().saveCloud();
-          void get().refreshListedAmcFunds();
           return "created";
         }
 
@@ -1829,9 +1831,9 @@ export const useMarketStore = create<MarketStore>()(
           localState.walletEpoch === WALLET_EPOCH &&
           localActivity > Math.max(latestWalletActivityMs(wallet), cloudUpdatedAt)
         ) {
+          await get().refreshListedAmcFunds();
           set({ cloudSyncReady: true });
           await get().saveCloud();
-          void get().refreshListedAmcFunds();
           useToastStore.getState().push(
             "☁️ 클라우드 저장분보다 최신인 이 기기 기록을 복구해 저장했습니다.",
             "success",
@@ -2069,6 +2071,8 @@ export const useMarketStore = create<MarketStore>()(
             "info",
           );
         }
+        // 빈 funds 클라우드가 저장되기 전에 상장 원장에서 내 ETF를 복구한다.
+        await get().refreshListedAmcFunds();
         return "loaded";
       },
 
@@ -4164,42 +4168,65 @@ export const useMarketStore = create<MarketStore>()(
 
       refreshListedAmcFunds: async () => {
         const state = get();
-        if (!state.userId || !state.cloudSyncReady) {
+        // cloudSyncReady 전이라도 userId만 있으면 복구 가능해야 한다.
+        // (로그인 직후 saveCloud가 빈 funds를 덮어쓰기 전에 복구해야 함)
+        if (!state.userId) {
           set({ listedAmcFunds: [] });
           return;
         }
-        const live = await fetchLiveListedAmcFunds();
+        const [live, ownedListed, requests] = await Promise.all([
+          fetchLiveListedAmcFunds(),
+          fetchListedAmcFundsByManager(state.userId),
+          listMyAmcEtfListingRequests().catch(() => []),
+        ]);
         const heldIds = state.holdings
           .map((item) => parseAmcFundId(item.stockId))
           .filter((id): id is string => Boolean(id));
-        const missing = heldIds.filter(
-          (id) => !live.some((fund) => fund.id === id),
-        );
+        const knownIds = new Set([
+          ...live.map((fund) => fund.id),
+          ...ownedListed.map((fund) => fund.id),
+        ]);
+        const missing = heldIds.filter((id) => !knownIds.has(id));
         const heldExtra = missing.length
           ? await fetchListedAmcFundsByIds(missing)
           : [];
         const merged = [...live];
-        for (const fund of heldExtra) {
+        for (const fund of [...ownedListed, ...heldExtra]) {
           if (!merged.some((item) => item.id === fund.id)) merged.push(fund);
         }
-        let assetManager = state.assetManager;
-        if (assetManager) {
-          // 지갑에서 빠진 내 상장 ETF 복구
-          assetManager = reconcileOwnedListedFundsIntoManager(
-            assetManager,
-            merged,
-            state.userId,
+
+        let assetManager = rebuildAssetManagerFromOwnedListed(
+          merged,
+          state.userId,
+          state.assetManager,
+        );
+        if (!assetManager && requests.length) {
+          const usable = requests.filter(
+            (request) => request.status !== "rejected",
           );
-          // 아직 미상장이지만 신청만 남은 ETF도 복구
-          try {
-            const requests = await listMyAmcEtfListingRequests();
-            assetManager = reconcileOwnedListingRequestsIntoManager(
-              assetManager,
-              requests,
-            );
-          } catch {
-            // 신청 목록 실패해도 상장 원장 복구는 유지
+          if (usable.length) {
+            const sample = usable[0]!;
+            const createdAt = Date.parse(sample.createdAt) || Date.now();
+            assetManager = {
+              id: `amc-restored-req-${state.userId.slice(0, 8)}`,
+              name: sample.payload.managerName || "복구된 운용사",
+              tagline:
+                sample.payload.managerTagline || "상장 신청 내역에서 자동 복구됨",
+              foundedAt: createdAt,
+              foundedSession: Math.floor(createdAt / SESSION_DURATION_MS),
+              foundingBurn: 1_000_000,
+              cumulativeBurned: 1_000_000,
+              approvalRequestId: "restored-from-listing-request",
+              funds: [],
+              lastActionAt: Date.now(),
+            };
           }
+        }
+        if (assetManager) {
+          assetManager = reconcileOwnedListingRequestsIntoManager(
+            assetManager,
+            requests,
+          );
         }
         set({ listedAmcFunds: merged, assetManager });
       },

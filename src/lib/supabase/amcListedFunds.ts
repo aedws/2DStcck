@@ -77,8 +77,13 @@ function parseHoldings(value: unknown): AmcHoldingWeight[] | null {
   const rows = value
     .map((row) => {
       if (!row || typeof row !== "object") return null;
-      const item = row as { stockId?: unknown; weight?: unknown };
-      const stockId = typeof item.stockId === "string" ? item.stockId.trim() : "";
+      const item = row as {
+        stockId?: unknown;
+        stock_id?: unknown;
+        weight?: unknown;
+      };
+      const stockIdRaw = item.stockId ?? item.stock_id;
+      const stockId = typeof stockIdRaw === "string" ? stockIdRaw.trim() : "";
       const weight = Number(item.weight);
       if (!stockId || !Number.isFinite(weight) || weight <= 0) return null;
       return { stockId, weight };
@@ -243,6 +248,28 @@ export async function fetchLiveListedAmcFunds(): Promise<ListedAmcFund[]> {
     .limit(200);
   if (error || !data) {
     console.warn("[amcListedFunds] fetch live failed", error?.message);
+    return [];
+  }
+  return (data as AmcListedFundRow[])
+    .map(parseListedAmcFundRow)
+    .filter((row): row is ListedAmcFund => row !== null);
+}
+
+/** 내가 운용하는 상장 ETF — live 200건 밖이어도 빠지지 않게 별도 조회. */
+export async function fetchListedAmcFundsByManager(
+  managerUserId: string,
+): Promise<ListedAmcFund[]> {
+  if (!managerUserId) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("amc_listed_funds")
+    .select("*")
+    .eq("manager_user_id", managerUserId)
+    .neq("status", "delisted")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (error || !data) {
+    console.warn("[amcListedFunds] fetch by manager failed", error?.message);
     return [];
   }
   return (data as AmcListedFundRow[])
@@ -549,6 +576,40 @@ export function reconcileOwnedListedFundsIntoManager(
     },
     listed,
   );
+}
+
+/**
+ * 운용사 지갑 자체가 사라졌지만 상장 ETF는 남아 있는 경우 운용사를 재구성한다.
+ */
+export function rebuildAssetManagerFromOwnedListed(
+  listed: ListedAmcFund[],
+  managerUserId: string,
+  existing: AssetManagerState | null,
+): AssetManagerState | null {
+  if (!managerUserId) return existing;
+  const owned = listed.filter(
+    (fund) =>
+      fund.managerUserId === managerUserId && fund.status !== "delisted",
+  );
+  if (existing) {
+    return reconcileOwnedListedFundsIntoManager(existing, listed, managerUserId);
+  }
+  if (!owned.length) return null;
+  const sample = owned[0]!;
+  const foundedAt = Date.parse(sample.createdAt) || Date.now();
+  return {
+    id: `amc-restored-${managerUserId.slice(0, 8)}`,
+    name: sample.managerName || "복구된 운용사",
+    tagline: sample.managerTagline || "상장 ETF에서 자동 복구됨",
+    ...(sample.managerDetail ? { detail: sample.managerDetail } : {}),
+    foundedAt,
+    foundedSession: sample.createdSession,
+    foundingBurn: 1_000_000,
+    cumulativeBurned: 1_000_000,
+    approvalRequestId: "restored-from-listed",
+    funds: owned.map(listedFundToAmcState),
+    lastActionAt: Date.now(),
+  };
 }
 
 export function upsertListedCache(

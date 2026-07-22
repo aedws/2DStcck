@@ -21,6 +21,7 @@ import {
 import {
   listedFundToAmcState,
   mergeListedAumIntoManager,
+  rebuildAssetManagerFromOwnedListed,
   reconcileOwnedListedFundsIntoManager,
   type ListedAmcFund,
 } from "../src/lib/supabase/amcListedFunds";
@@ -472,6 +473,28 @@ assert.ok(
   assert.equal(fromRequest.funds.length, 1);
   assert.equal(fromRequest.funds[0]!.ticker, "RSTR");
   assert.equal(listingRequestToAmcState(request).listingRequestId, "req-restore");
+
+  // 운용사 지갑 자체가 null 이어도 상장 원장에서 재구성
+  const rebuilt = rebuildAssetManagerFromOwnedListed(
+    [orphanListed],
+    "owner-1",
+    null,
+  );
+  assert.ok(rebuilt);
+  assert.equal(rebuilt!.funds.length, 1);
+  assert.equal(rebuilt!.name, "북방운용");
+  assert.equal(
+    rebuildAssetManagerFromOwnedListed([], "owner-1", null),
+    null,
+  );
+  // 기존 운용사가 있으면 listed 로 누락분만 채운다
+  const mergedExisting = rebuildAssetManagerFromOwnedListed(
+    [orphanListed],
+    "owner-1",
+    emptyManager,
+  );
+  assert.ok(mergedExisting);
+  assert.equal(mergedExisting!.funds.length, 1);
 }
 
 console.log("asset manager founding · fee · compliance scenarios passed");

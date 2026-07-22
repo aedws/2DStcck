@@ -21,6 +21,7 @@ function CloudSaveSync() {
   const setUserId = useMarketStore((s) => s.setUserId);
   const setCloudSyncReady = useMarketStore((s) => s.setCloudSyncReady);
   const loadCloudSave = useMarketStore((s) => s.loadCloudSave);
+  const refreshListedAmcFunds = useMarketStore((s) => s.refreshListedAmcFunds);
   const applyTargetedAccountReset = useMarketStore(
     (s) => s.applyTargetedAccountReset,
   );
@@ -81,6 +82,9 @@ function CloudSaveSync() {
             // 초기화한다(재로그인해도 리셋이 유지됨).
             applyTargetedAccountReset();
             settleCashflows();
+            // 빈 funds 를 클라우드에 올리기 전에 상장 원장에서 복구한다.
+            // cloudSyncReady 를 먼저 켜면 디바운스 저장이 빈 지갑을 덮어쓸 수 있다.
+            await refreshListedAmcFunds();
             setCloudSyncReady(true);
             await saveCloud();
           })();
@@ -93,6 +97,7 @@ function CloudSaveSync() {
     setUserId,
     setCloudSyncReady,
     loadCloudSave,
+    refreshListedAmcFunds,
     saveCloud,
     settleCashflows,
     applyTargetedAccountReset,

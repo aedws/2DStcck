@@ -163,14 +163,20 @@ export default function AssetManagerPage() {
   };
 
   useEffect(() => {
-    if (!userId || !cloudSyncReady) {
+    if (!userId) {
+      setRequests([]);
+      setListingRequests([]);
+      return;
+    }
+    // cloudSyncReady 전이라도 상장 원장에서 내 ETF를 복구한다.
+    void refreshListedAmcFunds();
+    if (!cloudSyncReady) {
       setRequests([]);
       setListingRequests([]);
       return;
     }
     void refreshRequests();
     void refreshListingRequests();
-    void refreshListedAmcFunds();
   }, [userId, cloudSyncReady, refreshListedAmcFunds]);
 
   const activeRequest = useMemo(() => {
@@ -189,10 +195,28 @@ export default function AssetManagerPage() {
     setDetail(activeRequest.company.detail ?? "");
   }, [activeRequest?.id]);
 
+  // 지갑 funds 가 비어도 상장 원장에 남은 내 ETF는 화면에 보이게 한다.
+  const managedFunds = useMemo(() => {
+    const byId = new Map(
+      (assetManager?.funds ?? []).map((fund) => [fund.id, fund] as const),
+    );
+    if (userId) {
+      for (const listed of listedAmcFunds) {
+        if (listed.managerUserId !== userId || listed.status === "delisted") {
+          continue;
+        }
+        if (!byId.has(listed.id)) {
+          byId.set(listed.id, listedFundToAmcState(listed));
+        }
+      }
+    }
+    return [...byId.values()];
+  }, [assetManager, listedAmcFunds, userId]);
+
   const chartPoints = useMemo(() => {
-    if (!assetManager?.funds.length) return [];
+    if (!managedFunds.length) return [];
     const merged = new Map<number, { nav: number; count: number }>();
-    for (const fund of assetManager.funds) {
+    for (const fund of managedFunds) {
       for (const point of fund.navHistory) {
         const bucket = Math.floor(point.t / 60_000) * 60_000;
         const prev = merged.get(bucket) ?? { nav: 0, count: 0 };
@@ -209,17 +233,17 @@ export default function AssetManagerPage() {
         nav: Math.round(value.nav / Math.max(1, value.count)),
       }))
       .slice(-48);
-  }, [assetManager]);
+  }, [managedFunds]);
 
   const marketplaceFunds = useMemo(() => {
-    const ownIds = new Set(assetManager?.funds.map((fund) => fund.id) ?? []);
+    const ownIds = new Set(managedFunds.map((fund) => fund.id));
     return listedAmcFunds.filter(
       (fund) =>
         fund.status !== "delisted" &&
         !ownIds.has(fund.id) &&
         fund.managerUserId !== userId,
     );
-  }, [listedAmcFunds, assetManager, userId]);
+  }, [listedAmcFunds, managedFunds, userId]);
 
   const selectedHoldings = useMemo(
     () =>
@@ -570,11 +594,11 @@ export default function AssetManagerPage() {
             label="누적 소각"
             value={formatCompactMoney(assetManager.cumulativeBurned)}
           />
-          <Summary label="운용 펀드" value={`${assetManager.funds.length}개`} />
+          <Summary label="운용 펀드" value={`${managedFunds.length}개`} />
           <Summary
             label="누적 운용료"
             value={formatCompactMoney(
-              assetManager.funds.reduce(
+              managedFunds.reduce(
                 (sum, fund) => sum + fund.cumulativeFeesPaid,
                 0,
               ),
@@ -600,12 +624,12 @@ export default function AssetManagerPage() {
 
       <section className="mb-5 space-y-3">
         <h2 className="text-lg font-bold">내 유저 ETF</h2>
-        {assetManager.funds.length === 0 ? (
+        {managedFunds.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--muted)]">
             아직 설정한 ETF가 없습니다. 아래에서 첫 펀드를 만드세요.
           </p>
         ) : (
-          assetManager.funds.map((fund) => {
+          managedFunds.map((fund) => {
             const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
             const held =
               holdings.find((item) => item.stockId === amcFundStockId(fund.id))
