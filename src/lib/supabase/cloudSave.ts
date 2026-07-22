@@ -39,6 +39,9 @@ export interface WalletSave {
   /** 저장 당시 거래일 길이. 구버전(없음)은 3시간으로 간주한다. */
   sessionDurationMs?: number;
   cash: number;
+  /** 서버 ETF 누적 현금원장에서 이 지갑에 반영 완료한 값. */
+  amcLedgerBalance?: number;
+  amcLedgerRevision?: number;
   initialCash: number;
   holdings: Holding[];
   trades: Trade[];

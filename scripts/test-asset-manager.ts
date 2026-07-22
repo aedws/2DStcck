@@ -2,6 +2,7 @@ import assert from "node:assert";
 import {
   AMC_FOUNDING_BURN,
   AMC_MIN_NET_WORTH,
+  amcDividendHistoryAfter,
   amcFundStockId,
   applyAmcShareCreationRedemption,
   collectHoldingDividendCadences,
@@ -30,8 +31,26 @@ import {
   reconcileOwnedListingRequestsIntoManager,
   type AmcEtfListingRequest,
 } from "../src/lib/supabase/amcEtfListingRequests";
+import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
 
 assert.deepEqual(splitAmcSeed(100_000), { burned: 10_000, navValue: 90_000 });
+
+// 누적 서버 현금원장은 재시도해도 한 번만 반영되고 이후 이벤트만 차액 적용.
+const ledgerDebit = reconcileAmcLedgerCash(100_000, 0, -10_000)!;
+assert.deepEqual(ledgerDebit, {
+  cash: 90_000,
+  appliedBalance: -10_000,
+  delta: -10_000,
+});
+assert.deepEqual(
+  reconcileAmcLedgerCash(ledgerDebit.cash, ledgerDebit.appliedBalance, -10_000),
+  { cash: 90_000, appliedBalance: -10_000, delta: 0 },
+);
+assert.deepEqual(reconcileAmcLedgerCash(90_000, -10_000, -7_500), {
+  cash: 92_500,
+  appliedBalance: -7_500,
+  delta: 2_500,
+});
 
 const prices: Record<string, number> = {
   a: 10_000,
@@ -93,6 +112,93 @@ assert.ok(isAmcFundStockId(amcFundStockId(created.fund!.id)));
 
 const nav = computeAmcFundNavPerShare(created.fund!, priceOf, initialOf);
 assert.ok(nav > 0);
+
+// 생성 시점 이전의 시장 수익률을 소급 적용하지 않고, 리밸런싱 자체로 NAV가 튀지 않는다.
+{
+  const shiftedPrices: Record<string, number> = {
+    a: 200,
+    b: 300,
+    c: 400,
+    d: 100,
+    e: 100,
+    f: 100,
+  };
+  const shiftedInitials: Record<string, number> = {
+    a: 100,
+    b: 100,
+    c: 100,
+    d: 100,
+    e: 100,
+    f: 100,
+  };
+  const shiftedPriceOf = (id: string) => shiftedPrices[id] ?? 0;
+  const shiftedInitialOf = (id: string) => shiftedInitials[id] ?? 0;
+  const shifted = createAmcFund(
+    founded.manager!,
+    {
+      name: "기준가테스트",
+      ticker: "BASE",
+      style: "passive",
+      feeRate: 0.005,
+      holdings: ["a", "b", "c"].map((stockId) => ({
+        stockId,
+        weight: 1 / 3,
+      })),
+      seedCash: 100_000,
+    },
+    100_000,
+    100,
+    shiftedPriceOf,
+    shiftedInitialOf,
+  );
+  assert.ok(shifted.fund);
+  const before = computeAmcFundNavPerShare(
+    shifted.fund!,
+    shiftedPriceOf,
+    shiftedInitialOf,
+  );
+  assert.equal(before * shifted.fund!.totalShares, 90_000);
+  const shiftedRebalanced = rebalanceAmcFund(
+    shifted.manager!,
+    shifted.fund!.id,
+    ["d", "e", "f"].map((stockId) => ({ stockId, weight: 1 / 3 })),
+    101,
+    Date.now(),
+    shiftedPriceOf,
+    shiftedInitialOf,
+  );
+  assert.ok(shiftedRebalanced.fund);
+  assert.equal(
+    computeAmcFundNavPerShare(
+      shiftedRebalanced.fund!,
+      shiftedPriceOf,
+      shiftedInitialOf,
+    ),
+    before,
+  );
+}
+
+// 신규 매수자는 매수 전에 확정된 배당 이력을 소급 수령하지 않는다.
+assert.deepEqual(
+  amcDividendHistoryAfter(
+    [
+      { session: 100, perShare: 3, total: 300 },
+      { session: 120, perShare: 4, total: 400 },
+    ],
+    120,
+  ),
+  [],
+);
+assert.deepEqual(
+  amcDividendHistoryAfter(
+    [
+      { session: 100, perShare: 3, total: 300 },
+      { session: 120, perShare: 4, total: 400 },
+    ],
+    100,
+  ).map((entry) => entry.session),
+  [120],
+);
 
 const tinyRebalance = rebalanceAmcFund(
   created.manager!,

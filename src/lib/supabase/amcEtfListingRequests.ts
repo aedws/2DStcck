@@ -33,6 +33,7 @@ export interface AmcEtfListingPayload {
   feeRate: number;
   benchmarkStockId?: string;
   holdings: AmcHoldingWeight[];
+  basketPriceFactor?: number;
   seedNavValue: number;
   totalShares: number;
   managerName: string;
@@ -66,6 +67,7 @@ export function serializeAmcEtfListingRequest(
       ? { benchmarkStockId: fund.benchmarkStockId }
       : {}),
     holdings: fund.holdings,
+    basketPriceFactor: fund.basketPriceFactor,
     seedNavValue: fund.seedNavValue,
     totalShares: fund.totalShares,
     managerName: manager.name,
@@ -124,6 +126,11 @@ export function parseAmcEtfListingRequest(
           ? { benchmarkStockId: payload.benchmarkStockId }
           : {}),
         holdings,
+        basketPriceFactor:
+          Number.isFinite(Number(payload.basketPriceFactor)) &&
+          Number(payload.basketPriceFactor) > 0
+            ? Number(payload.basketPriceFactor)
+            : 1,
         seedNavValue: Math.max(0, Math.round(Number(payload.seedNavValue) || 0)),
         totalShares: Math.max(1, Number(payload.totalShares) || 1),
         managerName:
@@ -171,6 +178,7 @@ export function listingRequestToAmcState(
       ? { benchmarkStockId: payload.benchmarkStockId }
       : {}),
     holdings: payload.holdings,
+    basketPriceFactor: payload.basketPriceFactor ?? 1,
     totalShares: payload.totalShares,
     seedNavValue: payload.seedNavValue,
     createdAt,

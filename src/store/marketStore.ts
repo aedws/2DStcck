@@ -261,6 +261,7 @@ import {
   type PortfolioStrategyId,
 } from "@/lib/market/portfolioStrategies";
 import { computePrestige } from "@/lib/player/prestige";
+import { reconcileAmcLedgerCash } from "@/lib/player/amcLedger";
 import {
   getSeasonReward,
   mergeSeasonRewards,
@@ -282,8 +283,11 @@ import {
   type PlayerCompanyState,
 } from "@/lib/player/playerCompany";
 import {
+  AMC_FEE_INTERVAL_DAYS,
+  AMC_REBALANCE_WINDOW_DAYS,
   amcFundStockId,
   autoRebalancePassiveFunds,
+  computeAmcFundBasketPriceFactor,
   computeAmcFundNavPerShare,
   createAmcFund as createManagedFund,
   evaluateAmcCompliance,
@@ -292,6 +296,7 @@ import {
   normalizeAssetManager,
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
+  resolveAmcDividendPeriodRate,
   settleAmcManagementFees,
   settleAmcManagerDividends,
   type AmcHoldingWeight,
@@ -308,9 +313,8 @@ import {
   verifyAmcEtfListingApproval,
 } from "@/lib/supabase/amcEtfListingRequests";
 import {
-  adjustAmcListedShares,
-  applyAmcListedDividend,
-  applyAmcListedManagementFee,
+  bootstrapAmcPosition,
+  fetchMyAmcLedger,
   fetchListedAmcFundsByIds,
   fetchListedAmcFundsByManager,
   fetchLiveListedAmcFunds,
@@ -318,8 +322,9 @@ import {
   mergeListedAumIntoManager,
   publishAmcListedFund,
   rebuildAssetManagerFromOwnedListed,
-  reconcileOwnedListedFundsIntoManager,
+  settleAmcListedFund,
   syncAmcListedFundMeta,
+  tradeAmcListedFund,
   upsertListedCache,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
@@ -332,6 +337,7 @@ interface MarketStore extends MarketSnapshot {
   isReady: boolean;
   /** 로그인 지갑을 클라우드에서 확인한 뒤에만 자동 저장을 허용한다. */
   cloudSyncReady: boolean;
+  refreshingAmcLedger: boolean;
   /** 미체결 지정가 주문 */
   openOrders: OpenOrder[];
   /** 보유 사치재 (재화 sink) — 가치는 순자산에 합산되어 랭킹에 반영 */
@@ -621,6 +627,7 @@ function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
   cloudSyncReady: boolean;
+  refreshingAmcLedger: boolean;
   openOrders: OpenOrder[];
   ownedLuxuries: OwnedLuxury[];
   netWorthHistory: NetWorthPoint[];
@@ -677,6 +684,8 @@ function createInitialState(): MarketSnapshot & {
     // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
     marketStartedAt: MARKET_EPOCH_MS,
     cash: INITIAL_CASH,
+    amcLedgerBalance: 0,
+    amcLedgerRevision: 0,
     initialCash: INITIAL_CASH,
     lastSalarySession: Math.floor(now / SESSION_DURATION_MS),
     // 분배·배당 회차는 기원점 절대 그리드에 정렬 (배당락 시점과 일치)
@@ -703,6 +712,7 @@ function createInitialState(): MarketSnapshot & {
     userId: null,
     isReady: false,
     cloudSyncReady: false,
+    refreshingAmcLedger: false,
     openOrders: [],
     ownedLuxuries: [],
     netWorthHistory: [],
@@ -1954,6 +1964,12 @@ export const useMarketStore = create<MarketStore>()(
         set({
           walletEpoch: WALLET_EPOCH,
           cash: cloudCompensation.cash,
+          amcLedgerBalance: Number.isFinite(wallet.amcLedgerBalance)
+            ? Math.round(wallet.amcLedgerBalance!)
+            : 0,
+          amcLedgerRevision: Number.isFinite(wallet.amcLedgerRevision)
+            ? Math.max(0, Math.floor(wallet.amcLedgerRevision!))
+            : 0,
           initialCash: wallet.initialCash,
           holdings: cloudRepair.holdings,
           trades: wallet.trades ?? [],
@@ -2083,6 +2099,8 @@ export const useMarketStore = create<MarketStore>()(
           walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
+          amcLedgerBalance: s.amcLedgerBalance,
+          amcLedgerRevision: s.amcLedgerRevision,
           initialCash: s.initialCash,
           holdings: s.holdings,
           // 단타 위주 계정은 하루 100건을 쉽게 넘긴다 — 당일 내역이 밀려나지
@@ -2560,87 +2578,29 @@ export const useMarketStore = create<MarketStore>()(
         const initialPriceOfAmc = (stockId: string) =>
           combinedStocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
 
-        // 타 계정 펀드 상폐 시 보유자 NAV 환급 (공유 원장 캐시 기준)
-        for (const holding of [...holdings]) {
-          const fundId = parseAmcFundId(holding.stockId);
-          if (!fundId || !(holding.quantity > 0)) continue;
-          const listed = listedAmcFunds.find((item) => item.id === fundId);
-          const ownFund = assetManager?.funds.find((item) => item.id === fundId);
-          const delisted =
-            listed?.status === "delisted" || ownFund?.status === "delisted";
-          if (!delisted) continue;
-          const fundState = ownFund
-            ? { ...ownFund, status: "active" as const }
-            : listed
-              ? { ...listedFundToAmcState(listed), status: "active" as const }
-              : null;
-          if (!fundState) continue;
-          const nav = computeAmcFundNavPerShare(
-            fundState,
-            priceOfAmc,
-            initialPriceOfAmc,
-          );
-          const total = Math.round(nav * holding.quantity);
-          cash += total;
-          holdings = holdings.filter((item) => item.stockId !== holding.stockId);
-          trades = [
-            {
-              id: `amc-delist-${fundId}-${currentSession}`,
-              stockId: holding.stockId,
-              ticker: fundState.ticker,
-              type: "sell",
-              quantity: holding.quantity,
-              price: nav,
-              total,
-              timestamp: now,
-            },
-            ...trades,
-          ];
-          useToastStore.getState().push(
-            `📕 ${fundState.ticker} 상장폐지 · NAV 환급 ${formatPrice(total)}`,
-            "info",
-          );
-        }
-
         if (assetManager) {
           assetManager = mergeListedAumIntoManager(assetManager, listedAmcFunds);
-          const beforePassive = assetManager;
-          assetManager = autoRebalancePassiveFunds(
-            assetManager,
+          const listedIds = new Set(listedAmcFunds.map((fund) => fund.id));
+          const serverFunds = new Map(
+            assetManager.funds
+              .filter((fund) => listedIds.has(fund.id))
+              .map((fund) => [fund.id, fund]),
+          );
+          let localManager: AssetManagerState = {
+            ...assetManager,
+            funds: assetManager.funds.filter((fund) => !listedIds.has(fund.id)),
+          };
+          localManager = autoRebalancePassiveFunds(
+            localManager,
             currentSession,
             now,
           );
           const compliance = evaluateAmcCompliance(
-            assetManager,
+            localManager,
             currentSession,
             now,
           );
-          assetManager = compliance.manager;
-          for (const fund of assetManager.funds) {
-            const prev =
-              beforePassive.funds.find((item) => item.id === fund.id) ??
-              compliance.manager.funds.find((item) => item.id === fund.id);
-            const statusChanged = prev && prev.status !== fund.status;
-            const rebalanceChanged =
-              prev && prev.lastRebalanceSession !== fund.lastRebalanceSession;
-            if (
-              (statusChanged ||
-                rebalanceChanged ||
-                compliance.newlyDelisted.some((item) => item.id === fund.id)) &&
-              listedAmcFunds.some((item) => item.id === fund.id)
-            ) {
-              void syncAmcListedFundMeta(fund, assetManager).then((result) => {
-                if (result.fund) {
-                  set((state) => ({
-                    listedAmcFunds: upsertListedCache(
-                      state.listedAmcFunds,
-                      result.fund!,
-                    ),
-                  }));
-                }
-              });
-            }
-          }
+          localManager = compliance.manager;
           for (const fund of compliance.newlyDelisted) {
             const stockId = amcFundStockId(fund.id);
             const holding = holdings.find((item) => item.stockId === stockId);
@@ -2673,13 +2633,13 @@ export const useMarketStore = create<MarketStore>()(
             }
           }
           const feeSettle = settleAmcManagementFees(
-            assetManager,
+            localManager,
             currentSession,
             priceOfAmc,
             initialPriceOfAmc,
             now,
           );
-          assetManager = feeSettle.manager;
+          localManager = feeSettle.manager;
           const paidIds = new Set(cashPayments.map((payment) => payment.id));
           for (const fee of feeSettle.feePayments) {
             if (paidIds.has(fee.id)) continue;
@@ -2697,40 +2657,18 @@ export const useMarketStore = create<MarketStore>()(
               ...cashPayments,
             ].slice(0, 200);
             paidIds.add(fee.id);
-            const settledFund = assetManager.funds.find(
-              (item) => item.id === fee.fundId,
-            );
-            if (settledFund) {
-              void applyAmcListedManagementFee({
-                fundId: fee.fundId,
-                dueSession: fee.dueSession,
-                amount: fee.amount,
-                newSeedNavValue: settledFund.seedNavValue,
-                newLastFeeSession: settledFund.lastFeeSession,
-                newCumulativeFeesPaid: settledFund.cumulativeFeesPaid,
-              }).then((result) => {
-                if (result.fund) {
-                  set((prev) => ({
-                    listedAmcFunds: upsertListedCache(
-                      prev.listedAmcFunds,
-                      result.fund!,
-                    ),
-                  }));
-                }
-              });
-            }
           }
           const stockOfAmc = (stockId: string) =>
             combinedStocks.find((stock) => stock.id === stockId);
           const divSettle = settleAmcManagerDividends(
-            assetManager,
+            localManager,
             currentSession,
             priceOfAmc,
             initialPriceOfAmc,
             stockOfAmc,
             now,
           );
-          assetManager = divSettle.manager;
+          localManager = divSettle.manager;
           for (const div of divSettle.dividendPayments) {
             const stockId = amcFundStockId(div.fundId);
             const holding = holdings.find((item) => item.stockId === stockId);
@@ -2753,69 +2691,31 @@ export const useMarketStore = create<MarketStore>()(
               ].slice(0, 200);
               paidIds.add(div.id);
             }
-            const settledFund = assetManager.funds.find(
-              (item) => item.id === div.fundId,
-            );
-            if (settledFund) {
-              void applyAmcListedDividend({
-                fundId: div.fundId,
-                dueSession: div.dueSession,
-                perShare: div.perShare,
-                total: div.total,
-                newSeedNavValue: settledFund.seedNavValue,
-                newLastDividendSession: settledFund.lastDividendSession,
-                newCumulativeDividendsPaid: settledFund.cumulativeDividendsPaid,
-                dividendHistory: settledFund.dividendHistory,
-              }).then((result) => {
-                if (result.fund) {
-                  set((prev) => ({
-                    listedAmcFunds: upsertListedCache(
-                      prev.listedAmcFunds,
-                      result.fund!,
-                    ),
-                  }));
-                }
-              });
+            if (
+              holding &&
+              (holding.amcDividendCursorSession ?? Number.NEGATIVE_INFINITY) <
+                div.dueSession
+            ) {
+              holdings = holdings.map((item) =>
+                item.stockId === stockId
+                  ? { ...item, amcDividendCursorSession: div.dueSession }
+                  : item,
+              );
             }
           }
-        }
-
-        // 타 계정 상장 ETF 배당 수령 (dividendHistory 기준, 멱등)
-        {
-          const paidIds = new Set(cashPayments.map((payment) => payment.id));
-          for (const holding of holdings) {
-            const fundId = parseAmcFundId(holding.stockId);
-            if (!fundId || !(holding.quantity > 0)) continue;
-            const own = assetManager?.funds.find((item) => item.id === fundId);
-            const listed = listedAmcFunds.find((item) => item.id === fundId);
-            const history =
-              own?.dividendHistory ??
-              listed?.dividendHistory ??
-              [];
-            const ticker = own?.ticker ?? listed?.ticker;
-            for (const entry of history) {
-              const id = `amc-div-${fundId}-${entry.session}`;
-              if (paidIds.has(id)) continue;
-              const amount = Math.round(holding.quantity * entry.perShare);
-              if (amount <= 0) continue;
-              cash += amount;
-              cashPayments = [
-                {
-                  id,
-                  kind: "amc_dividend" as const,
-                  sourceId: fundId,
-                  ticker,
-                  dueSession: entry.session,
-                  quantity: holding.quantity,
-                  amountPerShare: entry.perShare,
-                  amount,
-                  timestamp: now,
-                },
-                ...cashPayments,
-              ].slice(0, 200);
-              paidIds.add(id);
-            }
-          }
+          const localById = new Map(
+            localManager.funds.map((fund) => [fund.id, fund]),
+          );
+          assetManager = {
+            ...assetManager,
+            funds: assetManager.funds.map(
+              (fund) => serverFunds.get(fund.id) ?? localById.get(fund.id) ?? fund,
+            ),
+            lastActionAt: Math.max(
+              assetManager.lastActionAt,
+              localManager.lastActionAt,
+            ),
+          };
         }
 
         const netWorth = fullEquityOf({
@@ -4171,64 +4071,251 @@ export const useMarketStore = create<MarketStore>()(
         // cloudSyncReady 전이라도 userId만 있으면 복구 가능해야 한다.
         // (로그인 직후 saveCloud가 빈 funds를 덮어쓰기 전에 복구해야 함)
         if (!state.userId) {
-          set({ listedAmcFunds: [] });
+          set({ listedAmcFunds: [], refreshingAmcLedger: false });
           return;
         }
-        const [live, ownedListed, requests] = await Promise.all([
-          fetchLiveListedAmcFunds(),
-          fetchListedAmcFundsByManager(state.userId),
-          listMyAmcEtfListingRequests().catch(() => []),
-        ]);
-        const heldIds = state.holdings
-          .map((item) => parseAmcFundId(item.stockId))
-          .filter((id): id is string => Boolean(id));
-        const knownIds = new Set([
-          ...live.map((fund) => fund.id),
-          ...ownedListed.map((fund) => fund.id),
-        ]);
-        const missing = heldIds.filter((id) => !knownIds.has(id));
-        const heldExtra = missing.length
-          ? await fetchListedAmcFundsByIds(missing)
-          : [];
-        const merged = [...live];
-        for (const fund of [...ownedListed, ...heldExtra]) {
-          if (!merged.some((item) => item.id === fund.id)) merged.push(fund);
-        }
-
-        let assetManager = rebuildAssetManagerFromOwnedListed(
-          merged,
-          state.userId,
-          state.assetManager,
-        );
-        if (!assetManager && requests.length) {
-          const usable = requests.filter(
-            (request) => request.status !== "rejected",
-          );
-          if (usable.length) {
-            const sample = usable[0]!;
-            const createdAt = Date.parse(sample.createdAt) || Date.now();
-            assetManager = {
-              id: `amc-restored-req-${state.userId.slice(0, 8)}`,
-              name: sample.payload.managerName || "복구된 운용사",
-              tagline:
-                sample.payload.managerTagline || "상장 신청 내역에서 자동 복구됨",
-              foundedAt: createdAt,
-              foundedSession: Math.floor(createdAt / SESSION_DURATION_MS),
-              foundingBurn: 1_000_000,
-              cumulativeBurned: 1_000_000,
-              approvalRequestId: "restored-from-listing-request",
-              funds: [],
-              lastActionAt: Date.now(),
-            };
+        if (state.refreshingAmcLedger) return;
+        set({ refreshingAmcLedger: true });
+        try {
+          const [live, ownedListed, requests] = await Promise.all([
+            fetchLiveListedAmcFunds(),
+            fetchListedAmcFundsByManager(state.userId),
+            listMyAmcEtfListingRequests().catch(() => []),
+          ]);
+          const heldIds = state.holdings
+            .map((item) => parseAmcFundId(item.stockId))
+            .filter((id): id is string => Boolean(id));
+          const knownIds = new Set([
+            ...live.map((fund) => fund.id),
+            ...ownedListed.map((fund) => fund.id),
+          ]);
+          const missing = heldIds.filter((id) => !knownIds.has(id));
+          const heldExtra = missing.length
+            ? await fetchListedAmcFundsByIds(missing)
+            : [];
+          let merged = [...live];
+          for (const fund of [...ownedListed, ...heldExtra]) {
+            if (!merged.some((item) => item.id === fund.id)) merged.push(fund);
           }
-        }
-        if (assetManager) {
-          assetManager = reconcileOwnedListingRequestsIntoManager(
-            assetManager,
-            requests,
+
+          const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+          const priceOf = (stockId: string) =>
+            state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+          const initialPriceOf = (stockId: string) =>
+            state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+          const stockOf = (stockId: string) =>
+            state.stocks.find((stock) => stock.id === stockId);
+          const dueFunds = merged.filter(
+            (fund) =>
+              fund.status !== "delisted" &&
+              (currentSession - fund.lastFeeSession >= AMC_FEE_INTERVAL_DAYS ||
+                currentSession - fund.lastDividendSession >=
+                  fund.dividendIntervalDays ||
+                (fund.style === "active" &&
+                  currentSession - fund.lastRebalanceSession >=
+                    AMC_REBALANCE_WINDOW_DAYS)),
           );
+          const settledFunds = await Promise.all(
+            dueFunds.map((fund) => {
+              const stateFund = listedFundToAmcState(fund);
+              const priceFactor = computeAmcFundBasketPriceFactor(
+                fund.holdings,
+                priceOf,
+                initialPriceOf,
+              );
+              const passivePeriodRate =
+                fund.style === "passive"
+                  ? resolveAmcDividendPeriodRate(stateFund, priceOf, stockOf)
+                  : 0;
+              return settleAmcListedFund({
+                fundId: fund.id,
+                currentSession,
+                priceFactor,
+                passivePeriodRate,
+              });
+            }),
+          );
+          for (const settled of settledFunds) {
+            if (settled) merged = upsertListedCache(merged, settled);
+          }
+
+          let ledger = await fetchMyAmcLedger();
+          const ledgerIds = new Set(ledger.positions.map((row) => row.fundId));
+          const bootstrapped = await Promise.all(
+            state.holdings
+              .map((holding) => ({
+                holding,
+                fundId: parseAmcFundId(holding.stockId),
+              }))
+              .filter(
+                (row): row is { holding: Holding; fundId: string } =>
+                  Boolean(row.fundId) &&
+                  row.holding.quantity > 0 &&
+                  !ledgerIds.has(row.fundId!),
+              )
+              .map((row) =>
+                bootstrapAmcPosition(row.fundId),
+              ),
+          );
+          if (bootstrapped.some(Boolean)) ledger = await fetchMyAmcLedger();
+
+          const latest = get();
+          const ledgerById = new Map(
+            ledger.positions.map((row) => [row.fundId, row.quantity]),
+          );
+          const existingAmcIds = new Set<string>();
+          const holdings = latest.holdings.flatMap((holding) => {
+            const fundId = parseAmcFundId(holding.stockId);
+            if (!fundId) return [holding];
+            existingAmcIds.add(fundId);
+            if (!ledgerById.has(fundId)) return [holding];
+            const quantity = ledgerById.get(fundId) ?? 0;
+            return quantity > 1e-9 ? [{ ...holding, quantity }] : [];
+          });
+          for (const position of ledger.positions) {
+            if (!(position.quantity > 1e-9) || existingAmcIds.has(position.fundId)) {
+              continue;
+            }
+            const fund = merged.find((item) => item.id === position.fundId);
+            if (!fund) continue;
+            const stateFund = listedFundToAmcState(fund);
+            const nav = computeAmcFundNavPerShare(
+              stateFund,
+              priceOf,
+              initialPriceOf,
+            );
+            const cursor = fund.dividendHistory.reduce(
+              (max, entry) => Math.max(max, entry.session),
+              Number.NEGATIVE_INFINITY,
+            );
+            holdings.push({
+              stockId: amcFundStockId(position.fundId),
+              quantity: position.quantity,
+              averagePrice: nav,
+              ...(Number.isFinite(cursor)
+                ? { amcDividendCursorSession: cursor }
+                : {}),
+            });
+          }
+
+          let assetManager = rebuildAssetManagerFromOwnedListed(
+            merged,
+            state.userId,
+            latest.assetManager,
+          );
+          if (!assetManager && requests.length) {
+            const usable = requests.filter(
+              (request) => request.status !== "rejected",
+            );
+            if (usable.length) {
+              const sample = usable[0]!;
+              const createdAt = Date.parse(sample.createdAt) || Date.now();
+              assetManager = {
+                id: `amc-restored-req-${state.userId.slice(0, 8)}`,
+                name: sample.payload.managerName || "복구된 운용사",
+                tagline:
+                  sample.payload.managerTagline || "상장 신청 내역에서 자동 복구됨",
+                foundedAt: createdAt,
+                foundedSession: Math.floor(createdAt / SESSION_DURATION_MS),
+                foundingBurn: 1_000_000,
+                cumulativeBurned: 1_000_000,
+                approvalRequestId: "restored-from-listing-request",
+                funds: [],
+                lastActionAt: Date.now(),
+              };
+            }
+          }
+          if (assetManager) {
+            assetManager = reconcileOwnedListingRequestsIntoManager(
+              assetManager,
+              requests,
+            );
+          }
+          const existingTradeIds = new Set(latest.trades.map((trade) => trade.id));
+          const ledgerTrades: Trade[] = ledger.trades
+            .filter((trade) => !existingTradeIds.has(`amc-ledger-trade-${trade.id}`))
+            .map((trade) => {
+              const fund = merged.find((item) => item.id === trade.fundId);
+              return {
+                id: `amc-ledger-trade-${trade.id}`,
+                stockId: amcFundStockId(trade.fundId),
+                ticker: fund?.ticker ?? trade.fundId,
+                type: trade.delta > 0 ? ("buy" as const) : ("sell" as const),
+                quantity: Math.abs(trade.delta),
+                price: trade.navPerShare,
+                total: trade.total,
+                timestamp: trade.createdAt,
+              };
+            });
+          const redemptionTrades: Trade[] = ledger.payments
+            .filter(
+              (payment) =>
+                payment.kind === "delist" &&
+                !existingTradeIds.has(
+                  `amc-ledger-redemption-${payment.eventId}`,
+                ),
+            )
+            .map((payment) => ({
+              id: `amc-ledger-redemption-${payment.eventId}`,
+              stockId: amcFundStockId(payment.fundId),
+              ticker: payment.ticker,
+              type: "sell" as const,
+              quantity: payment.quantity,
+              price: payment.perShare,
+              total: payment.amount,
+              timestamp: payment.createdAt,
+            }));
+          const existingPaymentIds = new Set(
+            latest.cashPayments.map((payment) => payment.id),
+          );
+          const ledgerPayments: CashPayment[] = ledger.payments
+            .filter(
+              (payment) =>
+                !existingPaymentIds.has(
+                  `amc-ledger-payment-${payment.eventId}`,
+                ),
+            )
+            .map((payment) => ({
+              id: `amc-ledger-payment-${payment.eventId}`,
+              kind:
+                payment.kind === "management_fee"
+                  ? ("management_fee" as const)
+                  : payment.kind === "delist"
+                    ? ("amc_redemption" as const)
+                    : ("amc_dividend" as const),
+              sourceId: payment.fundId,
+              ticker: payment.ticker,
+              dueSession: payment.dueSession,
+              quantity: payment.quantity,
+              amountPerShare: payment.perShare || undefined,
+              amount: payment.amount,
+              timestamp: payment.createdAt,
+            }));
+          const ledgerCash = reconcileAmcLedgerCash(
+            latest.cash,
+            latest.amcLedgerBalance,
+            ledger.balance,
+          );
+          if (!ledgerCash) throw new Error("invalid AMC ledger balance");
+          set({
+            listedAmcFunds: merged,
+            assetManager,
+            holdings,
+            cash: ledgerCash.cash,
+            amcLedgerBalance: ledgerCash.appliedBalance,
+            amcLedgerRevision: ledger.revision,
+            trades: [...ledgerTrades, ...redemptionTrades, ...latest.trades]
+              .sort((a, b) => b.timestamp - a.timestamp)
+              .slice(0, 500),
+            cashPayments: [...ledgerPayments, ...latest.cashPayments]
+              .sort((a, b) => b.timestamp - a.timestamp)
+              .slice(0, 200),
+          });
+        } catch (error) {
+          console.warn("[amc] server ledger refresh failed", error);
+        } finally {
+          set({ refreshingAmcLedger: false });
         }
-        set({ listedAmcFunds: merged, assetManager });
       },
 
       foundAssetManager: async (input, approvalRequestId) => {
@@ -4353,6 +4440,7 @@ export const useMarketStore = create<MarketStore>()(
             stockId: seedStockId,
             quantity: seedQty,
             averagePrice: nav,
+            amcDividendCursorSession: currentSession,
           },
         ];
         set({
@@ -4494,6 +4582,13 @@ export const useMarketStore = create<MarketStore>()(
             message: published.message || "공유 상장에 실패했습니다.",
           };
         }
+        const seedHolding = state.holdings.find(
+          (item) => item.stockId === amcFundStockId(fund.id),
+        );
+        if (seedHolding && seedHolding.quantity > 0) {
+          await state.saveCloud();
+          await bootstrapAmcPosition(fund.id);
+        }
         await markAmcEtfListingShipped(requestId);
         set({
           listedAmcFunds: upsertListedCache(
@@ -4519,6 +4614,10 @@ export const useMarketStore = create<MarketStore>()(
           holdingsInput,
           Math.floor(now / SESSION_DURATION_MS),
           now,
+          (stockId) =>
+            state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0,
+          (stockId) =>
+            state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0,
         );
         if (!result.success || !result.manager || !result.fund) {
           return { success: false, message: result.message };
@@ -4530,6 +4629,7 @@ export const useMarketStore = create<MarketStore>()(
           const synced = await syncAmcListedFundMeta(
             result.fund,
             result.manager,
+            true,
           );
           if (!synced.success) {
             return {
@@ -4556,7 +4656,7 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       buyAmcFund: async (fundId, quantity) => {
-        const state = get();
+        let state = get();
         if (!state.userId || !state.cloudSyncReady) {
           return {
             success: false,
@@ -4589,7 +4689,11 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
         const qty = Number(quantity);
-        if (!Number.isFinite(qty) || qty <= 0) {
+        if (
+          !Number.isFinite(qty) ||
+          qty <= 0 ||
+          Math.abs(qty - Number(qty.toFixed(6))) > 1e-9
+        ) {
           return { success: false, message: "수량을 확인해 주세요." };
         }
         const priceOf = (stockId: string) =>
@@ -4601,24 +4705,73 @@ export const useMarketStore = create<MarketStore>()(
         if (state.cash < total) {
           return { success: false, message: "현금이 부족합니다." };
         }
-        // 원장 seed는 장부가×좌수만 반영. 시세 NAV를 넣으면 relative 이중 반영.
-        const bookCash = Math.round(
-          (fund.seedNavValue / Math.max(fund.totalShares, 1e-9)) * qty,
-        );
-        const adjusted = await adjustAmcListedShares(fundId, qty, bookCash);
-        if (!adjusted.success || !adjusted.fund) {
-          return { success: false, message: adjusted.message };
+        if (!(await state.saveCloud())) {
+          return {
+            success: false,
+            message: "최신 지갑을 서버에 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          };
         }
+        const priceFactor = computeAmcFundBasketPriceFactor(
+          fund.holdings,
+          priceOf,
+          initialPriceOf,
+        );
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const settled = await settleAmcListedFund({
+          fundId,
+          currentSession,
+          priceFactor,
+          passivePeriodRate:
+            fund.style === "passive"
+              ? resolveAmcDividendPeriodRate(
+                  fund,
+                  priceOf,
+                  (stockId) => state.stocks.find((stock) => stock.id === stockId),
+                )
+              : 0,
+        });
+        const serverFund = settled ?? listed;
+        state = get();
         const stockId = amcFundStockId(fund.id);
         const existing = state.holdings.find((item) => item.stockId === stockId);
-        const newQty = (existing?.quantity ?? 0) + qty;
+        if (existing?.quantity) {
+          await bootstrapAmcPosition(fundId);
+        }
+        const orderId =
+          globalThis.crypto?.randomUUID?.() ??
+          `amc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const traded = await tradeAmcListedFund({
+          fundId,
+          delta: qty,
+          expectedPosition: existing?.quantity ?? 0,
+          priceFactor,
+          clientOrderId: orderId,
+        });
+        if (
+          !traded.success ||
+          !traded.fund ||
+          traded.position === undefined ||
+          traded.navPerShare === undefined ||
+          traded.total === undefined ||
+          traded.ledgerBalance === undefined ||
+          traded.ledgerRevision === undefined
+        ) {
+          return { success: false, message: traded.message };
+        }
+        const newQty = traded.position;
         const newAvg = existing
-          ? (existing.averagePrice * existing.quantity + nav * qty) / newQty
-          : nav;
+          ? (existing.averagePrice * existing.quantity +
+              traded.navPerShare * qty) /
+            newQty
+          : traded.navPerShare;
         const now = Date.now();
+        const dividendCursorSession = traded.fund.dividendHistory.reduce(
+          (latest, entry) => Math.max(latest, entry.session),
+          Number.NEGATIVE_INFINITY,
+        );
         const nextListed = upsertListedCache(
           state.listedAmcFunds,
-          adjusted.fund,
+          traded.fund,
         );
         let nextManager = state.assetManager;
         if (nextManager) {
@@ -4628,16 +4781,27 @@ export const useMarketStore = create<MarketStore>()(
               item.id === fundId
                 ? {
                     ...item,
-                    totalShares: adjusted.fund!.totalShares,
-                    seedNavValue: adjusted.fund!.seedNavValue,
+                    totalShares: traded.fund!.totalShares,
+                    seedNavValue: traded.fund!.seedNavValue,
+                    basketPriceFactor: traded.fund!.basketPriceFactor ?? 1,
                   }
                 : item,
             ),
             lastActionAt: now,
           };
         }
+        const ledgerCash = reconcileAmcLedgerCash(
+          state.cash,
+          state.amcLedgerBalance,
+          traded.ledgerBalance,
+        );
+        if (!ledgerCash) {
+          return { success: false, message: "ETF 현금원장 값이 올바르지 않습니다." };
+        }
         set({
-          cash: state.cash - total,
+          cash: ledgerCash.cash,
+          amcLedgerBalance: ledgerCash.appliedBalance,
+          amcLedgerRevision: traded.ledgerRevision,
           assetManager: nextManager,
           listedAmcFunds: nextListed,
           holdings: existing
@@ -4648,28 +4812,38 @@ export const useMarketStore = create<MarketStore>()(
               )
             : [
                 ...state.holdings,
-                { stockId, quantity: qty, averagePrice: nav },
+                {
+                  stockId,
+                  quantity: qty,
+                  averagePrice: nav,
+                  ...(Number.isFinite(dividendCursorSession)
+                    ? { amcDividendCursorSession: dividendCursorSession }
+                    : {}),
+                },
               ],
           trades: [
             {
-              id: `amc-buy-${fund.id}-${now}`,
+              id: `amc-ledger-trade-${orderId}`,
               stockId,
               ticker: fund.ticker,
               type: "buy",
               quantity: qty,
-              price: nav,
-              total,
+              price: traded.navPerShare,
+              total: traded.total,
               timestamp: now,
             },
             ...state.trades,
           ].slice(0, 500) as Trade[],
         });
         playSound("buy");
-        return { success: true, message: `${fund.ticker} ${qty}좌 매수` };
+        return {
+          success: true,
+          message: `${serverFund.ticker} ${qty}좌 매수`,
+        };
       },
 
       sellAmcFund: async (fundId, quantity) => {
-        const state = get();
+        let state = get();
         if (!state.userId || !state.cloudSyncReady) {
           return {
             success: false,
@@ -4695,7 +4869,11 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
         const qty = Number(quantity);
-        if (!Number.isFinite(qty) || qty <= 0) {
+        if (
+          !Number.isFinite(qty) ||
+          qty <= 0 ||
+          Math.abs(qty - Number(qty.toFixed(6))) > 1e-9
+        ) {
           return { success: false, message: "수량을 확인해 주세요." };
         }
         const stockId = amcFundStockId(fund.id);
@@ -4707,20 +4885,65 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOf = (stockId: string) =>
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
-        const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
-        const total = Math.round(nav * qty);
-        const bookCash = Math.round(
-          (fund.seedNavValue / Math.max(fund.totalShares, 1e-9)) * qty,
-        );
-        const adjusted = await adjustAmcListedShares(fundId, -qty, -bookCash);
-        if (!adjusted.success || !adjusted.fund) {
-          return { success: false, message: adjusted.message };
+        if (!(await state.saveCloud())) {
+          return {
+            success: false,
+            message: "최신 지갑을 서버에 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          };
         }
-        const remaining = existing.quantity - qty;
+        const priceFactor = computeAmcFundBasketPriceFactor(
+          fund.holdings,
+          priceOf,
+          initialPriceOf,
+        );
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        await settleAmcListedFund({
+          fundId,
+          currentSession,
+          priceFactor,
+          passivePeriodRate:
+            fund.style === "passive"
+              ? resolveAmcDividendPeriodRate(
+                  fund,
+                  priceOf,
+                  (id) => state.stocks.find((stock) => stock.id === id),
+                )
+              : 0,
+        });
+        state = get();
+        const latestExisting = state.holdings.find(
+          (item) => item.stockId === stockId,
+        );
+        if (!latestExisting || latestExisting.quantity < qty) {
+          return { success: false, message: "보유 좌수가 부족합니다." };
+        }
+        await bootstrapAmcPosition(fundId);
+        const orderId =
+          globalThis.crypto?.randomUUID?.() ??
+          `amc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const traded = await tradeAmcListedFund({
+          fundId,
+          delta: -qty,
+          expectedPosition: latestExisting.quantity,
+          priceFactor,
+          clientOrderId: orderId,
+        });
+        if (
+          !traded.success ||
+          !traded.fund ||
+          traded.position === undefined ||
+          traded.navPerShare === undefined ||
+          traded.total === undefined ||
+          traded.ledgerBalance === undefined ||
+          traded.ledgerRevision === undefined
+        ) {
+          return { success: false, message: traded.message };
+        }
+        const remaining = traded.position;
         const now = Date.now();
         const nextListed = upsertListedCache(
           state.listedAmcFunds,
-          adjusted.fund,
+          traded.fund,
         );
         let nextManager = state.assetManager;
         if (nextManager) {
@@ -4730,16 +4953,27 @@ export const useMarketStore = create<MarketStore>()(
               item.id === fundId
                 ? {
                     ...item,
-                    totalShares: adjusted.fund!.totalShares,
-                    seedNavValue: adjusted.fund!.seedNavValue,
+                    totalShares: traded.fund!.totalShares,
+                    seedNavValue: traded.fund!.seedNavValue,
+                    basketPriceFactor: traded.fund!.basketPriceFactor ?? 1,
                   }
                 : item,
             ),
             lastActionAt: now,
           };
         }
+        const ledgerCash = reconcileAmcLedgerCash(
+          state.cash,
+          state.amcLedgerBalance,
+          traded.ledgerBalance,
+        );
+        if (!ledgerCash) {
+          return { success: false, message: "ETF 현금원장 값이 올바르지 않습니다." };
+        }
         set({
-          cash: state.cash + total,
+          cash: ledgerCash.cash,
+          amcLedgerBalance: ledgerCash.appliedBalance,
+          amcLedgerRevision: traded.ledgerRevision,
           assetManager: nextManager,
           listedAmcFunds: nextListed,
           holdings:
@@ -4752,13 +4986,13 @@ export const useMarketStore = create<MarketStore>()(
               : state.holdings.filter((item) => item.stockId !== stockId),
           trades: [
             {
-              id: `amc-sell-${fund.id}-${now}`,
+              id: `amc-ledger-trade-${orderId}`,
               stockId,
               ticker: fund.ticker,
               type: "sell",
               quantity: qty,
-              price: nav,
-              total,
+              price: traded.navPerShare,
+              total: traded.total,
               timestamp: now,
             },
             ...state.trades,
@@ -4962,6 +5196,8 @@ export const useMarketStore = create<MarketStore>()(
         sessionDurationMs: state.sessionDurationMs,
         marketStartedAt: state.marketStartedAt,
         cash: state.cash,
+        amcLedgerBalance: state.amcLedgerBalance,
+        amcLedgerRevision: state.amcLedgerRevision,
         initialCash: state.initialCash,
         lastSalarySession: state.lastSalarySession,
         lastMonthlyDistributionSession: state.lastMonthlyDistributionSession,
@@ -5252,6 +5488,23 @@ export const useMarketStore = create<MarketStore>()(
           tick: marketValid ? merged.tick : current.tick,
           stocks: stocksWithDerived,
           cash: compensation.cash,
+          amcLedgerBalance: Number.isFinite(
+            (walletSource as Partial<MarketStore>).amcLedgerBalance,
+          )
+            ? Math.round(
+                (walletSource as Partial<MarketStore>).amcLedgerBalance!,
+              )
+            : 0,
+          amcLedgerRevision: Number.isFinite(
+            (walletSource as Partial<MarketStore>).amcLedgerRevision,
+          )
+            ? Math.max(
+                0,
+                Math.floor(
+                  (walletSource as Partial<MarketStore>).amcLedgerRevision!,
+                ),
+              )
+            : 0,
           holdings: overflowRepair.holdings,
           events:
             marketValid && Array.isArray(merged.events)

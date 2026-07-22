@@ -135,6 +135,8 @@ function CloudSaveSync() {
       const walletChanged =
         tradesChanged ||
         state.cash !== prev.cash ||
+        state.amcLedgerBalance !== prev.amcLedgerBalance ||
+        state.amcLedgerRevision !== prev.amcLedgerRevision ||
         state.holdings !== prev.holdings ||
         state.openOrders !== prev.openOrders ||
         state.cashPayments !== prev.cashPayments ||
@@ -195,6 +197,18 @@ function CloudSaveSync() {
       unsub();
     };
   }, [saveCloud]);
+
+  // 상장 ETF 정산은 운용사 접속 여부와 무관하게 온라인 사용자 누구나 촉발한다.
+  // DB 이벤트 unique 키와 행 잠금이 중복 배당·운용료를 막는다.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const state = useMarketStore.getState();
+      if (state.userId && state.cloudSyncReady) {
+        void refreshListedAmcFunds();
+      }
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [refreshListedAmcFunds]);
 
   // 거래가 없어도 공개 랭킹 스냅샷과 주간 수익률을 1분마다 갱신한다.
   // 지갑 저장과 분리해 500건 거래 JSON을 주기적으로 재업로드하지 않는다.

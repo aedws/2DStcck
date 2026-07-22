@@ -48,6 +48,19 @@ export interface AmcDividendPoint {
   total: number;
 }
 
+/** 마지막 확인 회차 뒤의 배당만 오래된 순서로 반환한다. */
+export function amcDividendHistoryAfter(
+  history: AmcDividendPoint[],
+  cursorSession: number | undefined,
+): AmcDividendPoint[] {
+  const cursor = Number.isFinite(cursorSession)
+    ? cursorSession!
+    : Number.NEGATIVE_INFINITY;
+  return history
+    .filter((entry) => entry.session > cursor)
+    .sort((a, b) => a.session - b.session);
+}
+
 export interface AmcFundState {
   id: string;
   name: string;
@@ -59,6 +72,12 @@ export interface AmcFundState {
   /** 액티브만. 벤치마크 종목 id 1개 고정 */
   benchmarkStockId?: string;
   holdings: AmcHoldingWeight[];
+  /**
+   * 구성 종목의 기준 가격계수. 펀드 생성·리밸런싱 시점의 가중
+   * (현재가/초기가) 합이며, 이후 NAV는 현재 계수와의 상대 변화만 반영한다.
+   * 구 저장분은 1로 간주해 기존 가격을 보존한다.
+   */
+  basketPriceFactor?: number;
   /** 유통 좌수 (시드·매매로 증감) */
   totalShares: number;
   /** 기준 바스켓 가치(센트) — 시드 편입액(90%). 좌당 NAV = basketValue/totalShares 보정은 시세 반영 함수에서 */
@@ -325,17 +344,39 @@ export function computeAmcFundNavPerShare(
   initialPriceOf: (stockId: string) => number,
 ): number {
   if (fund.totalShares <= 0 || fund.status === "delisted") return 0;
-  let relative = 0;
-  for (const row of fund.holdings) {
+  const currentFactor = computeAmcFundBasketPriceFactor(
+    fund.holdings,
+    priceOf,
+    initialPriceOf,
+  );
+  if (!(currentFactor > 0)) {
+    return Math.round(fund.seedNavValue / fund.totalShares);
+  }
+  const baseFactor =
+    Number.isFinite(fund.basketPriceFactor) && (fund.basketPriceFactor ?? 0) > 0
+      ? fund.basketPriceFactor!
+      : 1;
+  return Math.max(
+    1,
+    Math.round(
+      (fund.seedNavValue * (currentFactor / baseFactor)) / fund.totalShares,
+    ),
+  );
+}
+
+export function computeAmcFundBasketPriceFactor(
+  holdings: AmcHoldingWeight[],
+  priceOf: (stockId: string) => number,
+  initialPriceOf: (stockId: string) => number,
+): number {
+  let factor = 0;
+  for (const row of holdings) {
     const px = priceOf(row.stockId);
     const base = initialPriceOf(row.stockId);
     if (!(px > 0) || !(base > 0)) continue;
-    relative += row.weight * (px / base);
+    factor += row.weight * (px / base);
   }
-  if (!(relative > 0)) {
-    return Math.round(fund.seedNavValue / fund.totalShares);
-  }
-  return Math.max(1, Math.round((fund.seedNavValue * relative) / fund.totalShares));
+  return factor;
 }
 
 /** 장부가(seed/shares). 생성·환매 시 seedNavValue는 이 값으로만 증감해야 한다. */
@@ -544,9 +585,15 @@ export function createAmcFund(
   if (cash < seedCash) {
     return { success: false, message: "시드에 필요한 현금이 부족합니다." };
   }
-  const totalShares = 10_000;
+  // 좌당 NAV가 1센트 아래로 반올림되어 시드 가치가 부풀지 않게 한다.
+  const totalShares = Math.min(10_000, Math.max(1, navValue));
   const fundId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const navPerShare = Math.max(1, Math.round(navValue / totalShares));
+  const basketPriceFactor = computeAmcFundBasketPriceFactor(
+    holdings,
+    priceOf,
+    initialPriceOf,
+  );
   const fund: AmcFundState = {
     id: fundId,
     name,
@@ -558,6 +605,7 @@ export function createAmcFund(
       ? { benchmarkStockId: input.benchmarkStockId.trim() }
       : {}),
     holdings,
+    basketPriceFactor,
     totalShares,
     seedNavValue: navValue,
     createdAt: now,
@@ -595,6 +643,8 @@ export function rebalanceAmcFund(
   nextHoldings: AmcHoldingWeight[],
   currentSession: number,
   now = Date.now(),
+  priceOf?: (stockId: string) => number,
+  initialPriceOf?: (stockId: string) => number,
 ): AmcActionResult {
   const fund = manager.funds.find((item) => item.id === fundId);
   if (!fund) return { success: false, message: "펀드를 찾을 수 없습니다." };
@@ -633,9 +683,40 @@ export function rebalanceAmcFund(
     };
   }
   // status "active" = 운영중(유예 해제). style(액티브/패시브)과는 별개.
+  let seedNavValue = fund.seedNavValue;
+  let basketPriceFactor = fund.basketPriceFactor;
+  if (priceOf && initialPriceOf) {
+    const oldFactor = computeAmcFundBasketPriceFactor(
+      fund.holdings,
+      priceOf,
+      initialPriceOf,
+    );
+    const nextFactor = computeAmcFundBasketPriceFactor(
+      holdings,
+      priceOf,
+      initialPriceOf,
+    );
+    if (oldFactor > 0 && nextFactor > 0) {
+      const oldBase =
+        Number.isFinite(fund.basketPriceFactor) &&
+        (fund.basketPriceFactor ?? 0) > 0
+          ? fund.basketPriceFactor!
+          : 1;
+      // 종목/비중 변경 자체로 NAV가 튀지 않도록 현재 AUM에서 새 기준을 잡는다.
+      seedNavValue = Math.max(
+        0,
+        Math.round(fund.seedNavValue * (oldFactor / oldBase)),
+      );
+      basketPriceFactor = nextFactor;
+    }
+  }
   const updated: AmcFundState = {
     ...fund,
     holdings,
+    seedNavValue,
+    ...(basketPriceFactor && basketPriceFactor > 0
+      ? { basketPriceFactor }
+      : {}),
     lastRebalanceSession: currentSession,
     graceStartedSession: null,
     status: "active",
@@ -770,8 +851,20 @@ export function settleAmcManagementFees(
       const aum = nav * next.totalShares;
       const amount = Math.max(0, Math.round(aum * next.feeRate));
       if (amount > 0) {
-        // NAV에서 차감 ≡ seedNavValue 감소 (좌수 유지)
-        const nextSeed = Math.max(0, next.seedNavValue - amount);
+        const factor = computeAmcFundBasketPriceFactor(
+          next.holdings,
+          priceOf,
+          initialPriceOf,
+        );
+        const baseFactor =
+          Number.isFinite(next.basketPriceFactor) &&
+          (next.basketPriceFactor ?? 0) > 0
+            ? next.basketPriceFactor!
+            : 1;
+        const performanceFactor = factor > 0 ? factor / baseFactor : 1;
+        // 현재 AUM에서 정확히 amount만 빠지도록 기준자산 금액으로 환산한다.
+        const seedDeduction = Math.round(amount / performanceFactor);
+        const nextSeed = Math.max(0, next.seedNavValue - seedDeduction);
         next = {
           ...next,
           seedNavValue: nextSeed,
@@ -855,9 +948,23 @@ export function settleAmcDividends(
       const perShare = Math.max(0, Math.floor(total / next.totalShares));
       const paidTotal = perShare * next.totalShares;
       if (perShare <= 0 || paidTotal <= 0) continue;
+      const factor = computeAmcFundBasketPriceFactor(
+        next.holdings,
+        priceOf,
+        initialPriceOf,
+      );
+      const baseFactor =
+        Number.isFinite(next.basketPriceFactor) &&
+        (next.basketPriceFactor ?? 0) > 0
+          ? next.basketPriceFactor!
+          : 1;
+      const performanceFactor = factor > 0 ? factor / baseFactor : 1;
       next = {
         ...next,
-        seedNavValue: Math.max(0, next.seedNavValue - paidTotal),
+        seedNavValue: Math.max(
+          0,
+          next.seedNavValue - Math.round(paidTotal / performanceFactor),
+        ),
         cumulativeDividendsPaid: next.cumulativeDividendsPaid + paidTotal,
       };
       history.push({ session: dueSession, perShare, total: paidTotal });
@@ -996,6 +1103,11 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
       ? { benchmarkStockId: source.benchmarkStockId }
       : {}),
     holdings,
+    basketPriceFactor:
+      Number.isFinite(source.basketPriceFactor) &&
+      (source.basketPriceFactor ?? 0) > 0
+        ? source.basketPriceFactor
+        : 1,
     totalShares: Math.max(1, Math.floor(finiteNonNegative(source.totalShares, 10_000))),
     seedNavValue: Math.max(0, Math.round(finiteNonNegative(source.seedNavValue))),
     createdAt: finiteNonNegative(source.createdAt, Date.now()),

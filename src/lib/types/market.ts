@@ -199,6 +199,8 @@ export interface Holding {
   /** 현물은 최대 소수점 6자리까지 보유할 수 있다. */
   quantity: number;
   averagePrice: number;
+  /** 유저 ETF에서 마지막으로 확인·수령한 배당 회차. 과거 배당 소급 지급 방지용. */
+  amcDividendCursorSession?: number;
   /**
    * 레버리지·인버스 ETF 보유분에 마지막으로 적용된 액면분할·병합 배수.
    * 시세가 밴드를 벗어나 배수가 바뀌면 좌수 ×(신/구)·평단 ÷(신/구)로 정산한다.
@@ -304,6 +306,8 @@ export type CashPaymentKind =
   | "management_fee"
   // 유저 ETF 배당 (NAV 차감 → 보유자 현금).
   | "amc_dividend"
+  // 유저 ETF 상장폐지 시 서버 원장에서 지급한 NAV 환급.
+  | "amc_redemption"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
   | "minigame"
   // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.
@@ -468,6 +472,10 @@ export interface MarketSnapshot {
   tick: number;
   marketStartedAt: number;
   cash: number;
+  /** 서버 ETF 현금원장에서 로컬 지갑에 마지막으로 반영한 누적값. */
+  amcLedgerBalance: number;
+  /** 서버 ETF 원장 변경 순번. 진단·동기화 표시용. */
+  amcLedgerRevision: number;
   /** 마지막 월급 지급 기준 거래일. 이 시점부터 20거래일마다 고정급 지급 */
   lastSalarySession: number;
   /** 마지막으로 처리한 커버드콜 월 분배 기준 거래일 */

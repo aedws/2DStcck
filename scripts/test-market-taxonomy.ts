@@ -12,7 +12,7 @@ import {
 const byId = new Map(STOCK_DEFINITIONS.map((stock) => [stock.id, stock]));
 const companies = getCompanyDefinitions();
 
-assert.equal(companies.length, 54);
+assert.equal(companies.length, 56);
 assert.deepEqual(
   [...new Set(companies.map((stock) => stock.sector))].sort((a, b) =>
     a.localeCompare(b, "ko"),
@@ -30,9 +30,9 @@ const countBy = <T>(items: T[], keyOf: (item: T) => string) => {
 };
 
 const instrumentCounts = countBy(STOCK_DEFINITIONS, instrumentTypeOf);
-assert.equal(instrumentCounts.get("company"), 54);
+assert.equal(instrumentCounts.get("company"), 56);
 assert.equal(instrumentCounts.get("etf"), 8);
-assert.equal(instrumentCounts.get("strategy"), 247);
+assert.equal(instrumentCounts.get("strategy"), 255);
 assert.equal(instrumentCounts.get("index"), 1);
 assert.equal(instrumentCounts.get("future"), 1);
 
@@ -40,10 +40,10 @@ const strategies = STOCK_DEFINITIONS.filter(
   (stock) => instrumentTypeOf(stock) === "strategy",
 );
 const strategyCounts = countBy(strategies, strategyFilterLabel);
-assert.equal(strategyCounts.get("레버리지"), 64);
-assert.equal(strategyCounts.get("인버스"), 64);
-assert.equal(strategyCounts.get("곱버스"), 64);
-assert.equal(strategyCounts.get("커버드콜"), 55);
+assert.equal(strategyCounts.get("레버리지"), 66);
+assert.equal(strategyCounts.get("인버스"), 66);
+assert.equal(strategyCounts.get("곱버스"), 66);
+assert.equal(strategyCounts.get("커버드콜"), 57);
 
 const funds = STOCK_DEFINITIONS.filter(
   (stock) => instrumentTypeOf(stock) === "etf",
