@@ -1,4 +1,8 @@
 import type { Holding, StockState } from "@/lib/types/market";
+import {
+  resolveStockCharacterExposure,
+  type CharacterLinkedEtfHolding,
+} from "@/lib/market/characterProgress";
 
 /**
  * 캐릭터(기업)별 보유 집중도. 직접 종목과 그 회사를 기초로 한 커버드콜·양수 레버리지는
@@ -25,6 +29,7 @@ export function computeCharacterConcentration(
   holdings: Holding[],
   stocks: StockState[],
   equity: number,
+  userEtfHoldings: readonly CharacterLinkedEtfHolding[] = [],
 ): CharacterConcentration {
   const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
   const byCharacter = new Map<string, number>();
@@ -45,6 +50,31 @@ export function computeCharacterConcentration(
       ceoId,
       (byCharacter.get(ceoId) ?? 0) + holding.quantity * stock.currentPrice,
     );
+  }
+
+  // 유저 ETF는 일반 종목 맵에 없으므로 NAV를 구성 비중대로 기초 캐릭터에 배분한다.
+  // 인버스·곱버스는 우호 보유로 보지 않아 의뢰 발행 대상에서 제외한다.
+  for (const etf of userEtfHoldings) {
+    if (!(etf.value > 0)) continue;
+    const totalWeight = etf.holdings.reduce(
+      (sum, holding) => sum + (holding.weight > 0 ? holding.weight : 0),
+      0,
+    );
+    if (!(totalWeight > 0)) continue;
+    const positiveRows = etf.holdings.flatMap((holding) => {
+      if (!(holding.weight > 0)) return [];
+      const exposure = resolveStockCharacterExposure(holding.stockId, stockById);
+      return exposure && exposure.kind !== "hostile"
+        ? [{ characterId: exposure.characterId, weight: holding.weight }]
+        : [];
+    });
+    for (const row of positiveRows) {
+      byCharacter.set(
+        row.characterId,
+        (byCharacter.get(row.characterId) ?? 0) +
+          etf.value * (row.weight / totalWeight),
+      );
+    }
   }
 
   const ranked =

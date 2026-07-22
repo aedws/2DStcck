@@ -18,6 +18,11 @@ export interface AmcPortfolioPosition {
   evaluation: number;
 }
 
+export interface AmcCharacterLinkedHolding {
+  value: number;
+  holdings: { stockId: string; weight: number }[];
+}
+
 type AmcPriceStock = Pick<
   StockState,
   "id" | "currentPrice" | "initialPrice"
@@ -96,6 +101,18 @@ export function getAmcPortfolioValue(
     (sum, position) => sum + position.evaluation,
     0,
   );
+}
+
+/** 캐릭터 관계·의뢰 계산에서 사용할 유저 ETF NAV와 구성 비중. */
+export function getAmcCharacterLinkedHoldings(
+  holdings: readonly Holding[],
+  funds: readonly AmcFundState[],
+  stocks: readonly AmcPriceStock[],
+): AmcCharacterLinkedHolding[] {
+  return getAmcPortfolioPositions(holdings, funds, stocks).map((position) => ({
+    value: position.evaluation,
+    holdings: position.fund.holdings,
+  }));
 }
 
 /** 구성 종목의 저장 시세를 같은 시각끼리 합성해 유저 ETF NAV 차트를 만든다. */

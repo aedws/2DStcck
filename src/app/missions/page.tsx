@@ -19,6 +19,11 @@ import {
 } from "@/lib/market/missions";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import {
+  getAmcCharacterLinkedHoldings,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
+import {
   STORY_DECISION_OFFERS,
   STORY_BOND_DECISION_OFFER,
   getStoryArcAtSession,
@@ -43,6 +48,8 @@ export default function MissionsPage() {
   const characterProgressMap = useMarketStore((state) => state.characterProgress);
   const holdings = useMarketStore((state) => state.holdings);
   const stocks = useMarketStore((state) => state.stocks);
+  const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const accept = useMarketStore((state) => state.acceptInvestmentMission);
   const storyDecision = useMarketStore((state) => state.storyDecision);
   const storyDecisionHistory = useMarketStore((state) => state.storyDecisionHistory);
@@ -65,6 +72,16 @@ export default function MissionsPage() {
   const stage = storyStageAtSession(arc, session);
   const currentStoryDecision = storyDecision?.storyId === arc.id ? storyDecision : null;
   const equity = getEquity();
+  const userEtfHoldings = getAmcCharacterLinkedHoldings(
+    holdings,
+    mergeAmcPortfolioFunds(
+      listedAmcFunds.map(listedFundToAmcState),
+      assetManager?.funds ?? [],
+    ),
+    stocks,
+  );
+  const missionEquity =
+    equity + userEtfHoldings.reduce((sum, holding) => sum + holding.value, 0);
   const benchmarkPrice = benchmark?.currentPrice ?? 0;
   const relationship = getCharacterProgress(characterProgressMap, arc.character?.id);
   const bondChoiceAvailable = canUseBondChoice(relationship, arc.windowStart);
@@ -72,7 +89,8 @@ export default function MissionsPage() {
   const issuerConcentration = computeCharacterConcentration(
     holdings,
     stocks,
-    equity,
+    missionEquity,
+    userEtfHoldings,
   );
   const issuer = resolveMissionIssuer(
     getCompanyDefinitions(),
@@ -240,7 +258,7 @@ export default function MissionsPage() {
         {mission?.status === "active" ? (
           <ActiveMission
             mission={mission}
-            equity={equity}
+            equity={missionEquity}
             benchmarkPrice={benchmarkPrice}
           />
         ) : !issuer ? (

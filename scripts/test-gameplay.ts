@@ -5,8 +5,10 @@ import {
   createInvestmentMission,
   getAvailableInvestmentMissionOffers,
   missionWindowStart,
+  resolveMissionIssuer,
   updateInvestmentMission,
 } from "../src/lib/market/missions";
+import { computeCharacterConcentration } from "../src/lib/market/characterConcentration";
 import {
   createDailyOperation,
   getDailyOperationOffers,
@@ -1024,6 +1026,62 @@ assert.deepEqual(
   ).map(({ characterId, kind, affinityRate }) => ({ characterId, kind, affinityRate })),
   [{ characterId: relationshipCharacter.id, kind: "hostile", affinityRate: -2 }],
   "inverse holdings inside a user ETF should stay hostile",
+);
+
+const userEtfMissionConcentration = computeCharacterConcentration(
+  [],
+  [relationshipStock, singleCharacterDerivative],
+  relationshipStock.currentPrice,
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterDerivative.id, weight: 1 }],
+  }],
+);
+assert.equal(
+  userEtfMissionConcentration.ranked[0]?.characterId,
+  relationshipCharacter.id,
+  "a user ETF should count as underlying-character ownership for missions",
+);
+assert.equal(
+  resolveMissionIssuer(
+    [{ id: positiveArc.company.id, ceoId: relationshipCharacter.id }],
+    userEtfMissionConcentration,
+    relationshipCharacter.id,
+    windowStart,
+  )?.characterId,
+  relationshipCharacter.id,
+  "a mission issuer should be generated when only the user ETF is held",
+);
+const inverseOnlyMissionConcentration = computeCharacterConcentration(
+  [],
+  [relationshipStock, singleCharacterInverse],
+  relationshipStock.currentPrice,
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterInverse.id, weight: 1 }],
+  }],
+);
+assert.equal(
+  inverseOnlyMissionConcentration.heldCount,
+  0,
+  "inverse-only user ETFs must not create friendly character missions",
+);
+const mixedDirectionMissionConcentration = computeCharacterConcentration(
+  [],
+  [relationshipStock, singleCharacterInverse],
+  relationshipStock.currentPrice,
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [
+      { stockId: relationshipStock.id, weight: 0.5 },
+      { stockId: singleCharacterInverse.id, weight: 0.5 },
+    ],
+  }],
+);
+assert.equal(
+  mixedDirectionMissionConcentration.topCharacterShare,
+  0.5,
+  "hostile ETF weight must not be reassigned to friendly character exposure",
 );
 
 const relationEtfHolding = [{

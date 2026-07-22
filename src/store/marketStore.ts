@@ -270,6 +270,10 @@ import {
 import { computePrestige } from "@/lib/player/prestige";
 import { reconcileAmcLedgerCash } from "@/lib/player/amcLedger";
 import {
+  getAmcCharacterLinkedHoldings,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import {
   getSeasonReward,
   mergeSeasonRewards,
   normalizeSeasonRewardIds,
@@ -938,6 +942,29 @@ function longBuyingPower(s: MarginAwareState): number {
 
 function fullEquityOf(s: Parameters<typeof marginContext>[0]): number {
   return marginContext(s).equity;
+}
+
+function userEtfRelationshipHoldingsOf(
+  state: Pick<MarketStore, "holdings" | "stocks" | "assetManager" | "listedAmcFunds">,
+) {
+  const funds = mergeAmcPortfolioFunds(
+    state.listedAmcFunds.map(listedFundToAmcState),
+    state.assetManager?.funds ?? [],
+  );
+  return getAmcCharacterLinkedHoldings(state.holdings, funds, state.stocks);
+}
+
+function relationshipEquityOf(
+  state: Pick<MarketStore, "holdings" | "stocks" | "assetManager" | "listedAmcFunds"> &
+    Parameters<typeof marginContext>[0],
+): { equity: number; userEtfHoldings: ReturnType<typeof userEtfRelationshipHoldingsOf> } {
+  const userEtfHoldings = userEtfRelationshipHoldingsOf(state);
+  return {
+    equity:
+      fullEquityOf(state) +
+      userEtfHoldings.reduce((sum, holding) => sum + holding.value, 0),
+    userEtfHoldings,
+  };
 }
 
 interface OverflowRepair {
@@ -2809,26 +2836,11 @@ export const useMarketStore = create<MarketStore>()(
           state.preferredShares,
           preferredConcentration,
         );
-        const fundsForAffinity = new Map(
-          listedAmcFunds
-            .filter((fund) => fund.status !== "delisted")
-            .map((fund) => [fund.id, listedFundToAmcState(fund)] as const),
-        );
-        for (const fund of assetManager?.funds ?? []) {
-          if (fund.status !== "delisted") fundsForAffinity.set(fund.id, fund);
-        }
-        const userEtfHoldings = holdings.flatMap((holding) => {
-          const fundId = parseAmcFundId(holding.stockId);
-          const fund = fundId ? fundsForAffinity.get(fundId) : undefined;
-          if (!fund || !(holding.quantity > 0)) return [];
-          const nav = computeAmcFundNavPerShare(
-            fund,
-            priceOfAmc,
-            initialPriceOfAmc,
-          );
-          return nav > 0
-            ? [{ value: nav * holding.quantity, holdings: fund.holdings }]
-            : [];
+        const userEtfHoldings = userEtfRelationshipHoldingsOf({
+          holdings,
+          stocks: combinedStocks,
+          assetManager,
+          listedAmcFunds,
         });
         const relationshipEquity =
           netWorth +
@@ -2847,7 +2859,7 @@ export const useMarketStore = create<MarketStore>()(
           const updatedMission = updateInvestmentMission(
             investmentMission,
             currentSession,
-            netWorth,
+            relationshipEquity,
             benchmarkPrice,
             now,
           );
@@ -3219,7 +3231,7 @@ export const useMarketStore = create<MarketStore>()(
         if (state.investmentMission?.status === "active") {
           return { success: false, message: "이미 진행 중인 투자 의뢰가 있습니다." };
         }
-        const equity = fullEquityOf(state);
+        const { equity, userEtfHoldings } = relationshipEquityOf(state);
         if (!Number.isFinite(equity) || equity <= 0) {
           return { success: false, message: "순자산이 0보다 커야 의뢰를 시작할 수 있습니다." };
         }
@@ -3232,6 +3244,7 @@ export const useMarketStore = create<MarketStore>()(
           state.holdings,
           state.stocks,
           equity,
+          userEtfHoldings,
         );
         const issuer = resolveMissionIssuer(
           STOCK_DEFINITIONS,

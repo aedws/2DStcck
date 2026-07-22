@@ -36,6 +36,7 @@ import {
 } from "../src/lib/supabase/amcEtfListingRequests";
 import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
 import {
+  getAmcCharacterLinkedHoldings,
   getAmcFundChartSeries,
   getAmcFundPriceHistory,
   getAmcPortfolioPositions,
@@ -396,6 +397,18 @@ assert.equal(portfolioPositions[0]!.fund.ticker, listed.ticker);
 assert.equal(
   getAmcPortfolioValue([founderHolding], portfolioFunds, portfolioStocks),
   portfolioPositions[0]!.evaluation,
+);
+assert.deepEqual(
+  getAmcCharacterLinkedHoldings(
+    [founderHolding],
+    portfolioFunds,
+    portfolioStocks,
+  ),
+  [{
+    value: portfolioPositions[0]!.evaluation,
+    holdings: portfolioPositions[0]!.fund.holdings,
+  }],
+  "user ETF positions should be available to character missions",
 );
 const chartStocks = Object.entries(prices).map(([id, initialPrice]) => ({
   id,
