@@ -1,14 +1,13 @@
 import bundledCheckpoint from "@/data/market-checkpoint.json";
-import { STOCK_DEFINITIONS } from "@/data/stocks";
 import {
   MARKET_EPOCH_MS,
   MARKET_SIM_VERSION,
 } from "@/lib/market/constants";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
-  computeLeveragedPrice,
-  computeLeveragedRawPrice,
-  leverageDisplayPrice,
+  computeLeveragedSnapshot,
+  leverageAdjustedCandles,
+  leverageAdjustedHistory,
 } from "@/lib/market/engine";
 import { createGenesisStocks } from "@/lib/market/localSim";
 import { generateOrderBook } from "@/lib/market/orderBook";
@@ -26,6 +25,9 @@ export interface CompactStockCheckpoint {
   prevDayClose: number;
   dayOpen: number;
   daySessionId?: number;
+  leveragePathSessionId?: number;
+  leveragePathSessionBase?: number;
+  leveragePathFactors?: Record<string, number>;
   priceHistory: PricePoint[];
   candles: Candle[];
   dailyCandles: Candle[];
@@ -74,64 +76,40 @@ export function reconstructDerivativeSeries(
   etf: StockState,
   underlying: StockState,
 ): StockState {
-  const leverage = etf.leverage ?? 1;
-  const etfInitial = etf.initialPrice ?? etf.prevDayClose;
-  const underlyingInitial =
-    underlying.initialPrice ||
-    STOCK_DEFINITIONS.find((definition) => definition.id === underlying.id)
-      ?.initialPrice ||
-    0;
   const underlyingCandles = underlying.candles ?? [];
-  if (underlyingInitial <= 0 || underlyingCandles.length === 0) {
+  const snapshot = computeLeveragedSnapshot(etf, underlying);
+  if (underlyingCandles.length === 0) {
     return {
       ...etf,
-      currentPrice: computeLeveragedPrice(etf, underlying),
+      currentPrice: snapshot.currentPrice,
+      prevDayClose: snapshot.prevDayClose,
+      dayOpen: snapshot.dayOpen,
+      daySessionId: underlying.daySessionId,
     };
   }
 
-  const mapPrice = (price: number) =>
-    leverageDisplayPrice(
-      computeLeveragedRawPrice(
-        etfInitial,
-        price,
-        underlyingInitial,
-        leverage,
-      ),
-    );
-  const candles = underlyingCandles.map((candle) => {
-    const open = mapPrice(candle.open);
-    const close = mapPrice(candle.close);
-    const high = mapPrice(candle.high);
-    const low = mapPrice(candle.low);
-    return {
-      timestamp: candle.timestamp,
-      open,
-      close,
-      high: Math.max(open, close, high, low),
-      low: Math.min(open, close, high, low),
-    };
-  });
-  const priceHistory = (underlying.priceHistory ?? []).map((point) => ({
-    timestamp: point.timestamp,
-    price: mapPrice(point.price),
-  }));
-  const dailyCandles = (underlying.dailyCandles ?? []).map((candle) => {
-    const open = mapPrice(candle.open);
-    const close = mapPrice(candle.close);
-    const high = mapPrice(candle.high);
-    const low = mapPrice(candle.low);
-    return {
-      timestamp: candle.timestamp,
-      open,
-      close,
-      high: Math.max(open, close, high, low),
-      low: Math.min(open, close, high, low),
-    };
-  });
+  const candles = leverageAdjustedCandles(
+    etf,
+    underlying,
+    underlyingCandles,
+  );
+  const priceHistory = leverageAdjustedHistory(
+    etf,
+    underlying,
+    underlying.priceHistory ?? [],
+  );
+  const dailyCandles = leverageAdjustedCandles(
+    etf,
+    underlying,
+    underlying.dailyCandles ?? [],
+  );
 
   return {
     ...etf,
-    currentPrice: computeLeveragedPrice(etf, underlying),
+    currentPrice: snapshot.currentPrice,
+    prevDayClose: snapshot.prevDayClose,
+    dayOpen: snapshot.dayOpen,
+    daySessionId: underlying.daySessionId,
     candles,
     priceHistory: priceHistory.length > 0 ? priceHistory : etf.priceHistory,
     dailyCandles:
@@ -210,6 +188,9 @@ export function compactMarketCheckpoint(
         prevDayClose: stock.prevDayClose,
         dayOpen: stock.dayOpen,
         daySessionId: stock.daySessionId,
+        leveragePathSessionId: stock.leveragePathSessionId,
+        leveragePathSessionBase: stock.leveragePathSessionBase,
+        leveragePathFactors: stock.leveragePathFactors,
         priceHistory: stock.priceHistory.slice(-20),
         candles: stock.candles.slice(-30),
         dailyCandles: stock.dailyCandles

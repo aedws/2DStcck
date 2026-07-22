@@ -7,6 +7,28 @@ import {
   isCompatibleMarketCheckpoint,
 } from "../src/lib/market/marketCheckpoint";
 import { currentSimTick, replayMarket } from "../src/lib/market/localSim";
+import { computeLeveragedSnapshot } from "../src/lib/market/engine";
+
+function assertLeveragedPricesMatchUnderlying(
+  stocks: ReturnType<typeof hydrateMarketCheckpoint>["stocks"],
+) {
+  const byId = new Map(stocks.map((stock) => [stock.id, stock]));
+  for (const stock of stocks) {
+    if (stock.leverage === undefined || !stock.leverageUnderlyingId) continue;
+    const underlying = byId.get(stock.leverageUnderlyingId);
+    assert.ok(underlying, `${stock.id} 기초자산이 없음`);
+    assert.ok(
+      underlying.leveragePathSessionBase !== undefined &&
+        underlying.leveragePathFactors !== undefined,
+      `${stock.id} 기초자산의 일일 누적 경로가 복원되지 않음`,
+    );
+    assert.equal(
+      stock.currentPrice,
+      computeLeveragedSnapshot(stock, underlying).currentPrice,
+      `${stock.id} 복원 가격이 일일 누적 경로와 다름`,
+    );
+  }
+}
 
 const checkpoint = getBundledMarketCheckpoint();
 assert.equal(isCompatibleMarketCheckpoint(checkpoint), true);
@@ -21,6 +43,7 @@ const hydrated = hydrateMarketCheckpoint(checkpoint);
 const hydrateMs = performance.now() - startedAt;
 assert.equal(hydrated.stocks.length, STOCK_DEFINITIONS.length);
 assert.equal(new Set(hydrated.stocks.map((stock) => stock.id)).size, STOCK_DEFINITIONS.length);
+assertLeveragedPricesMatchUnderlying(hydrated.stocks);
 
 const targetTick = currentSimTick();
 const shortTarget = Math.min(targetTick, checkpoint.tick + 250);
@@ -31,6 +54,7 @@ const replayed = replayMarket(
   shortTarget,
 );
 assert.equal(replayed.stocks.length, STOCK_DEFINITIONS.length);
+assertLeveragedPricesMatchUnderlying(replayed.stocks);
 assert.equal(
   replayed.stocks.some((stock) => stock.candles.length > 1),
   true,

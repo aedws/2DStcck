@@ -8,7 +8,6 @@ import {
   safeMarketStorage,
 } from "@/lib/storage/safeLocalStorage";
 import {
-  computeLeveragedPrice,
   createInitialStockState,
   formatPrice,
   getMarketBuyPrice,
@@ -1251,8 +1250,8 @@ interface SplitEvent {
 /**
  * 레버리지·인버스 ETF 보유분을 현재 분할·병합 배수에 맞춰 정산한다.
  * 표시가는 매 틱 밴드로 재계산되므로(computeLeveragedPrice), 좌수도 같은 배수로
- * 함께 움직여야 포지션 가치가 연속된다. 배수는 기초자산 현재가만의 순함수라
- * 접속 공백 동안 몇 번을 분할·병합했든 한 번에 목표 배수로 점프 정산하면 된다.
+ * 함께 움직여야 포지션 가치가 연속된다. 배수는 기초자산의 거래일별 누적 경로에서
+ * 정해진 현재 원가격으로 계산하므로, 접속 공백도 목표 배수로 한 번에 정산한다.
  * (좌수 × 신/구, 평단 ÷ 신/구 → 손익·가치 불변)
  */
 function reconcileLeverageSplits(
@@ -2566,8 +2565,8 @@ export const useMarketStore = create<MarketStore>()(
         }
 
         // 레버리지·인버스 ETF 액면분할·병합: 표시가가 밴드를 벗어나면 보유 좌수를
-        // 반대로 정산한다(포지션 가치 불변). 배수는 기초자산 현재가만의 순함수라
-        // 미접속 공백 동안의 다중 분할·병합도 한 번에 따라잡는다.
+        // 반대로 정산한다(포지션 가치 불변). 일일 누적 경로에서 산출한 현재
+        // 액면배수로 미접속 공백 동안의 다중 분할·병합도 한 번에 따라잡는다.
         const splitResult = reconcileLeverageSplits(holdings, combinedStocks);
         holdings = splitResult.holdings;
         if (splitResult.changed) {

@@ -22,11 +22,12 @@ const base = createGenesisStocks();
 const etfDef = base.find((s) => s.id === "vnsl2")!; // 2x 레버리지 (기초 vnasdaq)
 const underDef = base.find((s) => s.id === "vnasdaq")!;
 
-// 임의의 목표 raw 가격을 만드는 기초자산가: raw = etfInit × (u/uInit)^lev (lev=2)
+// 같은 거래일에 목표 raw 가격을 만드는 기초자산가:
+// raw = etfSessionStart × (1 + lev × (u/uBase - 1)), lev=2.
 const etfInit = etfDef.initialPrice;
 const underInit = underDef.initialPrice;
 const underlyingForRaw = (rawTarget: number) =>
-  underInit * Math.sqrt(rawTarget / etfInit);
+  underInit * (1 + (rawTarget / etfInit - 1) / 2);
 
 function scenario(underlyingPrice: number) {
   const underlying: StockState = { ...underDef, currentPrice: underlyingPrice };

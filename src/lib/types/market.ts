@@ -167,6 +167,12 @@ export interface StockState extends StockDefinition {
   dayOpen: number;
   /** 현재 거래일 번호 = floor(now / SESSION_DURATION_MS). 바뀌면 새 거래일 */
   daySessionId?: number;
+  /** 레버리지 상품의 일일 재설정 경로가 기준으로 삼는 거래일. */
+  leveragePathSessionId?: number;
+  /** 현재 거래일 시작 직전의 기초자산 종가. */
+  leveragePathSessionBase?: number;
+  /** 완료된 거래일 수익률을 배율별로 누적한 경로 계수. */
+  leveragePathFactors?: Record<string, number>;
   priceHistory: PricePoint[];
   /** 30초봉. 1·3·5·10·30분봉 집계의 원본. */
   candles: Candle[];

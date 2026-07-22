@@ -9,13 +9,13 @@ import {
 import {
   MAX_CANDLES,
   MAX_DAILY_CANDLES,
+  advanceDailyLeveragePath,
   calculateTickPrice,
   computeCoveredCallTick,
   computeEtfNav,
-  computeLeveragedPrice,
-  computeLeveragedRawPrice,
-  leverageDisplayPrice,
+  computeLeveragedSnapshot,
   createInitialStockState,
+  leverageAdjustedCandles,
   maybeGenerateEvent,
   randomNormal,
   seededRand,
@@ -241,6 +241,7 @@ export function replayMarket(
       if (tick < listingTickOf(s)) continue;
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
+      Object.assign(s, advanceDailyLeveragePath(s, session));
       if (isNewSession) s.prevDayClose = s.currentPrice;
       const next = calculateTickPrice(
         s,
@@ -262,6 +263,7 @@ export function replayMarket(
     for (const s of navEtfs) {
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
+      Object.assign(s, advanceDailyLeveragePath(s, session));
       if (isNewSession) s.prevDayClose = s.currentPrice;
       const next = computeEtfNav(s, byId);
       if (isNewSession) s.dayOpen = next;
@@ -271,22 +273,21 @@ export function replayMarket(
 
     // 3차: 각 레버리지·인버스 상품이 지정된 기초자산 수익률을 추종한다.
     for (const s of replayedLeveragedEtfs) {
-      const isNewSession =
-        s.daySessionId !== undefined && s.daySessionId !== session;
-      if (isNewSession) s.prevDayClose = s.currentPrice;
       const underlyingId = s.leverageUnderlyingId ?? "vnasdaq";
       const underlying = byId.get(underlyingId);
       if (!underlying) continue;
-      const next = computeLeveragedPrice(s, underlying);
-      if (isNewSession) s.dayOpen = next;
+      const snapshot = computeLeveragedSnapshot(s, underlying);
+      s.prevDayClose = snapshot.prevDayClose;
+      s.dayOpen = snapshot.dayOpen;
       s.daySessionId = session;
-      s.currentPrice = next;
+      s.currentPrice = snapshot.currentPrice;
     }
 
     // 4차: 커버드콜 상품 갱신.
     for (const s of coveredCallEtfs) {
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
+      Object.assign(s, advanceDailyLeveragePath(s, session));
       if (isNewSession) s.prevDayClose = s.currentPrice;
       const before = ccBefore.get(s.id) ?? 0;
       const after = byId.get(s.coveredCallUnderlyingId!)?.currentPrice ?? 0;
@@ -399,7 +400,13 @@ export function replayMarket(
     if (tick > candleWindowStart) {
       for (const s of universalDerivatives) {
         const underlying = byId.get(s.leverageUnderlyingId ?? "vnasdaq");
-        if (underlying) s.currentPrice = computeLeveragedPrice(s, underlying);
+        if (underlying) {
+          const snapshot = computeLeveragedSnapshot(s, underlying);
+          s.currentPrice = snapshot.currentPrice;
+          s.prevDayClose = snapshot.prevDayClose;
+          s.dayOpen = snapshot.dayOpen;
+          s.daySessionId = session;
+        }
       }
     }
 
@@ -436,38 +443,30 @@ export function replayMarket(
     }
   }
 
-  // 자동 생성 상품은 긴 초기 리플레이에서 매 틱 126개를 반복 계산하지 않고,
-  // 기초자산의 누적 수익률로 동일한 결정론적 현재가를 구성한다.
+  // 자동 생성 상품은 기초자산에 저장된 '완료 거래일 누적계수 + 당일 수익률'로
+  // 최종가를 계산한다. 긴 초기 리플레이에서도 파생상품 204개를 매 틱 돌지 않는다.
   for (const stock of universalDerivatives) {
     const underlyingId = stock.leverageUnderlyingId;
     const underlying = underlyingId ? byId.get(underlyingId) : undefined;
     if (!underlying || !underlyingId) continue;
-    stock.currentPrice = computeLeveragedPrice(stock, underlying);
+    const snapshot = computeLeveragedSnapshot(stock, underlying);
+    stock.currentPrice = snapshot.currentPrice;
+    stock.prevDayClose = snapshot.prevDayClose;
+    stock.dayOpen = snapshot.dayOpen;
+    stock.daySessionId = underlying.daySessionId;
 
-    // 자동생성 파생은 일봉을 따로 쌓지 않으므로, 기초자산 일봉을 power-law로 매핑해
-    // 정확한 일봉 시계열을 재구성한다(경로 독립이라 종가별 직접 변환 가능).
-    const leverage = stock.leverage ?? 1;
-    const u0 = defById.get(underlyingId)?.initialPrice ?? underlying.initialPrice ?? 0;
+    // 자동생성 파생은 일봉을 따로 누적하지 않고 기초자산 일봉을 거래일별로
+    // 재설정해 복원한다. 현재 액면배수로 소급조정해 분할 절벽도 제거한다.
     const uDaily = dailyMap.get(underlyingId) ?? [];
-    if (u0 > 0 && uDaily.length > 0) {
-      const map = (p: number) =>
-        leverageDisplayPrice(
-          computeLeveragedRawPrice(stock.initialPrice, p, u0, leverage),
-        );
-      const derivDaily: Candle[] = uDaily.map((c) => {
-        const o = map(c.open);
-        const cl = map(c.close);
-        const a = map(c.high);
-        const b = map(c.low);
-        return {
-          timestamp: c.timestamp,
-          open: o,
-          high: Math.max(o, cl, a, b),
-          low: Math.min(o, cl, a, b),
-          close: cl,
-        };
-      });
-      dailyMap.set(stock.id, derivDaily);
+    if (uDaily.length > 0) {
+      dailyMap.set(
+        stock.id,
+        leverageAdjustedCandles(
+          stock,
+          { ...underlying, dailyCandles: uDaily },
+          uDaily,
+        ),
+      );
     }
   }
 

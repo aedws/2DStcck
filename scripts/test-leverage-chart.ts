@@ -20,8 +20,9 @@ const under = base.find((s) => s.id === "vnasdaq")!;
 const uInit = under.initialPrice;
 
 // 기초자산가가 분할 경계를 관통하도록 완만히 상승하는 캔들열을 만든다.
-// raw = etfInit*(u/uInit)^2 이 LEVERAGE_SPLIT_AT를 넘어가는 구간.
-const uCross = uInit * Math.sqrt(LEVERAGE_SPLIT_AT / etf.initialPrice); // raw=SPLIT_AT
+// raw = etfSessionStart*(1 + 2*(u/uBase-1)) 이 LEVERAGE_SPLIT_AT를 넘는 구간.
+const uCross =
+  uInit * (1 + (LEVERAGE_SPLIT_AT / etf.initialPrice - 1) / 2);
 const uStart = uCross * 0.97;
 const uEnd = uCross * 1.05;
 const N = 40;

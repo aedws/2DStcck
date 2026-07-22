@@ -162,7 +162,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     leverage: 2,
     leverageUnderlyingId: "vnasdaq",
     description:
-      "V-NASDAQ 틱 수익률을 2배로 추종하는 레버리지 ETF. 고위험 고수익.",
+      "V-NASDAQ의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 레버리지 ETF. 고위험 고수익.",
   },
   {
     id: "vnsi",
@@ -623,7 +623,7 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
       universalDerivative: true,
       // 기초자산이 IPO 예정이면 파생상품도 같은 시각까지 비상장으로 묶는다.
       listingEpochMs: underlying.listingEpochMs,
-      description: `${underlying.name}의 틱 수익률을 ${leverage}배로 추종하는 합성 ETF.`,
+      description: `${underlying.name}의 1거래일 누적수익률을 ${leverage}배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.`,
     })),
   );
 

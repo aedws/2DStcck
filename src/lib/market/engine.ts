@@ -129,6 +129,9 @@ export function createInitialStockState(
     prevDayClose: def.initialPrice,
     dayOpen: def.initialPrice,
     daySessionId: Math.floor(now / SESSION_DURATION_MS),
+    leveragePathSessionId: Math.floor(now / SESSION_DURATION_MS),
+    leveragePathSessionBase: def.initialPrice,
+    leveragePathFactors: { "-2": 1, "-1": 1, "2": 1 },
     priceHistory: [{ timestamp: now, price: def.initialPrice }],
     candles: [
       {
@@ -411,6 +414,7 @@ function applyTickPrice(
   const session = Math.floor(now / SESSION_DURATION_MS);
   const isNewSession =
     stock.daySessionId !== undefined && stock.daySessionId !== session;
+  const leveragePath = advanceDailyLeveragePath(stock, session);
   let prevDayClose = stock.prevDayClose;
   let dayOpen = stock.dayOpen;
 
@@ -428,6 +432,7 @@ function applyTickPrice(
   return {
     ...stock,
     daySessionId: session,
+    ...leveragePath,
     prevDayClose,
     dayOpen,
     currentPrice: nextPrice,
@@ -453,6 +458,7 @@ export function applyCashDistributionToStock(
   const session = Math.floor(now / SESSION_DURATION_MS);
   const isNewSession =
     stock.daySessionId !== undefined && stock.daySessionId !== session;
+  const leveragePath = advanceDailyLeveragePath(stock, session);
   const unadjustedOpen = isNewSession ? stock.currentPrice : stock.dayOpen;
   const nextPrice = Math.max(Math.round(stock.currentPrice - amountPerShare), 100);
   const dayOpen = Math.max(Math.round(unadjustedOpen - amountPerShare), 100);
@@ -502,6 +508,7 @@ export function applyCashDistributionToStock(
       ? (stock.navDistributionAdjustment ?? 0) + amountPerShare
       : stock.navDistributionAdjustment,
     daySessionId: session,
+    ...leveragePath,
     prevDayClose: isNewSession ? stock.currentPrice : stock.prevDayClose,
     dayOpen,
     currentPrice: nextPrice,
@@ -532,27 +539,129 @@ export function tickStock(
   return applyTickPrice(stock, nextPrice, now);
 }
 
-/**
- * 레버리지·인버스 ETF 가격: 기초종목의 '로그수익률'을 지정 배수로 추종한다.
- *   deriv / 초기가 = (기초 / 기초초기가)^leverage
- * 이 연속형 레버리지는 우상향이 지속되면 배수만큼 복리로 본주 총수익을 앞지르고,
- * 하락장·인버스는 반대로 움직인다. 경로 독립이라(현재가만으로 결정) 자동생성 파생을
- * 매 틱 복리 계산하지 않고도 정확히 재구성할 수 있다. (기존 '당일 등락 추종'은
- * prevDayClose 미갱신으로 복리가 소실돼 레버리지가 평평해지던 버그를 대체)
- */
-export function computeLeveragedRawPrice(
-  etfInitial: number,
-  underlyingCurrent: number,
-  underlyingInitial: number,
+const DAILY_TRACKING_LEVERAGES = [-2, -1, 2] as const;
+const MIN_DAILY_LEVERAGE_FACTOR = 1e-6;
+
+/** 하루 수익률에 배율을 적용한다. 손실이 100%를 넘으면 0에 가깝게 제한한다. */
+export function dailyLeverageFactor(
+  underlyingReturn: number,
   leverage: number,
 ): number {
-  if (underlyingInitial <= 0) return etfInitial;
-  const ratio = Math.max(underlyingCurrent, 1) / underlyingInitial;
-  return Math.max(etfInitial * Math.pow(ratio, leverage), 1);
+  return Math.max(
+    1 + leverage * underlyingReturn,
+    MIN_DAILY_LEVERAGE_FACTOR,
+  );
 }
 
 /**
- * 액면분할·병합 배수 — '현재 원가격만'의 순함수(경로 독립).
+ * 기초자산이 새 60분 거래일로 넘어갈 때 직전 거래일 수익률을 배율별 누적계수에
+ * 확정한다. 현재 거래일의 움직임은 아직 계수에 넣지 않고 sessionBase 대비로 계산한다.
+ */
+export function advanceDailyLeveragePath(
+  stock: StockState,
+  session: number,
+): Pick<
+  StockState,
+  | "leveragePathSessionId"
+  | "leveragePathSessionBase"
+  | "leveragePathFactors"
+> {
+  const pathSession = stock.leveragePathSessionId ?? stock.daySessionId ?? session;
+  const sessionBase = stock.leveragePathSessionBase ?? stock.currentPrice;
+  const factors = stock.leveragePathFactors ?? {
+    "-2": 1,
+    "-1": 1,
+    "2": 1,
+  };
+
+  if (pathSession === session) {
+    return {
+      leveragePathSessionId: session,
+      leveragePathSessionBase: sessionBase,
+      leveragePathFactors: factors,
+    };
+  }
+
+  const completedReturn =
+    sessionBase > 0 ? stock.currentPrice / sessionBase - 1 : 0;
+  const nextFactors: Record<string, number> = { ...factors };
+  for (const leverage of DAILY_TRACKING_LEVERAGES) {
+    const key = String(leverage);
+    nextFactors[key] =
+      (factors[key] ?? 1) * dailyLeverageFactor(completedReturn, leverage);
+  }
+
+  return {
+    leveragePathSessionId: session,
+    leveragePathSessionBase: stock.currentPrice,
+    leveragePathFactors: nextFactors,
+  };
+}
+
+/** 한 거래일 안에서 기초자산의 누적수익률을 지정 배수로 추종한 원가격. */
+export function computeLeveragedRawPrice(
+  etfSessionStart: number,
+  underlyingCurrent: number,
+  underlyingSessionBase: number,
+  leverage: number,
+): number {
+  if (underlyingSessionBase <= 0) return etfSessionStart;
+  const underlyingReturn =
+    Math.max(underlyingCurrent, 1) / underlyingSessionBase - 1;
+  return Math.max(
+    etfSessionStart * dailyLeverageFactor(underlyingReturn, leverage),
+    1e-12,
+  );
+}
+
+export interface LeveragedPriceSnapshot {
+  rawPrice: number;
+  sessionStartRawPrice: number;
+  splitMultiplier: number;
+  currentPrice: number;
+  prevDayClose: number;
+  dayOpen: number;
+}
+
+/** 완료 거래일 누적계수 + 현재 거래일 수익률로 파생상품 가격 상태를 계산한다. */
+export function computeLeveragedSnapshot(
+  etf: StockState,
+  underlying: StockState,
+): LeveragedPriceSnapshot {
+  const leverage = etf.leverage ?? 1;
+  const closedFactor =
+    underlying.leveragePathFactors?.[String(leverage)] ?? 1;
+  const sessionStartRawPrice = Math.max(etf.initialPrice * closedFactor, 1e-12);
+  const underlyingSessionBase =
+    underlying.leveragePathSessionBase ?? underlying.initialPrice ?? 0;
+  const rawPrice = computeLeveragedRawPrice(
+    sessionStartRawPrice,
+    underlying.currentPrice,
+    underlyingSessionBase,
+    leverage,
+  );
+  const splitMultiplier = leverageSplitMultiplier(rawPrice);
+  const display = (raw: number) =>
+    Math.max(Math.round(raw / splitMultiplier), 1);
+  const dayOpenRaw = computeLeveragedRawPrice(
+    sessionStartRawPrice,
+    underlying.dayOpen,
+    underlyingSessionBase,
+    leverage,
+  );
+
+  return {
+    rawPrice,
+    sessionStartRawPrice,
+    splitMultiplier,
+    currentPrice: display(rawPrice),
+    prevDayClose: display(sessionStartRawPrice),
+    dayOpen: display(dayOpenRaw),
+  };
+}
+
+/**
+ * 액면분할·병합 배수 — 일일 누적 경로로 계산된 현재 원가격의 순함수.
  * 반환값 m으로 표시가 = raw / m, 보유 좌수 = 원좌수 × m 이 되도록 밴드에 맞춘다.
  * 분할(가격 상단 초과): m ×= 5. 병합(가격 하단 미만): m ÷= 2. 두 조건은 배타적이라
  * (5:1 분할이면 $500→$100, 2:1 병합이면 $50→$100, 모두 [$50,$500) 안) 진동하지 않는다.
@@ -583,36 +692,14 @@ export function leverageMultiplierFor(
   etf: StockState,
   underlying: StockState,
 ): number {
-  const underlyingInitial =
-    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ??
-    underlying.initialPrice ??
-    0;
-  if (underlyingInitial <= 0) return 1;
-  const raw = computeLeveragedRawPrice(
-    etf.initialPrice,
-    underlying.currentPrice,
-    underlyingInitial,
-    etf.leverage ?? 1,
-  );
-  return leverageSplitMultiplier(raw);
+  return computeLeveragedSnapshot(etf, underlying).splitMultiplier;
 }
 
 export function computeLeveragedPrice(
   etf: StockState,
   underlying: StockState,
 ): number {
-  const underlyingInitial =
-    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ??
-    underlying.initialPrice ??
-    0;
-  if (underlyingInitial <= 0) return etf.currentPrice;
-  const raw = computeLeveragedRawPrice(
-    etf.initialPrice,
-    underlying.currentPrice,
-    underlyingInitial,
-    etf.leverage ?? 1,
-  );
-  return leverageDisplayPrice(raw);
+  return computeLeveragedSnapshot(etf, underlying).currentPrice;
 }
 
 /**
@@ -622,22 +709,91 @@ export function computeLeveragedPrice(
  * 나눠, 최신 값은 현재 표시가와 같으면서 과거는 매끄럽게 소급 조정한다.
  * (실제 증권 차트의 액면분할 소급조정과 동일)
  */
+interface LeverageSessionAnchor {
+  underlyingBase: number;
+  rawBase: number;
+}
+
+function leverageSessionAnchors(
+  etf: StockState,
+  underlying: StockState,
+): Map<number, LeverageSessionAnchor> {
+  const lev = etf.leverage ?? 1;
+  const listingSession = Math.floor(
+    (etf.listingEpochMs ?? MARKET_EPOCH_MS) / SESSION_DURATION_MS,
+  );
+  const daily = (underlying.dailyCandles ?? [])
+    .filter(
+      (candle) =>
+        Math.floor(candle.timestamp / SESSION_DURATION_MS) >= listingSession,
+    )
+    .slice()
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const anchors = new Map<number, LeverageSessionAnchor>();
+  let rawBase = 1;
+  let underlyingBase = underlying.initialPrice;
+
+  for (const candle of daily) {
+    const session = Math.floor(candle.timestamp / SESSION_DURATION_MS);
+    anchors.set(session, { underlyingBase, rawBase });
+    rawBase = computeLeveragedRawPrice(
+      rawBase,
+      candle.close,
+      underlyingBase,
+      lev,
+    );
+    underlyingBase = candle.close;
+  }
+
+  const currentSession =
+    underlying.leveragePathSessionId ?? underlying.daySessionId;
+  if (currentSession !== undefined) {
+    const calculatedCurrentBase = anchors.get(currentSession)?.rawBase;
+    const actualCurrentBase =
+      computeLeveragedSnapshot(etf, underlying).sessionStartRawPrice;
+    if (calculatedCurrentBase && calculatedCurrentBase > 0) {
+      const scale = actualCurrentBase / calculatedCurrentBase;
+      for (const [session, anchor] of anchors) {
+        anchors.set(session, { ...anchor, rawBase: anchor.rawBase * scale });
+      }
+    }
+    anchors.set(currentSession, {
+      underlyingBase:
+        underlying.leveragePathSessionBase ?? underlying.initialPrice,
+      rawBase: actualCurrentBase,
+    });
+  }
+
+  return anchors;
+}
+
 function leverageChartConverter(
   etf: StockState,
   underlying: StockState,
-): ((underlyingPrice: number) => number) | null {
-  const underlyingInitial =
-    STOCK_DEFINITIONS.find((d) => d.id === underlying.id)?.initialPrice ??
-    underlying.initialPrice ??
-    0;
-  const m = leverageMultiplierFor(etf, underlying);
-  if (underlyingInitial <= 0 || m <= 0) return null;
+): ((underlyingPrice: number, timestamp: number) => number) | null {
+  const snapshot = computeLeveragedSnapshot(etf, underlying);
+  const m = snapshot.splitMultiplier;
+  if (m <= 0) return null;
+  const anchors = leverageSessionAnchors(etf, underlying);
+  const fallback: LeverageSessionAnchor = {
+    underlyingBase:
+      underlying.leveragePathSessionBase ?? underlying.initialPrice,
+    rawBase: snapshot.sessionStartRawPrice,
+  };
   const lev = etf.leverage ?? 1;
-  return (u: number) =>
-    Math.max(
-      computeLeveragedRawPrice(etf.initialPrice, u, underlyingInitial, lev) / m,
+  return (price: number, timestamp: number) => {
+    const session = Math.floor(timestamp / SESSION_DURATION_MS);
+    const anchor = anchors.get(session) ?? fallback;
+    return Math.max(
+      computeLeveragedRawPrice(
+        anchor.rawBase,
+        price,
+        anchor.underlyingBase,
+        lev,
+      ) / m,
       1,
     );
+  };
 }
 
 /** 기초자산 캔들 → 레버리지 ETF 분할조정 캔들 (타임스탬프 그대로). */
@@ -655,10 +811,10 @@ export function leverageAdjustedCandles(
     const loSource = inverse ? c.high : c.low;
     return {
       timestamp: c.timestamp,
-      open: conv(c.open),
-      high: conv(hiSource),
-      low: conv(loSource),
-      close: conv(c.close),
+      open: conv(c.open, c.timestamp),
+      high: conv(hiSource, c.timestamp),
+      low: conv(loSource, c.timestamp),
+      close: conv(c.close, c.timestamp),
     };
   });
 }
@@ -673,7 +829,7 @@ export function leverageAdjustedHistory(
   if (!conv) return underlyingHistory;
   return underlyingHistory.map((p) => ({
     timestamp: p.timestamp,
-    price: conv(p.price),
+    price: conv(p.price, p.timestamp),
   }));
 }
 
@@ -808,17 +964,18 @@ export function tickAllStocks(
   const beforeById = new Map(stocks.map((s) => [s.id, s]));
   let afterById = new Map(calculated.map((s) => [s.id, s]));
 
-  // 3차: 각 상품에 지정된 기초자산의 틱 수익률을 배수 추종한다.
+  // 3차: 각 상품이 기초자산의 1거래일 누적수익률을 배수 추종한다.
   calculated = calculated.map((stock) => {
     if (stock.leverage !== undefined) {
       const underlyingId = stock.leverageUnderlyingId ?? "vnasdaq";
       const after = afterById.get(underlyingId);
       if (!after) return stock;
-      return applyTickPrice(
-        stock,
-        computeLeveragedPrice(stock, after),
-        now,
-      );
+      const snapshot = computeLeveragedSnapshot(stock, after);
+      return {
+        ...applyTickPrice(stock, snapshot.currentPrice, now),
+        prevDayClose: snapshot.prevDayClose,
+        dayOpen: snapshot.dayOpen,
+      };
     }
     return stock;
   });
