@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "유저 ETF 상세 화면 통합 — 일반 종목과 같은 가격 헤더·지표 스트립·탭 강조·본문 카드·고정형 빠른주문 패널과 상승·하락 색상 체계를 적용해 화면 간 이질감을 줄였습니다.",
       "유저 ETF 종목 정보 확장 — 전용 차트 화면에 실제 지급 로직으로 계산한 예상 연 배당률·회차 지급률·배당 주기와 구성 종목 목표 비중 도넛 차트를 추가했습니다.",
       "유저 ETF 자동 분할 누락 보정 — 한 회차 1단계 처리 후에도 임계가를 넘긴 HIGENA·LFI·LIMACT·LMTPA를 추가 분할하고 총좌수와 사용자 보유 수량을 같은 배수로 조정했습니다.",
       "유저 ETF 차트형 매매 — 계좌·AMC 카드에서 전용 상세 화면으로 이동해 NAV 캔들 차트, 평단선, 구성 종목, 거래 내역과 10%·25%·50%·최대 수량 주문을 한 화면에서 이용합니다.",

@@ -6,13 +6,18 @@ import { useEffect, useMemo, useState } from "react";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
-import { formatPrice, formatTradeTime } from "@/lib/market/engine";
+import {
+  formatPrice,
+  formatSignedMoney,
+  formatTradeTime,
+} from "@/lib/market/engine";
 import {
   AMC_TRADING_SESSIONS_PER_YEAR,
   amcFundStockId,
   computePassiveAmcAnnualDividendYield,
   computeAmcFundNavPerShare,
   resolveAmcDividendPeriodRate,
+  type AmcFundState,
   type AmcHoldingWeight,
 } from "@/lib/player/assetManager";
 import {
@@ -20,8 +25,12 @@ import {
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
-import type { StockState } from "@/lib/types/market";
-import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
+import type { PricePoint, StockState } from "@/lib/types/market";
+import {
+  formatCompactUSD,
+  formatSignedPercent,
+  upDownClass,
+} from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 
 const TABS = ["차트 · 종목정보", "펀드정보", "거래내역"] as const;
@@ -44,6 +53,89 @@ const HOLDING_COLORS = [
 function validQuantity(value: string): number {
   const quantity = Number(value);
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+}
+
+function HeaderStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] text-[var(--muted)]">{label}</span>
+      <span className="text-xs font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function AmcFundHeader({
+  fund,
+  nav,
+  previousPrice,
+  history,
+  managerName,
+  annualDividendRate,
+}: {
+  fund: AmcFundState;
+  nav: number;
+  previousPrice: number;
+  history: PricePoint[];
+  managerName: string;
+  annualDividendRate: number;
+}) {
+  const diff = nav - previousPrice;
+  const change = previousPrice > 0 ? (diff / previousPrice) * 100 : 0;
+  const prices = history.map((point) => point.price).filter((price) => price > 0);
+  const low = prices.length ? Math.min(...prices) : nav;
+  const high = prices.length ? Math.max(...prices) : nav;
+  const aum = nav * fund.totalShares;
+
+  return (
+    <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 py-3 md:gap-6 md:px-5">
+      <div className="flex min-w-0 items-center gap-3">
+        <Link
+          href="/amc"
+          className="shrink-0 rounded-lg px-1.5 py-1 text-[var(--muted)] transition hover:text-[var(--foreground)]"
+          aria-label="자산운용사로"
+        >
+          ←
+        </Link>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[11px] font-bold text-[var(--muted)]">
+          {fund.ticker.slice(0, 2)}
+        </div>
+        <div className="min-w-0">
+          <p className="flex items-baseline gap-2">
+            <span className="truncate text-sm font-semibold">{fund.name}</span>
+            <span className="shrink-0 text-xs text-[var(--muted)]">
+              {fund.ticker}
+            </span>
+          </p>
+          <p className="flex items-baseline gap-2">
+            <span className="text-xl font-bold tabular-nums">
+              {formatPrice(nav)}
+            </span>
+            <span className={`text-xs tabular-nums ${upDownClass(change)}`}>
+              전일보다 {formatSignedMoney(diff)} ({formatSignedPercent(change)})
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div className="ml-auto hidden items-center gap-6 md:flex">
+        <HeaderStat
+          label="차트 범위"
+          value={`${formatPrice(low)} ~ ${formatPrice(high)}`}
+        />
+        <HeaderStat label="전일 NAV" value={formatPrice(previousPrice)} />
+        <HeaderStat label="순자산" value={formatCompactUSD(aum)} />
+        <HeaderStat
+          label="예상 연 배당"
+          value={formatRate(annualDividendRate)}
+        />
+        <HeaderStat
+          label="운용 보수"
+          value={`${(fund.feeRate * 100).toFixed(2)}%`}
+        />
+        <HeaderStat label="운용사" value={managerName} />
+      </div>
+    </div>
+  );
 }
 
 export function AmcTradeClient() {
@@ -119,7 +211,6 @@ export function AmcTradeClient() {
   const previousPrice = history.length > 1
     ? history[history.length - 2]!.price
     : history[0]?.price ?? nav;
-  const change = previousPrice > 0 ? ((nav - previousPrice) / previousPrice) * 100 : 0;
   const fundTrades = trades.filter(
     (trade) => trade.stockId === amcFundStockId(fundId),
   );
@@ -140,6 +231,12 @@ export function AmcTradeClient() {
       (side === "sell" || fund.status !== "grace") &&
       quantityNumber <= maxQuantity + 1e-9,
   );
+  const holdingProfit = holding
+    ? (nav - holding.averagePrice) * holding.quantity
+    : 0;
+  const holdingProfitRate = holding && holding.averagePrice > 0
+    ? ((nav - holding.averagePrice) / holding.averagePrice) * 100
+    : 0;
 
   const setRatio = (ratio: number) => {
     const next = Math.floor(maxQuantity * ratio * 1_000_000) / 1_000_000;
@@ -170,46 +267,34 @@ export function AmcTradeClient() {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
-      <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-3 py-3 md:px-5">
-        <Link
-          href="/amc"
-          className="rounded-lg px-1.5 py-1 text-[var(--muted)] hover:text-[var(--foreground)]"
-          aria-label="자산운용사로"
-        >
-          ←
-        </Link>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/15 text-xl">
-          🏦
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">
-            {fund.name} <span className="text-xs text-[var(--muted)]">{fund.ticker}</span>
-          </p>
-          <p className="flex items-baseline gap-2">
-            <span className="text-xl font-bold tabular-nums">{formatPrice(nav)}</span>
-            <span className={`text-xs tabular-nums ${upDownClass(change)}`}>
-              {formatSignedPercent(change)}
-            </span>
-          </p>
-        </div>
-        <div className="ml-auto hidden text-right text-xs md:block">
-          <p className="text-[var(--muted)]">운용사</p>
-          <p className="font-semibold">{listed?.managerName ?? assetManager?.name ?? "유저 운용사"}</p>
-        </div>
-      </header>
+      <AmcFundHeader
+        fund={fund}
+        nav={nav}
+        previousPrice={previousPrice}
+        history={history}
+        managerName={listed?.managerName ?? assetManager?.name ?? "유저 운용사"}
+        annualDividendRate={annualDividendRate}
+      />
 
-      <nav className="flex shrink-0 items-center gap-5 border-b border-[var(--border)] px-4 md:px-5">
+      <nav className="flex shrink-0 items-center gap-4 border-b border-[var(--border)] px-3 md:gap-5 md:px-5">
         {TABS.map((label, index) => (
           <button
             key={label}
             type="button"
             onClick={() => setTab(index)}
-            className={`min-h-11 py-2.5 text-sm ${tab === index ? "border-b-2 border-[var(--foreground)] font-semibold" : "text-[var(--muted)]"}`}
+            className={`min-h-11 py-2.5 text-sm transition ${
+              tab === index
+                ? "border-b-2 border-[var(--foreground)] font-semibold text-[var(--foreground)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
           >
             {label}
           </button>
         ))}
-        <a href="#amc-order" className="ml-auto text-xs font-semibold text-cyan-400 md:hidden">
+        <a
+          href="#quick-order"
+          className="ml-auto flex min-h-11 items-center text-xs font-semibold text-[var(--accent)] md:hidden"
+        >
           주문하기 ↓
         </a>
       </nav>
@@ -227,7 +312,7 @@ export function AmcTradeClient() {
               />
               <section
                 aria-labelledby="amc-stock-info-title"
-                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+                className="rounded-2xl bg-[var(--surface)] p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -278,29 +363,38 @@ export function AmcTradeClient() {
             </div>
           )}
           {tab === 1 && (
-            <section className="max-w-2xl space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 text-sm">
-              <InfoRow label="운용 방식" value={fund.style === "active" ? "액티브" : "패시브"} />
-              <InfoRow label="상태" value={fund.status === "active" ? "정상 거래" : fund.status === "grace" ? "유예 기간" : "상장폐지"} />
-              <InfoRow label="운용 보수" value={`20거래일당 ${(fund.feeRate * 100).toFixed(2)}%`} />
-              <InfoRow label="배당 주기" value={`${fund.dividendIntervalDays}거래일`} />
-              <InfoRow label="예상 연 배당률" value={formatRate(annualDividendRate)} />
-              <InfoRow label="회차 지급률" value={formatRate(periodDividendRate)} />
-              <InfoRow label="유통 좌수" value={`${fund.totalShares.toLocaleString("ko-KR")}좌`} />
-              <InfoRow label="내 보유" value={`${(holding?.quantity ?? 0).toLocaleString("ko-KR")}좌`} />
-              <p className="border-t border-[var(--border)] pt-3 text-xs leading-relaxed text-[var(--muted)]">
-                유저 ETF 주문은 호가 매칭이 아닌 현재 NAV 기준의 설정·환매 방식으로
-                서버 원장에서 즉시 처리됩니다. 매수·매도 결과와 현금은 같은 거래로 확정됩니다.
-              </p>
-            </section>
+            <div className="max-w-2xl space-y-4">
+              <section className="rounded-2xl bg-[var(--surface)] p-4">
+                <h3 className="mb-3 text-sm font-semibold">펀드 개요</h3>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
+                  <FundMetric label="운용 방식" value={fund.style === "active" ? "액티브" : "패시브"} />
+                  <FundMetric label="상태" value={fund.status === "active" ? "정상 거래" : fund.status === "grace" ? "유예 기간" : "상장폐지"} />
+                  <FundMetric label="운용사" value={listed?.managerName ?? assetManager?.name ?? "유저 운용사"} />
+                  <FundMetric label="운용 보수" value={`20거래일당 ${(fund.feeRate * 100).toFixed(2)}%`} />
+                  <FundMetric label="배당 주기" value={`${fund.dividendIntervalDays}거래일`} />
+                  <FundMetric label="예상 연 배당률" value={formatRate(annualDividendRate)} />
+                  <FundMetric label="회차 지급률" value={formatRate(periodDividendRate)} />
+                  <FundMetric label="유통 좌수" value={`${fund.totalShares.toLocaleString("ko-KR")}좌`} />
+                  <FundMetric label="내 보유" value={`${(holding?.quantity ?? 0).toLocaleString("ko-KR")}좌`} />
+                </dl>
+              </section>
+              <section className="rounded-2xl bg-[var(--surface)] p-4">
+                <h3 className="mb-2 text-sm font-semibold">거래 방식</h3>
+                <p className="text-xs leading-relaxed text-[var(--muted)]">
+                  유저 ETF 주문은 호가 매칭이 아닌 현재 NAV 기준의 설정·환매 방식으로
+                  서버 원장에서 즉시 처리됩니다. 매수·매도 결과와 현금은 같은 거래로 확정됩니다.
+                </p>
+              </section>
+            </div>
           )}
           {tab === 2 && (
             <section className="max-w-2xl">
               {fundTrades.length ? (
                 <ul className="space-y-2">
                   {fundTrades.map((trade) => (
-                    <li key={trade.id} className="flex items-center justify-between rounded-xl bg-[var(--surface)] p-3 text-xs">
+                    <li key={trade.id} className="flex items-center justify-between rounded-2xl bg-[var(--surface)] p-4 text-xs">
                       <div>
-                        <p className={trade.type === "buy" ? "font-bold text-emerald-400" : "font-bold text-blue-400"}>
+                        <p className={`font-bold ${trade.type === "buy" ? "text-[var(--up)]" : "text-[var(--down)]"}`}>
                           {trade.type === "buy" ? "매수" : "매도"} · {trade.quantity.toLocaleString("ko-KR")}좌
                         </p>
                         <p className="text-[var(--muted)]">{formatTradeTime(trade.timestamp)}</p>
@@ -319,55 +413,108 @@ export function AmcTradeClient() {
           )}
         </main>
 
-        <aside id="amc-order" className="w-full scroll-mt-28 border-t border-[var(--border)] p-4 md:w-[320px] md:border-l md:border-t-0">
-          <div className="grid grid-cols-2 rounded-xl bg-[var(--surface)] p-1">
-            {(["buy", "sell"] as const).map((value) => (
+        <div
+          id="quick-order"
+          className="w-full scroll-mt-28 shrink-0 border-t border-[var(--border)] md:w-[320px] md:border-l md:border-t-0"
+        >
+          <div className="flex h-full flex-col bg-[var(--background)]">
+            <div className="flex border-b border-[var(--border)]">
+              {(["buy", "sell"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSide(value)}
+                  className={`min-h-12 flex-1 px-2 py-3 text-xs transition ${
+                    side === value
+                      ? "border-b-2 border-[var(--foreground)] font-semibold"
+                      : "text-[var(--muted)]"
+                  }`}
+                >
+                  {value === "buy" ? "빠른 매수" : "빠른 매도"}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-[var(--muted)]">주문 수량</label>
+                <span className="rounded-full bg-[var(--accent)]/15 px-2.5 py-1 text-[11px] text-[var(--accent)]">
+                  소수점 가능
+                </span>
+              </div>
+              <input
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value.replace(/[^0-9.]/g, ""))}
+                inputMode="decimal"
+                className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
+              />
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {[0.1, 0.25, 0.5, 1].map((ratio) => (
+                  <button
+                    key={ratio}
+                    type="button"
+                    onClick={() => setRatio(ratio)}
+                    className="min-h-10 rounded-lg bg-[var(--surface)] text-xs text-[var(--muted)]"
+                  >
+                    {ratio === 1 ? "최대" : `${ratio * 100}%`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-2 text-xs">
+                <InfoRow label="현재 NAV" value={formatPrice(nav)} />
+                <InfoRow label="예상 금액" value={formatPrice(estimatedTotal)} />
+                <InfoRow
+                  label={side === "buy" ? "주문 가능" : "보유 좌수"}
+                  value={`${maxQuantity.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}좌`}
+                />
+              </div>
+
               <button
-                key={value}
                 type="button"
-                onClick={() => setSide(value)}
-                className={`rounded-lg py-2 text-sm font-bold ${side === value ? value === "buy" ? "bg-emerald-500 text-white" : "bg-blue-500 text-white" : "text-[var(--muted)]"}`}
+                disabled={!canTrade || busy}
+                onClick={() => void submit()}
+                className={`mt-4 flex min-h-16 w-full flex-col items-center justify-center rounded-2xl px-2 py-3 text-white disabled:opacity-40 ${
+                  side === "buy" ? "bg-[var(--up)]" : "bg-[var(--down)]"
+                }`}
               >
-                {value === "buy" ? "매수" : "매도"}
+                <span className="text-sm font-semibold">
+                  {busy ? "처리 중…" : `NAV ${side === "buy" ? "매수" : "매도"}`}
+                </span>
+                <span className="mt-1 text-xs opacity-80">{formatPrice(nav)}</span>
               </button>
-            ))}
+
+              {!listed && <p className="mt-3 text-xs text-amber-300">상장 허가 후 거래할 수 있습니다.</p>}
+              {fund.status === "grace" && side === "buy" && <p className="mt-3 text-xs text-amber-300">유예 기간에는 신규 매수할 수 없습니다.</p>}
+              {!userId && <p className="mt-3 text-xs text-amber-300">로그인 후 거래할 수 있습니다.</p>}
+              {message && <p className="mt-3 text-center text-xs text-[var(--muted)]">{message}</p>}
+
+              <div className="mt-5 border-t border-[var(--border)] pt-4">
+                <p className="text-xs font-semibold">내 ETF</p>
+                <div className="mt-3 space-y-2 text-sm">
+                  <InfoRow
+                    label="보유 수량"
+                    value={`${(holding?.quantity ?? 0).toLocaleString("ko-KR", { maximumFractionDigits: 6 })}좌`}
+                  />
+                  {holding && holding.quantity > 0 && (
+                    <>
+                      <InfoRow label="평균 매수가" value={formatPrice(holding.averagePrice)} />
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[var(--muted)]">평가 손익</span>
+                        <span className={`text-right font-semibold tabular-nums ${upDownClass(holdingProfit)}`}>
+                          {formatSignedMoney(holdingProfit)} {formatSignedPercent(holdingProfitRate)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <p className="mt-4 text-center text-[11px] text-[var(--muted)]">
+                  현금 {formatPrice(cash)} · 서버 원장 즉시 체결
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="text-[var(--muted)]">{side === "buy" ? "주문 가능" : "보유 좌수"}</span>
-            <span className="font-semibold tabular-nums">{maxQuantity.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}좌</span>
-          </div>
-          <label className="mt-3 block text-xs text-[var(--muted)]">수량</label>
-          <input
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value.replace(/[^0-9.]/g, ""))}
-            inputMode="decimal"
-            className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-right font-bold tabular-nums"
-          />
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
-            {[0.1, 0.25, 0.5, 1].map((ratio) => (
-              <button key={ratio} type="button" onClick={() => setRatio(ratio)} className="rounded-lg border border-[var(--border)] py-1.5 text-[11px]">
-                {ratio === 1 ? "최대" : `${ratio * 100}%`}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 space-y-2 border-t border-[var(--border)] pt-4 text-xs">
-            <InfoRow label="예상 NAV" value={formatPrice(nav)} />
-            <InfoRow label="예상 금액" value={formatPrice(estimatedTotal)} />
-            <InfoRow label="보유 현금" value={formatPrice(cash)} />
-          </div>
-          <button
-            type="button"
-            disabled={!canTrade || busy}
-            onClick={() => void submit()}
-            className={`mt-4 min-h-12 w-full rounded-xl text-sm font-black text-white disabled:bg-[var(--border)] disabled:text-[var(--muted)] ${side === "buy" ? "bg-emerald-500" : "bg-blue-500"}`}
-          >
-            {busy ? "처리 중…" : `${side === "buy" ? "매수" : "매도"} 주문`}
-          </button>
-          {!listed && <p className="mt-2 text-xs text-amber-300">상장 허가 후 거래할 수 있습니다.</p>}
-          {fund.status === "grace" && side === "buy" && <p className="mt-2 text-xs text-amber-300">유예 기간에는 신규 매수할 수 없습니다.</p>}
-          {!userId && <p className="mt-2 text-xs text-amber-300">로그인 후 거래할 수 있습니다.</p>}
-          {message && <p className="mt-3 rounded-xl bg-[var(--surface)] p-3 text-xs">{message}</p>}
-        </aside>
+        </div>
         <AccountSidebar />
       </div>
       <BottomTicker stocks={stocks} />
@@ -386,6 +533,15 @@ function DividendStat({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-xl font-black tabular-nums text-cyan-300">
         {value}
       </p>
+    </div>
+  );
+}
+
+function FundMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-[11px] text-[var(--muted)]">{label}</dt>
+      <dd className="truncate tabular-nums">{value}</dd>
     </div>
   );
 }
