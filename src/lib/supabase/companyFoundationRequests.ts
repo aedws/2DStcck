@@ -34,6 +34,29 @@ export interface CompanyFoundationRequest {
   updatedAt: string;
 }
 
+const requestTimestamp = (request: CompanyFoundationRequest) => {
+  const updated = Date.parse(request.updatedAt);
+  const created = Date.parse(request.createdAt);
+  return Number.isFinite(updated)
+    ? updated
+    : Number.isFinite(created)
+      ? created
+      : 0;
+};
+
+/** 과거 반려 건과 무관하게 가장 최근의 진행 중·허가 신청을 선택한다. */
+export function selectCurrentCompanyFoundationRequest(
+  requests: readonly CompanyFoundationRequest[],
+): CompanyFoundationRequest | null {
+  return (
+    requests
+      .filter((request) =>
+        ["pending", "reviewing", "accepted"].includes(request.status),
+      )
+      .sort((a, b) => requestTimestamp(b) - requestTimestamp(a))[0] ?? null
+  );
+}
+
 interface SerializedCompanyFoundation {
   ticker: string;
   subsector?: string;

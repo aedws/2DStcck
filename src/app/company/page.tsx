@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import {
@@ -23,6 +23,7 @@ import {
 import {
   COMPANY_FOUNDATION_STATUS_LABEL,
   listMyCompanyFoundationRequests,
+  selectCurrentCompanyFoundationRequest,
   submitCompanyFoundationRequest,
   type CompanyFoundationRequest,
 } from "@/lib/supabase/companyFoundationRequests";
@@ -50,6 +51,7 @@ const STATUS_LABEL = {
   active: "운영 중",
   paused: "운영 정지",
   "ipo-requested": "IPO 심사 중",
+  "foundation-accepted": "설립 허가",
 } as const;
 
 export default function CompanyPage() {
@@ -109,9 +111,9 @@ export default function CompanyPage() {
     PublicPlayerCompany[] | null
   >(null);
 
-  const refreshFoundationRequests = async () => {
+  const refreshFoundationRequests = useCallback(async () => {
     setFoundationRequests(await listMyCompanyFoundationRequests());
-  };
+  }, []);
 
   const netWorth = getTotalAssets();
   const foundingCost = playerCompanyFoundingCost(netWorth);
@@ -124,11 +126,15 @@ export default function CompanyPage() {
 
   useEffect(() => {
     let active = true;
-    void listPublicPlayerCompanies().then((companies) => {
-      if (active) setPublicCompanies(companies);
-    });
+    const refresh = () =>
+      void listPublicPlayerCompanies().then((companies) => {
+        if (active) setPublicCompanies(companies);
+      });
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -137,8 +143,11 @@ export default function CompanyPage() {
       setFoundationRequests([]);
       return;
     }
-    void refreshFoundationRequests();
-  }, [userId, cloudSyncReady]);
+    const refresh = () => void refreshFoundationRequests();
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    return () => window.clearInterval(interval);
+  }, [userId, cloudSyncReady, refreshFoundationRequests]);
 
   useEffect(() => {
     if (!playerCompany || playerCompany.status !== "active") return;
@@ -163,11 +172,7 @@ export default function CompanyPage() {
 
   const activeFoundationRequest = useMemo(() => {
     if (!foundationRequests?.length) return null;
-    return (
-      foundationRequests.find((request) =>
-        ["pending", "reviewing", "accepted"].includes(request.status),
-      ) ?? null
-    );
+    return selectCurrentCompanyFoundationRequest(foundationRequests);
   }, [foundationRequests]);
 
   const latestRejectedFoundationRequest = useMemo(() => {
@@ -752,43 +757,32 @@ function PublicCompanyDirectory({
           아직 공개된 플레이어 회사가 없습니다.
         </p>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 space-y-3">
           {companies.map((company) => (
             <article
               key={`${company.founderGameId}:${company.companyId}`}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4"
+              className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3.5"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-cyan-300">
-                    창업주 @{company.founderGameId}
-                  </p>
-                  <h3 className="mt-1 truncate text-lg font-black">{company.name}</h3>
-                  <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    {company.sector}
-                    {company.subsector ? ` · ${company.subsector}` : ""}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-lg bg-cyan-400/10 px-2.5 py-1 text-xs font-black text-cyan-200">
-                  {company.ticker}
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <h3 className="text-base font-black">
+                  {company.name}({company.ticker})
+                </h3>
+                <span className="text-xs text-[var(--muted)]">
+                  · {company.sector} / @{company.founderGameId}
+                  {company.foundedAt
+                    ? ` · ${new Date(company.foundedAt).toLocaleString("ko-KR")}`
+                    : ""}
                 </span>
               </div>
+              <p className="mt-1.5 text-xs font-semibold text-cyan-300">
+                {STATUS_LABEL[company.status]}
+                {company.subsector ? ` / 세부 산업 · ${company.subsector}` : ""}
+              </p>
               {company.description && (
-                <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-[var(--muted)]">
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
                   {company.description}
                 </p>
               )}
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
-                <span>{STATUS_LABEL[company.status]}</span>
-                {company.foundedAt && (
-                  <>
-                    <span>·</span>
-                    <span>
-                      {new Date(company.foundedAt).toLocaleDateString("ko-KR")} 설립
-                    </span>
-                  </>
-                )}
-              </div>
             </article>
           ))}
         </div>

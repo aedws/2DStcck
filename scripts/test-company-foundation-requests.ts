@@ -4,6 +4,7 @@ import {
   COMPANY_FOUNDATION_STATUS_LABEL,
   isCompanyFoundationRequestRow,
   parseCompanyFoundationRequest,
+  selectCurrentCompanyFoundationRequest,
   serializeCompanyFoundationRequest,
 } from "../src/lib/supabase/companyFoundationRequests";
 import type { StockRequestRow } from "../src/lib/supabase/stockRequests";
@@ -70,6 +71,11 @@ const rejected = parseCompanyFoundationRequest(rejectedRow);
 assert.ok(rejected);
 assert.equal(rejected.status, "rejected");
 assert.equal(rejected.adminNote, "티커가 기존 상장사와 혼동됩니다.");
+assert.equal(
+  selectCurrentCompanyFoundationRequest([rejected, parsed])?.id,
+  parsed.id,
+  "과거 반려가 있어도 최신 유효 허가를 선택한다",
+);
 
 assert.equal(
   recoverPlayerCompanyFromServerRecords([parsed], [], 500),
@@ -110,6 +116,20 @@ const publicCompany = parsePublicPlayerCompany({
 assert.ok(publicCompany);
 assert.equal(publicCompany.founderGameId, "founder_01");
 assert.equal(publicCompany.ticker, "AURA");
+const approvedPublicCompany = parsePublicPlayerCompany({
+  founder_game_id: "luxury",
+  company_id: "foundation-request:req-nexr",
+  company_name: "NexR",
+  ticker: "nexr",
+  sector: "반도체",
+  subsector: "종합반도체",
+  description: "공개 설립 허가 소개",
+  company_status: "foundation-accepted",
+  founded_at: String(Date.parse("2026-07-22T08:21:25.351Z")),
+});
+assert.ok(approvedPublicCompany);
+assert.equal(approvedPublicCompany.status, "foundation-accepted");
+assert.equal(approvedPublicCompany.founderGameId, "luxury");
 assert.equal(
   parsePublicPlayerCompany({
     founder_game_id: "",

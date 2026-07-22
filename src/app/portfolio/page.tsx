@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { formatPercent, formatPrice, formatCompactMoney } from "@/lib/market/engine";
 import {
   getSalaryDaysRemaining,
@@ -44,7 +45,21 @@ import {
   isZeroDteExpiry,
 } from "@/lib/market/options";
 
+type HoldingSortKey =
+  | "stock"
+  | "quantity"
+  | "averagePrice"
+  | "currentPrice"
+  | "evaluation"
+  | "payout"
+  | "returnRate";
+type SortDirection = "asc" | "desc";
+
 export default function PortfolioPage() {
+  const [holdingSort, setHoldingSort] = useState<{
+    key: HoldingSortKey | null;
+    direction: SortDirection;
+  }>({ key: null, direction: "desc" });
   const cash = useMarketStore((s) => s.cash);
   const holdings = useMarketStore((s) => s.holdings);
   const shorts = useMarketStore((s) => s.shorts);
@@ -113,6 +128,106 @@ export default function PortfolioPage() {
     lastSalarySession,
     currentSession,
   );
+
+  const toggleHoldingSort = (key: HoldingSortKey) => {
+    setHoldingSort((current) =>
+      current.key === key
+        ? {
+            key,
+            direction: current.direction === "asc" ? "desc" : "asc",
+          }
+        : { key, direction: key === "stock" ? "asc" : "desc" },
+    );
+  };
+
+  const sortedHoldingRows = useMemo(() => {
+    const rows = holdings.flatMap((holding) => {
+      const stock = stocks.find((item) => item.id === holding.stockId);
+      if (!stock) return [];
+      const evaluation = holding.quantity * stock.currentPrice;
+      const cost = holding.quantity * holding.averagePrice;
+      const returnRate = cost > 0 ? ((evaluation - cost) / cost) * 100 : 0;
+      const coveredCallInterval =
+        stock.coveredCallDistributionIntervalDays ?? COVERED_CALL_INTERVAL_DAYS;
+      const coveredCallCheckpoint =
+        coveredCallInterval === 5
+          ? lastSingleCoveredCallDistributionSession
+          : lastMonthlyDistributionSession;
+      const coveredCallPerShare = stock.coveredCallAnnualYield
+        ? calculateCoveredCallDistribution(
+            stock.prevDayClose || stock.currentPrice,
+            stock.coveredCallAnnualYield,
+            stock.id,
+            coveredCallCheckpoint + coveredCallInterval,
+            coveredCallInterval,
+          )
+        : 0;
+      const payoutPerShare =
+        coveredCallPerShare || stock.quarterlyDividend || 0;
+      const payoutDays = coveredCallPerShare
+        ? getDistributionDaysRemaining(
+            coveredCallCheckpoint,
+            currentSession,
+            coveredCallInterval,
+          )
+        : stock.quarterlyDividend
+          ? getDistributionDaysRemaining(
+              lastQuarterlyDividendSession,
+              currentSession,
+              QUARTERLY_DIVIDEND_INTERVAL_DAYS,
+            )
+          : null;
+      return [
+        {
+          holding,
+          stock,
+          evaluation,
+          returnRate,
+          payoutAmount: holding.quantity * payoutPerShare,
+          payoutDays,
+        },
+      ];
+    });
+    if (!holdingSort.key) return rows;
+
+    const valueOf = (row: (typeof rows)[number]): string | number => {
+      switch (holdingSort.key) {
+        case "stock":
+          return `${row.stock.name} ${row.stock.ticker}`;
+        case "quantity":
+          return row.holding.quantity;
+        case "averagePrice":
+          return row.holding.averagePrice;
+        case "currentPrice":
+          return row.stock.currentPrice;
+        case "evaluation":
+          return row.evaluation;
+        case "payout":
+          return row.payoutAmount;
+        case "returnRate":
+          return row.returnRate;
+        default:
+          return 0;
+      }
+    };
+    return [...rows].sort((left, right) => {
+      const leftValue = valueOf(left);
+      const rightValue = valueOf(right);
+      const compared =
+        typeof leftValue === "string" && typeof rightValue === "string"
+          ? leftValue.localeCompare(rightValue, "ko")
+          : Number(leftValue) - Number(rightValue);
+      return holdingSort.direction === "asc" ? compared : -compared;
+    });
+  }, [
+    currentSession,
+    holdingSort,
+    holdings,
+    lastMonthlyDistributionSession,
+    lastQuarterlyDividendSession,
+    lastSingleCoveredCallDistributionSession,
+    stocks,
+  ]);
 
   return (
     <>
@@ -403,64 +518,94 @@ export default function PortfolioPage() {
           에서 매수해 보세요.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/50 text-left text-zinc-500">
-                <th className="px-4 py-3 font-medium">종목</th>
-                <th className="px-4 py-3 font-medium text-right">보유</th>
-                <th className="px-4 py-3 font-medium text-right">평단</th>
-                <th className="px-4 py-3 font-medium text-right">현재가</th>
-                <th className="px-4 py-3 font-medium text-right">평가액</th>
-                <th className="px-4 py-3 font-medium text-right">현금 지급</th>
-                <th className="px-4 py-3 font-medium text-right">수익률</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map((h) => {
-                const stock = stocks.find((s) => s.id === h.stockId);
-                if (!stock) return null;
-
-                const evalAmount = h.quantity * stock.currentPrice;
-                const cost = h.quantity * h.averagePrice;
-                const profit = ((evalAmount - cost) / cost) * 100;
-                const coveredCallInterval =
-                  stock.coveredCallDistributionIntervalDays ??
-                  COVERED_CALL_INTERVAL_DAYS;
-                const coveredCallCheckpoint =
-                  coveredCallInterval === 5
-                    ? lastSingleCoveredCallDistributionSession
-                    : lastMonthlyDistributionSession;
-                const coveredCallPerShare = stock.coveredCallAnnualYield
-                  ? calculateCoveredCallDistribution(
-                      stock.prevDayClose || stock.currentPrice,
-                      stock.coveredCallAnnualYield,
-                      stock.id,
-                      coveredCallCheckpoint + coveredCallInterval,
-                      coveredCallInterval,
-                    )
-                  : 0;
-                const payoutPerShare =
-                  coveredCallPerShare || stock.quarterlyDividend || 0;
-                const payoutDays = coveredCallPerShare
-                  ? getDistributionDaysRemaining(
-                      coveredCallCheckpoint,
-                      currentSession,
-                      coveredCallInterval,
-                    )
-                  : stock.quarterlyDividend
-                    ? getDistributionDaysRemaining(
-                        lastQuarterlyDividendSession,
-                        currentSession,
-                        QUARTERLY_DIVIDEND_INTERVAL_DAYS,
-                      )
-                    : null;
-
-                return (
-                  <tr
-                    key={h.stockId}
-                    className="border-b border-zinc-800/50 hover:bg-zinc-900/50"
-                  >
+        <div className="rounded-xl border border-zinc-800">
+          <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-4 py-2 text-xs text-zinc-500">
+            <span>열 제목을 눌러 오름차순·내림차순으로 정렬할 수 있습니다.</span>
+            {holdingSort.key && (
+              <button
+                type="button"
+                onClick={() => setHoldingSort({ key: null, direction: "desc" })}
+                className="shrink-0 rounded-lg px-2.5 py-1 font-semibold text-emerald-400 hover:bg-zinc-800"
+              >
+                기본 순서
+              </button>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-900/50 text-left text-zinc-500">
+                  <SortableHoldingHeader
+                    label="종목"
+                    sortKey="stock"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                  />
+                  <SortableHoldingHeader
+                    label="보유"
+                    sortKey="quantity"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                    align="right"
+                  />
+                  <SortableHoldingHeader
+                    label="평단"
+                    sortKey="averagePrice"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                    align="right"
+                  />
+                  <SortableHoldingHeader
+                    label="현재가"
+                    sortKey="currentPrice"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                    align="right"
+                  />
+                  <SortableHoldingHeader
+                    label="평가액"
+                    sortKey="evaluation"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                    align="right"
+                  />
+                  <SortableHoldingHeader
+                    label="현금 지급"
+                    sortKey="payout"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                    align="right"
+                  />
+                  <SortableHoldingHeader
+                    label="수익률"
+                    sortKey="returnRate"
+                    activeKey={holdingSort.key}
+                    direction={holdingSort.direction}
+                    onSort={toggleHoldingSort}
+                    align="right"
+                  />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedHoldingRows.map(({
+                  holding: h,
+                  stock,
+                  evaluation,
+                  returnRate: profit,
+                  payoutAmount,
+                  payoutDays,
+                }) => {
+                  return (
+                    <tr
+                      key={h.stockId}
+                      className="border-b border-zinc-800/50 hover:bg-zinc-900/50"
+                    >
                     <td className="px-4 py-3">
                       <Link
                         href={stockHref(h.stockId)}
@@ -484,7 +629,7 @@ export default function PortfolioPage() {
                       {formatPrice(stock.currentPrice)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {formatPrice(evalAmount)}
+                      {formatPrice(evaluation)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {payoutDays === null ? (
@@ -492,7 +637,7 @@ export default function PortfolioPage() {
                       ) : (
                         <>
                           <p className="font-mono text-emerald-400">
-                            {formatPrice(h.quantity * payoutPerShare)}
+                            {formatPrice(payoutAmount)}
                           </p>
                           <p className="text-[10px] text-zinc-500">
                             {payoutDays}거래일 후
@@ -507,14 +652,54 @@ export default function PortfolioPage() {
                     >
                       {formatPercent(profit)}
                     </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </>
+  );
+}
+
+function SortableHoldingHeader({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: HoldingSortKey;
+  activeKey: HoldingSortKey | null;
+  direction: SortDirection;
+  onSort: (key: HoldingSortKey) => void;
+  align?: "left" | "right";
+}) {
+  const active = activeKey === sortKey;
+  return (
+    <th
+      className="px-2 py-1 font-medium"
+      aria-sort={
+        active ? (direction === "asc" ? "ascending" : "descending") : undefined
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`flex w-full items-center gap-1 rounded-lg px-2 py-2 hover:bg-zinc-800 hover:text-zinc-200 ${
+          align === "right" ? "justify-end" : "justify-start"
+        } ${active ? "text-emerald-400" : ""}`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-[10px]">
+          {active ? (direction === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }
 

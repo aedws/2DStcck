@@ -21,7 +21,7 @@ export interface PublicPlayerCompany {
   sector: string;
   subsector?: string;
   description?: string;
-  status: PlayerCompanyStatus;
+  status: PlayerCompanyStatus | "foundation-accepted";
   foundedAt?: number;
 }
 
@@ -37,11 +37,13 @@ export function parsePublicPlayerCompany(
   const ticker = optionalText(row.ticker)?.toUpperCase();
   const sector = optionalText(row.sector);
   if (!founderGameId || !companyId || !name || !ticker || !sector) return null;
-  const status: PlayerCompanyStatus = ["active", "paused", "ipo-requested"].includes(
-    String(row.company_status),
-  )
-    ? (row.company_status as PlayerCompanyStatus)
-    : "active";
+  const rawStatus = String(row.company_status);
+  const status: PublicPlayerCompany["status"] =
+    rawStatus === "foundation-accepted"
+      ? "foundation-accepted"
+      : ["active", "paused", "ipo-requested"].includes(rawStatus)
+        ? (rawStatus as PlayerCompanyStatus)
+        : "active";
   const foundedAt = Number(row.founded_at);
   return {
     founderGameId,
