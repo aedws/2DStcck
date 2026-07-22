@@ -11,6 +11,8 @@ import {
   AMC_ETF_LISTING_REQUEST_MARKER,
 } from "../src/lib/supabase/amcEtfListingRequests";
 import type { StockRequestRow } from "../src/lib/supabase/stockRequests";
+import type { AmcFoundationRequest } from "../src/lib/supabase/amcFoundationRequests";
+import { recoverAssetManagerFromServerRecords } from "../src/lib/player/serverEntityRecovery";
 
 const prices: Record<string, number> = { a: 10_000, b: 20_000, c: 30_000, bench: 15_000 };
 const priceOf = (id: string) => prices[id] ?? 0;
@@ -71,5 +73,27 @@ assert.ok(parsed);
 assert.equal(parsed!.payload.fundId, created.fund!.id);
 assert.equal(parsed!.payload.ticker, "APRV");
 assert.equal(parsed!.status, "accepted");
+
+const foundationRequest: AmcFoundationRequest = {
+  id: "amc-foundation-1",
+  userId: "u1",
+  gameId: "g1",
+  status: "accepted",
+  company: { name: "허가운용", tagline: "테스트 한줄" },
+  adminNote: null,
+  createdAt: "2026-07-22T00:00:00.000Z",
+  updatedAt: "2026-07-22T00:10:00.000Z",
+};
+const recoveredManager = recoverAssetManagerFromServerRecords(
+  [foundationRequest],
+  [parsed!],
+  [],
+  500,
+);
+assert.ok(recoveredManager);
+assert.equal(recoveredManager.entity.name, "허가운용");
+assert.equal(recoveredManager.entity.funds.length, 1);
+assert.equal(recoveredManager.entity.funds[0]!.ticker, "APRV");
+assert.equal(recoveredManager.shouldMarkShipped, true);
 
 console.log("amc etf listing request serialize/parse passed");

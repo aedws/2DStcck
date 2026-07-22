@@ -2,6 +2,7 @@ import type { FoundAssetManagerInput } from "@/lib/player/assetManager";
 import { createClient } from "@/lib/supabase/client";
 import {
   getCurrentAuth,
+  completeOwnSpecialStockRequest,
   submitStockRequest,
   type StockRequestRow,
   type StockRequestStatus,
@@ -157,4 +158,11 @@ export async function verifyAmcFoundationApproval(
     approved.company.tagline === input.tagline.trim() &&
     (approved.company.detail ?? "") === (input.detail?.trim() ?? "")
   );
+}
+
+/** 설립 비용 차감과 로컬 객체 생성이 끝난 신청을 서버 완료 상태로 고정한다. */
+export async function markAmcFoundationShipped(
+  requestId: string,
+): Promise<boolean> {
+  return completeOwnSpecialStockRequest(requestId);
 }

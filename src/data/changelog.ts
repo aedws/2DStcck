@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-22": {
     highlights: [
+      "회사·운용사·ETF 자동 복구 — 관리자에는 남아 있지만 실제 화면에서 사라진 설립·상장 내용을 서버 신청·결제 원장에서 되살립니다.",
       "유저 ETF 서버 정산 원장 — 운용사 미접속 중에도 운용료·배당·상폐를 처리하고 다중 기기 거래의 보유좌수·현금을 일치시킵니다.",
       "유저 ETF NAV·배당 보정 — 상장·리밸런싱 전 가격 변동과 이미 지난 배당이 뒤늦게 소급 반영되지 않도록 기준점을 고정했습니다.",
       "IPO 예고 — 미쿠 엔터테인먼트(MIKU) 7/24(금) 21:30 상장 (유저 종목 요청 반영).",
@@ -160,6 +161,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-22",
+    tag: "수정",
+    title: "회사·운용사·ETF 서버 기록 자동 복구",
+    detail:
+      "관리자 페이지에는 수락 내역이 남아 있는데 회사·AMC 화면의 실제 객체가 사라지는 문제를 수정했습니다. 설립 완료 시 신청을 서버에서 안전하게 완료 처리하고, 기존 계정은 회사 설립 결제·운용사 설립 결제·ETF 상장 신청을 증거로 회사와 운용사 및 펀드 카드를 자동 복원합니다. 복구는 이미 차감된 현금을 다시 차감하지 않으며, 단순히 허가만 받고 아직 설립하지 않은 회사는 자동 생성하지 않습니다.",
+  },
   {
     date: "2026-07-22",
     tag: "수정",

@@ -162,7 +162,11 @@ import {
   STOCK_REQUEST_COST,
   STOCK_REQUEST_COOLDOWN_DAYS,
 } from "@/lib/supabase/stockRequests";
-import { verifyCompanyFoundationApproval } from "@/lib/supabase/companyFoundationRequests";
+import {
+  listMyCompanyFoundationRequests,
+  markCompanyFoundationShipped,
+  verifyCompanyFoundationApproval,
+} from "@/lib/supabase/companyFoundationRequests";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -304,7 +308,11 @@ import {
   type CreateAmcFundInput,
   type FoundAssetManagerInput,
 } from "@/lib/player/assetManager";
-import { verifyAmcFoundationApproval } from "@/lib/supabase/amcFoundationRequests";
+import {
+  listMyAmcFoundationRequests,
+  markAmcFoundationShipped,
+  verifyAmcFoundationApproval,
+} from "@/lib/supabase/amcFoundationRequests";
 import {
   listMyAmcEtfListingRequests,
   markAmcEtfListingShipped,
@@ -328,6 +336,10 @@ import {
   upsertListedCache,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
+import {
+  recoverAssetManagerFromServerRecords,
+  recoverPlayerCompanyFromServerRecords,
+} from "@/lib/player/serverEntityRecovery";
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -533,6 +545,8 @@ interface MarketStore extends MarketSnapshot {
   awardMinigameCash: (amount: number, label: string) => void;
   /** 초고액 계정 전용 비상장 회사. 회사 가치는 순자산에 합산하지 않는다. */
   playerCompany: PlayerCompanyState | null;
+  /** 서버 신청·결제 기록으로 유실된 회사 객체를 복원한다. */
+  refreshServerPlayerCompany: () => Promise<void>;
   foundPlayerCompany: (
     input: FoundPlayerCompanyInput,
     approvalRequestId: string,
@@ -1823,6 +1837,7 @@ export const useMarketStore = create<MarketStore>()(
                 state.selectedSeasonFrameId ?? "season-frame-master",
             }));
           }
+          await get().refreshServerPlayerCompany();
           await get().refreshListedAmcFunds();
           set({ cloudSyncReady: true });
           await get().saveCloud();
@@ -1841,6 +1856,7 @@ export const useMarketStore = create<MarketStore>()(
           localState.walletEpoch === WALLET_EPOCH &&
           localActivity > Math.max(latestWalletActivityMs(wallet), cloudUpdatedAt)
         ) {
+          await get().refreshServerPlayerCompany();
           await get().refreshListedAmcFunds();
           set({ cloudSyncReady: true });
           await get().saveCloud();
@@ -2087,7 +2103,8 @@ export const useMarketStore = create<MarketStore>()(
             "info",
           );
         }
-        // 빈 funds 클라우드가 저장되기 전에 상장 원장에서 내 ETF를 복구한다.
+        // 빈 회사·funds 클라우드가 저장되기 전에 서버 신청 기록에서 복구한다.
+        await get().refreshServerPlayerCompany();
         await get().refreshListedAmcFunds();
         return "loaded";
       },
@@ -3885,6 +3902,30 @@ export const useMarketStore = create<MarketStore>()(
         playSound("cash");
       },
 
+      refreshServerPlayerCompany: async () => {
+        const state = get();
+        if (!state.userId || state.playerCompany) return;
+        try {
+          const requests = await listMyCompanyFoundationRequests();
+          const latest = get();
+          if (latest.playerCompany) return;
+          const now = Date.now();
+          const recovered = recoverPlayerCompanyFromServerRecords(
+            requests,
+            latest.cashPayments,
+            Math.floor(now / SESSION_DURATION_MS),
+            now,
+          );
+          if (!recovered) return;
+          set({ playerCompany: recovered.entity });
+          if (recovered.shouldMarkShipped) {
+            await markCompanyFoundationShipped(recovered.requestId);
+          }
+        } catch (error) {
+          console.warn("[company] server recovery failed", error);
+        }
+      },
+
       foundPlayerCompany: async (input, approvalRequestId) => {
         const state = get();
         if (!state.userId || !state.cloudSyncReady) {
@@ -3937,6 +3978,7 @@ export const useMarketStore = create<MarketStore>()(
           playerCompany: result.company,
           cashPayments: [payment, ...approvedState.cashPayments].slice(0, 200),
         });
+        await markCompanyFoundationShipped(approvalRequestId);
         useToastStore.getState().push(result.message, "success");
         playSound("cash");
         return { success: true, message: result.message };
@@ -4077,10 +4119,11 @@ export const useMarketStore = create<MarketStore>()(
         if (state.refreshingAmcLedger) return;
         set({ refreshingAmcLedger: true });
         try {
-          const [live, ownedListed, requests] = await Promise.all([
+          const [live, ownedListed, requests, foundationRequests] = await Promise.all([
             fetchLiveListedAmcFunds(),
             fetchListedAmcFundsByManager(state.userId),
             listMyAmcEtfListingRequests().catch(() => []),
+            listMyAmcFoundationRequests().catch(() => []),
           ]);
           const heldIds = state.holdings
             .map((item) => parseAmcFundId(item.stockId))
@@ -4203,6 +4246,20 @@ export const useMarketStore = create<MarketStore>()(
             state.userId,
             latest.assetManager,
           );
+          if (!assetManager) {
+            const recovered = recoverAssetManagerFromServerRecords(
+              foundationRequests,
+              requests,
+              latest.cashPayments,
+              currentSession,
+            );
+            if (recovered) {
+              assetManager = recovered.entity;
+              if (recovered.shouldMarkShipped) {
+                await markAmcFoundationShipped(recovered.requestId);
+              }
+            }
+          }
           if (!assetManager && requests.length) {
             const usable = requests.filter(
               (request) => request.status !== "rejected",
@@ -4368,6 +4425,7 @@ export const useMarketStore = create<MarketStore>()(
           assetManager: result.manager,
           cashPayments: [payment, ...approved.cashPayments].slice(0, 200),
         });
+        await markAmcFoundationShipped(approvalRequestId);
         useToastStore.getState().push(result.message, "success");
         playSound("cash");
         return { success: true, message: result.message };

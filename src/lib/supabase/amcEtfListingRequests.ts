@@ -13,7 +13,7 @@ import {
   type StockRequestRow,
   type StockRequestStatus,
   type SubmitResult,
-  updateStockRequest,
+  completeOwnSpecialStockRequest,
 } from "@/lib/supabase/stockRequests";
 
 export const AMC_ETF_LISTING_REQUEST_MARKER = "[AMC_ETF_LISTING]" as const;
@@ -321,5 +321,5 @@ export async function verifyAmcEtfListingApproval(
 export async function markAmcEtfListingShipped(
   requestId: string,
 ): Promise<boolean> {
-  return updateStockRequest(requestId, { status: "shipped" });
+  return completeOwnSpecialStockRequest(requestId);
 }

@@ -233,3 +233,18 @@ export async function updateStockRequest(
     .eq("id", id);
   return !error;
 }
+
+/**
+ * (유저) 관리자가 수락한 회사·운용사·ETF 요청을 실제 실행한 뒤 완료 처리한다.
+ * 권한과 허용 마커 검증은 security-definer RPC 안에서 다시 수행한다.
+ */
+export async function completeOwnSpecialStockRequest(
+  id: string,
+): Promise<boolean> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "complete_own_special_stock_request",
+    { p_request_id: id },
+  );
+  return !error && data === true;
+}

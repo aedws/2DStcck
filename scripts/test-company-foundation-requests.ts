@@ -7,6 +7,8 @@ import {
   serializeCompanyFoundationRequest,
 } from "../src/lib/supabase/companyFoundationRequests";
 import type { StockRequestRow } from "../src/lib/supabase/stockRequests";
+import { recoverPlayerCompanyFromServerRecords } from "../src/lib/player/serverEntityRecovery";
+import type { CashPayment } from "../src/lib/types/market";
 
 const input = {
   name: "오로라 캐피털",
@@ -67,5 +69,30 @@ const rejected = parseCompanyFoundationRequest(rejectedRow);
 assert.ok(rejected);
 assert.equal(rejected.status, "rejected");
 assert.equal(rejected.adminNote, "티커가 기존 상장사와 혼동됩니다.");
+
+assert.equal(
+  recoverPlayerCompanyFromServerRecords([parsed], [], 500),
+  null,
+  "승인만 받고 설립하지 않은 회사는 자동 생성하지 않는다",
+);
+const foundingPayment: CashPayment = {
+  id: "company-founding-player-company-123",
+  kind: "company_capital",
+  sourceId: "player-company-123",
+  ticker: "AURA",
+  dueSession: 400,
+  amount: -20_000_000_000,
+  timestamp: Date.parse("2026-07-22T01:00:00.000Z"),
+};
+const recovered = recoverPlayerCompanyFromServerRecords(
+  [parsed],
+  [foundingPayment],
+  500,
+);
+assert.ok(recovered);
+assert.equal(recovered.entity.id, "player-company-123");
+assert.equal(recovered.entity.name, input.name);
+assert.equal(recovered.entity.foundingCost, 20_000_000_000);
+assert.equal(recovered.shouldMarkShipped, true);
 
 console.log("company foundation request serialize/parse scenarios passed");
