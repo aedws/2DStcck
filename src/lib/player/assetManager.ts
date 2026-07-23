@@ -27,6 +27,8 @@ export type AmcDividendIntervalDays = number;
 export const AMC_SHARE_ADJUSTMENT_RATIOS = [2, 5, 10] as const;
 export type AmcShareAdjustmentRatio =
   (typeof AMC_SHARE_ADJUSTMENT_RATIOS)[number];
+/** 자동 분할·병합 뒤 반대 조정이 연속 발동하지 않는 최소 거래일. */
+export const AMC_SHARE_ADJUSTMENT_COOLDOWN_DAYS = 5;
 /** 액티브 회차당 AUM 대비 배당률 상한 */
 export const AMC_ACTIVE_MAX_DIVIDEND_RATE = 0.05;
 export const AMC_TRADING_SESSIONS_PER_YEAR = 240;
@@ -204,6 +206,33 @@ export function normalizeAmcShareAdjustmentRatio(
   )
     ? (ratio as AmcShareAdjustmentRatio)
     : fallback;
+}
+
+/** 분할·병합 직후 가격이 반대 트리거를 다시 밟지 않는 설정인지 확인합니다. */
+export function isAmcShareAdjustmentBandStable(input: {
+  splitTriggerPrice?: number;
+  splitRatio?: AmcShareAdjustmentRatio;
+  reverseSplitTriggerPrice?: number;
+  reverseSplitRatio?: AmcShareAdjustmentRatio;
+}): boolean {
+  const split = Math.round(finiteNonNegative(input.splitTriggerPrice));
+  const reverse = Math.round(finiteNonNegative(input.reverseSplitTriggerPrice));
+  if (!(split > 0) || !(reverse > 0)) return true;
+  const splitRatio = normalizeAmcShareAdjustmentRatio(input.splitRatio);
+  const reverseRatio = normalizeAmcShareAdjustmentRatio(
+    input.reverseSplitRatio,
+  );
+  return reverse * splitRatio < split && reverse * reverseRatio < split;
+}
+
+export function isAmcShareAdjustmentCoolingDown(
+  lastAdjustmentSession: number | undefined,
+  currentSession: number,
+): boolean {
+  return (
+    lastAdjustmentSession != null &&
+    currentSession - lastAdjustmentSession < AMC_SHARE_ADJUSTMENT_COOLDOWN_DAYS
+  );
 }
 
 export function isAmcFundStockId(stockId: string | undefined | null): boolean {
@@ -743,11 +772,14 @@ export function createAmcFund(
   const reverseSplitTriggerPrice = Math.round(
     finiteNonNegative(input.reverseSplitTriggerPrice),
   );
-  if (
-    splitTriggerPrice > 0 &&
-    reverseSplitTriggerPrice > 0 &&
-    reverseSplitTriggerPrice >= splitTriggerPrice
-  ) {
+  if (!isAmcShareAdjustmentBandStable({
+    splitTriggerPrice,
+    splitRatio: normalizeAmcShareAdjustmentRatio(input.splitRatio),
+    reverseSplitTriggerPrice,
+    reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+      input.reverseSplitRatio,
+    ),
+  })) {
     return {
       success: false,
       message: "자동 병합 가격은 자동 분할 가격보다 낮아야 합니다.",
@@ -835,11 +867,14 @@ export function updateAmcShareAdjustmentSettings(
   const reverseSplitTriggerPrice = Math.round(
     finiteNonNegative(input.reverseSplitTriggerPrice),
   );
-  if (
-    splitTriggerPrice > 0 &&
-    reverseSplitTriggerPrice > 0 &&
-    reverseSplitTriggerPrice >= splitTriggerPrice
-  ) {
+  if (!isAmcShareAdjustmentBandStable({
+    splitTriggerPrice,
+    splitRatio: normalizeAmcShareAdjustmentRatio(input.splitRatio),
+    reverseSplitTriggerPrice,
+    reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+      input.reverseSplitRatio,
+    ),
+  })) {
     return {
       success: false,
       message: "자동 병합 가격은 자동 분할 가격보다 낮아야 합니다.",

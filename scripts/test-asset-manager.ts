@@ -15,6 +15,8 @@ import {
   foundAssetManager,
   hasMixedDividendCadences,
   isAmcFundStockId,
+  isAmcShareAdjustmentBandStable,
+  isAmcShareAdjustmentCoolingDown,
   normalizeAmcDividendInterval,
   rebalanceAmcFund,
   settleAmcDividends,
@@ -201,7 +203,7 @@ const updatedAdjustment = updateAmcShareAdjustmentSettings(
   {
     splitTriggerPrice: 1_000,
     splitRatio: 10,
-    reverseSplitTriggerPrice: 100,
+    reverseSplitTriggerPrice: 50,
     reverseSplitRatio: 5,
   },
   1_700_000_100_000,
@@ -209,7 +211,7 @@ const updatedAdjustment = updateAmcShareAdjustmentSettings(
 assert.equal(updatedAdjustment.success, true);
 assert.equal(updatedAdjustment.fund!.splitTriggerPrice, 1_000);
 assert.equal(updatedAdjustment.fund!.splitRatio, 10);
-assert.equal(updatedAdjustment.fund!.reverseSplitTriggerPrice, 100);
+assert.equal(updatedAdjustment.fund!.reverseSplitTriggerPrice, 50);
 assert.equal(updatedAdjustment.fund!.reverseSplitRatio, 5);
 
 const clearedAdjustment = updateAmcShareAdjustmentSettings(
@@ -229,6 +231,17 @@ const invalidUpdatedAdjustment = updateAmcShareAdjustmentSettings(
   { splitTriggerPrice: 100, reverseSplitTriggerPrice: 100 },
 );
 assert.equal(invalidUpdatedAdjustment.success, false);
+assert.equal(
+  isAmcShareAdjustmentBandStable({
+    splitTriggerPrice: 1_000,
+    splitRatio: 10,
+    reverseSplitTriggerPrice: 100,
+    reverseSplitRatio: 5,
+  }),
+  false,
+);
+assert.equal(isAmcShareAdjustmentCoolingDown(100, 104), true);
+assert.equal(isAmcShareAdjustmentCoolingDown(100, 105), false);
 
 const invalidAdjustmentBand = createAmcFund(
   founded.manager!,

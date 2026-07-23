@@ -109,7 +109,7 @@ export interface WalletSave {
   selectedSeasonFrameId?: SeasonRewardId | null;
   /** 초고액 계정 전용 비상장 플레이어 회사. 회사 가치는 순자산에 합산하지 않는다. */
   playerCompany?: PlayerCompanyState | null;
-  /** 자산운용사·유저 ETF. 펀드 좌 가치는 순자산 랭킹에 합산하지 않는다. */
+  /** 자산운용사·유저 ETF. 보유 좌의 NAV 평가액도 총자산·랭킹에 합산한다. */
   assetManager?: AssetManagerState | null;
 }
 

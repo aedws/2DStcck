@@ -29,6 +29,7 @@ import {
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
   equalWeightHoldings,
+  isAmcShareAdjustmentBandStable,
   maxFeeRateForStyle,
   type AmcDividendIntervalDays,
   type AmcFundStyle,
@@ -275,7 +276,12 @@ export default function AssetManagerPage() {
     (autoReverseSplit && !(reverseSplitTriggerCents > 0)) ||
     (autoSplit &&
       autoReverseSplit &&
-      reverseSplitTriggerCents >= splitTriggerCents);
+      !isAmcShareAdjustmentBandStable({
+        splitTriggerPrice: splitTriggerCents,
+        splitRatio,
+        reverseSplitTriggerPrice: reverseSplitTriggerCents,
+        reverseSplitRatio,
+      }));
 
   const eligibleHoldingStocks = useMemo(() => {
     const companyIds = new Set(
@@ -901,7 +907,12 @@ export default function AssetManagerPage() {
                 !(adjustmentReverseSplitCents > 0)) ||
               (adjustmentDraft.autoSplit &&
                 adjustmentDraft.autoReverseSplit &&
-                adjustmentReverseSplitCents >= adjustmentSplitCents);
+                !isAmcShareAdjustmentBandStable({
+                  splitTriggerPrice: adjustmentSplitCents,
+                  splitRatio: adjustmentDraft.splitRatio,
+                  reverseSplitTriggerPrice: adjustmentReverseSplitCents,
+                  reverseSplitRatio: adjustmentDraft.reverseSplitRatio,
+                }));
             const rebalanceWeightTotal = fund.holdings.reduce((sum, row) => {
               const draft = rebalanceDraft[fund.id]?.[row.stockId];
               return sum + (draft === undefined ? row.weight * 100 : Number(draft));

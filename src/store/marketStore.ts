@@ -272,6 +272,7 @@ import { reconcileAmcLedgerCash } from "@/lib/player/amcLedger";
 import {
   createAmcValuationPriceResolver,
   getAmcCharacterLinkedHoldings,
+  getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
 import {
@@ -305,6 +306,7 @@ import {
   evaluateAmcCompliance,
   foundAssetManager as createAssetManager,
   isAmcFundStockId,
+  isAmcShareAdjustmentCoolingDown,
   normalizeAssetManager,
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
@@ -573,7 +575,7 @@ interface MarketStore extends MarketSnapshot {
   refusePlayerCompanyCapitalCall: () => OrderResult;
   resumePlayerCompany: () => OrderResult;
   markPlayerCompanyIpoRequested: () => OrderResult;
-  /** 자산운용사·유저 ETF. 펀드 좌는 순자산 랭킹에 합산하지 않는다. */
+  /** 자산운용사·유저 ETF. 보유 좌의 NAV 평가액도 총자산·랭킹에 합산한다. */
   assetManager: AssetManagerState | null;
   /** 공유 상장된 유저 ETF(타 계정 포함). AMC 탭 마켓·AUM 동기화용. */
   listedAmcFunds: ListedAmcFund[];
@@ -957,10 +959,23 @@ function userEtfRelationshipHoldingsOf(
   state: Pick<MarketStore, "holdings" | "stocks" | "assetManager" | "listedAmcFunds">,
 ) {
   const funds = mergeAmcPortfolioFunds(
-    state.listedAmcFunds.map(listedFundToAmcState),
     state.assetManager?.funds ?? [],
+    state.listedAmcFunds.map(listedFundToAmcState),
   );
   return getAmcCharacterLinkedHoldings(state.holdings, funds, state.stocks);
+}
+
+function userEtfPortfolioValueOf(
+  state: Pick<
+    MarketStore,
+    "holdings" | "stocks" | "assetManager" | "listedAmcFunds"
+  >,
+): number {
+  const funds = mergeAmcPortfolioFunds(
+    state.assetManager?.funds ?? [],
+    state.listedAmcFunds.map(listedFundToAmcState),
+  );
+  return getAmcPortfolioValue(state.holdings, funds, state.stocks);
 }
 
 function relationshipEquityOf(
@@ -2810,14 +2825,22 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
 
-        const netWorth = fullEquityOf({
+        const equityState = {
           cash,
           holdings,
           shorts,
           options,
           stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
-        });
+        };
+        const netWorth =
+          fullEquityOf(equityState) +
+          userEtfPortfolioValueOf({
+            holdings,
+            stocks: combinedStocks,
+            assetManager,
+            listedAmcFunds,
+          });
         let reputation = state.reputation;
         let dailyOperation = state.dailyOperation;
         let dailyOperationHistory = state.dailyOperationHistory;
@@ -2867,9 +2890,7 @@ export const useMarketStore = create<MarketStore>()(
           assetManager,
           listedAmcFunds,
         });
-        const relationshipEquity =
-          netWorth +
-          userEtfHoldings.reduce((sum, holding) => sum + holding.value, 0);
+        const relationshipEquity = netWorth;
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
           holdings,
@@ -4238,7 +4259,10 @@ export const useMarketStore = create<MarketStore>()(
           const adjustmentFunds = merged.filter((fund) => {
             if (
               fund.status === "delisted" ||
-              fund.lastShareAdjustmentSession === currentSession
+              isAmcShareAdjustmentCoolingDown(
+                fund.lastShareAdjustmentSession,
+                currentSession,
+              )
             ) {
               return false;
             }
@@ -5587,14 +5611,13 @@ export const useMarketStore = create<MarketStore>()(
 
       getTotalAssets: () => {
         const s = get();
-        const equity = fullEquityOf(s);
+        const equity = fullEquityOf(s) + userEtfPortfolioValueOf(s);
         // 우선주는 집중(focused) 유지 중인 활성분만 자산에 반영한다.
         const active = getActivePreferredShares(
           s.preferredShares,
           computeCharacterConcentration(s.holdings, s.stocks, equity),
         );
-        // 유저 ETF 좌는 stocks 시세에 없어 equity에 포함되지 않으며,
-        // 랭킹에서도 합산하지 않는다(의도된 미포함).
+        // 유저 ETF는 일반 stocks 맵 밖에 있어 NAV 평가액을 별도로 더한다.
         return equity + getPreferredShareValue(active);
       },
 
