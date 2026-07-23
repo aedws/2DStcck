@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
+import { AveragingCalculator } from "@/components/market/AveragingCalculator";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
 import {
   formatPrice,
@@ -156,6 +157,7 @@ export function AmcTradeClient() {
   const [quantity, setQuantity] = useState("1");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [showAveraging, setShowAveraging] = useState(false);
   const [comparisonDraft, setComparisonDraft] = useState("");
   const [comparisonSaving, setComparisonSaving] = useState(false);
 
@@ -692,6 +694,48 @@ export function AmcTradeClient() {
                 <p className="mt-4 text-center text-[11px] text-[var(--muted)]">
                   현금 {formatPrice(cash)} · 서버 원장 즉시 체결
                 </p>
+              </div>
+
+              <div className="mt-5 border-t border-[var(--border)] pt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold">물타기 / 불타기</p>
+                    <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                      추가 매수 전 새 평단을 미리 계산
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAveraging((open) => !open)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      showAveraging
+                        ? "bg-sky-400 text-black"
+                        : "bg-[var(--surface)] text-[var(--muted)]"
+                    }`}
+                  >
+                    {showAveraging ? "닫기" : "계산기"}
+                  </button>
+                </div>
+
+                {showAveraging && (
+                  <div className="mt-3 rounded-2xl border border-sky-400/30 bg-sky-400/5 p-3">
+                    <AveragingCalculator
+                      compact
+                      initialQuantity={holding?.quantity}
+                      initialAveragePrice={holding?.averagePrice}
+                      initialAddPrice={nav}
+                      markPrice={nav}
+                      stockLabel={`${fund.name} (${fund.ticker})`}
+                      quantityUnit="좌"
+                    />
+                    <Link
+                      href="/averaging"
+                      className="mt-3 block text-center text-[11px] font-semibold text-sky-300"
+                    >
+                      전체 화면 계산기 →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>

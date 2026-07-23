@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-24": {
     highlights: [
+      "유저 ETF 평단 계산 퀵 액세스 — 유저 ETF 상세 주문 패널에서도 현재 보유 좌수·평단·NAV가 자동 입력된 물타기/불타기 계산기를 바로 열 수 있습니다. (@bradje)",
       "유저 ETF 상장 신청 복구 — 17~30종목 ETF의 구성 기준가·벤치마크·분할 설정이 서버 1,000자 제한을 넘어 신청 저장에 실패하던 원인을 제거하고 최대 20,000자로 확장했습니다. (@asset_management)",
       "급등주 ETF 편입 차단 — 시각에 따라 생성·상폐되는 급등주를 신규 설정·구성 변경·상장 신청·공유 원장 모든 경로에서 유저 ETF에 담지 못하게 했습니다.",
       "옵션 명목노출 안내 — 옵션 튜토리얼과 거래 화면에 콜 현재가·풋 행사가 × 계약 수로 계산하는 명목노출을 설명하고, 주문 거절 시 요청 노출과 현재 계좌 한도를 함께 표시합니다.",
@@ -247,6 +248,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-24",
+    tag: "개선",
+    title: "유저 ETF 상세의 물타기·불타기 계산기",
+    detail:
+      "일반 종목 상세와 같은 방식으로 유저 ETF 주문 패널에 평단 계산기 퀵 액세스를 추가했습니다. 계산기를 열면 해당 ETF의 보유 좌수·평균 매수가·현재 NAV가 자동으로 채워지며, 추가 매수 좌수 또는 금액과 목표 평단을 바로 계산할 수 있습니다. ETF 수량 단위도 ‘주’가 아닌 ‘좌’로 표시합니다. (@bradje)",
+  },
   {
     date: "2026-07-24",
     tag: "수정",

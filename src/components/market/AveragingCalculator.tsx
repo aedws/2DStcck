@@ -41,6 +41,8 @@ export interface AveragingCalculatorProps {
   markPrice?: number;
   /** 종목 라벨 */
   stockLabel?: string;
+  /** 보유 수량 단위 — 일반 종목은 주, ETF는 좌 */
+  quantityUnit?: "주" | "좌";
   compact?: boolean;
 }
 
@@ -50,6 +52,7 @@ export function AveragingCalculator({
   initialAddPrice = 0,
   markPrice,
   stockLabel,
+  quantityUnit = "주",
   compact = false,
 }: AveragingCalculatorProps) {
   const [quantityInput, setQuantityInput] = useState(
@@ -196,7 +199,7 @@ export function AveragingCalculator({
       )}
 
       <div className={`grid gap-3 ${compact ? "grid-cols-1" : "sm:grid-cols-2"}`}>
-        <Field label="보유 수량(주)">
+        <Field label={`보유 수량(${quantityUnit})`}>
           <input
             value={quantityInput}
             onChange={(event) => setQuantityInput(cleanDecimal(event.target.value))}
@@ -248,7 +251,7 @@ export function AveragingCalculator({
       </div>
 
       {addMode === "quantity" ? (
-        <Field label="추가 매수 수량(주)">
+        <Field label={`추가 매수 수량(${quantityUnit})`}>
           <input
             value={addQuantityInput}
             onChange={(event) =>
@@ -286,12 +289,12 @@ export function AveragingCalculator({
               {modeLabel} 결과
             </p>
             <span className="text-xs text-[var(--muted)]">
-              추가 {formatQty(addQuantity)}주 · {formatPrice(result.addCost)}
+              추가 {formatQty(addQuantity)}{quantityUnit} · {formatPrice(result.addCost)}
             </span>
           </div>
           <div className={`mt-3 grid gap-2 ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4"}`}>
             <Stat label="새 평단" value={formatPrice(result.newAveragePrice)} />
-            <Stat label="총 수량" value={`${formatQty(result.newQuantity)}주`} />
+            <Stat label="총 수량" value={`${formatQty(result.newQuantity)}${quantityUnit}`} />
             <Stat label="총 원금" value={formatCompactMoney(result.totalCost)} />
             <Stat
               label="평단 변화"
@@ -351,7 +354,7 @@ export function AveragingCalculator({
             role="status"
             aria-live="polite"
           >
-            <Stat label="필요 수량" value={`${formatQty(targetNeedQty)}주`} />
+            <Stat label="필요 수량" value={`${formatQty(targetNeedQty)}${quantityUnit}`} />
             <Stat label="필요 금액" value={formatPrice(targetNeedAmount)} />
           </div>
         ) : (
