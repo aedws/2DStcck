@@ -804,7 +804,10 @@ assert.equal(stockCategory(singleCoveredCall), "커버드콜");
 const allSingleCoveredCalls = STOCK_DEFINITIONS.filter(
   (stock) => stock.coveredCallDistributionIntervalDays === 5,
 );
-assert.equal(allSingleCoveredCalls.length, getCompanyDefinitions().length);
+assert.equal(
+  allSingleCoveredCalls.length,
+  getCompanyDefinitions().filter((stock) => Boolean(stock.ceoId)).length,
+);
 assert.ok(
   allSingleCoveredCalls.every(
     (stock) =>
@@ -1573,7 +1576,11 @@ const option: OptionPosition = {
   openedAt: 1,
 };
 const mark = positionMark(option, stock, session, 0.06);
-assert.equal(optionsGrossExposure([option], [stock], session, 0.06), mark * 3);
+assert(mark > 0);
+assert.equal(
+  optionsGrossExposure([option], [stock], session, 0.06),
+  stock.currentPrice * option.quantity,
+);
 
 const chronologicalTrades: Trade[] = [
   { id: "1", stockId: "a", ticker: "A", type: "buy", quantity: 1, price: 100, total: 100, timestamp: 1 },
@@ -1614,12 +1621,12 @@ const marginCallScorecard = buildDailyScorecard(
 assert.equal(marginCallScorecard.marginCalled, true);
 assert.ok(marginCallScorecard.score < scorecard.score);
 
-// 미수는 호출자가 명시한 배율만 반영하고, 500%에서도 진입 완충 구간이 있다.
+// 미수는 최대 200% 총노출만 허용하고 유지증거금은 30%로 고정한다.
 assert.equal(SESSION_DURATION_MS, 60 * 60 * 1000);
 assert.equal(computeBuyingPower(10_000, [], [], {}, 0, 1), 10_000);
-assert.equal(computeBuyingPower(10_000, [], [], {}, 0, 5), 50_000);
+assert.equal(computeBuyingPower(10_000, [], [], {}, 0, 2), 20_000);
 assert.equal(maintenanceMarginForLeverage(2), 0.3);
-assert.ok(maintenanceMarginForLeverage(5) < 0.2);
+assert.equal(maintenanceMarginForLeverage(5), 0.3);
 
 // 현물 소수점 매수·매도는 0.001주부터 가능하고 잔량을 정확히 보존한다.
 const fractionalBuy = executeBuy(10_000, [], "fractional", "FRAC", 2_000, 0.5, 1);
