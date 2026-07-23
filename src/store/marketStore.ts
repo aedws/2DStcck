@@ -180,6 +180,7 @@ import {
 import {
   loadGameSave,
   saveGameSave,
+  SPLIT_SETTLEMENT_VERSION,
   syncLeaderboard as syncLeaderboardSnapshot,
 } from "@/lib/supabase/cloudSave";
 import { ACHIEVEMENTS } from "@/data/achievements";
@@ -1585,7 +1586,17 @@ function applyLocalBuySell(
 ): OrderResult {
   // 지급 경계 뒤 첫 매매라면 기존 보유 수량으로 먼저 정산한다.
   get().settleCashflows();
-  const state = get();
+  const rawState = get();
+  const preTradeSplit = reconcileLeverageSplits(
+    rawState.holdings,
+    rawState.stocks,
+  );
+  if (preTradeSplit.changed) {
+    set({ holdings: preTradeSplit.holdings });
+  }
+  const state = preTradeSplit.changed
+    ? { ...rawState, holdings: preTradeSplit.holdings }
+    : rawState;
   const stock = state.stocks.find((s) => s.id === stockId);
   if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
   if (stock.sector === "선물" || stock.sector === "지수") {
@@ -2515,6 +2526,7 @@ export const useMarketStore = create<MarketStore>()(
         if (!get().userId || !get().cloudSyncReady) return false;
         const s = get();
         const saveResult = await saveGameSave({
+          splitSettlementVersion: SPLIT_SETTLEMENT_VERSION,
           walletEpoch: WALLET_EPOCH,
           accountResetAt: s.accountResetAt,
           sessionDurationMs: SESSION_DURATION_MS,
@@ -2699,7 +2711,33 @@ export const useMarketStore = create<MarketStore>()(
         }
 
         // 대기 주문을 로컬에 저장 → tickMarket이 가격 도달 시 체결
-        const state = get();
+        get().settleCashflows();
+        const rawState = get();
+        const preOrderSplit = reconcileLeverageSplits(
+          rawState.holdings,
+          rawState.stocks,
+        );
+        const reconciledOrders = reconcileSplitAdjustedOrders(
+          rawState.openOrders,
+          rawState.stocks,
+        );
+        if (
+          preOrderSplit.changed ||
+          reconciledOrders !== rawState.openOrders
+        ) {
+          set({
+            holdings: preOrderSplit.holdings,
+            openOrders: reconciledOrders,
+          });
+        }
+        const state =
+          preOrderSplit.changed || reconciledOrders !== rawState.openOrders
+            ? {
+                ...rawState,
+                holdings: preOrderSplit.holdings,
+                openOrders: reconciledOrders,
+              }
+            : rawState;
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) {
           return { success: false, message: "종목을 찾을 수 없습니다." };
@@ -2827,7 +2865,11 @@ export const useMarketStore = create<MarketStore>()(
         // 로컬 지정가 대기 주문: 가격 도달 시 체결 (잔고 부족 시 자동 취소)
         let cash = state.cash;
         let cashExact = exactCashOf(state);
-        let holdings = state.holdings;
+        const preTradeSplitResult = reconcileLeverageSplits(
+          state.holdings,
+          combinedStocks,
+        );
+        let holdings = preTradeSplitResult.holdings;
         let trades = state.trades;
         const pendingOrderTaxPayments: CashPayment[] = [];
         const splitAdjustedOrders = reconcileSplitAdjustedOrders(
@@ -3115,8 +3157,12 @@ export const useMarketStore = create<MarketStore>()(
           combinedStocks,
         );
         shorts = shortSplitResult.positions;
-        if (splitResult.changed) {
-          for (const ev of splitResult.events) {
+        const splitEvents = [
+          ...preTradeSplitResult.events,
+          ...splitResult.events,
+        ];
+        if (splitEvents.length > 0) {
+          for (const ev of splitEvents) {
             const isSplit = ev.ratio > 1;
             useToastStore
               .getState()
@@ -3752,6 +3798,7 @@ export const useMarketStore = create<MarketStore>()(
         // Worker가 목표 틱까지 정확히 따라잡으면 직후 tickMarket()은 gap=0으로
         // 즉시 종료된다. 따라서 체크포인트 적용과 같은 원자적 set에서 보유·공매·
         // 지정가 주문의 액면 배수를 먼저 정산해야 가격만 바뀌는 구간이 생기지 않는다.
+        get().settleCashflows();
         const state = get();
         const splitHoldings = reconcileLeverageSplits(
           state.holdings,
@@ -4231,7 +4278,17 @@ export const useMarketStore = create<MarketStore>()(
 
       openShortPosition: (stockId, quantity) => {
         get().settleCashflows();
-        const state = get();
+        const rawState = get();
+        const preTradeSplit = reconcileLeveragePositionSplits(
+          rawState.shorts,
+          rawState.stocks,
+        );
+        if (preTradeSplit.changed) {
+          set({ shorts: preTradeSplit.positions });
+        }
+        const state = preTradeSplit.changed
+          ? { ...rawState, shorts: preTradeSplit.positions }
+          : rawState;
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
         if (
@@ -4304,7 +4361,17 @@ export const useMarketStore = create<MarketStore>()(
 
       coverShortPosition: (stockId, quantity) => {
         get().settleCashflows();
-        const state = get();
+        const rawState = get();
+        const preTradeSplit = reconcileLeveragePositionSplits(
+          rawState.shorts,
+          rawState.stocks,
+        );
+        if (preTradeSplit.changed) {
+          set({ shorts: preTradeSplit.positions });
+        }
+        const state = preTradeSplit.changed
+          ? { ...rawState, shorts: preTradeSplit.positions }
+          : rawState;
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
         const price = getMarketBuyPrice(stock.currentPrice);

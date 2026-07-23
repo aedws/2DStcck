@@ -31,11 +31,15 @@ import {
   normalizeExactAmount,
 } from "@/lib/market/exactAmount";
 
+export const SPLIT_SETTLEMENT_VERSION = 1;
+
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
  * 시장(stocks/events)은 결정론으로 재계산되므로 저장하지 않는다.
  */
 export interface WalletSave {
+  /** 분할·병합 정산 순서가 보강된 클라이언트 저장본인지 확인하는 서버 호환 버전. */
+  splitSettlementVersion?: number;
   /**
    * 지갑 스키마 세대. 없거나 현재 `WALLET_EPOCH` 미만이면 폐기 대상.
    * (비정상 자산·거래내역 누락 시즌을 한 번에 리셋할 때 올린다.)

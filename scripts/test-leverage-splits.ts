@@ -19,6 +19,7 @@ import {
   reconcileSplitAdjustedOrders,
   stampLeveragePositionMultiplier,
 } from "../src/lib/market/leveragePositionSplits";
+import { executeBuy, isOrderSuccess } from "../src/lib/market/trading";
 
 // 1) 표시가는 항상 밴드 [MERGE_AT, SPLIT_AT) 안에 있어야 한다.
 for (let raw = 1; raw <= 5_000_000; raw = Math.ceil(raw * 1.07)) {
@@ -330,5 +331,38 @@ const checkpointOrder = reconcileSplitAdjustedOrders(
 assert.equal(checkpointOrder.price, 11_000);
 assert.equal(checkpointOrder.quantity, 30);
 assert.equal(checkpointOrder.splitMultiplier, 10);
+
+// A trade must reconcile an old face-value position before merging and
+// stamping it. Otherwise the stamp hides the missed 10:1 split forever.
+const staleHolding = {
+  stockId: plainBefore.id,
+  quantity: 2,
+  quantityExact: "2",
+  averagePrice: 120_000,
+  splitMultiplier: 1,
+};
+const preTradeHolding = reconcileLeveragePositionSplits(
+  [staleHolding],
+  [plainAfter],
+).positions;
+const buyAfterSplit = executeBuy(
+  Number.POSITIVE_INFINITY,
+  preTradeHolding,
+  plainAfter.id,
+  plainAfter.ticker,
+  plainAfter.currentPrice,
+  1,
+  splitSession * SESSION_DURATION_MS,
+);
+assert.ok(isOrderSuccess(buyAfterSplit));
+const stampedAfterBuy = stampLeveragePositionMultiplier(
+  buyAfterSplit.holdings,
+  plainAfter.id,
+  [plainAfter],
+)[0]!;
+assert.equal(stampedAfterBuy.quantity, 21);
+assert.equal(stampedAfterBuy.quantityExact, "21");
+assert.equal(stampedAfterBuy.averagePrice, 12_000);
+assert.equal(stampedAfterBuy.splitMultiplier, 10);
 
 console.log("leverage daily-reset · split/merge scenarios passed");
