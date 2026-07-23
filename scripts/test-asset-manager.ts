@@ -17,6 +17,7 @@ import {
   isAmcFundStockId,
   isAmcShareAdjustmentBandStable,
   isAmcShareAdjustmentCoolingDown,
+  markAmcFundVoluntarilyDelisted,
   normalizeAmcDividendInterval,
   rebalanceAmcFund,
   settleAmcDividends,
@@ -368,6 +369,25 @@ assert.ok(nav > 0);
     before,
   );
 }
+
+const voluntarilyDelisted = markAmcFundVoluntarilyDelisted(
+  created.manager!,
+  created.fund!.id,
+  123,
+  1_700_000_123_000,
+);
+assert.equal(voluntarilyDelisted.success, true);
+assert.equal(voluntarilyDelisted.fund?.status, "delisted");
+assert.equal(voluntarilyDelisted.fund?.delistedSession, 123);
+assert.equal(voluntarilyDelisted.fund?.graceStartedSession, null);
+assert.equal(
+  markAmcFundVoluntarilyDelisted(
+    voluntarilyDelisted.manager!,
+    created.fund!.id,
+    124,
+  ).success,
+  false,
+);
 
 // 신규 매수자는 매수 전에 확정된 배당 이력을 소급 수령하지 않는다.
 assert.deepEqual(

@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "기존 유저 ETF 구성 변경·자진 상장폐지 — 상장 뒤에도 구성종목을 추가·제거하고 목표 비중을 다시 설정할 수 있습니다. 자진 상장폐지 시 현재 NAV로 모든 보유자를 즉시 환급하고 해당 ETF 거래를 영구 종료합니다.",
       "유저 ETF 총자산·랭킹·시즌 수익률 정상화 — 보유 유저 ETF를 실시간 NAV로 평가해 계좌 총자산과 랭킹 제출값, 시즌 경쟁 기준자산에 포함합니다.",
       "유저 ETF 자동 분할·병합 안정화 — 액면조정 뒤 5거래일 냉각기간을 적용하고, 조정 직후 반대 트리거에 걸리는 설정을 차단해 평단과 차트가 분할·재병합 사이를 반복하지 않게 했습니다.",
       "MUTEC2 NAV 복구 — 거의 전량 환매 시 장부 NAV가 정수 반올림으로 0이 된 원인을 수정하고 최초 정상 거래 기준 장부가를 복원했습니다. 손상 가격에서 거래된 보유분은 평가액과 매매 현금을 보존하도록 좌수·평단을 같은 비율로 역병합했습니다.",
@@ -205,6 +206,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "신규",
+    title: "기존 유저 ETF 구성 변경·자진 상장폐지",
+    detail:
+      "이미 생성·상장한 유저 ETF도 기업·레버리지·인버스·곱버스·커버드콜·안전자산을 추가하거나 제거하고 종목별 목표 비중을 다시 지정할 수 있습니다. 구성 변경 순간의 기준가를 새로 저장해 기존 NAV와 보유자 평가액이 튀지 않게 이어집니다. 운용사는 되돌릴 수 없는 자진 상장폐지를 선택할 수 있으며, 서버가 현재 NAV 기준 전 보유자 환급, 좌수 제거, 거래 중단을 하나의 정산으로 처리합니다.",
+  },
   {
     date: "2026-07-23",
     tag: "수정",

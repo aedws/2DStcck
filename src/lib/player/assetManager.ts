@@ -1057,6 +1057,42 @@ export function rebalanceAmcFund(
   };
 }
 
+/**
+ * 운용사가 상장 ETF를 자진 청산한 뒤 로컬 운용 상태에도 같은 결과를 반영한다.
+ * 실제 보유자 환급과 원장 좌수 0 처리는 서버 RPC가 한 트랜잭션으로 수행한다.
+ */
+export function markAmcFundVoluntarilyDelisted(
+  manager: AssetManagerState,
+  fundId: string,
+  currentSession: number,
+  now = Date.now(),
+): AmcActionResult {
+  const fund = manager.funds.find((item) => item.id === fundId);
+  if (!fund) return { success: false, message: "펀드를 찾을 수 없습니다." };
+  if (fund.status === "delisted") {
+    return { success: false, message: "이미 상장폐지된 펀드입니다." };
+  }
+  const updated: AmcFundState = {
+    ...fund,
+    status: "delisted",
+    graceStartedSession: null,
+    delistedAt: now,
+    delistedSession: currentSession,
+  };
+  return {
+    success: true,
+    message: `${fund.ticker} 자진 상장폐지가 완료되었습니다.`,
+    manager: {
+      ...manager,
+      funds: manager.funds.map((item) =>
+        item.id === fundId ? updated : item,
+      ),
+      lastActionAt: now,
+    },
+    fund: updated,
+  };
+}
+
 /** 구성 종목 금액(가치) 동일 비중. 동일 좌수가 아님. */
 export function equalWeightHoldings(
   holdings: { stockId: string }[],

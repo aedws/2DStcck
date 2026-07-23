@@ -495,7 +495,12 @@ export async function syncAmcListedFundMeta(
     p_last_rebalance_session: fund.lastRebalanceSession,
   });
   if (error) {
-    return { success: false, message: error.message };
+    const message = error.message.includes("stale_nav_meta")
+      ? "구성 변경은 한 거래일에 한 번만 가능합니다. 다음 거래일에 다시 시도해 주세요."
+      : error.message.includes("invalid_holdings")
+        ? "구성종목은 3~30개, 종목별 1~50%, 비중 합계 100%로 설정해 주세요."
+        : error.message;
+    return { success: false, message };
   }
   if (!data) {
     return {
@@ -576,6 +581,47 @@ export async function updateAmcListedFundComparisonStock(
   return parsed
     ? { success: true, message: "목표 주식을 저장했습니다.", fund: parsed }
     : { success: false, message: "목표 주식 응답을 해석하지 못했습니다." };
+}
+
+/** 운용사가 상장 ETF를 현재 NAV로 자진 청산한다. */
+export async function voluntarilyDelistAmcListedFund(input: {
+  fundId: string;
+  currentSession: number;
+  priceFactor: number;
+  passivePeriodRate: number;
+}): Promise<{ success: boolean; message: string; fund?: ListedAmcFund }> {
+  const auth = await getCurrentAuth();
+  if (!auth) {
+    return { success: false, message: "로그인 후 자진 상장폐지할 수 있습니다." };
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("amc_voluntary_delist_fund", {
+    p_fund_id: input.fundId,
+    p_current_session: input.currentSession,
+    p_price_factor: input.priceFactor,
+    p_passive_period_rate: input.passivePeriodRate,
+  });
+  if (error || !data) {
+    const raw = error?.message ?? "";
+    const message = raw.includes("not_manager")
+      ? "해당 ETF의 운용사만 자진 상장폐지할 수 있습니다."
+      : raw.includes("fund_delisted")
+        ? "이미 상장폐지된 ETF입니다."
+        : raw || "자진 상장폐지 정산에 실패했습니다.";
+    return { success: false, message };
+  }
+  const row = data as { fund?: unknown };
+  const parsed =
+    row.fund && typeof row.fund === "object"
+      ? parseListedAmcFundRow(row.fund as AmcListedFundRow)
+      : null;
+  return parsed
+    ? {
+        success: true,
+        message: "보유자 NAV 환급과 자진 상장폐지가 완료되었습니다.",
+        fund: parsed,
+      }
+    : { success: false, message: "상장폐지 응답을 해석하지 못했습니다." };
 }
 
 export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {

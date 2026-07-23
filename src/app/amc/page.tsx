@@ -163,6 +163,9 @@ export default function AssetManagerPage() {
   const foundAssetManager = useMarketStore((state) => state.foundAssetManager);
   const createAmcFund = useMarketStore((state) => state.createAmcFund);
   const rebalanceAmcFund = useMarketStore((state) => state.rebalanceAmcFund);
+  const voluntarilyDelistAmcFund = useMarketStore(
+    (state) => state.voluntarilyDelistAmcFund,
+  );
   const updateAmcFundShareAdjustment = useMarketStore(
     (state) => state.updateAmcFundShareAdjustment,
   );
@@ -243,6 +246,17 @@ export default function AssetManagerPage() {
   const [rebalanceDraft, setRebalanceDraft] = useState<
     Record<string, Record<string, string>>
   >({});
+  const [compositionEditorId, setCompositionEditorId] = useState<string | null>(
+    null,
+  );
+  const [compositionIds, setCompositionIds] = useState<Record<string, string[]>>(
+    {},
+  );
+  const [compositionSearch, setCompositionSearch] = useState("");
+  const [compositionKind, setCompositionKind] = useState<
+    "all" | AmcHoldingKind
+  >("all");
+  const [delistingId, setDelistingId] = useState<string | null>(null);
   const [shareAdjustmentEditorId, setShareAdjustmentEditorId] = useState<
     string | null
   >(null);
@@ -913,13 +927,47 @@ export default function AssetManagerPage() {
                   reverseSplitTriggerPrice: adjustmentReverseSplitCents,
                   reverseSplitRatio: adjustmentDraft.reverseSplitRatio,
                 }));
-            const rebalanceWeightTotal = fund.holdings.reduce((sum, row) => {
-              const draft = rebalanceDraft[fund.id]?.[row.stockId];
-              return sum + (draft === undefined ? row.weight * 100 : Number(draft));
+            const rebalanceFundIds =
+              compositionIds[fund.id] ??
+              fund.holdings.map((row) => row.stockId);
+            const existingWeightById = new Map(
+              fund.holdings.map((row) => [row.stockId, row.weight * 100]),
+            );
+            const rebalanceWeightTotal = rebalanceFundIds.reduce((sum, stockId) => {
+              const draft = rebalanceDraft[fund.id]?.[stockId];
+              return sum +
+                (draft === undefined ? existingWeightById.get(stockId) ?? 0 : Number(draft));
             }, 0);
             const rebalanceWeightInvalid =
+              rebalanceFundIds.length < AMC_MIN_HOLDINGS ||
+              rebalanceFundIds.length > AMC_MAX_HOLDINGS ||
               !Number.isFinite(rebalanceWeightTotal) ||
-              Math.abs(rebalanceWeightTotal - 100) > 0.005;
+              Math.abs(rebalanceWeightTotal - 100) > 0.005 ||
+              rebalanceFundIds.some((stockId) => {
+                const raw = rebalanceDraft[fund.id]?.[stockId];
+                const weight =
+                  raw === undefined ? existingWeightById.get(stockId) ?? 0 : Number(raw);
+                return (
+                  !Number.isFinite(weight) ||
+                  weight < AMC_MIN_HOLDING_WEIGHT * 100 ||
+                  weight > AMC_MAX_HOLDING_WEIGHT * 100
+                );
+              });
+            const visibleCompositionStocks = eligibleHoldingStocks.filter((stock) => {
+              const query = compositionSearch.trim().toLowerCase();
+              if (
+                compositionKind !== "all" &&
+                amcHoldingKindOf(stock) !== compositionKind
+              ) {
+                return false;
+              }
+              return (
+                !query ||
+                `${stock.ticker} ${stock.name} ${stock.sector} ${stock.subsector ?? ""}`
+                  .toLowerCase()
+                  .includes(query)
+              );
+            });
             return (
               <div
                 key={fund.id}
@@ -1272,28 +1320,128 @@ export default function AssetManagerPage() {
                       <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-3">
                         <p className="text-xs font-bold text-cyan-200">
                           {fund.style === "active"
-                            ? "액티브 금액 비중 조절 (합 100% · 종목별 1~50% · 한 종목 5%p 이상 변경)"
-                            : "패시브 금액 비중 조절 (합 100% · 종목별 1~50% · 동일 좌수 아님)"}
+                            ? "액티브 구성종목·금액 비중 변경 (합 100% · 종목별 1~50%)"
+                            : "패시브 구성종목·금액 비중 변경 (합 100% · 종목별 1~50%)"}
                         </p>
                         <p className="mt-1 text-[11px] text-[var(--muted)]">
                           비중은 구성 종목의 금액(가치) 목표 비율입니다. 주당 매수
-                          수량이 아닙니다.
+                          수량이 아니며, 변경 시 현재 NAV는 유지됩니다.
                         </p>
+                        <button
+                          type="button"
+                          className="mt-2 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs font-bold text-cyan-200"
+                          onClick={() => {
+                            if (compositionEditorId === fund.id) {
+                              setCompositionEditorId(null);
+                              return;
+                            }
+                            const ids = fund.holdings.map((row) => row.stockId);
+                            setCompositionIds((prev) => ({ ...prev, [fund.id]: ids }));
+                            setRebalanceDraft((prev) => ({
+                              ...prev,
+                              [fund.id]: Object.fromEntries(
+                                fund.holdings.map((row) => [
+                                  row.stockId,
+                                  String(Math.round(row.weight * 10_000) / 100),
+                                ]),
+                              ),
+                            }));
+                            setCompositionSearch("");
+                            setCompositionKind("all");
+                            setCompositionEditorId(fund.id);
+                          }}
+                        >
+                          {compositionEditorId === fund.id
+                            ? "종목 선택 닫기"
+                            : "구성종목 추가·제거"}
+                        </button>
+                        {compositionEditorId === fund.id && (
+                          <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                              <input
+                                value={compositionSearch}
+                                onChange={(event) =>
+                                  setCompositionSearch(event.target.value)
+                                }
+                                placeholder="티커·종목명 검색"
+                                className={fieldClass}
+                              />
+                              <select
+                                value={compositionKind}
+                                onChange={(event) =>
+                                  setCompositionKind(
+                                    event.target.value as "all" | AmcHoldingKind,
+                                  )
+                                }
+                                className={fieldClass}
+                              >
+                                {AMC_HOLDING_FILTERS.map((filter) => (
+                                  <option key={filter.value} value={filter.value}>
+                                    {filter.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <p className="mt-2 text-[11px] text-[var(--muted)]">
+                              {rebalanceFundIds.length}/{AMC_MAX_HOLDINGS}종목 선택 · 최소{" "}
+                              {AMC_MIN_HOLDINGS}종목
+                            </p>
+                            <div className="mt-2 max-h-48 space-y-1 overflow-y-auto pr-1">
+                              {visibleCompositionStocks.map((stock) => {
+                                const checked = rebalanceFundIds.includes(stock.id);
+                                return (
+                                  <label
+                                    key={stock.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-white/5"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={
+                                        !checked &&
+                                        rebalanceFundIds.length >= AMC_MAX_HOLDINGS
+                                      }
+                                      onChange={() => {
+                                        const nextIds = checked
+                                          ? rebalanceFundIds.filter(
+                                              (stockId) => stockId !== stock.id,
+                                            )
+                                          : [...rebalanceFundIds, stock.id];
+                                        setCompositionIds((prev) => ({
+                                          ...prev,
+                                          [fund.id]: nextIds,
+                                        }));
+                                        setRebalanceDraft((prev) => ({
+                                          ...prev,
+                                          [fund.id]: equalWeightPercentages(nextIds),
+                                        }));
+                                      }}
+                                    />
+                                    <span className="font-bold">{stock.ticker}</span>
+                                    <span className="min-w-0 truncate text-[var(--muted)]">
+                                      {stock.name} · {AMC_HOLDING_KIND_LABEL[amcHoldingKindOf(stock)]}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {fund.holdings.map((row) => {
+                          {rebalanceFundIds.map((stockId) => {
                             const stock = stocks.find(
-                              (item) => item.id === row.stockId,
+                              (item) => item.id === stockId,
                             );
                             const draft =
-                              rebalanceDraft[fund.id]?.[row.stockId] ??
-                              String(Math.round(row.weight * 1000) / 10);
+                              rebalanceDraft[fund.id]?.[stockId] ??
+                              String(existingWeightById.get(stockId) ?? 0);
                             return (
                               <label
-                                key={row.stockId}
+                                key={stockId}
                                 className="flex items-center gap-2 text-xs"
                               >
                                 <span className="min-w-0 flex-1 truncate font-semibold">
-                                  {stock?.ticker ?? row.stockId}
+                                  {stock?.ticker ?? stockId}
                                 </span>
                                 <input
                                   type="number"
@@ -1310,7 +1458,7 @@ export default function AssetManagerPage() {
                                       ...prev,
                                       [fund.id]: {
                                         ...(prev[fund.id] ?? {}),
-                                        [row.stockId]: value,
+                                        [stockId]: value,
                                       },
                                     }));
                                   }}
@@ -1336,7 +1484,9 @@ export default function AssetManagerPage() {
                               type="button"
                               className="rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-bold text-emerald-200"
                               onClick={() => {
-                                const equal = equalWeightHoldings(fund.holdings);
+                                const equal = equalWeightHoldings(
+                                  rebalanceFundIds.map((stockId) => ({ stockId })),
+                                );
                                 if (!equal) {
                                   setMessage("구성 종목 수를 확인해 주세요.");
                                   return;
@@ -1350,6 +1500,12 @@ export default function AssetManagerPage() {
                                         delete copy[fund.id];
                                         return copy;
                                       });
+                                      setCompositionIds((prev) => {
+                                        const copy = { ...prev };
+                                        delete copy[fund.id];
+                                        return copy;
+                                      });
+                                      setCompositionEditorId(null);
                                     }
                                   },
                                 );
@@ -1367,15 +1523,15 @@ export default function AssetManagerPage() {
                                 return;
                               }
                               const draft = rebalanceDraft[fund.id] ?? {};
-                              const next = fund.holdings.map((row) => {
-                                const raw = draft[row.stockId];
-                                const pct = raw === undefined ? NaN : Number(raw);
+                              const next = rebalanceFundIds.map((stockId) => {
+                                const raw = draft[stockId];
+                                const pct =
+                                  raw === undefined
+                                    ? existingWeightById.get(stockId) ?? NaN
+                                    : Number(raw);
                                 return {
-                                  stockId: row.stockId,
-                                  weight:
-                                    raw !== undefined && Number.isFinite(pct)
-                                      ? pct / 100
-                                      : row.weight,
+                                  stockId,
+                                  weight: Number.isFinite(pct) ? pct / 100 : 0,
                                 };
                               });
                               void rebalanceAmcFund(fund.id, next).then(
@@ -1387,6 +1543,12 @@ export default function AssetManagerPage() {
                                       delete copy[fund.id];
                                       return copy;
                                     });
+                                    setCompositionIds((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[fund.id];
+                                      return copy;
+                                    });
+                                    setCompositionEditorId(null);
                                   }
                                 },
                               );
@@ -1399,6 +1561,36 @@ export default function AssetManagerPage() {
                         </div>
                       </div>
                     ) : null}
+                    <div className="rounded-2xl border border-rose-400/25 bg-rose-400/5 p-3">
+                      <p className="text-xs font-bold text-rose-200">
+                        자진 상장폐지
+                      </p>
+                      <p className="mt-1 text-[11px] text-[var(--muted)]">
+                        모든 보유 좌수를 현재 NAV로 즉시 환급하고 거래를 영구
+                        종료합니다. 이 작업은 되돌릴 수 없습니다.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={delistingId === fund.id}
+                        onClick={() => {
+                          const confirmed = window.confirm(
+                            `${fund.ticker}를 자진 상장폐지할까요?\n\n전 보유자의 ${fund.totalShares.toLocaleString("ko-KR")}좌를 현재 NAV ${formatPrice(nav)}로 환급합니다. 이 작업은 취소할 수 없습니다.`,
+                          );
+                          if (!confirmed) return;
+                          setDelistingId(fund.id);
+                          void voluntarilyDelistAmcFund(fund.id).then((result) => {
+                            setMessage(result.message);
+                            setDelistingId(null);
+                            if (result.success) void refreshListedAmcFunds();
+                          });
+                        }}
+                        className="mt-2 rounded-xl border border-rose-400/50 px-4 py-2 text-sm font-bold text-rose-200 disabled:opacity-50"
+                      >
+                        {delistingId === fund.id
+                          ? "보유자 환급 중…"
+                          : "현재 NAV로 자진 상장폐지"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

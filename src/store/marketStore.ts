@@ -307,6 +307,7 @@ import {
   foundAssetManager as createAssetManager,
   isAmcFundStockId,
   isAmcShareAdjustmentCoolingDown,
+  markAmcFundVoluntarilyDelisted,
   normalizeAssetManager,
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
@@ -351,6 +352,7 @@ import {
   tradeAmcListedFund,
   updateAmcListedFundShareAdjustment,
   updateAmcListedFundComparisonStock,
+  voluntarilyDelistAmcListedFund,
   upsertListedCache,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
@@ -593,6 +595,7 @@ interface MarketStore extends MarketSnapshot {
     fundId: string,
     holdings: AmcHoldingWeight[],
   ) => Promise<OrderResult>;
+  voluntarilyDelistAmcFund: (fundId: string) => Promise<OrderResult>;
   updateAmcFundShareAdjustment: (
     fundId: string,
     input: UpdateAmcShareAdjustmentInput,
@@ -4948,6 +4951,103 @@ export const useMarketStore = create<MarketStore>()(
         }
         useToastStore.getState().push(result.message, "success");
         return { success: true, message: result.message };
+      },
+
+      voluntarilyDelistAmcFund: async (fundId) => {
+        let state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 계정에서만 자진 상장폐지할 수 있습니다.",
+          };
+        }
+        const listed = state.listedAmcFunds.find(
+          (item) => item.id === fundId && item.status !== "delisted",
+        );
+        if (!listed) {
+          return { success: false, message: "상장 중인 ETF를 찾을 수 없습니다." };
+        }
+        if (listed.managerUserId !== state.userId) {
+          return {
+            success: false,
+            message: "해당 ETF의 운용사만 자진 상장폐지할 수 있습니다.",
+          };
+        }
+        if (!state.assetManager) {
+          return { success: false, message: "자산운용사 정보를 불러와 주세요." };
+        }
+        const fund =
+          state.assetManager.funds.find((item) => item.id === fundId) ??
+          listedFundToAmcState(listed);
+        const priceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
+        const initialPriceOf = (stockId: string) =>
+          state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const valuationPriceOf = createAmcValuationPriceResolver(state.stocks);
+        const priceFactor = computeAmcFundBasketPriceFactor(
+          fund.holdings,
+          priceOf,
+          initialPriceOf,
+          valuationPriceOf,
+        );
+        if (!(priceFactor > 0) || !Number.isFinite(priceFactor)) {
+          return {
+            success: false,
+            message: "현재 구성종목 가격을 확인할 수 없어 청산할 수 없습니다.",
+          };
+        }
+        if (!(await state.saveCloud())) {
+          return {
+            success: false,
+            message: "최신 지갑을 서버에 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          };
+        }
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        const response = await voluntarilyDelistAmcListedFund({
+          fundId,
+          currentSession,
+          priceFactor,
+          passivePeriodRate:
+            fund.style === "passive"
+              ? resolveAmcDividendPeriodRate(
+                  fund,
+                  priceOf,
+                  (stockId) => state.stocks.find((stock) => stock.id === stockId),
+                )
+              : 0,
+        });
+        if (!response.success || !response.fund) {
+          return { success: false, message: response.message };
+        }
+        state = get();
+        const manager = state.assetManager;
+        if (!manager) {
+          return {
+            success: false,
+            message: "청산은 완료됐지만 운용사 화면 갱신에 실패했습니다. 새로고침해 주세요.",
+          };
+        }
+        const managerWithFund = manager.funds.some((item) => item.id === fundId)
+          ? manager
+          : { ...manager, funds: [...manager.funds, fund] };
+        const local = markAmcFundVoluntarilyDelisted(
+          managerWithFund,
+          fundId,
+          currentSession,
+        );
+        set({
+          ...(local.manager ? { assetManager: local.manager } : {}),
+          listedAmcFunds: upsertListedCache(
+            state.listedAmcFunds,
+            response.fund,
+          ),
+        });
+        await get().refreshListedAmcFunds();
+        await get().saveCloud();
+        useToastStore
+          .getState()
+          .push(`${fund.ticker} 자진 상장폐지 · 전 보유자 NAV 환급 완료`, "info");
+        return { success: true, message: response.message };
       },
 
       updateAmcFundShareAdjustment: async (fundId, input) => {
