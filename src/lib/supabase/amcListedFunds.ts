@@ -806,6 +806,8 @@ export async function tradeAmcListedFund(input: {
   expectedPosition: number;
   priceFactor: number;
   clientOrderId: string;
+  allowMargin?: boolean;
+  marginBuyingPower?: number;
 }): Promise<AmcLedgerTradeResult> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("amc_trade_fund", {
@@ -814,6 +816,11 @@ export async function tradeAmcListedFund(input: {
     p_expected_position: input.expectedPosition,
     p_price_factor: input.priceFactor,
     p_client_order_id: input.clientOrderId,
+    p_allow_margin: input.allowMargin === true,
+    p_margin_buying_power: Math.max(
+      0,
+      Math.round(Number(input.marginBuyingPower) || 0),
+    ),
   });
   if (error || !data) {
     const raw = error?.message ?? "";

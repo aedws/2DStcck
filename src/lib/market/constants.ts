@@ -126,6 +126,8 @@ export const LEVERAGE_SPLIT_RATIO = 5;
 /** 병합 비율 2:1 (가격 ×2, 좌수 ÷2) */
 export const LEVERAGE_MERGE_RATIO = 2;
 export const MAX_PRICE_HISTORY = 120;
+/** 재접속·배포 뒤에도 보존할 1시간 거래일 봉 — 10시즌(240거래일). */
+export const PERSISTED_DAILY_CANDLES = 240;
 export const ORDER_BOOK_LEVELS = 5;
 /** 가상 1거래일 = 실시간 1시간. 정시마다 새 거래일이 시작된다. */
 export const SESSION_DURATION_MS = 60 * 60 * 1000;

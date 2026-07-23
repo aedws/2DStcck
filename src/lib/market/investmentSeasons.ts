@@ -8,6 +8,11 @@ import { instrumentTypeOf } from "@/lib/market/taxonomy";
 
 export const INVESTMENT_SEASON_SESSIONS = 20;
 export const MAX_SEASON_HISTORY = 20;
+/**
+ * 시즌 1은 전 계정 마스터 지급으로 종료한 운영 시즌이다. v2부터 실제 성과를
+ * 새 기준자산으로 측정한다. 구 v1 진행값은 시즌 2에 섞지 않고 한 번 폐기한다.
+ */
+export const INVESTMENT_SEASON_TRACKING_EPOCH = 2;
 
 /**
  * 시즌 그리드: 국면(에라) 시작 세션에 앵커링된 20거래일 블록.
@@ -223,6 +228,7 @@ export interface InvestmentSeasonResult extends ActiveInvestmentSeason {
 }
 
 export interface InvestmentSeasonState {
+  trackingEpoch?: number;
   current: ActiveInvestmentSeason | null;
   history: InvestmentSeasonResult[];
   seenCeremonyIds: string[];
@@ -383,7 +389,12 @@ export function getSeasonTraitCandidates(
 }
 
 export function createInitialInvestmentSeasonState(): InvestmentSeasonState {
-  return { current: null, history: [], seenCeremonyIds: [] };
+  return {
+    trackingEpoch: INVESTMENT_SEASON_TRACKING_EPOCH,
+    current: null,
+    history: [],
+    seenCeremonyIds: [],
+  };
 }
 
 export function seasonTierForAlpha(alpha: number): InvestmentSeasonTier {
@@ -609,7 +620,8 @@ function nextSeasonNumber(state: InvestmentSeasonState): number {
   return Math.max(
     state.current?.number ?? 0,
     ...state.history.map((season) => season.number),
-    0,
+    // 시즌 1은 전 계정 마스터 지급으로 이미 종료했다.
+    1,
   ) + 1;
 }
 
@@ -669,6 +681,10 @@ export function normalizeInvestmentSeasonState(
   value: InvestmentSeasonState | null | undefined,
 ): InvestmentSeasonState {
   if (!value || typeof value !== "object") return createInitialInvestmentSeasonState();
+  // 구 추적값은 강제 마스터 시즌의 기준자산을 품고 있으므로 시즌 2로 승계하지 않는다.
+  if (value.trackingEpoch !== INVESTMENT_SEASON_TRACKING_EPOCH) {
+    return createInitialInvestmentSeasonState();
+  }
   const history = Array.isArray(value.history)
     ? value.history
         .filter(
@@ -704,6 +720,7 @@ export function normalizeInvestmentSeasonState(
     Number.isFinite(current.startEquity) && current.startEquity > 0 &&
     Number.isFinite(current.startBenchmarkPrice) && current.startBenchmarkPrice > 0;
   return {
+    trackingEpoch: INVESTMENT_SEASON_TRACKING_EPOCH,
     current: validCurrent ? normalizeActiveSeason(current) : null,
     history,
     seenCeremonyIds: Array.isArray(value.seenCeremonyIds)

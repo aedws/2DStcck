@@ -13,6 +13,7 @@ import {
 } from "@/lib/market/engine";
 import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { isListed } from "@/lib/market/ipo";
+import { MARGIN_LEVERAGE_OPTIONS } from "@/lib/market/margin";
 import {
   AMC_TRADING_SESSIONS_PER_YEAR,
   amcFundStockId,
@@ -161,6 +162,11 @@ export function AmcTradeClient() {
   const holdings = useMarketStore((state) => state.holdings);
   const trades = useMarketStore((state) => state.trades);
   const cash = useMarketStore((state) => state.cash);
+  const marginEnabled = useMarketStore((state) => state.marginEnabled);
+  const marginLeverage = useMarketStore((state) => state.marginLeverage);
+  const getBuyingPower = useMarketStore((state) => state.getBuyingPower);
+  const setMarginEnabled = useMarketStore((state) => state.setMarginEnabled);
+  const setMarginLeverage = useMarketStore((state) => state.setMarginLeverage);
   const userId = useMarketStore((state) => state.userId);
   const cloudSyncReady = useMarketStore((state) => state.cloudSyncReady);
   const refreshListedAmcFunds = useMarketStore(
@@ -273,9 +279,10 @@ export function AmcTradeClient() {
   );
   const quantityNumber = validQuantity(quantity);
   const estimatedTotal = Math.round(nav * quantityNumber);
+  const buyingPower = marginEnabled ? getBuyingPower() : Math.max(0, cash);
   const maxQuantity = side === "buy"
     ? nav > 0
-      ? Math.floor((cash / nav) * 1_000_000) / 1_000_000
+      ? Math.floor((buyingPower / nav) * 1_000_000) / 1_000_000
       : 0
     : holding?.quantity ?? 0;
   const canTrade = Boolean(
@@ -544,6 +551,56 @@ export function AmcTradeClient() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
+              <section className={`mb-4 rounded-xl border p-3 ${
+                marginEnabled
+                  ? "border-amber-400/50 bg-amber-400/10"
+                  : "border-[var(--border)] bg-[var(--surface)]"
+              }`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold">미수 거래</p>
+                    <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                      {marginEnabled
+                        ? `총노출 한도 ${marginLeverage * 100}% · 이자 및 마진콜 적용`
+                        : "기본 꺼짐 · 현금 범위에서만 매수"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const result = setMarginEnabled(!marginEnabled);
+                      setMessage(result.message);
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      marginEnabled
+                        ? "bg-amber-400 text-black"
+                        : "bg-[var(--surface-elevated)] text-[var(--muted)]"
+                    }`}
+                  >
+                    {marginEnabled ? "켜짐" : "켜기"}
+                  </button>
+                </div>
+                <div className="mt-2 grid grid-cols-4 gap-1">
+                  {MARGIN_LEVERAGE_OPTIONS.map((leverage) => (
+                    <button
+                      key={leverage}
+                      type="button"
+                      onClick={() => {
+                        const result = setMarginLeverage(leverage);
+                        setMessage(result.message);
+                      }}
+                      className={`rounded-lg py-1.5 text-[11px] ${
+                        marginLeverage === leverage
+                          ? "bg-amber-400/20 font-semibold text-amber-300 ring-1 ring-amber-400/50"
+                          : "bg-[var(--background)] text-[var(--muted)]"
+                      }`}
+                    >
+                      {leverage * 100}%
+                    </button>
+                  ))}
+                </div>
+              </section>
+
               <div className="flex items-center justify-between">
                 <label className="text-xs text-[var(--muted)]">주문 수량</label>
                 <span className="rounded-full bg-[var(--accent)]/15 px-2.5 py-1 text-[11px] text-[var(--accent)]">

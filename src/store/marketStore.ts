@@ -129,6 +129,7 @@ import {
   SESSION_DURATION_MS,
   WALLET_EPOCH,
   OVERFLOW_RECOVERY_GRANT_CENTS,
+  PERSISTED_DAILY_CANDLES,
   OVERFLOW_BROKEN_NET_WORTH_FLOOR,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
@@ -5231,8 +5232,12 @@ export const useMarketStore = create<MarketStore>()(
           valuationPriceOf,
         );
         const total = Math.round(nav * qty);
-        if (state.cash < total) {
-          return { success: false, message: "현금이 부족합니다." };
+        const buyingPower = longBuyingPower(state);
+        if (buyingPower < total) {
+          return {
+            success: false,
+            message: state.marginEnabled ? "매수여력이 부족합니다." : "현금이 부족합니다.",
+          };
         }
         if (!(await state.saveCloud())) {
           return {
@@ -5276,6 +5281,8 @@ export const useMarketStore = create<MarketStore>()(
           expectedPosition: existing?.quantity ?? 0,
           priceFactor,
           clientOrderId: orderId,
+          allowMargin: state.marginEnabled,
+          marginBuyingPower: buyingPower,
         });
         if (
           !traded.success ||
@@ -5374,7 +5381,7 @@ export const useMarketStore = create<MarketStore>()(
         playSound("buy");
         return {
           success: true,
-          message: `${serverFund.ticker} ${qty}좌 매수`,
+          message: `${serverFund.ticker} ${qty}좌 매수${ledgerCash.cash < 0 ? " · 미수 사용" : ""}`,
         };
       },
 
@@ -5810,7 +5817,7 @@ export const useMarketStore = create<MarketStore>()(
               ...rest,
               priceHistory: stock.priceHistory.slice(-20),
               candles: stock.candles.slice(-30),
-              dailyCandles: stock.dailyCandles.slice(-40),
+              dailyCandles: stock.dailyCandles.slice(-PERSISTED_DAILY_CANDLES),
               orderBook: { bids: [], asks: [] },
             };
           }),

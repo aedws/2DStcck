@@ -32,6 +32,8 @@ export const AMC_SHARE_ADJUSTMENT_COOLDOWN_DAYS = 5;
 /** 액티브 회차당 AUM 대비 배당률 상한 */
 export const AMC_ACTIVE_MAX_DIVIDEND_RATE = 0.05;
 export const AMC_TRADING_SESSIONS_PER_YEAR = 240;
+/** 신규 ETF의 표준 최초 좌당 NAV — $100. 거액 시드도 과대 액면가로 시작하지 않는다. */
+export const AMC_INITIAL_NAV_PER_SHARE = 10_000;
 
 export type AmcFundStyle = "active" | "passive";
 export type AmcFundStatus = "active" | "grace" | "delisted";
@@ -756,10 +758,7 @@ export function createAmcFund(
   if (cash < seedCash) {
     return { success: false, message: "시드에 필요한 현금이 부족합니다." };
   }
-  // 좌당 NAV가 1센트 아래로 반올림되어 시드 가치가 부풀지 않게 한다.
-  const totalShares = Math.min(10_000, Math.max(1, navValue));
   const fundId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const navPerShare = Math.max(1, Math.round(navValue / totalShares));
   const basketPriceFactor = computeAmcFundBasketPriceFactor(
     holdings,
     priceOf,
@@ -785,6 +784,24 @@ export function createAmcFund(
       message: "자동 병합 가격은 자동 분할 가격보다 낮아야 합니다.",
     };
   }
+  // 종전 1만 좌 상한은 거액 시드 ETF를 좌당 수백만~수천만 달러로 만들고,
+  // 자동 분할 냉각기간 동안 가격·수익률이 고장난 것처럼 보이게 했다. 최초 NAV를
+  // $100 근처(사용자가 정한 자동조정 밴드가 더 좁으면 그 안)로 정규화한다.
+  const initialNavTarget = Math.max(
+    reverseSplitTriggerPrice > 0
+      ? reverseSplitTriggerPrice *
+          normalizeAmcShareAdjustmentRatio(input.reverseSplitRatio)
+      : 1,
+    Math.min(
+      AMC_INITIAL_NAV_PER_SHARE,
+      splitTriggerPrice > 0 ? Math.max(1, splitTriggerPrice - 1) : Number.MAX_SAFE_INTEGER,
+    ),
+  );
+  const totalShares = Math.max(
+    1,
+    Math.round(navValue / initialNavTarget),
+  );
+  const navPerShare = Math.max(1, Math.round(navValue / totalShares));
   const comparisonStockId = input.comparisonStockId?.trim();
   if (comparisonStockId && !(priceOf(comparisonStockId) > 0)) {
     return { success: false, message: "비교할 목표 주식의 시세를 확인할 수 없습니다." };

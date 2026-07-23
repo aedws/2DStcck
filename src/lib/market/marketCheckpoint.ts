@@ -2,6 +2,7 @@ import bundledCheckpoint from "@/data/market-checkpoint.json";
 import {
   MARKET_EPOCH_MS,
   MARKET_SIM_VERSION,
+  PERSISTED_DAILY_CANDLES,
 } from "@/lib/market/constants";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
@@ -195,7 +196,7 @@ export function compactMarketCheckpoint(
         candles: stock.candles.slice(-30),
         dailyCandles: stock.dailyCandles
           .filter((candle) => candle.timestamp >= MARKET_EPOCH_MS)
-          .slice(-40),
+          .slice(-PERSISTED_DAILY_CANDLES),
         coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
         navDistributionAdjustment: stock.navDistributionAdjustment,
       })),

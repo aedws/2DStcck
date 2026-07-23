@@ -52,6 +52,28 @@ import {
 } from "../src/lib/player/amcPortfolio";
 
 assert.deepEqual(splitAmcSeed(100_000), { burned: 10_000, navValue: 90_000 });
+const verifiedSbndPrice = 11_894;
+const verifiedSbndBase = 11_940;
+assert.ok(
+  Math.abs(
+    computeAmcFundBasketPriceFactor(
+      [{ stockId: "sbnd", weight: 1, basePrice: verifiedSbndBase }],
+      () => verifiedSbndPrice,
+      () => 10_000,
+    ) - verifiedSbndPrice / verifiedSbndBase,
+  ) < 1e-12,
+  "SBND in a user ETF must use its actual inclusion price, not listing price",
+);
+assert.ok(
+  Math.abs(
+    computePassiveAmcAnnualDividendYield(
+      [{ stockId: "sbnd", weight: 1 }],
+      () => verifiedSbndPrice,
+      () => ({ quarterlyDividend: 90 }),
+    ) - (90 * 4) / verifiedSbndPrice,
+  ) < 1e-12,
+  "SBND distribution yield must remain near 3%, not inflate the fund return",
+);
 
 // 누적 서버 현금원장은 재시도해도 한 번만 반영되고 이후 이벤트만 차액 적용.
 const ledgerDebit = reconcileAmcLedgerCash(100_000, 0, -10_000)!;
@@ -197,6 +219,7 @@ assert.equal(created.fund!.splitRatio, 5);
 assert.equal(created.fund!.reverseSplitTriggerPrice, 5);
 assert.equal(created.fund!.reverseSplitRatio, 2);
 assert.equal(created.fund!.shareMultiplier, 1);
+assert.ok(created.fund!.navHistory[0]!.nav < created.fund!.splitTriggerPrice!);
 
 const updatedAdjustment = updateAmcShareAdjustmentSettings(
   created.manager!,

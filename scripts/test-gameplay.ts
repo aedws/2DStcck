@@ -137,6 +137,7 @@ import {
   getSeasonRivalPerformance,
   getSeasonTraitCandidates,
   markSeasonCeremonySeen,
+  normalizeInvestmentSeasonState,
   selectSeasonGoal,
   selectSeasonTrait,
   seasonTierForAlpha,
@@ -404,6 +405,18 @@ const seasonStarted = updateInvestmentSeason(
   { currentSession: session, equity: 1_000_000, benchmarkPrice: 10_000 },
 );
 assert.ok(seasonStarted.state.current);
+assert.equal(seasonStarted.state.current?.number, 2);
+const resetLegacySeason = normalizeInvestmentSeasonState({
+  current: {
+    ...seasonStarted.state.current!,
+    number: 1,
+    startEquity: 99_999_999,
+  },
+  history: [],
+  seenCeremonyIds: [],
+});
+assert.equal(resetLegacySeason.current, null);
+assert.equal(resetLegacySeason.history.length, 0);
 const seasonTraitCandidates = getSeasonTraitCandidates(seasonStarted.state.current!);
 const firstSeasonTrait = seasonTraitCandidates[0];
 const traitSelected = selectSeasonTrait(
@@ -483,7 +496,7 @@ const seasonCompleted = updateInvestmentSeason(seasonInProgress.state, {
 assert.equal(seasonCompleted.completed?.tierId, "diamond");
 assert.ok(Math.abs((seasonCompleted.completed?.alpha ?? 0) - 0.03) < 1e-9);
 assert.equal(seasonCompleted.state.history.length, 1);
-assert.equal(seasonCompleted.state.current?.number, 2);
+assert.equal(seasonCompleted.state.current?.number, 3);
 assert.equal(seasonCompleted.state.current?.startSession, session + 20);
 const defensiveSeason = updateInvestmentSeason(
   updateInvestmentSeason(createInitialInvestmentSeasonState(), {
