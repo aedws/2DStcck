@@ -13,6 +13,41 @@ set state = state || jsonb_build_object(
     updated_at = now()
 where coalesce((state -> 'investmentSeason' ->> 'trackingEpoch')::integer, 0) < 2;
 
+-- 배포 직후 열려 있던 구 클라이언트가 trackingEpoch 없는 시즌 1 상태를 다시
+-- 저장해도 서버에서 즉시 시즌 2 빈 기준값으로 교체한다.
+create or replace function public.enforce_investment_season_tracking_epoch()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_epoch integer;
+begin
+  v_epoch := case
+    when coalesce(new.state -> 'investmentSeason' ->> 'trackingEpoch', '') ~ '^[0-9]+$'
+      then (new.state -> 'investmentSeason' ->> 'trackingEpoch')::integer
+    else 0
+  end;
+  if v_epoch < 2 then
+    new.state := new.state || jsonb_build_object(
+      'investmentSeason',
+      jsonb_build_object(
+        'trackingEpoch', 2,
+        'current', null,
+        'history', '[]'::jsonb,
+        'seenCeremonyIds', '[]'::jsonb
+      )
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists game_saves_investment_season_epoch on public.game_saves;
+create trigger game_saves_investment_season_epoch
+before insert or update of state on public.game_saves
+for each row execute function public.enforce_investment_season_tracking_epoch();
+
 -- 과대 액면가 펀드는 5거래일 냉각을 여러 번 기다리지 않게 현재 설정 배수만큼
 -- 반복 분할해 한 번에 트리거 아래로 넣는다. 발행좌수와 전 보유좌수를 같은
 -- 배수로 늘리므로 AUM·개인 평가액·현금은 변하지 않는다.
