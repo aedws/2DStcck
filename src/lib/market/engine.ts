@@ -17,6 +17,7 @@ import {
   LEVERAGE_MERGE_AT,
   LEVERAGE_SPLIT_RATIO,
   LEVERAGE_MERGE_RATIO,
+  MIN_SHARE_MULTIPLIER,
   MARKET_ORDER_SLIPPAGE,
   MARKET_EPOCH_MS,
   MARKET_SECULAR_GROWTH_PER_SESSION,
@@ -196,7 +197,8 @@ export function calculateSecularGrowthSupport(
   const driftGrowthPerSession = (stock.drift ?? 0) * DRIFT_TIME_SCALE * sessionSeconds;
   const secular = MARKET_SECULAR_GROWTH_PER_SESSION;
   const anchor =
-    (stock.initialPrice / Math.max(stock.shareMultiplier ?? 1, 1e-12)) *
+    (stock.initialPrice /
+      Math.max(stock.shareMultiplier ?? 1, MIN_SHARE_MULTIPLIER)) *
     Math.exp((driftGrowthPerSession + secular) * elapsedSessions);
   // 로그 편차: 양수면 앵커보다 과열(끌어내림), 음수면 과매도(끌어올림).
   const deviation = Math.log(Math.max(stock.currentPrice, 100) / anchor);
@@ -646,14 +648,26 @@ export function computeLeveragedSnapshot(
   const currentSession =
     underlying.daySessionId ?? etf.daySessionId ??
     Math.floor(Date.now() / SESSION_DURATION_MS);
-  const appliedSplitMultiplier = Math.max(etf.shareMultiplier ?? 1, 1e-12);
+  const appliedSplitMultiplier = Math.max(
+    etf.shareMultiplier ?? 1,
+    MIN_SHARE_MULTIPLIER,
+  );
   const lastAdjustment = etf.lastShareAdjustmentSession;
   const coolingDown =
     lastAdjustment !== undefined &&
     currentSession - lastAdjustment <
       SHARE_ADJUSTMENT_COOLDOWN_SESSIONS;
+  const displayAtAppliedMultiplier = rawPrice / appliedSplitMultiplier;
+  // 쿨타임 중에는 밴드 안의 작은 경계 왕복을 막되, 정상 표시 밴드를
+  // 벗어난 경우에는 즉시 액면을 조정한다. 밴드 밖까지 쿨타임을
+  // 우선하면 곱버스가 1센트에 고정되어 거래·옵션·ETF NAV가 깨진다.
+  const emergencyAdjustment =
+    displayAtAppliedMultiplier < LEVERAGE_MERGE_AT ||
+    displayAtAppliedMultiplier >= LEVERAGE_SPLIT_AT;
   const splitMultiplier =
-    requestedSplitMultiplier !== appliedSplitMultiplier && coolingDown
+    requestedSplitMultiplier !== appliedSplitMultiplier &&
+    coolingDown &&
+    !emergencyAdjustment
       ? appliedSplitMultiplier
       : requestedSplitMultiplier;
   const lastShareAdjustmentSession =
@@ -687,7 +701,9 @@ export function computeLeveragedSnapshot(
  * (5:1 분할이면 $500→$100, 2:1 병합이면 $50→$100, 모두 [$50,$500) 안) 진동하지 않는다.
  */
 export function leverageSplitMultiplier(rawPrice: number): number {
-  let price = Math.max(rawPrice, 1);
+  // 원시 파생 가격은 1센트보다 작을 수 있다. 1센트로 올려 계산하면
+  // 병합 배수가 1/1024에서 멈춰 표시가가 $0.01에 고정된다.
+  let price = Math.max(rawPrice, 1e-12);
   let m = 1;
   let guard = 0;
   while (price >= LEVERAGE_SPLIT_AT && guard++ < 48) {
@@ -897,7 +913,11 @@ export function computeEtfNav(
     const def = STOCK_DEFINITIONS.find((d) => d.id === holding.stockId);
     if (!constituent || !def || def.initialPrice <= 0) continue;
     const constituentBase =
-      def.initialPrice / Math.max(constituent.shareMultiplier ?? 1, 1e-12);
+      def.initialPrice /
+      Math.max(
+        constituent.shareMultiplier ?? 1,
+        MIN_SHARE_MULTIPLIER,
+      );
     weightedReturn +=
       holding.weight * (constituent.currentPrice / constituentBase);
     weightSum += holding.weight;
@@ -905,7 +925,8 @@ export function computeEtfNav(
 
   if (weightSum === 0) return etf.currentPrice;
   const grossNav =
-    (etf.initialPrice / Math.max(etf.shareMultiplier ?? 1, 1e-12)) *
+    (etf.initialPrice /
+      Math.max(etf.shareMultiplier ?? 1, MIN_SHARE_MULTIPLIER)) *
     (weightedReturn / weightSum);
   return Math.max(
     Math.round(grossNav - (etf.navDistributionAdjustment ?? 0)),

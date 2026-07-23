@@ -7,6 +7,7 @@ import type {
 import { SESSIONS_PER_YEAR } from "@/lib/market/interestRate";
 import { EPOCH_SESSION } from "@/lib/market/localSim";
 import { leverageMultiplierFor } from "@/lib/market/engine";
+import { MIN_SHARE_MULTIPLIER } from "@/lib/market/constants";
 
 /** 만기 간격 (거래일). 다음 2개 만기를 제공한다. */
 export const OPTION_EXPIRY_INTERVAL = 10;
@@ -147,7 +148,7 @@ export function underlyingSplitMultiplier(
     return stock.shareMultiplier ?? 1;
   }
   if (stock.shareMultiplier !== undefined) {
-    return Math.max(stock.shareMultiplier, 1e-12);
+    return Math.max(stock.shareMultiplier, MIN_SHARE_MULTIPLIER);
   }
   const underlying = stocks.find((s) => s.id === stock.leverageUnderlyingId);
   return underlying ? leverageMultiplierFor(stock, underlying) : 1;

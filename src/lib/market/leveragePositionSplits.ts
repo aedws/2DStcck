@@ -5,6 +5,7 @@ import {
   normalizeExactQuantity,
 } from "@/lib/market/exactAmount";
 import { normalizeShareQuantity } from "@/lib/market/trading";
+import { MIN_SHARE_MULTIPLIER } from "@/lib/market/constants";
 
 export interface SplitAdjustedPosition {
   stockId: string;
@@ -32,7 +33,7 @@ export function currentPositionSplitMultiplier(
 ): number {
   if (stock.leverage !== undefined && stock.leverageUnderlyingId) {
     if (stock.shareMultiplier !== undefined) {
-      return Math.max(stock.shareMultiplier, 1e-12);
+      return Math.max(stock.shareMultiplier, MIN_SHARE_MULTIPLIER);
     }
     const underlying = stocks.find(
       (item) => item.id === stock.leverageUnderlyingId,

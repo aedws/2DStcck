@@ -3,6 +3,7 @@ import {
   BASE_CANDLE_INTERVAL_MS,
   MARKET_EPOCH_MS,
   MAX_PRICE_HISTORY,
+  MIN_SHARE_MULTIPLIER,
   SESSION_DURATION_MS,
   SIM_TICK_MS,
 } from "@/lib/market/constants";
@@ -399,7 +400,10 @@ export function replayMarket(
     // 차트 원본까지 같은 비율로 소급 조정해 분할·병합 자체가 수익률이 되지 않는다.
     for (const stock of replayedStocks) {
       if (tick < listingTickOf(stock)) continue;
-      const beforeMultiplier = Math.max(stock.shareMultiplier ?? 1, 1e-12);
+      const beforeMultiplier = Math.max(
+        stock.shareMultiplier ?? 1,
+        MIN_SHARE_MULTIPLIER,
+      );
       const normalized = normalizeStockSharePrice(stock, now);
       const afterMultiplier = Math.max(
         normalized.shareMultiplier ?? 1,

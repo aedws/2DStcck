@@ -130,6 +130,8 @@ export const LEVERAGE_MERGE_AT = 1_000;
 export const LEVERAGE_SPLIT_RATIO = 5;
 /** 병합 비율 2:1 (가격 ×2, 좌수 ÷2) */
 export const LEVERAGE_MERGE_RATIO = 2;
+/** 초소형 곱버스 액면 배수를 수치적으로 안전하게 보존하는 하한. */
+export const MIN_SHARE_MULTIPLIER = 1e-18;
 export const MAX_PRICE_HISTORY = 120;
 /** 재접속·배포 뒤에도 보존할 1시간 거래일 봉 — 10시즌(240거래일). */
 export const PERSISTED_DAILY_CANDLES = 240;

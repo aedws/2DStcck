@@ -1,4 +1,7 @@
-import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import {
+  MIN_SHARE_MULTIPLIER,
+  SESSION_DURATION_MS,
+} from "@/lib/market/constants";
 import type {
   Candle,
   Holding,
@@ -84,7 +87,10 @@ function economicPriceFromMap(
   if (!stock) return 0;
   const currentPrice = Number(stock.currentPrice) || 0;
   if (stock.leverage == null || !stock.leverageUnderlyingId) {
-    return currentPrice * Math.max(stock.shareMultiplier ?? 1, 1e-12);
+    return (
+      currentPrice *
+      Math.max(stock.shareMultiplier ?? 1, MIN_SHARE_MULTIPLIER)
+    );
   }
   const underlying = stockById.get(stock.leverageUnderlyingId);
   if (!underlying) return currentPrice;
@@ -112,13 +118,13 @@ function economicSeriesMultiplier(
   stocks: readonly AmcHistoryStock[],
 ): number {
   if (stock.leverage == null || !stock.leverageUnderlyingId) {
-    return Math.max(stock.shareMultiplier ?? 1, 1e-12);
+    return Math.max(stock.shareMultiplier ?? 1, MIN_SHARE_MULTIPLIER);
   }
   if (
     Number.isFinite(stock.shareMultiplier) &&
     (stock.shareMultiplier ?? 0) > 0
   ) {
-    return Math.max(stock.shareMultiplier!, 1e-12);
+    return Math.max(stock.shareMultiplier!, MIN_SHARE_MULTIPLIER);
   }
   const stockById = new Map(
     (stocks as readonly AmcPriceStock[]).map((item) => [item.id, item]),

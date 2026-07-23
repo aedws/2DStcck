@@ -47,6 +47,17 @@ assert.equal(leverageSplitMultiplier(99999), 1);
 // $9.99 → 2:1 병합되어 ~$19.98.
 assert.equal(leverageSplitMultiplier(999), 0.5);
 assert.equal(leverageDisplayPrice(999), 1998);
+for (const raw of [1, 1e-3, 1e-6, 1e-9, 1e-12]) {
+  const display = leverageDisplayPrice(raw);
+  assert.ok(
+    display >= LEVERAGE_MERGE_AT && display < LEVERAGE_SPLIT_AT,
+    `sub-cent derivative must remain tradable: raw=${raw} display=${display}`,
+  );
+}
+assert.ok(
+  leverageSplitMultiplier(1e-12) < 1e-12,
+  "sub-cent derivatives must not stop at the legacy 1/1024 multiplier floor",
+);
 
 // 4) 보유분 가치 불변: 매수 시점 배수 m0에서 좌수 q0, 이후 배수 m1이면
 //    좌수 q0*(m1/m0), 평단 avg0/(m1/m0), 표시가 raw/m1 → 포지션 가치 = rawQty*raw 불변.
@@ -248,14 +259,14 @@ const adjustedEtf = {
   shareMultiplier: splitSnapshot.splitMultiplier,
   lastShareAdjustmentSession: splitSnapshot.lastShareAdjustmentSession,
 };
-const crashedUnderlying = {
+const cooledUnderlying = {
   ...cooldownUnderlying,
-  currentPrice: 1,
+  currentPrice: 50_000,
   daySessionId: splitSession + 1,
 };
 const heldSnapshot = computeLeveragedSnapshot(
   adjustedEtf,
-  crashedUnderlying,
+  cooledUnderlying,
 );
 assert.equal(
   heldSnapshot.splitMultiplier,
@@ -270,7 +281,7 @@ assert.equal(
 
 const releasedSnapshot = computeLeveragedSnapshot(
   adjustedEtf,
-  { ...crashedUnderlying, daySessionId: splitSession + 5 },
+  { ...cooledUnderlying, daySessionId: splitSession + 5 },
 );
 assert.notEqual(
   releasedSnapshot.splitMultiplier,
@@ -280,6 +291,25 @@ assert.notEqual(
 assert.equal(
   releasedSnapshot.lastShareAdjustmentSession,
   splitSession + 5,
+);
+
+const emergencySnapshot = computeLeveragedSnapshot(
+  adjustedEtf,
+  {
+    ...cooldownUnderlying,
+    currentPrice: 1,
+    daySessionId: splitSession + 1,
+  },
+);
+assert.notEqual(
+  emergencySnapshot.splitMultiplier,
+  splitSnapshot.splitMultiplier,
+  "penny-price derivatives must bypass the cooldown",
+);
+assert.ok(
+  emergencySnapshot.currentPrice >= LEVERAGE_MERGE_AT &&
+    emergencySnapshot.currentPrice < LEVERAGE_SPLIT_AT,
+  "emergency merge must restore the normal display-price band",
 );
 
 // 8) Worker 체크포인트가 일반 종목 10:1 분할을 가져와도 보유·지정가를
