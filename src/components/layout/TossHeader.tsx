@@ -9,6 +9,7 @@ import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { marketClassificationLabel } from "@/lib/market/taxonomy";
+import { isListed } from "@/lib/market/ipo";
 
 // 정체성: 수집·경쟁 메타가 주(主). 자주 가는 5개만 1차 탭으로 남기고,
 // 나머지는 성격별 드롭다운(성장·투자 도구·라운지)으로 묶는다.
@@ -248,7 +249,8 @@ function StockSearch() {
   function goTo(stockId: string) {
     setOpen(false);
     setQuery("");
-    router.push(`/stock/${stockId}`);
+    const stock = stocks.find((item) => item.id === stockId);
+    router.push(stock && !isListed(stock) ? "/ipo" : `/stock/${stockId}`);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -293,7 +295,8 @@ function StockSearch() {
             </p>
           ) : (
             results.map((s, i) => {
-              const change = getDayChangePercent(s);
+              const listed = isListed(s);
+              const change = listed ? getDayChangePercent(s) : 0;
               return (
                 <button
                   key={s.id}
@@ -313,12 +316,14 @@ function StockSearch() {
                     </span>
                   </span>
                   <span className="shrink-0 text-sm tabular-nums">
-                    {formatPrice(s.currentPrice)}
+                    {listed ? formatPrice(s.currentPrice) : `공모가 ${formatPrice(s.initialPrice)}`}
                   </span>
                   <span
-                    className={`w-16 shrink-0 text-right text-xs tabular-nums ${upDownClass(change)}`}
+                    className={`w-16 shrink-0 text-right text-xs tabular-nums ${
+                      listed ? upDownClass(change) : "text-[var(--muted)]"
+                    }`}
                   >
-                    {formatSignedPercent(change)}
+                    {listed ? formatSignedPercent(change) : "상장 예정"}
                   </span>
                 </button>
               );

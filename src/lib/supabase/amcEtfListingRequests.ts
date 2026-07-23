@@ -389,3 +389,51 @@ export async function markAmcEtfListingShipped(
 ): Promise<boolean> {
   return completeOwnSpecialStockRequest(requestId);
 }
+
+export interface RejectedAmcFundRecoveryResult {
+  success: boolean;
+  message: string;
+  refundCents?: number;
+  alreadyRecovered?: boolean;
+}
+
+export async function recoverRejectedAmcFundSeed(
+  requestId: string,
+): Promise<RejectedAmcFundRecoveryResult> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("recover_rejected_amc_fund", {
+    p_request_id: requestId,
+  });
+  if (error || !data) {
+    return {
+      success: false,
+      message: "반려 ETF 잔여자금 회수에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
+  const result = data as Record<string, unknown>;
+  const refundCents = Number(result.refundCents);
+  return {
+    success: result.success === true,
+    message:
+      result.alreadyRecovered === true
+        ? "이미 회수한 반려 ETF입니다."
+        : "소각분을 제외한 ETF 잔여자금을 회수했습니다.",
+    refundCents: Number.isFinite(refundCents) ? refundCents : 0,
+    alreadyRecovered: result.alreadyRecovered === true,
+  };
+}
+
+export async function listRecoveredRejectedAmcRequestIds(): Promise<string[]> {
+  const auth = await getCurrentAuth();
+  if (!auth) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("amc_rejected_fund_recoveries")
+    .select("request_id")
+    .eq("user_id", auth.userId)
+    .limit(100);
+  if (error || !data) return [];
+  return data
+    .map((row) => String(row.request_id ?? ""))
+    .filter((id) => id.length > 0);
+}

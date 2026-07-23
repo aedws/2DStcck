@@ -43,6 +43,7 @@ import {
 } from "@/lib/supabase/amcFoundationRequests";
 import {
   AMC_ETF_LISTING_STATUS_LABEL,
+  listRecoveredRejectedAmcRequestIds,
   listMyAmcEtfListingRequests,
   type AmcEtfListingRequest,
 } from "@/lib/supabase/amcEtfListingRequests";
@@ -178,6 +179,9 @@ export default function AssetManagerPage() {
   const requestAmcFundListing = useMarketStore(
     (state) => state.requestAmcFundListing,
   );
+  const recoverRejectedAmcFund = useMarketStore(
+    (state) => state.recoverRejectedAmcFund,
+  );
   const refreshListedAmcFunds = useMarketStore(
     (state) => state.refreshListedAmcFunds,
   );
@@ -208,6 +212,7 @@ export default function AssetManagerPage() {
   const [listingRequests, setListingRequests] = useState<AmcEtfListingRequest[]>(
     [],
   );
+  const [recoveredListingIds, setRecoveredListingIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [detail, setDetail] = useState("");
@@ -216,6 +221,7 @@ export default function AssetManagerPage() {
   const [founding, setFounding] = useState(false);
   const [creating, setCreating] = useState(false);
   const [tradingId, setTradingId] = useState<string | null>(null);
+  const [recoveringId, setRecoveringId] = useState<string | null>(null);
 
   const [fundName, setFundName] = useState("");
   const [fundTicker, setFundTicker] = useState("");
@@ -369,13 +375,19 @@ export default function AssetManagerPage() {
   };
 
   const refreshListingRequests = async () => {
-    setListingRequests(await listMyAmcEtfListingRequests());
+    const [nextRequests, recoveredIds] = await Promise.all([
+      listMyAmcEtfListingRequests(),
+      listRecoveredRejectedAmcRequestIds(),
+    ]);
+    setListingRequests(nextRequests);
+    setRecoveredListingIds(recoveredIds);
   };
 
   useEffect(() => {
     if (!userId) {
       setRequests([]);
       setListingRequests([]);
+      setRecoveredListingIds([]);
       return;
     }
     // cloudSyncReady 전이라도 상장 원장에서 내 ETF를 복구한다.
@@ -383,6 +395,7 @@ export default function AssetManagerPage() {
     if (!cloudSyncReady) {
       setRequests([]);
       setListingRequests([]);
+      setRecoveredListingIds([]);
       return;
     }
     void refreshRequests();
@@ -422,6 +435,13 @@ export default function AssetManagerPage() {
     }
     return [...byId.values()];
   }, [assetManager, listedAmcFunds, userId]);
+
+  const rejectedFundsToRecover = useMemo(() => {
+    const recovered = new Set(recoveredListingIds);
+    return listingRequests.filter(
+      (request) => request.status === "rejected" && !recovered.has(request.id),
+    );
+  }, [listingRequests, recoveredListingIds]);
 
   const chartPoints = useMemo(() => {
     if (!managedFunds.length) return [];
@@ -894,6 +914,54 @@ export default function AssetManagerPage() {
         </p>
         <ReturnSparkline points={chartPoints} />
       </section>
+
+      {rejectedFundsToRecover.length > 0 && (
+        <section className="mb-5 rounded-3xl border border-rose-400/30 bg-rose-400/5 p-5">
+          <h2 className="text-lg font-bold">반려 ETF 잔여자금 정리</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            최초 시드에서 이미 소각된 10%를 제외한 NAV 편입액을 회수하고,
+            실패한 ETF와 보유 좌를 목록에서 제거합니다. 회수는 신청별 1회만
+            가능합니다.
+          </p>
+          <div className="mt-3 space-y-2">
+            {rejectedFundsToRecover.map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-400/20 bg-[var(--background)] p-3"
+              >
+                <div>
+                  <p className="text-sm font-bold">
+                    {request.fundName} ({request.payload.ticker})
+                  </p>
+                  <p className="mt-1 text-xs text-rose-200">
+                    {request.adminNote
+                      ? `반려 사유: ${request.adminNote}`
+                      : "상장 신청이 반려되었습니다."}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    회수 예정 {formatPrice(request.payload.seedNavValue)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={recoveringId === request.id}
+                  onClick={() => {
+                    setRecoveringId(request.id);
+                    void recoverRejectedAmcFund(request.id).then((result) => {
+                      setMessage(result.message);
+                      if (result.success) void refreshListingRequests();
+                      setRecoveringId(null);
+                    });
+                  }}
+                  className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                >
+                  {recoveringId === request.id ? "회수 중…" : "잔여자금 회수·정리"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mb-5 space-y-3">
         <h2 className="text-lg font-bold">내 유저 ETF</h2>

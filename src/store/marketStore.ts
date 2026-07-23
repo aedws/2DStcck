@@ -12,9 +12,12 @@ import {
   formatPrice,
   getMarketBuyPrice,
   getMarketSellPrice,
-  leverageMultiplierFor,
   seededRand,
 } from "@/lib/market/engine";
+import {
+  reconcileLeveragePositionSplits,
+  stampLeveragePositionMultiplier,
+} from "@/lib/market/leveragePositionSplits";
 import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { withCharacterQuote } from "@/data/eventQuotes";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
@@ -334,6 +337,7 @@ import {
   listMyAmcEtfListingRequests,
   markAmcEtfListingShipped,
   reconcileOwnedListingRequestsIntoManager,
+  recoverRejectedAmcFundSeed,
   submitAmcEtfListingRequest,
   verifyAmcEtfListingApproval,
 } from "@/lib/supabase/amcEtfListingRequests";
@@ -590,6 +594,8 @@ interface MarketStore extends MarketSnapshot {
   createAmcFund: (input: CreateAmcFundInput) => Promise<OrderResult>;
   /** ETF 상장 허가 재신청 (반려·미신청). */
   requestAmcFundListing: (fundId: string) => Promise<OrderResult>;
+  /** 반려된 ETF의 소각분을 제외한 시드를 회수하고 펀드를 정리합니다. */
+  recoverRejectedAmcFund: (requestId: string) => Promise<OrderResult>;
   /** 상장 허가된 ETF를 공유 마켓에 올립니다. */
   listAmcFundOnMarket: (fundId: string) => Promise<OrderResult>;
   rebalanceAmcFund: (
@@ -1271,11 +1277,6 @@ function migrateStock(stock: StockState & { previousClose?: number }): StockStat
   });
 }
 
-interface SplitEvent {
-  ticker: string;
-  ratio: number;
-}
-
 /**
  * 레버리지·인버스 ETF 보유분을 현재 분할·병합 배수에 맞춰 정산한다.
  * 표시가는 매 틱 밴드로 재계산되므로(computeLeveragedPrice), 좌수도 같은 배수로
@@ -1286,37 +1287,17 @@ interface SplitEvent {
 function reconcileLeverageSplits(
   holdings: Holding[],
   stocks: StockState[],
-): { holdings: Holding[]; changed: boolean; events: SplitEvent[] } {
-  const byId = new Map(stocks.map((s) => [s.id, s]));
-  const targetById = new Map<string, number>();
-  for (const s of stocks) {
-    if (s.leverage === undefined || !s.leverageUnderlyingId) continue;
-    const underlying = byId.get(s.leverageUnderlyingId);
-    if (!underlying) continue;
-    targetById.set(s.id, leverageMultiplierFor(s, underlying));
-  }
-  let changed = false;
-  const events: SplitEvent[] = [];
-  const next = holdings.map((h) => {
-    const target = targetById.get(h.stockId);
-    if (target === undefined) return h;
-    const applied = h.splitMultiplier ?? 1;
-    if (!(target > 0) || !(applied > 0) || target === applied) {
-      return h.splitMultiplier === target ? h : { ...h, splitMultiplier: target };
-    }
-    const ratio = target / applied;
-    changed = true;
-    events.push({ ticker: byId.get(h.stockId)?.ticker ?? h.stockId, ratio });
-    return {
-      ...h,
-      quantity: h.quantity * ratio,
-      averagePrice: h.averagePrice / ratio,
-      splitMultiplier: target,
-    };
-  });
-  // splitMultiplier만 채워진(값 정산 없는) 변경은 changed로 치지 않아 불필요한
-  // 저장·리렌더를 막는다. 하지만 좌수가 바뀌면 반드시 반영해야 한다.
-  return { holdings: changed ? next : holdings, changed, events };
+): {
+  holdings: Holding[];
+  changed: boolean;
+  events: ReturnType<typeof reconcileLeveragePositionSplits>["events"];
+} {
+  const result = reconcileLeveragePositionSplits(holdings, stocks);
+  return {
+    holdings: result.positions,
+    changed: result.changed,
+    events: result.events,
+  };
 }
 
 /**
@@ -1330,16 +1311,7 @@ function stampLeverageMultiplier(
   stockId: string,
   stocks: StockState[],
 ): Holding[] {
-  const stock = stocks.find((s) => s.id === stockId);
-  if (!stock || stock.leverage === undefined || !stock.leverageUnderlyingId) {
-    return holdings;
-  }
-  const underlying = stocks.find((s) => s.id === stock.leverageUnderlyingId);
-  if (!underlying) return holdings;
-  const m = leverageMultiplierFor(stock, underlying);
-  return holdings.map((h) =>
-    h.stockId === stockId ? { ...h, splitMultiplier: m } : h,
-  );
+  return stampLeveragePositionMultiplier(holdings, stockId, stocks);
 }
 
 function applyLocalBuySell(
@@ -2041,7 +2013,10 @@ export const useMarketStore = create<MarketStore>()(
             wallet.holdings ?? [],
             get().stocks,
           ).holdings,
-          shorts: wallet.shorts ?? [],
+          shorts: reconcileLeveragePositionSplits(
+            wallet.shorts ?? [],
+            get().stocks,
+          ).positions,
           options: wallet.options ?? [],
           stocks: get().stocks,
           ownedLuxuries: wallet.ownedLuxuries ?? [],
@@ -2598,6 +2573,11 @@ export const useMarketStore = create<MarketStore>()(
         // 액면배수로 미접속 공백 동안의 다중 분할·병합도 한 번에 따라잡는다.
         const splitResult = reconcileLeverageSplits(holdings, combinedStocks);
         holdings = splitResult.holdings;
+        const shortSplitResult = reconcileLeveragePositionSplits(
+          shorts,
+          combinedStocks,
+        );
+        shorts = shortSplitResult.positions;
         if (splitResult.changed) {
           for (const ev of splitResult.events) {
             const isSplit = ev.ratio > 1;
@@ -3652,9 +3632,14 @@ export const useMarketStore = create<MarketStore>()(
           Date.now(),
         );
         if (!isShortSuccess(result)) return result;
+        const stampedShorts = stampLeveragePositionMultiplier(
+          result.shorts,
+          stockId,
+          state.stocks,
+        );
         set({
           cash: result.cash,
-          shorts: result.shorts,
+          shorts: stampedShorts,
           trades: [result.trade, ...state.trades],
         });
         get().checkAchievements();
@@ -4839,6 +4824,33 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: listing.message };
       },
 
+      recoverRejectedAmcFund: async (requestId) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인한 운용사 계정에서만 회수할 수 있습니다.",
+          };
+        }
+        const recovery = await recoverRejectedAmcFundSeed(requestId);
+        if (!recovery.success) {
+          return { success: false, message: recovery.message };
+        }
+        // RPC가 현금 지급·펀드·보유 좌 정리를 원자적으로 끝낸 서버 지갑을
+        // 다시 읽어 로컬과 맞춘다. 요청 ID 원장으로 중복 회수도 차단된다.
+        await get().loadCloudSave();
+        const amount =
+          recovery.refundCents && recovery.refundCents > 0
+            ? ` ${formatPrice(recovery.refundCents)}`
+            : "";
+        const message = recovery.alreadyRecovered
+          ? recovery.message
+          : `반려 ETF 잔여자금${amount}를 회수하고 목록에서 정리했습니다.`;
+        useToastStore.getState().push(message, "success");
+        playSound("cash");
+        return { success: true, message };
+      },
+
       listAmcFundOnMarket: async (fundId) => {
         const state = get();
         if (!state.userId || !state.cloudSyncReady) {
@@ -5995,15 +6007,19 @@ export const useMarketStore = create<MarketStore>()(
           Array.isArray(walletSource.holdings) ? walletSource.holdings : [],
           stocksWithDerived,
         ).holdings;
+        const reconciledShorts = reconcileLeveragePositionSplits(
+          Array.isArray((walletSource as Partial<MarketStore>).shorts)
+            ? (walletSource as Partial<MarketStore>).shorts!
+            : [],
+          stocksWithDerived,
+        ).positions;
 
         // 자금 상한 제거 이전, 2^53 경계를 넘겨 자산이 오염·마이너스로 깨진 계정을
         // 복구 지원금($10M)으로 재출발시킨다. 판정이 곧 멱등성이라 정상 계정은 무시.
         const overflowRepair = recoverFromOverflow({
           cash: Number((walletSource as Partial<MarketStore>).cash ?? 0),
           holdings: reconciledHoldings,
-          shorts: Array.isArray((walletSource as Partial<MarketStore>).shorts)
-            ? (walletSource as Partial<MarketStore>).shorts!
-            : [],
+          shorts: reconciledShorts,
           options: Array.isArray((walletSource as Partial<MarketStore>).options)
             ? (walletSource as Partial<MarketStore>).options!
             : [],

@@ -241,6 +241,8 @@ export interface ShortPosition {
   quantity: number;
   /** 평균 진입(매도) 단가 */
   averagePrice: number;
+  /** 레버리지·인버스 상품의 진입 시점 액면 분할/병합 배수 */
+  splitMultiplier?: number;
 }
 
 /** 금리 단계: 1=완화, 2=중립, 3=긴축 */

@@ -118,6 +118,10 @@ export type GameSaveLoadResult =
   | { status: "missing" }
   | { status: "error"; message: string };
 
+// 짧은 간격의 매매·ETF 원장 갱신이 동시에 저장되면 먼저 시작한 느린 요청이
+// 나중 상태를 덮어쓸 수 있다. 브라우저 탭 안의 지갑 쓰기는 반드시 순서대로 보낸다.
+let gameSaveWriteQueue: Promise<void> = Promise.resolve();
+
 /** 로그인 유저의 지갑을 읽고, '저장 없음'과 네트워크 오류를 구분한다. */
 export async function loadGameSave(): Promise<GameSaveLoadResult> {
   const supabase = createClient();
@@ -148,15 +152,33 @@ export async function saveGameSave(wallet: WalletSave): Promise<boolean> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
-  if (!user) return false;
+  const userId = session?.user?.id;
+  if (!userId) return false;
 
-  const { error } = await supabase.from("game_saves").upsert({
-    user_id: user.id,
-    state: wallet,
-    updated_at: new Date().toISOString(),
+  // 큐 대기 중 store 배열이 교체돼도 이 요청의 시점별 스냅샷은 변하지 않게 한다.
+  const snapshot =
+    typeof structuredClone === "function"
+      ? structuredClone(wallet)
+      : (JSON.parse(JSON.stringify(wallet)) as WalletSave);
+  const write = gameSaveWriteQueue.then(async () => {
+    const { error } = await supabase.from("game_saves").upsert({
+      // 대기 중 로그아웃·계정 전환이 일어나도 이전 계정 스냅샷을 새 계정에
+      // 쓰지 않도록 큐에 넣는 순간의 사용자 ID를 고정한다.
+      user_id: userId,
+      state: snapshot,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.warn("[cloud-save] wallet write failed", error.message);
+      return false;
+    }
+    return true;
   });
-  return !error;
+  gameSaveWriteQueue = write.then(
+    () => undefined,
+    () => undefined,
+  );
+  return write;
 }
 
 /** 리더보드 한 행 (공개 읽기). 순자산·수익률·과시 요약. */

@@ -12,7 +12,11 @@ import {
   LEVERAGE_MERGE_AT,
   SESSION_DURATION_MS,
 } from "../src/lib/market/constants";
-import type { StockDefinition } from "../src/lib/types/market";
+import type { ShortPosition, StockDefinition } from "../src/lib/types/market";
+import {
+  reconcileLeveragePositionSplits,
+  stampLeveragePositionMultiplier,
+} from "../src/lib/market/leveragePositionSplits";
 
 // 1) 표시가는 항상 밴드 [MERGE_AT, SPLIT_AT) 안에 있어야 한다.
 for (let raw = 1; raw <= 5_000_000; raw = Math.ceil(raw * 1.07)) {
@@ -167,6 +171,44 @@ assertClose(
   computeLeveragedSnapshot(inverse2, dailyUnderlying).rawPrice,
   9_454.545454545454,
   "왕복 변동 뒤 곱버스의 변동성 손실",
+);
+
+// 6) 공매도도 보유분과 같은 액면 배수를 적용해야 청산 증거금이 보존된다.
+const shortUnderlying = {
+  ...createInitialStockState(underlyingDefinition, session0 * SESSION_DURATION_MS),
+  currentPrice: uLater,
+  dayOpen: u0,
+};
+const shortEtf = { ...plus2, currentPrice: dispLater };
+const freshShorts: ShortPosition[] = [
+  { stockId: shortEtf.id, quantity: dispQty, averagePrice: dispLater },
+];
+const stampedShort = stampLeveragePositionMultiplier(
+  freshShorts,
+  shortEtf.id,
+  [shortUnderlying, shortEtf],
+)[0]!;
+assert.ok((stampedShort.splitMultiplier ?? 0) > 0);
+const currentShortMultiplier = stampedShort.splitMultiplier!;
+const oldFaceShort: ShortPosition = {
+  stockId: shortEtf.id,
+  quantity: dispQty,
+  averagePrice: dispBuy,
+  splitMultiplier: currentShortMultiplier * 2,
+};
+const reconciledShort = reconcileLeveragePositionSplits(
+  [oldFaceShort],
+  [shortUnderlying, shortEtf],
+).positions[0]!;
+assertClose(
+  reconciledShort.quantity,
+  oldFaceShort.quantity / 2,
+  "공매 수량 액면 정산",
+);
+assertClose(
+  reconciledShort.quantity * reconciledShort.averagePrice,
+  oldFaceShort.quantity * oldFaceShort.averagePrice,
+  "공매 진입 원금 가치 보존",
 );
 
 console.log("leverage daily-reset · split/merge scenarios passed");
