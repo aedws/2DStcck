@@ -514,6 +514,38 @@ export async function syncAmcListedFundMeta(
     : { success: false, message: "동기화 응답 해석 실패" };
 }
 
+/** 운용사 프로필을 본인 소유의 모든 공유 상장 ETF에도 함께 반영한다. */
+export async function updateListedAmcManagerProfile(
+  manager: Pick<AssetManagerState, "name" | "tagline" | "detail">,
+): Promise<{ success: boolean; message: string; funds?: ListedAmcFund[] }> {
+  const auth = await getCurrentAuth();
+  if (!auth) {
+    return { success: false, message: "로그인 후 수정할 수 있습니다." };
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("amc_listed_funds")
+    .update({
+      manager_name: manager.name.trim().slice(0, 40),
+      manager_tagline: manager.tagline.trim().slice(0, 80),
+      manager_detail: manager.detail?.trim().slice(0, 500) || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("manager_user_id", auth.userId)
+    .select("*");
+  if (error) {
+    return { success: false, message: error.message };
+  }
+  const funds = ((data ?? []) as AmcListedFundRow[])
+    .map(parseListedAmcFundRow)
+    .filter((fund): fund is ListedAmcFund => fund !== null);
+  return {
+    success: true,
+    message: "공유 ETF 운용사 정보도 동기화했습니다.",
+    funds,
+  };
+}
+
 /** 운용사가 상장 후 자동 분할·병합 임계값을 수정한다. */
 export async function updateAmcListedFundShareAdjustment(
   fundId: string,

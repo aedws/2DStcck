@@ -25,6 +25,7 @@ import {
   settleAmcManagementFees,
   splitAmcSeed,
   updateAmcShareAdjustmentSettings,
+  updateAssetManagerProfile,
   updateAmcComparisonStock,
   upgradeAmcFundHoldingBases,
   validateAmcHoldingWeights,
@@ -234,6 +235,26 @@ const founded = foundAssetManager(
 assert.equal(founded.success, true);
 assert.ok(founded.manager);
 assert.equal(founded.cash, 5_000_000 - AMC_FOUNDING_BURN);
+const renamed = updateAssetManagerProfile(
+  founded.manager!,
+  {
+    name: "북방자산운용",
+    tagline: "수정된 한 줄 소개",
+    detail: "수정된 상세 소개",
+  },
+  1_700_000_000_100,
+);
+assert.equal(renamed.success, true);
+assert.equal(renamed.manager?.name, "북방자산운용");
+assert.equal(renamed.manager?.tagline, "수정된 한 줄 소개");
+assert.equal(renamed.manager?.detail, "수정된 상세 소개");
+assert.equal(
+  updateAssetManagerProfile(founded.manager!, {
+    name: "X",
+    tagline: "정상 소개",
+  }).success,
+  false,
+);
 
 const created = createAmcFund(
   founded.manager!,

@@ -9,8 +9,31 @@ import {
   volumeWeightedAveragePrice,
 } from "../src/lib/market/chartIndicators";
 import type { Candle } from "../src/lib/types/market";
+import {
+  DEFAULT_CHART_PREFERENCES,
+  normalizeChartPreferences,
+} from "../src/lib/market/chartPreferences";
 
 const SESSION_MS = 60 * 60 * 1000;
+
+assert.deepEqual(normalizeChartPreferences(null), DEFAULT_CHART_PREFERENCES);
+assert.deepEqual(
+  normalizeChartPreferences({
+    timeframe: "5m",
+    showMa5: false,
+    showBoll: true,
+    showRsi: true,
+    showVwap: "yes",
+  }),
+  {
+    ...DEFAULT_CHART_PREFERENCES,
+    timeframe: "5m",
+    showMa5: false,
+    showBoll: true,
+    showRsi: true,
+  },
+  "저장된 차트 설정은 유효한 필드만 복원해야 한다",
+);
 
 function candle(ts: number, o: number, h: number, l: number, c: number): Candle {
   return { timestamp: ts, open: o, high: h, low: l, close: c };

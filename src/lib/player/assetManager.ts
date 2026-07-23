@@ -246,6 +246,12 @@ export interface FoundAssetManagerInput {
   detail?: string;
 }
 
+export interface UpdateAssetManagerProfileInput {
+  name: string;
+  tagline: string;
+  detail?: string;
+}
+
 export interface CreateAmcFundInput {
   name: string;
   ticker: string;
@@ -761,6 +767,36 @@ export function foundAssetManager(
     manager,
     cash: cash - AMC_FOUNDING_BURN,
     burned: AMC_FOUNDING_BURN,
+  };
+}
+
+export function updateAssetManagerProfile(
+  manager: AssetManagerState,
+  input: UpdateAssetManagerProfileInput,
+  now = Date.now(),
+): AmcActionResult {
+  const name = input.name.trim();
+  const tagline = input.tagline.trim();
+  const detail = input.detail?.trim() || undefined;
+  if (name.length < 2 || name.length > 40) {
+    return { success: false, message: "운용사명은 2~40자로 입력해 주세요." };
+  }
+  if (tagline.length < 2 || tagline.length > 80) {
+    return { success: false, message: "한 줄 소개는 2~80자로 입력해 주세요." };
+  }
+  if (detail && detail.length > 500) {
+    return { success: false, message: "세부 소개는 500자 이내로 입력해 주세요." };
+  }
+  return {
+    success: true,
+    message: "자산운용사 이름과 소개를 수정했습니다.",
+    manager: {
+      ...manager,
+      name,
+      tagline,
+      ...(detail ? { detail } : { detail: undefined }),
+      lastActionAt: now,
+    },
   };
 }
 

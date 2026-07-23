@@ -26,6 +26,10 @@ import {
   volumeWeightedAveragePrice,
 } from "@/lib/market/chartIndicators";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import {
+  readChartPreferences,
+  writeChartPreferences,
+} from "@/lib/market/chartPreferences";
 
 const UP_COLOR = "#f04452";
 const DOWN_COLOR = "#3182f6";
@@ -150,6 +154,7 @@ export function CandlestickChart({
   const [showVolume, setShowVolume] = useState(false);
   const [showSession, setShowSession] = useState(false);
   const [showRsi, setShowRsi] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [trendMode, setTrendMode] = useState(false);
   const [trendPoints, setTrendPoints] = useState<Array<{ time: UTCTimestamp; price: number }>>([]);
   const [isMobile, setIsMobile] = useState(false);
@@ -182,6 +187,49 @@ export function CandlestickChart({
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    const preferences = readChartPreferences();
+    setTimeframe(preferences.timeframe);
+    setShowMa5(preferences.showMa5);
+    setShowMa20(preferences.showMa20);
+    setShowEma9(preferences.showEma9);
+    setShowEma20(preferences.showEma20);
+    setShowVwap(preferences.showVwap);
+    setShowBoll(preferences.showBoll);
+    setShowVolume(preferences.showVolume);
+    setShowSession(preferences.showSession);
+    setShowRsi(preferences.showRsi);
+    setPreferencesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    writeChartPreferences({
+      timeframe,
+      showMa5,
+      showMa20,
+      showEma9,
+      showEma20,
+      showVwap,
+      showBoll,
+      showVolume,
+      showSession,
+      showRsi,
+    });
+  }, [
+    preferencesLoaded,
+    timeframe,
+    showMa5,
+    showMa20,
+    showEma9,
+    showEma20,
+    showVwap,
+    showBoll,
+    showVolume,
+    showSession,
+    showRsi,
+  ]);
 
   useEffect(() => {
     trendModeRef.current = trendMode;

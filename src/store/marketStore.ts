@@ -93,6 +93,10 @@ import {
   settleOperationalCompensations,
 } from "@/lib/market/operationalCompensation";
 import {
+  resolvedResponseIdsWithPaymentEvidence,
+  shouldRecoverFailedLocalWallet,
+} from "@/lib/market/cloudSyncGuards";
+import {
   getRoomItem,
   getRoomTheme,
   isValidRoomPlacement,
@@ -316,6 +320,7 @@ import {
   normalizeAssetManager,
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
+  updateAssetManagerProfile as updateManagedProfile,
   updateAmcShareAdjustmentSettings as updateManagedFundShareAdjustment,
   updateAmcComparisonStock as updateManagedFundComparisonStock,
   resolveAmcDividendPeriodRate,
@@ -326,6 +331,7 @@ import {
   type AssetManagerState,
   type CreateAmcFundInput,
   type FoundAssetManagerInput,
+  type UpdateAssetManagerProfileInput,
   type UpdateAmcShareAdjustmentInput,
   type UpdateAmcComparisonStockInput,
 } from "@/lib/player/assetManager";
@@ -356,6 +362,7 @@ import {
   settleAmcListedFund,
   syncAmcListedFundMeta,
   tradeAmcListedFund,
+  updateListedAmcManagerProfile,
   updateAmcListedFundShareAdjustment,
   updateAmcListedFundComparisonStock,
   voluntarilyDelistAmcListedFund,
@@ -375,6 +382,8 @@ interface MarketStore extends MarketSnapshot {
   isReady: boolean;
   /** 로그인 지갑을 클라우드에서 확인한 뒤에만 자동 저장을 허용한다. */
   cloudSyncReady: boolean;
+  /** 마지막 명시적 클라우드 저장 실패 시각. 로컬 복구 허용의 유일한 근거. */
+  cloudSaveFailedAt: number;
   refreshingAmcLedger: boolean;
   /** 미체결 지정가 주문 */
   openOrders: OpenOrder[];
@@ -592,6 +601,9 @@ interface MarketStore extends MarketSnapshot {
     input: FoundAssetManagerInput,
     approvalRequestId: string,
   ) => Promise<OrderResult>;
+  updateAssetManagerProfile: (
+    input: UpdateAssetManagerProfileInput,
+  ) => Promise<OrderResult>;
   createAmcFund: (input: CreateAmcFundInput) => Promise<OrderResult>;
   /** ETF 상장 허가 재신청 (반려·미신청). */
   requestAmcFundListing: (fundId: string) => Promise<OrderResult>;
@@ -678,6 +690,7 @@ function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
   cloudSyncReady: boolean;
+  cloudSaveFailedAt: number;
   refreshingAmcLedger: boolean;
   openOrders: OpenOrder[];
   ownedLuxuries: OwnedLuxury[];
@@ -763,6 +776,7 @@ function createInitialState(): MarketSnapshot & {
     userId: null,
     isReady: false,
     cloudSyncReady: false,
+    cloudSaveFailedAt: 0,
     refreshingAmcLedger: false,
     openOrders: [],
     ownedLuxuries: [],
@@ -1704,7 +1718,11 @@ export const useMarketStore = create<MarketStore>()(
         })),
       resolveBugReports: (responses) => {
         const state = get();
-        const already = new Set(state.resolvedBugReportIds);
+        const already = resolvedResponseIdsWithPaymentEvidence(
+          state.resolvedBugReportIds,
+          state.cashPayments,
+          "bug-bounty-",
+        );
         const fresh = responses.filter((r) => !already.has(r.id));
         if (fresh.length === 0) return [];
         const now = Date.now();
@@ -1737,7 +1755,11 @@ export const useMarketStore = create<MarketStore>()(
       },
       resolveFeedbackResponses: (responses) => {
         const state = get();
-        const already = new Set(state.resolvedFeedbackIds);
+        const already = resolvedResponseIdsWithPaymentEvidence(
+          state.resolvedFeedbackIds,
+          state.cashPayments,
+          "feedback-reward-",
+        );
         const fresh = responses.filter((r) => !already.has(r.id));
         if (fresh.length === 0) return [];
         const now = Date.now();
@@ -1770,7 +1792,11 @@ export const useMarketStore = create<MarketStore>()(
       },
       resolveStockRequestResponses: (responses) => {
         const state = get();
-        const already = new Set(state.resolvedStockRequestIds);
+        const already = resolvedResponseIdsWithPaymentEvidence(
+          state.resolvedStockRequestIds,
+          state.cashPayments,
+          "ipo-refund-",
+        );
         const fresh = responses.filter((r) => !already.has(r.id));
         if (fresh.length === 0) return [];
         const now = Date.now();
@@ -1900,17 +1926,21 @@ export const useMarketStore = create<MarketStore>()(
           return "created";
         }
 
-        // 이 기기(같은 계정의 로컬 캐시)에 클라우드 저장 시각 이후의 매매·지급·
-        // 사건 판단 기록이 남아 있으면 클라우드가 낡은 것이다 — 직전 저장이
-        // 실패했거나 저장 전에 탭이 종료된 경우다. 이때 클라우드를 적용하면
-        // 방금 한 거래가 통째로 사라지므로, 최신 로컬을 지키고 즉시 올린다.
+        // 서버 지갑이 로그인 계정의 원본이다. 다만 이 기기에서 실제 저장 실패가
+        // 기록됐고 그 뒤의 유저 활동이 서버보다 최신일 때만 로컬을 복구한다.
+        // 새 기기·다른 브라우저의 독립 캐시는 실패 표식이 없어 서버를 덮지 못한다.
         const localState = get();
         const cloudUpdatedAt =
           loaded.status === "loaded" ? loaded.updatedAt : 0;
         const localActivity = latestWalletActivityMs(localState);
         if (
           localState.walletEpoch === WALLET_EPOCH &&
-          localActivity > Math.max(latestWalletActivityMs(wallet), cloudUpdatedAt)
+          shouldRecoverFailedLocalWallet({
+            localActivityAt: localActivity,
+            cloudActivityAt: latestWalletActivityMs(wallet),
+            cloudUpdatedAt,
+            localSaveFailedAt: localState.cloudSaveFailedAt,
+          })
         ) {
           await get().refreshServerPlayerCompany();
           await get().refreshListedAmcFunds();
@@ -2038,6 +2068,7 @@ export const useMarketStore = create<MarketStore>()(
         });
         set({
           walletEpoch: WALLET_EPOCH,
+          cloudSaveFailedAt: 0,
           cash: cloudCompensation.cash,
           amcLedgerBalance: Number.isFinite(wallet.amcLedgerBalance)
             ? Math.round(wallet.amcLedgerBalance!)
@@ -2241,6 +2272,7 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession: s.lastInterestSession,
         });
 
+        set({ cloudSaveFailedAt: saved ? 0 : Date.now() });
         if (saved) await get().syncLeaderboardNow();
         return saved;
       },
@@ -4647,6 +4679,53 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: result.message };
       },
 
+      updateAssetManagerProfile: async (input) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady || !state.assetManager) {
+          return {
+            success: false,
+            message: "로그인한 운용사 계정에서만 수정할 수 있습니다.",
+          };
+        }
+        const local = updateManagedProfile(state.assetManager, input);
+        if (!local.success || !local.manager) {
+          return { success: false, message: local.message };
+        }
+        const server = await updateListedAmcManagerProfile(local.manager);
+        if (!server.success) {
+          return {
+            success: false,
+            message: `공유 ETF 동기화 실패: ${server.message}`,
+          };
+        }
+        const updatedById = new Map(
+          (server.funds ?? []).map((fund) => [fund.id, fund] as const),
+        );
+        set({
+          assetManager: local.manager,
+          listedAmcFunds: state.listedAmcFunds.map(
+            (fund) =>
+              updatedById.get(fund.id) ??
+              (fund.managerUserId === state.userId
+                ? {
+                    ...fund,
+                    managerName: local.manager!.name,
+                    managerTagline: local.manager!.tagline,
+                    managerDetail: local.manager!.detail,
+                  }
+                : fund),
+          ),
+        });
+        const saved = await get().saveCloud();
+        useToastStore.getState().push(local.message, "success");
+        return {
+          success: true,
+          message: saved
+            ? local.message
+            : `${local.message} 클라우드 저장은 자동으로 재시도합니다.`,
+        };
+      },
+
       createAmcFund: async (input) => {
         const state = get();
         if (!state.userId || !state.cloudSyncReady) {
@@ -5784,6 +5863,7 @@ export const useMarketStore = create<MarketStore>()(
         amcLedgerBalance: state.amcLedgerBalance,
         amcLedgerRevision: state.amcLedgerRevision,
         initialCash: state.initialCash,
+        cloudSaveFailedAt: state.cloudSaveFailedAt,
         lastSalarySession: state.lastSalarySession,
         lastMonthlyDistributionSession: state.lastMonthlyDistributionSession,
         lastSingleCoveredCallDistributionSession:
@@ -6297,6 +6377,14 @@ export const useMarketStore = create<MarketStore>()(
           userId: null,
           isReady: false,
           cloudSyncReady: false,
+          cloudSaveFailedAt: Number.isFinite(
+            (walletSource as Partial<MarketStore>).cloudSaveFailedAt,
+          )
+            ? Math.max(
+                0,
+                (walletSource as Partial<MarketStore>).cloudSaveFailedAt!,
+              )
+            : 0,
         };
       },
     },

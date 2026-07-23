@@ -166,6 +166,9 @@ export default function AssetManagerPage() {
   const cloudSyncReady = useMarketStore((state) => state.cloudSyncReady);
   const getTotalAssets = useMarketStore((state) => state.getTotalAssets);
   const foundAssetManager = useMarketStore((state) => state.foundAssetManager);
+  const updateAssetManagerProfile = useMarketStore(
+    (state) => state.updateAssetManagerProfile,
+  );
   const createAmcFund = useMarketStore((state) => state.createAmcFund);
   const rebalanceAmcFund = useMarketStore((state) => state.rebalanceAmcFund);
   const voluntarilyDelistAmcFund = useMarketStore(
@@ -223,6 +226,11 @@ export default function AssetManagerPage() {
   const [creating, setCreating] = useState(false);
   const [tradingId, setTradingId] = useState<string | null>(null);
   const [recoveringId, setRecoveringId] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileTagline, setProfileTagline] = useState("");
+  const [profileDetail, setProfileDetail] = useState("");
 
   const [fundName, setFundName] = useState("");
   const [fundTicker, setFundTicker] = useState("");
@@ -580,6 +588,26 @@ export default function AssetManagerPage() {
     setFounding(false);
   };
 
+  const beginProfileEdit = () => {
+    if (!assetManager) return;
+    setProfileName(assetManager.name);
+    setProfileTagline(assetManager.tagline);
+    setProfileDetail(assetManager.detail ?? "");
+    setEditingProfile(true);
+  };
+
+  const handleProfileSave = async () => {
+    setSavingProfile(true);
+    const result = await updateAssetManagerProfile({
+      name: profileName,
+      tagline: profileTagline,
+      detail: profileDetail,
+    });
+    setMessage(result.message);
+    if (result.success) setEditingProfile(false);
+    setSavingProfile(false);
+  };
+
   const toggleHolding = (stockId: string) => {
     setSelectedIds((prev) =>
       prev.includes(stockId)
@@ -876,13 +904,22 @@ export default function AssetManagerPage() {
           </p>
         )}
           </div>
-          <button
-            type="button"
-            onClick={() => setManualEtfTutorial(true)}
-            className="shrink-0 rounded-xl border border-cyan-400/40 px-3 py-2 text-xs font-bold text-cyan-200"
-          >
-            ETF 튜토리얼
-          </button>
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={beginProfileEdit}
+              className="rounded-xl border border-emerald-400/40 px-3 py-2 text-xs font-bold text-emerald-200"
+            >
+              운용사 정보 수정
+            </button>
+            <button
+              type="button"
+              onClick={() => setManualEtfTutorial(true)}
+              className="rounded-xl border border-cyan-400/40 px-3 py-2 text-xs font-bold text-cyan-200"
+            >
+              ETF 튜토리얼
+            </button>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Summary
@@ -904,6 +941,63 @@ export default function AssetManagerPage() {
             value={new Date(assetManager.foundedAt).toLocaleDateString("ko-KR")}
           />
         </div>
+        {editingProfile && (
+          <div className="mt-5 space-y-3 rounded-2xl border border-emerald-400/30 bg-[var(--background)]/70 p-4">
+            <Field label="운용사명">
+              <input
+                value={profileName}
+                onChange={(event) =>
+                  setProfileName(event.target.value.slice(0, 40))
+                }
+                className={fieldClass}
+                placeholder="2~40자"
+              />
+            </Field>
+            <Field label="한 줄 소개">
+              <input
+                value={profileTagline}
+                onChange={(event) =>
+                  setProfileTagline(event.target.value.slice(0, 80))
+                }
+                className={fieldClass}
+                placeholder="2~80자"
+              />
+            </Field>
+            <Field label="세부 소개">
+              <textarea
+                value={profileDetail}
+                onChange={(event) =>
+                  setProfileDetail(event.target.value.slice(0, 500))
+                }
+                rows={4}
+                className={`${fieldClass} resize-none`}
+                placeholder="선택 · 최대 500자"
+              />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={savingProfile}
+                onClick={() => setEditingProfile(false)}
+                className="min-h-10 rounded-xl border border-[var(--border)] px-4 text-xs font-bold"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={
+                  savingProfile ||
+                  profileName.trim().length < 2 ||
+                  profileTagline.trim().length < 2
+                }
+                onClick={() => void handleProfileSave()}
+                className="min-h-10 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
+              >
+                {savingProfile ? "저장 중…" : "저장"}
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {marketplaceSection}
