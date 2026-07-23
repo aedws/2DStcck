@@ -46,6 +46,11 @@ export interface AmcHoldingWeight {
   basePrice?: number;
 }
 
+/** 시각에 따라 생성·상폐되는 급등주는 장기 보유 상품의 구성자산이 될 수 없다. */
+export function isForbiddenAmcHoldingStockId(stockId: string): boolean {
+  return stockId.startsWith("pump-");
+}
+
 export interface AmcFundExposureProfile {
   profile: AmcFundProfile;
   label: "일반형" | "인컴형" | "레버리지형" | "파생 혼합형";
@@ -383,6 +388,9 @@ function normalizeWeights(
   if (cleaned.length < AMC_MIN_HOLDINGS) return null;
   const ids = new Set(cleaned.map((row) => row.stockId));
   if (ids.size !== cleaned.length) return null;
+  if (cleaned.some((row) => isForbiddenAmcHoldingStockId(row.stockId))) {
+    return null;
+  }
   const sum = cleaned.reduce((acc, row) => acc + row.weight, 0);
   if (sum <= 0) return null;
   return cleaned.map((row) => ({

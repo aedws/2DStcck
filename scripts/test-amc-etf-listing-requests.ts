@@ -8,6 +8,7 @@ import {
 import {
   parseAmcEtfListingRequest,
   serializeAmcEtfListingRequest,
+  AMC_ETF_LISTING_DESCRIPTION_MAX_LENGTH,
   AMC_ETF_LISTING_REQUEST_MARKER,
 } from "../src/lib/supabase/amcEtfListingRequests";
 import type { StockRequestRow } from "../src/lib/supabase/stockRequests";
@@ -81,6 +82,56 @@ assert.equal(parsed!.payload.splitTriggerPrice, 500);
 assert.equal(parsed!.payload.splitRatio, 5);
 assert.equal(parsed!.payload.reverseSplitTriggerPrice, 5);
 assert.equal(parsed!.payload.reverseSplitRatio, 2);
+
+const maximumFund = {
+  ...created.fund!,
+  holdings: Array.from({ length: 30 }, (_, index) => ({
+    stockId: `holding-${index.toString().padStart(2, "0")}`,
+    weight: 1 / 30,
+    basePrice: 123_456 + index,
+  })),
+};
+const maximumDescription = serializeAmcEtfListingRequest(
+  maximumFund,
+  created.manager!,
+);
+assert.ok(
+  maximumDescription.length > 1_000,
+  "30종목 신청은 구 서버 1,000자 제한을 재현해야 함",
+);
+assert.ok(
+  maximumDescription.length <= AMC_ETF_LISTING_DESCRIPTION_MAX_LENGTH,
+  "최대 30종목 신청이 새 서버 저장 한도 안에 들어야 함",
+);
+assert.ok(
+  parseAmcEtfListingRequest({
+    ...row,
+    id: "listing-maximum",
+    description: maximumDescription,
+  }),
+  "최대 30종목 상장 신청을 정상 복원해야 함",
+);
+
+const pumpDescription = serializeAmcEtfListingRequest(
+  {
+    ...created.fund!,
+    holdings: [
+      { stockId: "a", weight: 1 / 3 },
+      { stockId: "b", weight: 1 / 3 },
+      { stockId: "pump-12345", weight: 1 / 3 },
+    ],
+  },
+  created.manager!,
+);
+assert.equal(
+  parseAmcEtfListingRequest({
+    ...row,
+    id: "listing-pump",
+    description: pumpDescription,
+  }),
+  null,
+  "급등주가 든 상장 신청은 복원 단계에서도 거절해야 함",
+);
 
 const foundationRequest: AmcFoundationRequest = {
   id: "amc-foundation-1",

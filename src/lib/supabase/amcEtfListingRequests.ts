@@ -1,4 +1,7 @@
 import {
+  AMC_MAX_HOLDINGS,
+  AMC_MIN_HOLDINGS,
+  isForbiddenAmcHoldingStockId,
   normalizeAmcDividendInterval,
   normalizeAmcShareAdjustmentRatio,
   type AmcDividendIntervalDays,
@@ -18,6 +21,7 @@ import {
 } from "@/lib/supabase/stockRequests";
 
 export const AMC_ETF_LISTING_REQUEST_MARKER = "[AMC_ETF_LISTING]" as const;
+export const AMC_ETF_LISTING_DESCRIPTION_MAX_LENGTH = 20_000;
 
 export const AMC_ETF_LISTING_STATUS_LABEL: Record<StockRequestStatus, string> = {
   pending: "상장 대기",
@@ -137,7 +141,15 @@ export function parseAmcEtfListingRequest(
           })
           .filter((row): row is AmcHoldingWeight => row !== null)
       : [];
-    if (holdings.length < 3) return null;
+    if (
+      holdings.length < AMC_MIN_HOLDINGS ||
+      holdings.length > AMC_MAX_HOLDINGS ||
+      holdings.some((holding) =>
+        isForbiddenAmcHoldingStockId(holding.stockId),
+      )
+    ) {
+      return null;
+    }
     return {
       id: row.id,
       userId: row.user_id,
@@ -305,6 +317,14 @@ export async function submitAmcEtfListingRequest(
       message: "이미 심사 중이거나 허가된 상장 신청이 있습니다.",
     };
   }
+  const description = serializeAmcEtfListingRequest(fund, manager);
+  if (description.length > AMC_ETF_LISTING_DESCRIPTION_MAX_LENGTH) {
+    return {
+      success: false,
+      message:
+        "ETF 구성 정보가 상장 신청 한도를 초과했습니다. 구성 종목 수를 줄여 주세요.",
+    };
+  }
   const supabase = createClient();
   const { data, error } = await supabase
     .from("stock_requests")
@@ -313,7 +333,7 @@ export async function submitAmcEtfListingRequest(
       game_id: auth.gameId,
       sector: "유저ETF",
       name: fund.name.slice(0, 60),
-      description: serializeAmcEtfListingRequest(fund, manager),
+      description,
       reference_url: null,
       cost_paid: 0,
     })
@@ -330,6 +350,26 @@ export async function submitAmcEtfListingRequest(
         cooldown: true,
       };
     }
+    if (
+      error.message?.includes("pump_stock_not_allowed") ||
+      error.message?.includes("stock_requests_amc_no_pump_holdings_check")
+    ) {
+      return {
+        success: false,
+        message: "급등주는 유저 ETF 구성 종목으로 편입할 수 없습니다.",
+      };
+    }
+    if (
+      error.code === "23514" &&
+      error.message?.includes("stock_requests_description_check")
+    ) {
+      return {
+        success: false,
+        message:
+          "ETF 구성 정보가 서버의 이전 저장 한도를 초과했습니다. 업데이트 후 다시 신청해 주세요.",
+      };
+    }
+    console.warn("[amcEtfListingRequests] insert failed", error);
     return {
       success: false,
       message: "상장 신청 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",

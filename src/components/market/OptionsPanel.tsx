@@ -149,7 +149,8 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
           <p className="text-sm leading-relaxed text-[var(--muted)]">
             유럽식 현금정산 옵션(1계약 = 1주). 매수는 프리미엄만큼 손실이
             한정되고, 발행은 프리미엄을 받되 증거금과 큰 손실 위험이 있습니다.
-            프리미엄은 변동성·금리·잔존만기로 산정됩니다.
+            프리미엄은 변동성·금리·잔존만기로 산정됩니다. 주문 한도는 프리미엄과
+            별도로 콜 현재가·풋 행사가 × 계약 수의 기초자산 명목노출도 확인합니다.
           </p>
           <button
             type="button"

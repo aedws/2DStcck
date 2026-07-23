@@ -4383,10 +4383,14 @@ export const useMarketStore = create<MarketStore>()(
         }
         const optionNotional =
           optionRiskNotionalPerContract({ kind, strike }, stock) * quantity;
-        if (optionNotional > fullBuyingPower(state)) {
+        const optionBuyingPower = fullBuyingPower(state);
+        if (optionNotional > optionBuyingPower) {
           return {
             success: false,
-            message: "옵션 기초자산 명목 노출이 계좌 한도를 초과합니다.",
+            message:
+              `옵션 명목노출 ${formatPrice(optionNotional)}이 ` +
+              `현재 계좌 한도 ${formatPrice(optionBuyingPower)}를 초과합니다. ` +
+              "계약 수를 줄이거나 ⓘ 옵션 안내를 확인해 주세요.",
           };
         }
         const currentSplitMultiplier = underlyingSplitMultiplier(
@@ -4510,8 +4514,15 @@ export const useMarketStore = create<MarketStore>()(
         };
         const margin =
           optionRiskNotionalPerContract(draft, stock, state.stocks) * quantity;
-        if (margin > fullBuyingPower(state)) {
-          return { success: false, message: "증거금(매수여력)이 부족합니다." };
+        const optionBuyingPower = fullBuyingPower(state);
+        if (margin > optionBuyingPower) {
+          return {
+            success: false,
+            message:
+              `옵션 명목노출 ${formatPrice(margin)}이 ` +
+              `현재 계좌 한도 ${formatPrice(optionBuyingPower)}를 초과합니다. ` +
+              "계약 수를 줄이거나 ⓘ 옵션 안내를 확인해 주세요.",
+          };
         }
         const existing = state.options.find((o) => o.id === id);
         const options = existing
@@ -5516,6 +5527,16 @@ export const useMarketStore = create<MarketStore>()(
         if (!state.assetManager) {
           return { success: false, message: "먼저 자산운용사를 설립해 주세요." };
         }
+        if (
+          input.holdings.some((holding) =>
+            holding.stockId.startsWith("pump-"),
+          )
+        ) {
+          return {
+            success: false,
+            message: "급등주는 유저 ETF 구성 종목으로 편입할 수 없습니다.",
+          };
+        }
         const now = Date.now();
         const currentSession = Math.floor(now / SESSION_DURATION_MS);
         const priceOf = (stockId: string) =>
@@ -5802,6 +5823,16 @@ export const useMarketStore = create<MarketStore>()(
         const state = get();
         if (!state.assetManager) {
           return { success: false, message: "자산운용사가 없습니다." };
+        }
+        if (
+          holdingsInput.some((holding) =>
+            holding.stockId.startsWith("pump-"),
+          )
+        ) {
+          return {
+            success: false,
+            message: "급등주는 유저 ETF 구성 종목으로 편입할 수 없습니다.",
+          };
         }
         const now = Date.now();
         const result = rebalanceManagedFund(

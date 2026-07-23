@@ -30,6 +30,7 @@ import {
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
   equalWeightHoldings,
+  isForbiddenAmcHoldingStockId,
   isAmcShareAdjustmentBandStable,
   maxFeeRateForStyle,
   type AmcDividendIntervalDays,
@@ -323,6 +324,7 @@ export default function AssetManagerPage() {
     );
     return stocks.filter((stock) => {
       if (!(stock.currentPrice > 0)) return false;
+      if (isForbiddenAmcHoldingStockId(stock.id)) return false;
       if (companyIds.has(stock.id)) return true;
       if ((stock.id === "gldx" || stock.id === "sbnd") && isListed(stock)) {
         return true;
