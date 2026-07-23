@@ -20,6 +20,7 @@ import {
   isAmcShareAdjustmentCoolingDown,
   markAmcFundVoluntarilyDelisted,
   normalizeAmcDividendInterval,
+  normalizeWeightsSafe,
   rebalanceAmcFund,
   settleAmcDividends,
   settleAmcManagementFees,
@@ -79,6 +80,20 @@ assert.ok(
 );
 
 // 누적 서버 현금원장은 재시도해도 한 번만 반영되고 이후 이벤트만 차액 적용.
+assert.deepEqual(
+  normalizeWeightsSafe([
+    { stockId: "a", weight: 2, basePrice: 1_087.81 },
+    { stockId: "b", weight: 1, basePrice: 53.79 },
+    { stockId: "c", weight: 1, basePrice: 200 },
+  ]),
+  [
+    { stockId: "a", weight: 0.5, basePrice: 1_087.81 },
+    { stockId: "b", weight: 0.25, basePrice: 53.79 },
+    { stockId: "c", weight: 0.25, basePrice: 200 },
+  ],
+  "server-loaded user ETF holdings must retain their inclusion prices",
+);
+
 const ledgerDebit = reconcileAmcLedgerCash(100_000, 0, -10_000)!;
 assert.deepEqual(ledgerDebit, {
   cash: 90_000,

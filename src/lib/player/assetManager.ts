@@ -377,6 +377,7 @@ function normalizeWeights(
   return cleaned.map((row) => ({
     stockId: row.stockId,
     weight: row.weight / sum,
+    ...(row.basePrice != null ? { basePrice: row.basePrice } : {}),
   }));
 }
 
