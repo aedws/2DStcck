@@ -363,8 +363,9 @@ export interface MarketEvent {
 
 /**
  * 관계 보상으로 그 기업이 발행해 선물하는 우선주. 시장에서 매매할 수 없고
- * 동맹(호감 100) 도달 시 캐릭터당 1좌 발행된다. 고정 액면가로 총자산·랭킹에
- * 반영되며 분기마다 고배당을 지급한다. (결정론 가격엔진과 무관한 지갑 자산)
+ * 동맹(호감 100)·집중 조건을 유지하면 정기적으로 추가 발행된다. 고정 액면가로
+ * 총자산·랭킹에 반영되며 분기마다 고배당을 지급한다.
+ * (결정론 가격엔진과 무관한 지갑 자산)
  */
 export interface PreferredShare {
   characterId: string;
@@ -378,8 +379,11 @@ export interface PreferredShare {
   faceValue: number;
   /** 좌당 분기 배당액 */
   dividendPerShare: number;
+  /** 최초 발행 거래일 */
   issuedSession: number;
   issuedAt: number;
+  /** 조건 유지 보상으로 마지막 좌가 추가 발행된 거래일 */
+  lastIssuedSession?: number;
 }
 
 /** 연금 복권 당첨으로 받는 정기 연금. 5거래일마다 정액을 지급한다. */

@@ -22,6 +22,8 @@ const PREFERRED_FACE_FALLBACK = 80_000;
 export const PREFERRED_DIVERSIFY_CHARACTERS = 5;
 /** 분산 지속 후 휴면 우선주가 매각되기까지의 거래일 유예. */
 export const PREFERRED_SALE_GRACE_SESSIONS = 5;
+/** 동맹·집중 조건 유지 시 우선주 1좌가 추가 지급되는 간격. */
+export const PREFERRED_GRANT_INTERVAL_SESSIONS = 5;
 
 /**
  * 활성 우선주 — 지금 집중(focused) 상태인 캐릭터의 우선주만 혜택이 살아있다.
@@ -63,6 +65,7 @@ export function getPreferredQuarterlyDividend(shares: PreferredShare[]): number 
 
 export interface PreferredReconcileResult {
   shares: PreferredShare[];
+  /** 이번 정산에서 신규 또는 추가 지급된 좌. shares는 지급 수량이다. */
   issued: PreferredShare[];
   /** 집중 해제로 매각된 우선주 */
   sold: PreferredShare[];
@@ -75,9 +78,10 @@ export interface PreferredReconcileResult {
 /**
  * 우선주를 정산한다.
  * - 발행: 호감 100(동맹) + 원 앤 온리·트윈 스타·트리플 하르모니아 지정 캐릭터 +
- *   과거 미발행. 액면 = 발행 시 본주 × 1.30, 분기배당 = 액면 ×(본주배당률 + 5%p).
+ *   최초 미발행이면 1좌 지급. 조건을 계속 유지하면 5거래일마다 1좌 추가 지급.
+ *   액면 = 최초 발행 시 본주 × 1.30, 분기배당 = 액면 ×(본주배당률 + 5%p).
  * - 매각: 집중이 풀려 더는 지정이 아닌 우선주는 액면가로 매각(현금화)되고 사라진다.
- * - 재발행 방지: 한 번 발행된 캐릭터는 매각 후에도 다시 발행되지 않는다(무한 현금화 차단).
+ * - 재발행 방지: 매각된 캐릭터는 다시 최초 발행되지 않는다(무한 현금화 차단).
  * 컨텍스트(보유·집중 데이터)가 없으면 그대로 둔다(로드 시엔 직후 tick 이 정산).
  */
 export function reconcilePreferredShares(
@@ -104,10 +108,29 @@ export function reconcilePreferredShares(
   //    아니면 그대로 보유(재집중 시 부활). 시세 드리프트로 인한 강제 매각을 막는다.
   const kept: PreferredShare[] = [];
   const sold: PreferredShare[] = [];
+  const issued: PreferredShare[] = [];
   let proceeds = 0;
   for (const share of existing) {
     if (isActive(share.characterId) || !context.sellDormant) {
-      kept.push(share);
+      const affinity =
+        getCharacterProgress(progress, share.characterId).affinity;
+      const lastIssuedSession =
+        share.lastIssuedSession ?? share.issuedSession;
+      if (
+        isActive(share.characterId) &&
+        affinity >= PREFERRED_SHARE_AFFINITY &&
+        session - lastIssuedSession >= PREFERRED_GRANT_INTERVAL_SESSIONS
+      ) {
+        const updated = {
+          ...share,
+          shares: share.shares + 1,
+          lastIssuedSession: session,
+        };
+        kept.push(updated);
+        issued.push({ ...updated, shares: 1 });
+      } else {
+        kept.push(share);
+      }
     } else {
       sold.push(share);
       proceeds += share.faceValue * share.shares;
@@ -123,7 +146,7 @@ export function reconcilePreferredShares(
       stockByCharacter.set(stock.ceoId, stock);
     }
   }
-  const issued: PreferredShare[] = [];
+  const newlyIssued: PreferredShare[] = [];
   if (eligible) {
     for (const company of getCompanyDefinitions()) {
       const characterId = company.ceoId;
@@ -141,7 +164,7 @@ export function reconcilePreferredShares(
         faceValue * (commonYield + PREFERRED_DIVIDEND_YIELD_BONUS),
       );
       const ceo = getCharacterById(characterId);
-      issued.push({
+      const share = {
         characterId,
         companyId: company.id,
         ticker: company.ticker,
@@ -152,13 +175,16 @@ export function reconcilePreferredShares(
         dividendPerShare,
         issuedSession: session,
         issuedAt: now,
-      });
+        lastIssuedSession: session,
+      };
+      newlyIssued.push(share);
+      issued.push(share);
       everIssued.add(characterId);
     }
   }
 
   return {
-    shares: [...kept, ...issued],
+    shares: [...kept, ...newlyIssued],
     issued,
     sold,
     proceeds,
@@ -188,6 +214,14 @@ export function normalizePreferredShares(value: unknown): PreferredShare[] {
       dividendPerShare: Math.max(0, Number(item.dividendPerShare) || 0),
       issuedSession: Math.max(0, Math.floor(Number(item.issuedSession) || 0)),
       issuedAt: Number(item.issuedAt) || 0,
+      lastIssuedSession: Math.max(
+        0,
+        Math.floor(
+          Number(item.lastIssuedSession) ||
+            Number(item.issuedSession) ||
+            0,
+        ),
+      ),
     });
   }
   return result;

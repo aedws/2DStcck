@@ -2859,21 +2859,22 @@ export const useMarketStore = create<MarketStore>()(
         }
         let investmentMission = state.investmentMission;
         let missionHistory = state.missionHistory;
-        const preferredConcentration = computeCharacterConcentration(
-          holdings,
-          combinedStocks,
-          netWorth,
-        );
-        const activePreferred = getActivePreferredShares(
-          state.preferredShares,
-          preferredConcentration,
-        );
         const userEtfHoldings = userEtfRelationshipHoldingsOf({
           holdings,
           stocks: combinedStocks,
           assetManager,
           listedAmcFunds,
         });
+        const preferredConcentration = computeCharacterConcentration(
+          holdings,
+          combinedStocks,
+          netWorth,
+          userEtfHoldings,
+        );
+        const activePreferred = getActivePreferredShares(
+          state.preferredShares,
+          preferredConcentration,
+        );
         const relationshipEquity = netWorth;
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
@@ -3037,7 +3038,7 @@ export const useMarketStore = create<MarketStore>()(
         }
         nextEvents = nextEvents.map(ensureEventDialogue);
 
-        // 관계 등급 상승 축하 + 동맹(호감 100) 도달 시 우선주 발행 (멱등)
+        // 관계 등급 상승 축하 + 동맹·집중 조건 유지 시 우선주 반복 지급
         const relationshipToasts: string[] = [];
         for (const cid of Object.keys(characterProgress)) {
           const beforeTier = getRelationshipTier(
@@ -3097,7 +3098,7 @@ export const useMarketStore = create<MarketStore>()(
         }
         for (const share of preferredReconcile.issued) {
           useToastStore.getState().push(
-            `🎖️ ${share.emoji} ${share.companyName} 우선주 1좌 발행 — 동맹 보상!`,
+            `🎖️ ${share.emoji} ${share.companyName} 우선주 ${share.shares}좌 지급 — 동맹·집중 유지 보상!`,
             "success",
           );
         }

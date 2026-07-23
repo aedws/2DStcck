@@ -195,7 +195,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
             {preferredActive
-              ? "집중을 유지하는 동안 총자산·랭킹·배당에 반영됩니다."
+              ? "집중과 호감 100 이상을 유지하면 5거래일마다 1좌가 추가 지급되며, 총자산·랭킹·배당에 반영됩니다."
               : "지금은 휴면(자산·배당 0)입니다. 다시 집중하면 부활하지만, 5캐릭터 이상으로 5거래일 넘게 분산하면 액면가로 매각(현금화)되고 재발행되지 않습니다."}
           </p>
         </div>
@@ -203,8 +203,8 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
           <p className="text-sm font-semibold text-[var(--muted)]">🎖️ 동맹 보상 우선주 · 매각 완료</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            이미 발행되었다가 집중 해제로 매각되었습니다. 우선주는 캐릭터당 1회만
-            발행되어 다시 발행되지 않습니다.
+            이미 발행되었다가 장기 분산으로 매각되었습니다. 현금화된 우선주는 무한
+            재발행을 막기 위해 다시 지급되지 않습니다.
           </p>
         </div>
       ) : (
@@ -213,7 +213,8 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <p className="mt-1 text-xs text-[var(--muted)]">
             호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 + 집중 투자(원 앤 온리·트윈
             스타·트리플 하르모니아) 상태일 때 {company.name}이(가) 고배당 우선주
-            1좌를 발행합니다(캐릭터당 1회). 앞으로 호감{" "}
+            1좌를 지급합니다. 이후 조건을 유지하면 5거래일마다 1좌를 추가 지급합니다.
+            앞으로 호감{" "}
             <span className="font-semibold text-pink-400">{untilAlly}</span> 더 필요.
           </p>
         </div>

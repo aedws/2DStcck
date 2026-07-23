@@ -542,8 +542,9 @@ export default function PortfolioPage() {
           </div>
           <p className="mb-2 text-[11px] text-zinc-500">
             집중(원 앤 온리·트윈 스타·트리플 하르모니아) 유지 중인 우선주만 자산·배당에
-            반영됩니다. 집중이 풀리면 휴면(재집중 시 부활)되고, 5캐릭터 이상으로 5거래일
-            넘게 분산하면 액면가로 매각·재발행 불가.
+            반영되며 호감 100 이상도 유지하면 5거래일마다 1좌가 추가 지급됩니다. 집중이
+            풀리면 휴면(재집중 시 부활)되고, 5캐릭터 이상으로 5거래일 넘게 분산하면
+            액면가로 매각·재발행 불가.
           </p>
           <div className="flex flex-wrap gap-2">
             {preferredShares.map((share) => {

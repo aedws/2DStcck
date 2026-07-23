@@ -65,6 +65,11 @@ import {
   buildTradingStats,
   claimAttendanceState,
 } from "../src/lib/player/playerProfile";
+import {
+  normalizePreferredShares,
+  PREFERRED_GRANT_INTERVAL_SESSIONS,
+  reconcilePreferredShares,
+} from "../src/lib/player/preferredShares";
 import { getCompanyDefinitions, STOCK_DEFINITIONS } from "../src/data/stocks";
 import { getCharacterRelation } from "../src/lib/market/characterRelations";
 import { createGenesisStocks } from "../src/lib/market/localSim";
@@ -977,6 +982,91 @@ const relationshipHolding = [{
   quantity: 1,
   averagePrice: relationshipStock.currentPrice,
 }];
+const preferredConcentration = computeCharacterConcentration(
+  relationshipHolding,
+  [relationshipStock],
+  relationshipStock.currentPrice,
+);
+const firstPreferred = reconcilePreferredShares(
+  relationshipProgress,
+  [],
+  [],
+  windowStart,
+  MARKET_EPOCH_MS,
+  {
+    stocks: [relationshipStock],
+    concentration: preferredConcentration,
+    sellDormant: false,
+  },
+);
+assert.equal(firstPreferred.shares[0]?.shares, 1);
+assert.equal(firstPreferred.issued[0]?.shares, 1);
+const beforePreferredInterval = reconcilePreferredShares(
+  relationshipProgress,
+  firstPreferred.shares,
+  firstPreferred.issuedCharacterIds,
+  windowStart + PREFERRED_GRANT_INTERVAL_SESSIONS - 1,
+  MARKET_EPOCH_MS,
+  {
+    stocks: [relationshipStock],
+    concentration: preferredConcentration,
+    sellDormant: false,
+  },
+);
+assert.equal(beforePreferredInterval.shares[0]?.shares, 1);
+assert.equal(beforePreferredInterval.issued.length, 0);
+const recurringPreferred = reconcilePreferredShares(
+  relationshipProgress,
+  beforePreferredInterval.shares,
+  beforePreferredInterval.issuedCharacterIds,
+  windowStart + PREFERRED_GRANT_INTERVAL_SESSIONS,
+  MARKET_EPOCH_MS,
+  {
+    stocks: [relationshipStock],
+    concentration: preferredConcentration,
+    sellDormant: false,
+  },
+);
+assert.equal(recurringPreferred.shares[0]?.shares, 2);
+assert.equal(recurringPreferred.issued[0]?.shares, 1);
+const sameSessionPreferred = reconcilePreferredShares(
+  relationshipProgress,
+  recurringPreferred.shares,
+  recurringPreferred.issuedCharacterIds,
+  windowStart + PREFERRED_GRANT_INTERVAL_SESSIONS,
+  MARKET_EPOCH_MS,
+  {
+    stocks: [relationshipStock],
+    concentration: preferredConcentration,
+    sellDormant: false,
+  },
+);
+assert.equal(sameSessionPreferred.shares[0]?.shares, 2);
+assert.equal(sameSessionPreferred.issued.length, 0);
+const pausedPreferred = reconcilePreferredShares(
+  {},
+  recurringPreferred.shares,
+  recurringPreferred.issuedCharacterIds,
+  windowStart + PREFERRED_GRANT_INTERVAL_SESSIONS * 2,
+  MARKET_EPOCH_MS,
+  {
+    stocks: [relationshipStock],
+    concentration: preferredConcentration,
+    sellDormant: false,
+  },
+);
+assert.equal(pausedPreferred.shares[0]?.shares, 2);
+assert.equal(pausedPreferred.issued.length, 0);
+const normalizedLegacyPreferred = normalizePreferredShares([
+  {
+    ...firstPreferred.shares[0],
+    lastIssuedSession: undefined,
+  },
+]);
+assert.equal(
+  normalizedLegacyPreferred[0]?.lastIssuedSession,
+  normalizedLegacyPreferred[0]?.issuedSession,
+);
 let holdProgress = accrueLongHoldingAffinity(
   {},
   relationshipHolding,
