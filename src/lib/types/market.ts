@@ -157,6 +157,10 @@ export interface OrderBook {
 
 export interface StockState extends StockDefinition {
   currentPrice: number;
+  /** 일반 종목·비레버리지 ETF의 누적 액면분할 배수(경제가 보존용). */
+  shareMultiplier?: number;
+  /** 짧은 간격의 분할↔병합 반복을 막는 마지막 액면조정 거래일. */
+  lastShareAdjustmentSession?: number;
   /** 정수 센트 가격에 아직 반영되지 않은 커버드콜 옵션 프리미엄(0 이상 1 미만 센트) */
   coveredCallPremiumReserve?: number;
   /** NAV 추종 ETF가 지급한 누적 주당 분배금. 원 NAV에서 차감해 배당락 스냅백을 막는다. */
@@ -223,7 +227,7 @@ export interface Holding {
   splitMultiplier?: number;
 }
 
-export type MarginLeverage = 2 | 3 | 4 | 5;
+export type MarginLeverage = 2;
 
 /** 거래일 단위 자동 소수점 매수 계획. 자동 매수는 미수를 사용하지 않는다. */
 export interface RecurringInvestment {
@@ -332,6 +336,11 @@ export type CashPaymentKind =
   | "amc_dividend"
   // 유저 ETF 상장폐지 시 서버 원장에서 지급한 NAV 환급.
   | "amc_redemption"
+  // $1T 초과 계정에만 초과분 비율로 적용되는 누진 세금.
+  | "exchange_tax"
+  | "capital_gains_tax"
+  | "financial_investment_tax"
+  | "corporate_tax"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
   | "minigame"
   // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.
@@ -553,4 +562,6 @@ export interface OpenOrder {
   price: number;
   quantity: number;
   createdAt: number;
+  /** 액면조정 시 지정가와 주문 수량을 가치 중립적으로 바꾸는 누적 배수. */
+  splitMultiplier?: number;
 }

@@ -31,6 +31,7 @@
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
     "test:exact-amount": "tsx scripts/test-exact-amount.ts",
+    "test:balance": "tsx scripts/test-economic-balance.ts",
     "generate:market-checkpoint": "tsx scripts/generate-market-checkpoint.ts",
     "import:companies": "node scripts/import-companies.mjs"
   },

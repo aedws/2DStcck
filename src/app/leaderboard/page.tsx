@@ -99,7 +99,7 @@ export default function LeaderboardPage() {
           onClick={() => setMode("weekly")}
           className={`min-h-10 rounded-lg text-sm font-semibold ${mode === "weekly" ? "bg-[var(--background)] text-[var(--foreground)]" : "text-[var(--muted)]"}`}
         >
-          주간 수익률
+          7거래일
         </button>
       </div>
 
@@ -134,7 +134,7 @@ export default function LeaderboardPage() {
             return (
               <li
                 key={entry.userId}
-                className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
+                className={`grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl border p-3.5 sm:grid-cols-[2rem_minmax(0,1fr)_auto] ${
                   isMe
                     ? "border-[var(--accent)] bg-[var(--accent)]/5"
                     : "border-[var(--border)] bg-[var(--surface)]"
@@ -170,15 +170,22 @@ export default function LeaderboardPage() {
                     </div>
                   )}
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold tabular-nums">
+                <div className="col-start-2 min-w-0 text-left sm:col-start-3 sm:text-right">
+                  <p
+                    className="truncate text-sm font-semibold tabular-nums"
+                    title={
+                      mode === "weekly"
+                        ? formatExactPercent(entry.weeklyReturnExact)
+                        : formatExactMoney(entry.netWorthExact)
+                    }
+                  >
                     {mode === "prestige"
                       ? `✨ ${entry.prestige.toLocaleString()}`
                       : mode === "weekly"
                         ? formatExactPercent(entry.weeklyReturnExact)
                         : formatExactMoney(entry.netWorthExact)}
                   </p>
-                  <p className={`text-xs tabular-nums ${mode === "prestige" ? "text-[var(--muted)]" : upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
+                  <p className={`truncate text-xs tabular-nums ${mode === "prestige" ? "text-[var(--muted)]" : upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
                     {mode === "prestige"
                       ? `${formatExactMoney(entry.netWorthExact)} · ${entry.tradeCount}체결`
                       : mode === "weekly"

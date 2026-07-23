@@ -18,6 +18,19 @@ export interface LeverageSplitEvent {
   ratio: number;
 }
 
+export function currentPositionSplitMultiplier(
+  stock: StockState,
+  stocks: StockState[],
+): number {
+  if (stock.leverage !== undefined && stock.leverageUnderlyingId) {
+    const underlying = stocks.find(
+      (item) => item.id === stock.leverageUnderlyingId,
+    );
+    return underlying ? leverageMultiplierFor(stock, underlying) : 1;
+  }
+  return stock.shareMultiplier ?? 1;
+}
+
 /** 보유·공매 포지션의 레버리지 액면 변동을 가치 중립적으로 반영한다. */
 export function reconcileLeveragePositionSplits<
   T extends SplitAdjustedPosition,
@@ -28,10 +41,16 @@ export function reconcileLeveragePositionSplits<
   const byId = new Map(stocks.map((stock) => [stock.id, stock]));
   const targetById = new Map<string, number>();
   for (const stock of stocks) {
-    if (stock.leverage === undefined || !stock.leverageUnderlyingId) continue;
-    const underlying = byId.get(stock.leverageUnderlyingId);
-    if (!underlying) continue;
-    targetById.set(stock.id, leverageMultiplierFor(stock, underlying));
+    if (stock.leverage !== undefined && stock.leverageUnderlyingId) {
+      const underlying = byId.get(stock.leverageUnderlyingId);
+      if (!underlying) continue;
+      targetById.set(
+        stock.id,
+        currentPositionSplitMultiplier(stock, stocks),
+      );
+    } else {
+      targetById.set(stock.id, stock.shareMultiplier ?? 1);
+    }
   }
 
   let changed = false;
@@ -73,12 +92,8 @@ export function stampLeveragePositionMultiplier<
   T extends SplitAdjustedPosition,
 >(positions: T[], stockId: string, stocks: StockState[]): T[] {
   const stock = stocks.find((item) => item.id === stockId);
-  if (!stock || stock.leverage === undefined || !stock.leverageUnderlyingId) {
-    return positions;
-  }
-  const underlying = stocks.find((item) => item.id === stock.leverageUnderlyingId);
-  if (!underlying) return positions;
-  const multiplier = leverageMultiplierFor(stock, underlying);
+  if (!stock) return positions;
+  const multiplier = currentPositionSplitMultiplier(stock, stocks);
   return positions.map((position) =>
     position.stockId === stockId
       ? ({ ...position, splitMultiplier: multiplier } as T)

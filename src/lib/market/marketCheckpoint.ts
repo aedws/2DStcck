@@ -34,6 +34,8 @@ export interface CompactStockCheckpoint {
   dailyCandles: Candle[];
   coveredCallPremiumReserve?: number;
   navDistributionAdjustment?: number;
+  shareMultiplier?: number;
+  lastShareAdjustmentSession?: number;
 }
 
 export interface MarketCheckpoint {
@@ -200,6 +202,8 @@ export function compactMarketCheckpoint(
           .slice(-dailyCandleLimit),
         coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
         navDistributionAdjustment: stock.navDistributionAdjustment,
+        shareMultiplier: stock.shareMultiplier,
+        lastShareAdjustmentSession: stock.lastShareAdjustmentSession,
       })),
     events: events.slice(-50),
   };

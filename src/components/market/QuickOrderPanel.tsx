@@ -16,9 +16,10 @@ import { toastResult } from "@/store/toastStore";
 import { playResultSound } from "@/lib/ui/sound";
 import { AveragingCalculator } from "@/components/market/AveragingCalculator";
 import Link from "next/link";
+import { MARGIN_LEVERAGE_OPTIONS } from "@/lib/market/margin";
 
 const TABS = ["빠른주문", "지정가", "모으기", "주문내역"] as const;
-const LEVERAGES: MarginLeverage[] = [2, 3, 4, 5];
+const LEVERAGES: MarginLeverage[] = MARGIN_LEVERAGE_OPTIONS;
 const RECURRING_INTERVALS = [
   { value: 1 as const, label: "매 거래일" },
   { value: 5 as const, label: "5거래일" },

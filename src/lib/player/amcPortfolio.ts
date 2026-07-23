@@ -61,6 +61,7 @@ type AmcPriceStock = Pick<
   | "leverageUnderlyingId"
   | "leveragePathSessionBase"
   | "leveragePathFactors"
+  | "shareMultiplier"
 >>;
 
 type AmcHistoryStock = Pick<
@@ -81,7 +82,7 @@ function economicPriceFromMap(
   if (!stock) return 0;
   const currentPrice = Number(stock.currentPrice) || 0;
   if (stock.leverage == null || !stock.leverageUnderlyingId) {
-    return currentPrice;
+    return currentPrice * Math.max(stock.shareMultiplier ?? 1, 1e-12);
   }
   const underlying = stockById.get(stock.leverageUnderlyingId);
   if (!underlying) return currentPrice;
@@ -108,7 +109,9 @@ function economicSeriesMultiplier(
   stock: AmcHistoryStock,
   stocks: readonly AmcHistoryStock[],
 ): number {
-  if (stock.leverage == null || !stock.leverageUnderlyingId) return 1;
+  if (stock.leverage == null || !stock.leverageUnderlyingId) {
+    return Math.max(stock.shareMultiplier ?? 1, 1e-12);
+  }
   const stockById = new Map(
     (stocks as readonly AmcPriceStock[]).map((item) => [item.id, item]),
   );

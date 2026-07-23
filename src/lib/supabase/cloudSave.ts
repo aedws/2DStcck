@@ -94,6 +94,7 @@ export interface WalletSave {
   resolvedStockRequestIds?: string[];
   /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
   claimedCompensationIds?: string[];
+  appliedTaxEventIds?: string[];
   /** 마이룸에 배치된 가구. */
   myRoomItems?: PlacedRoomItem[];
   /** 마이룸 확장 단계 (0 = 기본 방). */

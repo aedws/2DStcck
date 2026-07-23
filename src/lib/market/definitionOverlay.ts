@@ -9,6 +9,8 @@ export function applyDefinitionOverlay(stock: StockState): StockState {
   return {
     ...def,
     currentPrice: stock.currentPrice,
+    shareMultiplier: stock.shareMultiplier,
+    lastShareAdjustmentSession: stock.lastShareAdjustmentSession,
     coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
     navDistributionAdjustment: stock.navDistributionAdjustment,
     prevDayClose: stock.prevDayClose,

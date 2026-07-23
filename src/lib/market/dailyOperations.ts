@@ -42,6 +42,8 @@ export interface DailyOperation {
   playerReturn?: number;
   benchmarkReturn?: number;
   resultDetail?: string;
+  /** 수락·진행 모두 유저 ETF를 포함한 순자산 기준임을 나타낸다. */
+  valuationBasis?: "net_worth_v2";
 }
 
 export interface DailyOperationContext {
@@ -173,6 +175,7 @@ export function createDailyOperation(
     minimumEquity: equity,
     reward: offer.reward,
     status: "active",
+    valuationBasis: "net_worth_v2",
   };
 }
 
@@ -339,6 +342,14 @@ export function normalizeDailyOperation(value: unknown): DailyOperation | null {
     !Number.isFinite(candidate.endAt) ||
     !Number.isFinite(candidate.startEquity) ||
     !Number.isFinite(candidate.startBenchmarkPrice)
+  ) {
+    return null;
+  }
+  // 구 버전의 진행 중 작전은 수락 시 유저 ETF를 제외해 기준값을 복원할 수 없다.
+  // 오염된 수익률을 이어가지 않고 취소해 같은 기준으로 다시 수락하게 한다.
+  if (
+    candidate.status === "active" &&
+    candidate.valuationBasis !== "net_worth_v2"
   ) {
     return null;
   }

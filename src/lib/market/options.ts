@@ -13,6 +13,11 @@ export const OPTION_EXPIRY_INTERVAL = 10;
 export const OPTION_EXPIRY_COUNT = 2;
 /** 1계약 = 기초자산 1주 */
 export const OPTION_CONTRACT_MULTIPLIER = 1;
+/**
+ * 옵션은 납입 프리미엄이 아니라 기초자산 명목가로 총 노출을 계산한다.
+ * 싸게 보이는 외가격 옵션을 무제한 쌓아 수천 배 노출을 만드는 것을 막는다.
+ */
+export const OPTION_NOTIONAL_MULTIPLIER = 1;
 
 /**
  * 제로데이(0DTE): 오늘 거래일 마감(= 다음 거래일 경계)에 만기.
@@ -138,7 +143,9 @@ export function underlyingSplitMultiplier(
   stock: StockState,
   stocks?: StockState[],
 ): number {
-  if (!stocks || stock.leverage == null || !stock.leverageUnderlyingId) return 1;
+  if (!stocks || stock.leverage == null || !stock.leverageUnderlyingId) {
+    return stock.shareMultiplier ?? 1;
+  }
   const underlying = stocks.find((s) => s.id === stock.leverageUnderlyingId);
   return underlying ? leverageMultiplierFor(stock, underlying) : 1;
 }
@@ -186,6 +193,17 @@ export function shortMarginPerContract(
   return pos.kind === "call" ? stock.currentPrice : pos.strike;
 }
 
+/** 매수·발행 공통 옵션 위험 명목가. */
+export function optionRiskNotionalPerContract(
+  pos: Pick<OptionPosition, "kind" | "strike">,
+  stock: StockState,
+): number {
+  return Math.max(
+    OPTION_CONTRACT_MULTIPLIER,
+    pos.kind === "call" ? stock.currentPrice : pos.strike,
+  ) * OPTION_NOTIONAL_MULTIPLIER;
+}
+
 /** 옵션 전체의 자기자본 기여 (long=+마크, short=−마크) */
 export function optionsEquityDelta(
   options: OptionPosition[],
@@ -226,17 +244,16 @@ export function optionsMarginReserve(
 export function optionsGrossExposure(
   options: OptionPosition[],
   stocks: StockState[],
-  currentSession: number,
-  rateAnnualDecimal: number,
+  _currentSession: number,
+  _rateAnnualDecimal: number,
 ): number {
+  void _currentSession;
+  void _rateAnnualDecimal;
   let exposure = 0;
   for (const pos of options) {
     const stock = stocks.find((candidate) => candidate.id === pos.stockId);
     if (!stock) continue;
-    const perContract =
-      pos.side === "long"
-        ? positionMark(pos, stock, currentSession, rateAnnualDecimal, stocks)
-        : shortMarginPerContract(pos, stock);
+    const perContract = optionRiskNotionalPerContract(pos, stock);
     exposure += perContract * pos.quantity;
   }
   return exposure;

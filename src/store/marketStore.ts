@@ -17,6 +17,7 @@ import {
 import {
   reconcileLeveragePositionSplits,
   stampLeveragePositionMultiplier,
+  currentPositionSplitMultiplier,
 } from "@/lib/market/leveragePositionSplits";
 import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { withCharacterQuote } from "@/data/eventQuotes";
@@ -136,8 +137,16 @@ import {
   underlyingSplitMultiplier,
   optionsEquityDelta,
   optionsGrossExposure,
-  shortMarginPerContract,
+  optionRiskNotionalPerContract,
 } from "@/lib/market/options";
+import {
+  combinedSecuritiesSaleTaxExact,
+  computeProgressiveTaxExact,
+  corporateIncomeTaxExact,
+  derivativeProfitTaxExact,
+  makeTaxPayment,
+  taxableGainExact,
+} from "@/lib/market/taxes";
 import { generateOrderBook } from "@/lib/market/orderBook";
 import {
   MARKET_EPOCH_MS,
@@ -517,6 +526,8 @@ interface MarketStore extends MarketSnapshot {
   resolvedStockRequestIds: string[];
   /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
   claimedCompensationIds: string[];
+  /** 서버 ETF 원장 이벤트에 이미 부과한 세금 id. */
+  appliedTaxEventIds: string[];
   /**
    * 운영자가 처리한 버그 리포트 회신을 반영한다. 수정 완료(fixed)엔 보상을
    * 지급하고, 이미 처리한 id 는 건너뛴다(멱등). 새로 처리한 회신 목록을 돌려준다.
@@ -744,6 +755,7 @@ function createInitialState(): MarketSnapshot & {
   resolvedFeedbackIds: string[];
   resolvedStockRequestIds: string[];
   claimedCompensationIds: string[];
+  appliedTaxEventIds: string[];
   myRoomItems: PlacedRoomItem[];
   myRoomLevel: number;
   myRoomTheme: string;
@@ -839,6 +851,7 @@ function createInitialState(): MarketSnapshot & {
     claimedCompensationIds: OPERATIONAL_COMPENSATIONS.map(
       (compensation) => compensation.id,
     ),
+    appliedTaxEventIds: [],
     myRoomItems: [],
     myRoomLevel: 0,
     myRoomTheme: normalizeRoomThemeId(undefined),
@@ -1146,6 +1159,17 @@ function fullEquityExactOf(
         : exactSubtract(total, value);
   }
   return total;
+}
+
+/** 로컬 자산과 서버 원장 유저 ETF를 같은 정밀 센트 단위로 합친 과세 기준. */
+function fullNetWorthExactOf(
+  state: Parameters<typeof fullEquityExactOf>[0] &
+    Pick<MarketStore, "assetManager" | "listedAmcFunds">,
+): string {
+  return exactAdd(
+    fullEquityExactOf(state),
+    userEtfPortfolioValueExactOf(state),
+  );
 }
 
 function userEtfRelationshipHoldingsOf(
@@ -1639,6 +1663,10 @@ function applyLocalBuySell(
     };
   }
 
+  const soldHolding = state.holdings.find(
+    (holding) => holding.stockId === stockId,
+  );
+  const now = Date.now();
   const result = executeSell(
     state.cash,
     state.holdings,
@@ -1646,15 +1674,37 @@ function applyLocalBuySell(
     stock.ticker,
     price,
     quantity,
-    Date.now(),
+    now,
     exactCashOf(state),
   );
   if (!isOrderSuccess(result)) return result;
+  const taxExact = combinedSecuritiesSaleTaxExact({
+    proceedsExact: result.trade.totalExact ?? result.trade.total,
+    realizedGainExact: taxableGainExact(
+      price,
+      soldHolding?.averagePrice ?? price,
+      quantity,
+    ),
+    netWorthExact: fullNetWorthExactOf(state),
+  });
+  const taxPayment = makeTaxPayment({
+    id: `tax-stock-${result.trade.id}`,
+    kind: "capital_gains_tax",
+    amountExact: taxExact,
+    sourceId: stockId,
+    ticker: stock.ticker,
+    dueSession: Math.floor(now / SESSION_DURATION_MS),
+    timestamp: now,
+  });
+  const cashExact = exactSubtract(result.cashExact, taxExact);
   set({
-    cash: result.cash,
-    cashExact: result.cashExact,
+    cash: exactToNumber(cashExact),
+    cashExact,
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
+    cashPayments: taxPayment
+      ? [taxPayment, ...state.cashPayments].slice(0, 200)
+      : state.cashPayments,
   });
   get().checkAchievements();
   return {
@@ -1700,7 +1750,7 @@ export const useMarketStore = create<MarketStore>()(
       setMarginLeverage: (leverage) => {
         const normalized = normalizeMarginLeverage(leverage);
         if (normalized !== leverage) {
-          return { success: false, message: "미수 한도는 200~500% 중에서 선택해 주세요." };
+          return { success: false, message: "미수 한도는 최대 200%입니다." };
         }
         const state = get();
         if (state.marginEnabled) {
@@ -1875,7 +1925,12 @@ export const useMarketStore = create<MarketStore>()(
         if (!getDailyOperationOffers(session).some((offer) => offer.id === offerId)) {
           return { success: false, message: "이번 거래일에 제시된 작전이 아닙니다." };
         }
-        const equity = fullEquityOf(state);
+        // 진행 중에는 유저 ETF NAV를 포함한 순자산으로 평가하므로 수락 기준도
+        // 반드시 같은 경제가를 쓴다. 서로 다른 기준을 섞으면 수락 직후 ETF
+        // 평가액 전체가 수익으로 잡혀 관망 작전이 즉시 수백만 %가 된다.
+        const equity =
+          fullEquityOf(state) +
+          userEtfPortfolioValueOf(state);
         const benchmark = getBenchmark(state.stocks);
         if (!Number.isFinite(equity) || equity <= 0 || !benchmark) {
           return { success: false, message: "시장과 순자산 정보를 확인하지 못했습니다." };
@@ -2332,6 +2387,7 @@ export const useMarketStore = create<MarketStore>()(
           openOrders: wallet.openOrders ?? [],
           cashPayments: cloudCompensation.cashPayments,
           claimedCompensationIds: cloudCompensation.claimedCompensationIds,
+          appliedTaxEventIds: wallet.appliedTaxEventIds ?? [],
           lastSalarySession: cloudClockChanged
             ? nowSession
             : cloudSession(wallet.lastSalarySession),
@@ -2504,6 +2560,7 @@ export const useMarketStore = create<MarketStore>()(
           resolvedFeedbackIds: s.resolvedFeedbackIds,
           resolvedStockRequestIds: s.resolvedStockRequestIds,
           claimedCompensationIds: s.claimedCompensationIds,
+          appliedTaxEventIds: s.appliedTaxEventIds,
           myRoomItems: s.myRoomItems,
           myRoomLevel: s.myRoomLevel,
           myRoomTheme: s.myRoomTheme,
@@ -2693,6 +2750,7 @@ export const useMarketStore = create<MarketStore>()(
           price,
           quantity: normalizedQuantity,
           createdAt: Date.now(),
+          splitMultiplier: currentPositionSplitMultiplier(stock, state.stocks),
         };
         set({ openOrders: [order, ...state.openOrders] });
         return {
@@ -2770,10 +2828,29 @@ export const useMarketStore = create<MarketStore>()(
         let cashExact = exactCashOf(state);
         let holdings = state.holdings;
         let trades = state.trades;
-        let remainingOrders = openOrders;
-        if (openOrders.length > 0) {
+        const pendingOrderTaxPayments: CashPayment[] = [];
+        const splitAdjustedOrders = openOrders.map((order) => {
+          const stock = combinedStocks.find((item) => item.id === order.stockId);
+          if (!stock) return order;
+          const target = currentPositionSplitMultiplier(stock, combinedStocks);
+          const applied = order.splitMultiplier ?? 1;
+          if (!(target > 0) || !(applied > 0) || target === applied) {
+            return order.splitMultiplier === target
+              ? order
+              : { ...order, splitMultiplier: target };
+          }
+          const ratio = target / applied;
+          return {
+            ...order,
+            price: Math.max(1, Math.round(order.price / ratio)),
+            quantity: normalizeShareQuantity(order.quantity * ratio),
+            splitMultiplier: target,
+          };
+        });
+        let remainingOrders = splitAdjustedOrders;
+        if (splitAdjustedOrders.length > 0) {
           remainingOrders = [];
-          for (const order of openOrders) {
+          for (const order of splitAdjustedOrders) {
             const stock = combinedStocks.find((s) => s.id === order.stockId);
             const crossed =
               stock !== undefined &&
@@ -2814,6 +2891,9 @@ export const useMarketStore = create<MarketStore>()(
                 );
               }
             } else {
+              const soldHolding = holdings.find(
+                (holding) => holding.stockId === order.stockId,
+              );
               result = executeSell(
                 cash,
                 holdings,
@@ -2824,6 +2904,33 @@ export const useMarketStore = create<MarketStore>()(
                 now,
                 cashExact,
               );
+              if (isOrderSuccess(result)) {
+                const taxExact = combinedSecuritiesSaleTaxExact({
+                  proceedsExact: result.trade.totalExact ?? result.trade.total,
+                  realizedGainExact: taxableGainExact(
+                    stock.currentPrice,
+                    soldHolding?.averagePrice ?? stock.currentPrice,
+                    order.quantity,
+                  ),
+                  netWorthExact: fullNetWorthExactOf(state),
+                });
+                const payment = makeTaxPayment({
+                  id: `tax-limit-${result.trade.id}`,
+                  kind: "capital_gains_tax",
+                  amountExact: taxExact,
+                  sourceId: order.stockId,
+                  ticker: order.ticker,
+                  dueSession: Math.floor(now / SESSION_DURATION_MS),
+                  timestamp: now,
+                });
+                cashExact = exactSubtract(result.cashExact, taxExact);
+                result = {
+                  ...result,
+                  cash: exactToNumber(cashExact),
+                  cashExact,
+                };
+                if (payment) pendingOrderTaxPayments.push(payment);
+              }
             }
             if (isOrderSuccess(result)) {
               cash = result.cash;
@@ -2884,6 +2991,12 @@ export const useMarketStore = create<MarketStore>()(
           exactCashPaymentDelta(state.cashPayments, cashPayments),
         );
         cash = exactToNumber(cashExact);
+        if (pendingOrderTaxPayments.length > 0) {
+          cashPayments = [
+            ...pendingOrderTaxPayments,
+            ...cashPayments,
+          ].slice(0, 200);
+        }
         let shorts = state.shorts;
 
         // 만기 도달 옵션 현금정산
@@ -2904,6 +3017,44 @@ export const useMarketStore = create<MarketStore>()(
             tradesBeforeExpiry,
             trades,
           );
+          const expiryTaxPayments = expired.trades.flatMap((trade) => {
+            const position = state.options.find(
+              (option) => option.id === trade.optionId,
+            );
+            if (!position) return [];
+            const realizedGainPerContract =
+              position.side === "long"
+                ? Math.max(0, trade.price - position.openPremium)
+                : Math.max(0, position.openPremium - trade.price);
+            const taxExact = derivativeProfitTaxExact({
+              realizedGainExact: exactPositionValue(
+                realizedGainPerContract,
+                trade.quantity,
+              ),
+              netWorthExact: fullNetWorthExactOf(state),
+            });
+            const payment = makeTaxPayment({
+              id: `tax-option-expiry-${trade.id}`,
+              kind: "financial_investment_tax",
+              amountExact: taxExact,
+              sourceId: trade.stockId,
+              ticker: trade.ticker,
+              dueSession: currentSession,
+              timestamp: now,
+            });
+            if (!payment) return [];
+            cashExact = exactAdd(
+              cashExact,
+              payment.amountExact ?? payment.amount,
+            );
+            return [payment];
+          });
+          if (expiryTaxPayments.length > 0) {
+            cashPayments = [
+              ...expiryTaxPayments,
+              ...cashPayments,
+            ].slice(0, 200);
+          }
           cash = exactToNumber(cashExact);
         }
 
@@ -4084,6 +4235,7 @@ export const useMarketStore = create<MarketStore>()(
         if (price * quantity > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }
+        const now = Date.now();
         const result = openShort(
           state.cash,
           state.shorts,
@@ -4091,20 +4243,38 @@ export const useMarketStore = create<MarketStore>()(
           stock.ticker,
           price,
           quantity,
-          Date.now(),
+          now,
           exactCashOf(state),
         );
         if (!isShortSuccess(result)) return result;
+        const taxExact = computeProgressiveTaxExact(
+          result.trade.totalExact ?? result.trade.total,
+          fullNetWorthExactOf(state),
+          "exchange_tax",
+        );
+        const taxPayment = makeTaxPayment({
+          id: `tax-short-open-${result.trade.id}`,
+          kind: "exchange_tax",
+          amountExact: taxExact,
+          sourceId: stockId,
+          ticker: stock.ticker,
+          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          timestamp: now,
+        });
+        const cashExact = exactSubtract(result.cashExact, taxExact);
         const stampedShorts = stampLeveragePositionMultiplier(
           result.shorts,
           stockId,
           state.stocks,
         );
         set({
-          cash: result.cash,
-          cashExact: result.cashExact,
+          cash: exactToNumber(cashExact),
+          cashExact,
           shorts: stampedShorts,
           trades: [result.trade, ...state.trades],
+          cashPayments: taxPayment
+            ? [taxPayment, ...state.cashPayments].slice(0, 200)
+            : state.cashPayments,
         });
         get().checkAchievements();
         return {
@@ -4119,6 +4289,10 @@ export const useMarketStore = create<MarketStore>()(
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
         const price = getMarketBuyPrice(stock.currentPrice);
+        const short = state.shorts.find(
+          (position) => position.stockId === stockId,
+        );
+        const now = Date.now();
         const result = coverShort(
           state.cash,
           state.shorts,
@@ -4126,15 +4300,36 @@ export const useMarketStore = create<MarketStore>()(
           stock.ticker,
           price,
           quantity,
-          Date.now(),
+          now,
           exactCashOf(state),
         );
         if (!isShortSuccess(result)) return result;
+        const taxExact = derivativeProfitTaxExact({
+          realizedGainExact: taxableGainExact(
+            short?.averagePrice ?? price,
+            price,
+            quantity,
+          ),
+          netWorthExact: fullNetWorthExactOf(state),
+        });
+        const taxPayment = makeTaxPayment({
+          id: `tax-short-cover-${result.trade.id}`,
+          kind: "financial_investment_tax",
+          amountExact: taxExact,
+          sourceId: stockId,
+          ticker: stock.ticker,
+          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          timestamp: now,
+        });
+        const cashExact = exactSubtract(result.cashExact, taxExact);
         set({
-          cash: result.cash,
-          cashExact: result.cashExact,
+          cash: exactToNumber(cashExact),
+          cashExact,
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
+          cashPayments: taxPayment
+            ? [taxPayment, ...state.cashPayments].slice(0, 200)
+            : state.cashPayments,
         });
         return {
           success: true,
@@ -4185,6 +4380,14 @@ export const useMarketStore = create<MarketStore>()(
         // 상쇄되는 구조에서 마진을 허용하면 롱 옵션을 무한히 살 수 있다.
         if (cost > Math.max(0, state.cash)) {
           return { success: false, message: "옵션 프리미엄을 낼 현금이 부족합니다." };
+        }
+        const optionNotional =
+          optionRiskNotionalPerContract({ kind, strike }, stock) * quantity;
+        if (optionNotional > fullBuyingPower(state)) {
+          return {
+            success: false,
+            message: "옵션 기초자산 명목 노출이 계좌 한도를 초과합니다.",
+          };
         }
         const id = `opt-${stockId}-${kind}-long-${strike}-${expirySession}`;
         const existing = state.options.find((o) => o.id === id);
@@ -4291,7 +4494,7 @@ export const useMarketStore = create<MarketStore>()(
           openedAt: now,
           openSplitMultiplier: underlyingSplitMultiplier(stock, state.stocks),
         };
-        const margin = shortMarginPerContract(draft, stock) * quantity;
+        const margin = optionRiskNotionalPerContract(draft, stock) * quantity;
         if (margin > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }
@@ -4365,6 +4568,26 @@ export const useMarketStore = create<MarketStore>()(
         // long 청산 = 되팔아 현금 유입, short 청산 = 되사서 현금 유출
         const delta =
           pos.side === "long" ? mark * quantity : -mark * quantity;
+        const realizedGainPerContract =
+          pos.side === "long"
+            ? Math.max(0, mark - pos.openPremium)
+            : Math.max(0, pos.openPremium - mark);
+        const taxExact = derivativeProfitTaxExact({
+          realizedGainExact: exactPositionValue(
+            realizedGainPerContract,
+            quantity,
+          ),
+          netWorthExact: fullNetWorthExactOf(state),
+        });
+        const taxPayment = makeTaxPayment({
+          id: `tax-option-${optionId}-${now}-${quantity}`,
+          kind: "financial_investment_tax",
+          amountExact: taxExact,
+          sourceId: pos.stockId,
+          ticker: stock.ticker,
+          dueSession: Math.floor(now / SESSION_DURATION_MS),
+          timestamp: now,
+        });
         const trade: Trade = {
           id: `option-close-${now}-${Math.random().toString(36).slice(2, 6)}`,
           stockId: pos.stockId,
@@ -4381,9 +4604,12 @@ export const useMarketStore = create<MarketStore>()(
           expirySession: pos.expirySession,
         };
         set({
-          ...withExactCashDelta(state, delta),
+          ...withExactCashDelta(state, exactSubtract(delta, taxExact)),
           options,
           trades: [trade, ...state.trades],
+          cashPayments: taxPayment
+            ? [taxPayment, ...state.cashPayments].slice(0, 200)
+            : state.cashPayments,
         });
         return {
           success: true,
@@ -5065,19 +5291,92 @@ export const useMarketStore = create<MarketStore>()(
             ledger.balanceExact,
           );
           if (!ledgerCash) throw new Error("invalid AMC ledger balance");
+          const appliedTaxEventIds = new Set(latest.appliedTaxEventIds);
+          const corporateTaxPayments = ledgerPayments.flatMap((payment) => {
+            if (payment.kind !== "management_fee") return [];
+            const taxEventId = `corporate:${payment.id}`;
+            if (appliedTaxEventIds.has(taxEventId)) return [];
+            const taxExact = corporateIncomeTaxExact({
+              incomeExact: payment.amountExact ?? payment.amount,
+              netWorthExact: fullNetWorthExactOf(latest),
+            });
+            const taxPayment = makeTaxPayment({
+              id: `tax-corporate-${payment.id}`,
+              kind: "corporate_tax",
+              amountExact: taxExact,
+              sourceId: payment.sourceId,
+              ticker: payment.ticker,
+              dueSession: payment.dueSession,
+              timestamp: payment.timestamp,
+            });
+            appliedTaxEventIds.add(taxEventId);
+            return taxPayment ? [taxPayment] : [];
+          });
+          const securitiesTaxPayments = ledgerTrades.flatMap((trade) => {
+            if (trade.type !== "sell") return [];
+            const taxEventId = `amc-sale:${trade.id}`;
+            if (appliedTaxEventIds.has(taxEventId)) return [];
+            const previousHolding = latest.holdings.find(
+              (holding) => holding.stockId === trade.stockId,
+            );
+            const taxExact = combinedSecuritiesSaleTaxExact({
+              proceedsExact: trade.totalExact ?? trade.total,
+              realizedGainExact: taxableGainExact(
+                trade.price,
+                previousHolding?.averagePrice ?? trade.price,
+                trade.quantityExact ?? trade.quantity,
+              ),
+              netWorthExact: fullNetWorthExactOf(latest),
+            });
+            const taxPayment = makeTaxPayment({
+              id: `tax-amc-sale-${trade.id}`,
+              kind: "capital_gains_tax",
+              amountExact: taxExact,
+              sourceId: trade.stockId,
+              ticker: trade.ticker,
+              dueSession: Math.floor(trade.timestamp / SESSION_DURATION_MS),
+              timestamp: trade.timestamp,
+            });
+            appliedTaxEventIds.add(taxEventId);
+            return taxPayment ? [taxPayment] : [];
+          });
+          const newTaxPayments = [
+            ...corporateTaxPayments,
+            ...securitiesTaxPayments,
+          ];
+          const totalNewTaxExact = newTaxPayments.reduce(
+            (total, payment) =>
+              exactAdd(
+                total,
+                exactSubtract(
+                  "0",
+                  payment.amountExact ?? payment.amount,
+                ),
+              ),
+            "0",
+          );
+          const cashAfterTaxes = exactSubtract(
+            ledgerCash.cashExact,
+            totalNewTaxExact,
+          );
           set({
             listedAmcFunds: merged,
             assetManager,
             holdings,
-            cash: ledgerCash.cash,
-            cashExact: ledgerCash.cashExact,
+            cash: exactToNumber(cashAfterTaxes),
+            cashExact: cashAfterTaxes,
             amcLedgerBalance: ledgerCash.appliedBalance,
             amcLedgerBalanceExact: ledgerCash.appliedBalanceExact,
             amcLedgerRevision: ledger.revision,
+            appliedTaxEventIds: [...appliedTaxEventIds].slice(-2_000),
             trades: [...ledgerTrades, ...redemptionTrades, ...latest.trades]
               .sort((a, b) => b.timestamp - a.timestamp)
               .slice(0, 500),
-            cashPayments: [...ledgerPayments, ...latest.cashPayments]
+            cashPayments: [
+              ...newTaxPayments,
+              ...ledgerPayments,
+              ...latest.cashPayments,
+            ]
               .sort((a, b) => b.timestamp - a.timestamp)
               .slice(0, 200),
           });
@@ -6455,6 +6754,7 @@ export const useMarketStore = create<MarketStore>()(
         resolvedFeedbackIds: state.resolvedFeedbackIds.slice(0, 200),
         resolvedStockRequestIds: state.resolvedStockRequestIds.slice(0, 200),
         claimedCompensationIds: state.claimedCompensationIds,
+        appliedTaxEventIds: state.appliedTaxEventIds.slice(0, 2_000),
         myRoomItems: state.myRoomItems,
         myRoomLevel: state.myRoomLevel,
         myRoomTheme: state.myRoomTheme,
@@ -6803,6 +7103,14 @@ export const useMarketStore = create<MarketStore>()(
           ),
           cashPayments: compensation.cashPayments,
           claimedCompensationIds: compensation.claimedCompensationIds,
+          appliedTaxEventIds: Array.isArray(
+            (walletSource as Partial<MarketStore>).appliedTaxEventIds,
+          )
+            ? (walletSource as Partial<MarketStore>).appliedTaxEventIds!.slice(
+                0,
+                2_000,
+              )
+            : [],
           ownedLuxuries: Array.isArray(
             (walletSource as Partial<MarketStore>).ownedLuxuries,
           )

@@ -195,7 +195,7 @@ export function calculateSecularGrowthSupport(
   const driftGrowthPerSession = (stock.drift ?? 0) * DRIFT_TIME_SCALE * sessionSeconds;
   const secular = MARKET_SECULAR_GROWTH_PER_SESSION;
   const anchor =
-    stock.initialPrice *
+    (stock.initialPrice / Math.max(stock.shareMultiplier ?? 1, 1e-12)) *
     Math.exp((driftGrowthPerSession + secular) * elapsedSessions);
   // 로그 편차: 양수면 앵커보다 과열(끌어내림), 음수면 과매도(끌어올림).
   const deviation = Math.log(Math.max(stock.currentPrice, 100) / anchor);
@@ -876,12 +876,17 @@ export function computeEtfNav(
     const constituent = stocksById.get(holding.stockId);
     const def = STOCK_DEFINITIONS.find((d) => d.id === holding.stockId);
     if (!constituent || !def || def.initialPrice <= 0) continue;
-    weightedReturn += holding.weight * (constituent.currentPrice / def.initialPrice);
+    const constituentBase =
+      def.initialPrice / Math.max(constituent.shareMultiplier ?? 1, 1e-12);
+    weightedReturn +=
+      holding.weight * (constituent.currentPrice / constituentBase);
     weightSum += holding.weight;
   }
 
   if (weightSum === 0) return etf.currentPrice;
-  const grossNav = etf.initialPrice * (weightedReturn / weightSum);
+  const grossNav =
+    (etf.initialPrice / Math.max(etf.shareMultiplier ?? 1, 1e-12)) *
+    (weightedReturn / weightSum);
   return Math.max(
     Math.round(grossNav - (etf.navDistributionAdjustment ?? 0)),
     100,
@@ -995,13 +1000,93 @@ export function tickAllStocks(
         coveredCallReturn,
         dtSeconds,
       );
-      return {
+      return normalizeStockSharePrice({
         ...applyTickPrice(stock, coveredCallTick.price, now),
         coveredCallPremiumReserve: coveredCallTick.premiumReserve,
-      };
+      }, now);
     }
-    return stock;
+    return normalizeStockSharePrice(stock, now);
   });
+}
+
+const STOCK_SPLIT_TRIGGER = 100_000; // $1,000
+const STOCK_REVERSE_SPLIT_TRIGGER = 100; // $1
+const STOCK_SHARE_ADJUSTMENT_RATIO = 10;
+const STOCK_SHARE_ADJUSTMENT_COOLDOWN = 5;
+
+function scaleCandle(candle: Candle, factor: number): Candle {
+  return {
+    ...candle,
+    open: Math.max(1, candle.open * factor),
+    high: Math.max(1, candle.high * factor),
+    low: Math.max(1, candle.low * factor),
+    close: Math.max(1, candle.close * factor),
+  };
+}
+
+/**
+ * 일반 주식과 비레버리지 ETF를 $1~$1,000 표시 범위에 유지한다.
+ * 액면만 바꾸고 과거 차트·보유 좌수는 같은 누적 배수로 소급 조정되어
+ * 순자산과 수익률이 변하지 않는다. 레버리지 ETF는 별도 raw-price 경로를 쓴다.
+ */
+export function normalizeStockSharePrice(
+  stock: StockState,
+  now = Date.now(),
+): StockState {
+  if (
+    stock.leverage !== undefined ||
+    stock.sector === "지수" ||
+    stock.sector === "선물" ||
+    stock.sector === "급등주"
+  ) {
+    return stock;
+  }
+  const session = Math.floor(now / SESSION_DURATION_MS);
+  if (
+    stock.lastShareAdjustmentSession !== undefined &&
+    session - stock.lastShareAdjustmentSession <
+      STOCK_SHARE_ADJUSTMENT_COOLDOWN
+  ) {
+    return stock;
+  }
+  const ratio =
+    stock.currentPrice >= STOCK_SPLIT_TRIGGER
+      ? STOCK_SHARE_ADJUSTMENT_RATIO
+      : stock.currentPrice <= STOCK_REVERSE_SPLIT_TRIGGER
+        ? 1 / STOCK_SHARE_ADJUSTMENT_RATIO
+        : 1;
+  if (ratio === 1) return stock;
+  const factor = 1 / ratio;
+  const price = (value: number) => Math.max(1, Math.round(value * factor));
+  return {
+    ...stock,
+    shareMultiplier: (stock.shareMultiplier ?? 1) * ratio,
+    lastShareAdjustmentSession: session,
+    currentPrice: price(stock.currentPrice),
+    coveredCallPremiumReserve:
+      stock.coveredCallPremiumReserve === undefined
+        ? undefined
+        : stock.coveredCallPremiumReserve * factor,
+    navDistributionAdjustment:
+      stock.navDistributionAdjustment === undefined
+        ? undefined
+        : stock.navDistributionAdjustment * factor,
+    prevDayClose: price(stock.prevDayClose),
+    dayOpen: price(stock.dayOpen),
+    leveragePathSessionBase:
+      stock.leveragePathSessionBase === undefined
+        ? undefined
+        : price(stock.leveragePathSessionBase),
+    priceHistory: stock.priceHistory.map((point) => ({
+      ...point,
+      price: Math.max(1, point.price * factor),
+    })),
+    candles: stock.candles.map((candle) => scaleCandle(candle, factor)),
+    dailyCandles: stock.dailyCandles.map((candle) =>
+      scaleCandle(candle, factor),
+    ),
+    orderBook: generateOrderBook(price(stock.currentPrice)),
+  };
 }
 
 function pickWeighted<T>(
