@@ -163,6 +163,7 @@ import { ACHIEVEMENTS } from "@/data/achievements";
 import { TARGETED_ACCOUNT_ACTIONS } from "@/data/serviceNotice";
 import { useSettingsStore } from "@/store/settingsStore";
 import {
+  listMyStockRequests,
   STOCK_REQUEST_COST,
   STOCK_REQUEST_COOLDOWN_DAYS,
 } from "@/lib/supabase/stockRequests";
@@ -952,7 +953,10 @@ function effectiveLeverage(s: MarginAwareState): number {
 
 function fullBuyingPower(s: MarginAwareState): number {
   const { equity, exposure } = marginContext(s);
-  return Math.max(0, effectiveLeverage(s) * equity - exposure);
+  // 유저 ETF는 서버 원장 자산이라 로컬 강제청산 대상은 아니지만 담보 자기자본에는
+  // 포함한다. 이를 빼면 유저 ETF 비중이 큰 정상 계정을 마진콜로 오인할 수 있다.
+  const collateral = userEtfPortfolioValueOf(s);
+  return Math.max(0, effectiveLeverage(s) * (equity + collateral) - exposure);
 }
 
 /** 현물 매수는 미수 해제 시 현금과 1배 노출 한도를 모두 넘지 못한다. */
@@ -976,14 +980,12 @@ function userEtfRelationshipHoldingsOf(
 }
 
 function userEtfPortfolioValueOf(
-  state: Pick<
-    MarketStore,
-    "holdings" | "stocks" | "assetManager" | "listedAmcFunds"
-  >,
+  state: Pick<MarketStore, "holdings" | "stocks"> &
+    Partial<Pick<MarketStore, "assetManager" | "listedAmcFunds">>,
 ): number {
   const funds = mergeAmcPortfolioFunds(
     state.assetManager?.funds ?? [],
-    state.listedAmcFunds.map(listedFundToAmcState),
+    (state.listedAmcFunds ?? []).map(listedFundToAmcState),
   );
   return getAmcPortfolioValue(state.holdings, funds, state.stocks);
 }
@@ -1084,7 +1086,7 @@ function fullNeedsLiquidation(s: MarginAwareState): boolean {
   const { equity, exposure } = marginContext(s);
   if (exposure <= 0) return false;
   const maintenance = maintenanceMarginForLeverage(effectiveLeverage(s));
-  return equity < maintenance * exposure;
+  return equity + userEtfPortfolioValueOf(s) < maintenance * exposure;
 }
 
 interface InterestOutcome {
@@ -1196,6 +1198,9 @@ function liquidatePositions(
     stocks.find((s) => s.id === id)?.currentPrice ?? 0;
   let nextCash = cash;
   let nextTrades = trades;
+  const retainedServerLedgerHoldings = holdings.filter((holding) =>
+    isAmcFundStockId(holding.stockId),
+  );
   const mk = (
     stockId: string,
     ticker: string,
@@ -1213,6 +1218,9 @@ function liquidatePositions(
     timestamp: now,
   });
   for (const h of holdings) {
+    // 유저 ETF는 서버 원장에서만 안전하게 매도할 수 있다. 로컬 배열만 지우면
+    // 서버 재동기화 때 좌수가 되살아나면서 현금만 중복 지급될 수 있으므로 보존한다.
+    if (isAmcFundStockId(h.stockId)) continue;
     const price = getMarketSellPrice(priceOf(h.stockId));
     nextCash += price * h.quantity;
     const ticker = stocks.find((s) => s.id === h.stockId)?.ticker ?? h.stockId;
@@ -1253,7 +1261,7 @@ function liquidatePositions(
   }
   return {
     cash: nextCash,
-    holdings: [],
+    holdings: retainedServerLedgerHoldings,
     shorts: [],
     options: [],
     trades: nextTrades,
@@ -2061,6 +2069,11 @@ export const useMarketStore = create<MarketStore>()(
           ownedLuxuries: wallet.ownedLuxuries ?? [],
           shorts: cloudRepair.shorts,
           options: cloudRepair.options,
+          marginCallAt:
+            typeof wallet.marginCallAt === "number" &&
+            Number.isFinite(wallet.marginCallAt)
+              ? wallet.marginCallAt
+              : null,
           achievements: wallet.achievements ?? [],
           lotteryWindowStart:
             cloudClockChanged
@@ -2184,6 +2197,7 @@ export const useMarketStore = create<MarketStore>()(
           ownedLuxuries: s.ownedLuxuries,
           shorts: s.shorts,
           options: s.options,
+          marginCallAt: s.marginCallAt,
           achievements: s.achievements,
           lotteryWindowStart: s.lotteryWindowStart,
           lotteryTicketsBought: s.lotteryTicketsBought,
@@ -2624,10 +2638,14 @@ export const useMarketStore = create<MarketStore>()(
           options,
           stocks: combinedStocks,
           ownedLuxuries: state.ownedLuxuries,
+          assetManager: state.assetManager,
+          listedAmcFunds: state.listedAmcFunds,
           marginEnabled: state.marginEnabled,
           marginLeverage: state.marginLeverage,
         };
-        if (fullNeedsLiquidation(liveState)) {
+        const liquidationRecentlyApplied =
+          marginCallAt !== null && now - marginCallAt < 10_000;
+        if (fullNeedsLiquidation(liveState) && !liquidationRecentlyApplied) {
           const liq = liquidatePositions(
             cash,
             holdings,
@@ -4005,7 +4023,10 @@ export const useMarketStore = create<MarketStore>()(
         const state = get();
         if (!state.userId || state.playerCompany) return;
         try {
-          const requests = await listMyCompanyFoundationRequests();
+          const [requests, stockRequests] = await Promise.all([
+            listMyCompanyFoundationRequests(),
+            listMyStockRequests(),
+          ]);
           const latest = get();
           if (latest.playerCompany) return;
           const now = Date.now();
@@ -4014,6 +4035,7 @@ export const useMarketStore = create<MarketStore>()(
             latest.cashPayments,
             Math.floor(now / SESSION_DURATION_MS),
             now,
+            stockRequests,
           );
           if (!recovered) return;
           set({ playerCompany: recovered.entity });
@@ -5771,6 +5793,7 @@ export const useMarketStore = create<MarketStore>()(
         shorts: state.shorts,
         options: state.options,
         lastInterestSession: state.lastInterestSession,
+        marginCallAt: state.marginCallAt,
         trades: state.trades.slice(0, 500),
         openOrders: state.openOrders.slice(0, 50),
         cashPayments: state.cashPayments.slice(0, 50),
@@ -6119,7 +6142,12 @@ export const useMarketStore = create<MarketStore>()(
           )
             ? (walletSource as Partial<MarketStore>).lastInterestSession!
             : nowSession),
-          marginCallAt: null,
+          marginCallAt:
+            typeof (walletSource as Partial<MarketStore>).marginCallAt ===
+              "number" &&
+            Number.isFinite((walletSource as Partial<MarketStore>).marginCallAt)
+              ? (walletSource as Partial<MarketStore>).marginCallAt!
+              : null,
           achievements: Array.isArray(
             (walletSource as Partial<MarketStore>).achievements,
           )

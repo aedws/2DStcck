@@ -11,6 +11,7 @@ import {
 } from "@/lib/player/assetManager";
 import type { CashPayment } from "@/lib/types/market";
 import type { CompanyFoundationRequest } from "@/lib/supabase/companyFoundationRequests";
+import type { StockRequestRow } from "@/lib/supabase/stockRequests";
 import type { AmcFoundationRequest } from "@/lib/supabase/amcFoundationRequests";
 import {
   reconcileOwnedListingRequestsIntoManager,
@@ -43,6 +44,7 @@ export function recoverPlayerCompanyFromServerRecords(
   cashPayments: readonly CashPayment[],
   currentSession: number,
   now = Date.now(),
+  stockRequests: readonly StockRequestRow[] = [],
 ): RecoveredServerEntity<PlayerCompanyState> | null {
   for (const request of requests) {
     if (!['accepted', 'shipped'].includes(request.status)) continue;
@@ -52,7 +54,14 @@ export function recoverPlayerCompanyFromServerRecords(
         payment.id.startsWith("company-founding-") &&
         payment.ticker?.toUpperCase() === request.company.ticker.toUpperCase(),
     );
-    if (request.status !== "shipped" && !foundingPayment) continue;
+    const ipoRequest = stockRequests.find(
+      (row) =>
+        (row.description ?? "").startsWith("[플레이어 회사 IPO]") &&
+        row.name === `${request.company.name} (${request.company.ticker.toUpperCase()})`,
+    );
+    // IPO 신청은 설립과 최소 두 번의 성장 단계를 마친 뒤에만 만들 수 있으므로,
+    // 오래된 설립 결제 기록이 지갑에서 밀려났어도 가장 강한 설립 완료 증거다.
+    if (request.status !== "shipped" && !foundingPayment && !ipoRequest) continue;
 
     const foundedAt = foundingPayment?.timestamp ?? timestampOf(request.updatedAt, now);
     const foundedSession = foundingPayment?.dueSession ?? currentSession;
@@ -85,7 +94,7 @@ export function recoverPlayerCompanyFromServerRecords(
         id: companyId,
         ...request.company,
         ticker: request.company.ticker.toUpperCase(),
-        status: "active",
+        status: ipoRequest ? "ipo-requested" : "active",
         foundedAt,
         foundedSession,
         foundingNetWorth: Math.round(foundingCost / PLAYER_COMPANY_FOUNDING_RATE),
@@ -102,9 +111,13 @@ export function recoverPlayerCompanyFromServerRecords(
           Math.max(currentSession, lastCapitalSession) +
           PLAYER_COMPANY_CAPITAL_CALL_INTERVAL,
         pendingCapitalCall: null,
+        ...(ipoRequest
+          ? { ipoRequestedAt: timestampOf(ipoRequest.created_at, foundedAt) }
+          : {}),
         lastActionAt: Math.max(
           foundedAt,
           ...laterCapitalPayments.map((payment) => payment.timestamp),
+          ipoRequest ? timestampOf(ipoRequest.updated_at, foundedAt) : foundedAt,
         ),
       },
     };

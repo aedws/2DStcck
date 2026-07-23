@@ -49,6 +49,7 @@ import {
   computeCoveredCallTick,
   calculateTickPrice,
   createInitialStockState,
+  getMarketSellPrice,
   marketBetaForStock,
   randomNormal,
   resolveEventTemplate,
@@ -136,6 +137,7 @@ import {
 } from "../src/lib/market/investmentMastery";
 import {
   INVESTMENT_SEASON_SESSIONS,
+  calculateAccountInvestmentPerformance,
   calculateSeasonGoalAllocation,
   calculateSeasonTraitScore,
   createInitialInvestmentSeasonState,
@@ -171,6 +173,51 @@ const session =
     INVESTMENT_SEASON_SESSIONS) %
     INVESTMENT_SEASON_SESSIONS);
 const windowStart = missionWindowStart(session);
+
+assert.equal(
+  getMarketSellPrice(50),
+  49,
+  "a sub-$1 market sell must use the real cent price instead of a $1 floor",
+);
+assert.equal(getMarketSellPrice(1), 1);
+assert.equal(
+  needsLiquidation(
+    -400,
+    [{ stockId: "regular", quantity: 1, averagePrice: 500 }],
+    [],
+    { regular: 500 },
+    0,
+    0.3,
+    500,
+  ),
+  false,
+  "user ETF collateral must prevent a false margin liquidation",
+);
+assert.deepEqual(
+  calculateAccountInvestmentPerformance(
+    1_120_000,
+    1_000_000,
+    [
+      {
+        id: "salary-performance-test",
+        kind: "salary",
+        sourceId: "fixed_salary",
+        dueSession: session,
+        amount: 100_000,
+        timestamp: Date.now(),
+      },
+      {
+        id: "negative-correction-performance-test",
+        kind: "compensation",
+        sourceId: "account-cash-adjustment",
+        dueSession: session,
+        amount: -500_000,
+        timestamp: Date.now(),
+      },
+    ],
+  ),
+  { profit: 20_000, returnRate: 2, externalCashTotal: 100_000 },
+);
 
 const attendanceDayOne = Date.UTC(2026, 6, 13, 15, 30);
 const firstAttendance = claimAttendanceState(

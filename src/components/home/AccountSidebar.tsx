@@ -20,6 +20,7 @@ import {
 import { computePrestige } from "@/lib/player/prestige";
 import { getBenchmark } from "@/lib/market/interestRate";
 import {
+  calculateAccountInvestmentPerformance,
   calculateSeasonPerformance,
   seasonExternalCashTotal,
 } from "@/lib/market/investmentSeasons";
@@ -107,8 +108,11 @@ export function AccountSidebar() {
     playerCompany,
   });
   const total = getTotalAssets();
-  const profit = total - initialCash;
-  const returnRate = (profit / initialCash) * 100;
+  const { profit, returnRate } = calculateAccountInvestmentPerformance(
+    total,
+    initialCash,
+    cashPayments,
+  );
   // 노동·외부수입(고정급·복권·출석·현금 채굴)을 뺀 순수 투자 성과 — 판단이
   // 지수를 이겼는지(알파)만 뽑아 보여준다. 시즌 창을 기준 구간으로 재사용한다.
   const benchmarkPrice = getBenchmark(stocks)?.currentPrice ?? 0;

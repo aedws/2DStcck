@@ -3,17 +3,23 @@
 import type { ReactNode } from "react";
 import { useMarketStore } from "@/store/marketStore";
 import { formatMarketTime, formatPrice } from "@/lib/market/engine";
+import { calculateAccountInvestmentPerformance } from "@/lib/market/investmentSeasons";
 
 export function MarketHeader() {
   const tick = useMarketStore((s) => s.tick);
   const marketStartedAt = useMarketStore((s) => s.marketStartedAt);
   const cash = useMarketStore((s) => s.cash);
+  const cashPayments = useMarketStore((s) => s.cashPayments);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
   const reset = useMarketStore((s) => s.reset);
 
   const total = getTotalAssets();
   const initialCash = useMarketStore((s) => s.initialCash);
-  const returnRate = ((total - initialCash) / initialCash) * 100;
+  const { returnRate } = calculateAccountInvestmentPerformance(
+    total,
+    initialCash,
+    cashPayments,
+  );
 
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -36,7 +42,7 @@ export function MarketHeader() {
       <StatCard label="보유 현금" value={formatPrice(cash)} />
       <StatCard label="총 자산" value={formatPrice(total)} />
       <StatCard
-        label="수익률"
+        label="투자 수익률"
         value={`${returnRate >= 0 ? "+" : ""}${returnRate.toFixed(2)}%`}
         highlight={returnRate >= 0 ? "up" : "down"}
       />

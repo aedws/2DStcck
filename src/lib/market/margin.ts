@@ -94,10 +94,13 @@ export function needsLiquidation(
   prices: Record<string, number>,
   luxuryValue: number,
   maintenanceMargin = 0.3,
+  additionalCollateral = 0,
 ): boolean {
   const exposure = grossExposure(holdings, shorts, prices);
   if (exposure <= 0) return false;
-  const equity = computeEquity(cash, holdings, shorts, prices, luxuryValue);
+  const equity =
+    computeEquity(cash, holdings, shorts, prices, luxuryValue) +
+    Math.max(0, additionalCollateral);
   return equity < maintenanceMargin * exposure;
 }
 

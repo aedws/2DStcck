@@ -50,6 +50,7 @@ import {
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
+import { calculateAccountInvestmentPerformance } from "@/lib/market/investmentSeasons";
 
 type HoldingSortKey =
   | "stock"
@@ -75,6 +76,7 @@ export default function PortfolioPage() {
   const assetManager = useMarketStore((s) => s.assetManager);
   const listedAmcFunds = useMarketStore((s) => s.listedAmcFunds);
   const trades = useMarketStore((s) => s.trades);
+  const cashPayments = useMarketStore((s) => s.cashPayments);
   const ownedLuxuries = useMarketStore((s) => s.ownedLuxuries);
   const preferredShares = useMarketStore((s) => s.preferredShares);
   const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
@@ -134,7 +136,11 @@ export default function PortfolioPage() {
   const debit = marginDebit(cash);
   const stockValue = longVal;
   const rateLevel = getRateLevel();
-  const returnRate = ((total - initialCash) / initialCash) * 100;
+  const { returnRate } = calculateAccountInvestmentPerformance(
+    total,
+    initialCash,
+    cashPayments,
+  );
   const recentMarginCall =
     marginCallAt !== null && Date.now() - marginCallAt < 5 * 60 * 1000;
   const currentSession = stocks[0]?.daySessionId ?? lastSalarySession;
@@ -300,7 +306,7 @@ export default function PortfolioPage() {
         <SummaryCard label="총 자산" value={formatCompactMoney(total)} />
         <SummaryCard label="보유 평가액" value={formatCompactMoney(stockValue)} />
         <SummaryCard
-          label="수익률"
+          label="투자 수익률"
           value={`${returnRate >= 0 ? "+" : ""}${returnRate.toFixed(2)}%`}
           color={returnRate >= 0 ? "text-emerald-400" : "text-red-400"}
         />

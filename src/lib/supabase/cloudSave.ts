@@ -59,6 +59,8 @@ export interface WalletSave {
   options?: OptionPosition[];
   /** 마지막 이자 정산 거래일. 구버전 호환을 위해 선택형. */
   lastInterestSession?: number;
+  /** 마지막 강제청산 시각. 재접속 직후 같은 포지션을 중복 청산하지 않기 위한 체크포인트. */
+  marginCallAt?: number | null;
   /** 달성 업적 id. 구버전 호환을 위해 선택형. */
   achievements?: string[];
   /** 복권 회차·구매수·잭팟 이력. 구버전 호환을 위해 선택형. */

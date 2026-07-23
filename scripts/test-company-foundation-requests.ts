@@ -102,6 +102,30 @@ assert.equal(recovered.entity.name, input.name);
 assert.equal(recovered.entity.foundingCost, 20_000_000_000);
 assert.equal(recovered.shouldMarkShipped, true);
 
+const ipoRequest: StockRequestRow = {
+  ...regularRow,
+  id: "ipo-1",
+  name: "오로라 캐피털 (AURA)",
+  description: "[플레이어 회사 IPO]\n실제 설립 뒤 제출한 IPO 신청",
+  status: "pending",
+  created_at: "2026-07-22T02:00:00.000Z",
+  updated_at: "2026-07-22T02:00:00.000Z",
+};
+const recoveredFromIpo = recoverPlayerCompanyFromServerRecords(
+  [parsed],
+  [],
+  500,
+  Date.parse("2026-07-22T03:00:00.000Z"),
+  [ipoRequest],
+);
+assert.ok(recoveredFromIpo);
+assert.equal(recoveredFromIpo.entity.status, "ipo-requested");
+assert.equal(
+  recoveredFromIpo.entity.ipoRequestedAt,
+  Date.parse(ipoRequest.created_at),
+);
+assert.equal(recoveredFromIpo.shouldMarkShipped, true);
+
 const publicCompany = parsePublicPlayerCompany({
   founder_game_id: "founder_01",
   company_id: "player-company-123",

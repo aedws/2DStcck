@@ -613,16 +613,39 @@ export function calculateSeasonScore(
 
 export function seasonExternalCashTotal(cashPayments: CashPayment[]): number {
   return cashPayments.reduce(
-    (sum, payment) =>
-      payment.kind === "salary" ||
+    (sum, payment) => {
+      if (payment.kind === "compensation") {
+        // 양수 운영 보상만 외부 유입으로 제외한다. 오류 수익 회수처럼 음수인
+        // 계정 조정까지 제외하면 차감된 금액이 다시 투자 수익으로 잡힌다.
+        return sum + Math.max(0, payment.amount);
+      }
+      return payment.kind === "salary" ||
       payment.kind === "lottery" ||
       payment.kind === "attendance" ||
-      payment.kind === "minigame" ||
-      payment.kind === "compensation"
+      payment.kind === "minigame"
         ? sum + payment.amount
-        : sum,
+        : sum;
+    },
     0,
   );
+}
+
+/**
+ * 총자산에서 고정급·복권·출석·미니게임·운영 보상 같은 외부 유입을 제외한
+ * 순수 투자 손익과 수익률. 포트폴리오의 전체 기간 성과 표시에 사용한다.
+ */
+export function calculateAccountInvestmentPerformance(
+  equity: number,
+  initialCash: number,
+  cashPayments: CashPayment[],
+): { profit: number; returnRate: number; externalCashTotal: number } {
+  const externalCashTotal = seasonExternalCashTotal(cashPayments);
+  const profit = equity - initialCash - externalCashTotal;
+  return {
+    profit,
+    returnRate: initialCash > 0 ? (profit / initialCash) * 100 : 0,
+    externalCashTotal,
+  };
 }
 
 export function getSeasonRival(season: Pick<ActiveInvestmentSeason, "id" | "number">): SeasonRival {

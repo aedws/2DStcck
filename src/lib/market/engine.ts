@@ -1184,9 +1184,9 @@ export function getMarketBuyPrice(currentPrice: number): number {
   );
 }
 
-/** 시장가 매도 체결가: 현재가 - 0.005% (최소 $1) */
+/** 시장가 매도 체결가: 현재가 - 0.005% (최소 $0.01) */
 export function getMarketSellPrice(currentPrice: number): number {
-  return Math.max(Math.floor(currentPrice * (1 - MARKET_ORDER_SLIPPAGE)), 100);
+  return Math.max(Math.floor(currentPrice * (1 - MARKET_ORDER_SLIPPAGE)), 1);
 }
 
 /** 전일 종가 대비 등락률 */
