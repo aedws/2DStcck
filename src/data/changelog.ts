@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "계좌 저장을 서버 revision 비교 방식으로 전환해 오래 열린 탭·다른 기기가 청산 이후의 최신 계좌를 과거 자산으로 되돌리지 못하게 했습니다. 1달러 미만 유저 ETF는 가치 보존 병합으로 센트 반올림 고정을 해소합니다. (@sedim)",
       "천문학적 큰 수 정밀 원장 — 현금·보유좌수·순자산을 JSON 숫자가 아닌 10진 문자열로 저장하고 필요한 연산만 BigInt로 수행합니다. 랭킹과 유저 ETF 서버 원장도 PostgreSQL numeric을 문자열로 왕복해 새로고침·다중 기기 동기화 뒤 자산 끝자리가 반올림되거나 거래가 사라지는 문제를 근본 차단했습니다.",
       "차트 설정 유지 개선 — 봉 주기와 이동평균선·지수이동평균선·VWAP·볼린저밴드·거래량·장중 구분·RSI 표시 설정이 페이지·종목·옵션 이동 뒤에도 마지막 상태로 복원됩니다. (@doglife)",
       "자산운용사 정보 수정 — 설립한 운용사의 이름·한줄 소개·상세 소개를 수정할 수 있고, 변경 내용이 본인 소유의 공유 상장 ETF와 클라우드 저장 데이터에도 함께 반영됩니다. (@monoch)",
@@ -228,6 +229,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "수정",
+    title: "계좌 롤백 차단·유저 ETF 초저가 NAV 정상화",
+    detail:
+      "여러 탭·기기가 같은 계좌를 저장할 때 서버 지갑 revision과 일치하는 요청만 반영하도록 바꾸고, 충돌한 탭은 서버 최신본을 다시 불러옵니다. 구버전 클라이언트의 직접 지갑 덮어쓰기 권한도 회수했으며, 큰 금액 보정과 유저 ETF 원장 정산이 cashExact를 함께 갱신하도록 보강했습니다. 수면채(SELP)는 구성 가격계수는 움직였지만 이론 NAV가 약 10.55센트라 정수 센트 반올림에 갇힌 상태였습니다. 기존 1달러 미만 유저 ETF를 AUM·보유가치 보존 병합으로 10달러대까지 조정하고, 신규 초저가 상장과 이후 재발도 서버에서 자동 정규화합니다. (@sedim)",
+  },
   {
     date: "2026-07-23",
     tag: "수정",

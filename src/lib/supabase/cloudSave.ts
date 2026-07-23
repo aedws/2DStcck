@@ -124,9 +124,50 @@ export interface WalletSave {
 }
 
 export type GameSaveLoadResult =
-  | { status: "loaded"; wallet: WalletSave; updatedAt: number }
+  | {
+      status: "loaded";
+      wallet: WalletSave;
+      updatedAt: number;
+      revision: number;
+    }
   | { status: "missing" }
   | { status: "error"; message: string };
+
+export type GameSaveWriteResult = "saved" | "conflict" | "failed";
+
+type GameSaveWriteRpcResponse = {
+  saved?: unknown;
+  conflict?: unknown;
+  revision?: unknown;
+};
+
+const gameSaveRevisionByUser = new Map<string, number>();
+const gameSaveGenerationByUser = new Map<string, number>();
+
+function bumpGameSaveGeneration(userId: string): void {
+  gameSaveGenerationByUser.set(
+    userId,
+    (gameSaveGenerationByUser.get(userId) ?? 0) + 1,
+  );
+}
+
+function safeWalletRevision(value: unknown): number {
+  const revision = Number(value);
+  return Number.isSafeInteger(revision) && revision >= 0 ? revision : 0;
+}
+
+export function parseGameSaveWriteRpcResponse(
+  value: unknown,
+): { status: GameSaveWriteResult; revision: number } {
+  if (!value || typeof value !== "object") {
+    return { status: "failed", revision: 0 };
+  }
+  const response = value as GameSaveWriteRpcResponse;
+  const revision = safeWalletRevision(response.revision);
+  if (response.saved === true) return { status: "saved", revision };
+  if (response.conflict === true) return { status: "conflict", revision };
+  return { status: "failed", revision };
+}
 
 // 짧은 간격의 매매·ETF 원장 갱신이 동시에 저장되면 먼저 시작한 느린 요청이
 // 나중 상태를 덮어쓸 수 있다. 브라우저 탭 안의 지갑 쓰기는 반드시 순서대로 보낸다.
@@ -143,47 +184,71 @@ export async function loadGameSave(): Promise<GameSaveLoadResult> {
 
   const { data, error } = await supabase
     .from("game_saves")
-    .select("state, updated_at")
+    .select("state, updated_at, wallet_revision")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (error) return { status: "error", message: error.message };
-  if (!data?.state) return { status: "missing" };
+  if (!data?.state) {
+    gameSaveRevisionByUser.set(user.id, 0);
+    bumpGameSaveGeneration(user.id);
+    return { status: "missing" };
+  }
+  const revision = safeWalletRevision(data.wallet_revision);
+  gameSaveRevisionByUser.set(user.id, revision);
+  bumpGameSaveGeneration(user.id);
   return {
     status: "loaded",
     wallet: data.state as WalletSave,
     updatedAt: new Date(data.updated_at as string).getTime(),
+    revision,
   };
 }
 
 /** 현재 지갑을 저장한다 (upsert). 로그인 상태가 아니면 무시. */
-export async function saveGameSave(wallet: WalletSave): Promise<boolean> {
+export async function saveGameSave(
+  wallet: WalletSave,
+): Promise<GameSaveWriteResult> {
   const supabase = createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
   const userId = session?.user?.id;
-  if (!userId) return false;
+  if (!userId) return "failed";
 
   // 큐 대기 중 store 배열이 교체돼도 이 요청의 시점별 스냅샷은 변하지 않게 한다.
   const snapshot =
     typeof structuredClone === "function"
       ? structuredClone(wallet)
       : (JSON.parse(JSON.stringify(wallet)) as WalletSave);
-  const write = gameSaveWriteQueue.then(async () => {
-    const { error } = await supabase.from("game_saves").upsert({
-      // 대기 중 로그아웃·계정 전환이 일어나도 이전 계정 스냅샷을 새 계정에
-      // 쓰지 않도록 큐에 넣는 순간의 사용자 ID를 고정한다.
-      user_id: userId,
-      state: snapshot,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) {
-      console.warn("[cloud-save] wallet write failed", error.message);
-      return false;
-    }
-    return true;
-  });
+  const generation = gameSaveGenerationByUser.get(userId) ?? 0;
+  const write = gameSaveWriteQueue.then(
+    async (): Promise<GameSaveWriteResult> => {
+      // 앞선 저장이 충돌해 서버 원본을 다시 읽는 동안 큐에 남은 스냅샷도 폐기한다.
+      if ((gameSaveGenerationByUser.get(userId) ?? 0) !== generation) {
+        return "conflict";
+      }
+      const expectedRevision = gameSaveRevisionByUser.get(userId) ?? 0;
+      const { data, error } = await supabase.rpc("save_game_save_cas", {
+        // 대기 중 로그아웃·계정 전환이 일어나도 이전 계정 스냅샷을 새 계정에
+        // 쓰지 않도록 큐에 넣는 순간의 사용자 ID를 고정한다.
+        p_state: snapshot,
+        p_expected_revision: expectedRevision,
+      });
+      if (error) {
+        console.warn("[cloud-save] wallet write failed", error.message);
+        return "failed";
+      }
+      const result = parseGameSaveWriteRpcResponse(data);
+      if (result.status === "saved" || result.status === "conflict") {
+        gameSaveRevisionByUser.set(userId, result.revision);
+      }
+      if (result.status === "conflict") {
+        bumpGameSaveGeneration(userId);
+      }
+      return result.status;
+    },
+  );
   gameSaveWriteQueue = write.then(
     () => undefined,
     () => undefined,

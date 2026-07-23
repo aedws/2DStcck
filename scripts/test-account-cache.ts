@@ -4,6 +4,7 @@ import {
   resolvedResponseIdsWithPaymentEvidence,
   shouldRecoverFailedLocalWallet,
 } from "../src/lib/market/cloudSyncGuards";
+import { parseGameSaveWriteRpcResponse } from "../src/lib/supabase/cloudSave";
 
 const guest = marketStorageKey(null);
 const phoneAccount = marketStorageKey("account-a");
@@ -54,6 +55,30 @@ assert.equal(
   resolvedByPayment.has(feedbackId),
   true,
   "처리 배열이 유실돼도 기존 지급 거래가 중복 보상을 막아야 함",
+);
+
+assert.deepEqual(
+  parseGameSaveWriteRpcResponse({
+    saved: true,
+    conflict: false,
+    revision: 8,
+  }),
+  { status: "saved", revision: 8 },
+  "CAS 저장 성공 revision을 유지해야 함",
+);
+assert.deepEqual(
+  parseGameSaveWriteRpcResponse({
+    saved: false,
+    conflict: true,
+    revision: "9",
+  }),
+  { status: "conflict", revision: 9 },
+  "다른 탭의 선행 저장은 conflict로 구분해야 함",
+);
+assert.deepEqual(
+  parseGameSaveWriteRpcResponse(null),
+  { status: "failed", revision: 0 },
+  "잘못된 RPC 응답을 저장 성공으로 처리하면 안 됨",
 );
 
 console.log("account-scoped local cache scenarios passed");

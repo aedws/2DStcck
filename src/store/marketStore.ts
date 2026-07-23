@@ -2445,7 +2445,7 @@ export const useMarketStore = create<MarketStore>()(
       saveCloud: async () => {
         if (!get().userId || !get().cloudSyncReady) return false;
         const s = get();
-        const saved = await saveGameSave({
+        const saveResult = await saveGameSave({
           walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
@@ -2516,6 +2516,20 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession: s.lastInterestSession,
         });
 
+        if (saveResult === "conflict") {
+          // 다른 탭·기기의 최신 저장본이 있으면 현재 탭의 오래된 지갑으로 덮지 않는다.
+          // 서버 원본을 다시 읽은 뒤 다음 변경부터 새 revision 위에서 저장한다.
+          set({ cloudSyncReady: false, cloudSaveFailedAt: 0 });
+          await get().loadCloudSave();
+          set({ cloudSyncReady: true, cloudSaveFailedAt: 0 });
+          useToastStore.getState().push(
+            "다른 기기의 최신 계좌 기록을 불러왔습니다.",
+            "info",
+          );
+          return false;
+        }
+
+        const saved = saveResult === "saved";
         set({ cloudSaveFailedAt: saved ? 0 : Date.now() });
         if (saved) await get().syncLeaderboardNow();
         return saved;
