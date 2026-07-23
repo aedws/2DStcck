@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "7월 26일 IPO 시간대 분산 — 오전 09:00 주붕투자증권(JBINV), 오후 14:00 홍루 은행(HONGL), 저녁 19:00 파급효과(PGHG), 밤 22:00 에이메스 네트웍스(AMNW)를 순차 상장합니다. 유저 기업은 개장 전 거래·시세·창업주 지분 지급을 모두 잠그고, 개장 시 기존 희석 비율을 보존한 창업주 보통주를 계좌에 한 번만 반영합니다. (@gudokza111, @warning, @sedim, @titia8397)",
       "계좌 저장을 서버 revision 비교 방식으로 전환해 오래 열린 탭·다른 기기가 청산 이후의 최신 계좌를 과거 자산으로 되돌리지 못하게 했습니다. 1달러 미만 유저 ETF는 가치 보존 병합으로 센트 반올림 고정을 해소합니다. (@sedim)",
       "천문학적 큰 수 정밀 원장 — 현금·보유좌수·순자산을 JSON 숫자가 아닌 10진 문자열로 저장하고 필요한 연산만 BigInt로 수행합니다. 랭킹과 유저 ETF 서버 원장도 PostgreSQL numeric을 문자열로 왕복해 새로고침·다중 기기 동기화 뒤 자산 끝자리가 반올림되거나 거래가 사라지는 문제를 근본 차단했습니다.",
       "차트 설정 유지 개선 — 봉 주기와 이동평균선·지수이동평균선·VWAP·볼린저밴드·거래량·장중 구분·RSI 표시 설정이 페이지·종목·옵션 이동 뒤에도 마지막 상태로 복원됩니다. (@doglife)",
@@ -229,6 +230,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "신규",
+    title: "7월 26일 IPO 오전·오후·저녁·밤 순차 상장",
+    detail:
+      "운영 종목 요청을 확인해 주붕투자증권(JBINV) 09:00, 홍루 은행(HONGL) 14:00, 파급효과(PGHG) 19:00, 에이메스 네트웍스(AMNW) 22:00 KST로 분산 배치했습니다. 세 유저 기업은 정적 종목·파생상품이 먼저 배포돼도 지정 시각 전에는 가격 기록, 주문, 창업주 지분 지급이 열리지 않습니다. 개장 시에는 설립 기록의 창업주 좌수와 PGHG의 기존 10% 희석을 그대로 보존해 보통주를 계좌에 한 번만 반영하며, 재접속·다기기에서도 중복 지급하지 않습니다. (@gudokza111, @warning, @sedim, @titia8397)",
+  },
   {
     date: "2026-07-23",
     tag: "수정",

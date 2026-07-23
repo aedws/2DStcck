@@ -1,4 +1,5 @@
 import { COMPANY_SECTOR_ORDER } from "@/lib/market/taxonomy";
+import type { Holding, StockState } from "@/lib/types/market";
 
 export const PLAYER_COMPANY_MIN_NET_WORTH = 100_000_000_000; // $1B
 export const PLAYER_COMPANY_FOUNDING_RATE = 0.2;
@@ -13,7 +14,11 @@ export const PLAYER_COMPANY_SECTORS = COMPANY_SECTOR_ORDER.filter(
   (sector) => sector !== "채권",
 );
 
-export type PlayerCompanyStatus = "active" | "paused" | "ipo-requested";
+export type PlayerCompanyStatus =
+  | "active"
+  | "paused"
+  | "ipo-requested"
+  | "listed";
 
 export interface PlayerCompanyCapitalCall {
   id: string;
@@ -47,6 +52,12 @@ export interface PlayerCompanyState {
   pendingCapitalCall: PlayerCompanyCapitalCall | null;
   lastActionAt: number;
   ipoRequestedAt?: number;
+  /** 승인된 정적 시장 종목 id. 운영 배포가 끝나기 전에는 비어 있다. */
+  ipoListingStockId?: string;
+  /** 실제 개장 시각. 이 시각 전에는 회사 상태와 창업주 지분을 상장 처리하지 않는다. */
+  ipoListingAt?: number;
+  /** 창업주 보통주가 계좌에 한 번 반영된 시각. 재접속·다기기 중복 지급 방지용. */
+  founderSharesGrantedAt?: number;
 }
 
 export interface FoundPlayerCompanyInput {
@@ -384,6 +395,92 @@ export function markPlayerCompanyIpoRequested(
   };
 }
 
+export interface PlayerCompanyIpoReconcileResult {
+  company: PlayerCompanyState;
+  holdings: Holding[];
+  grantedShares: number;
+}
+
+/**
+ * 운영 승인을 받은 플레이어 회사 IPO를 개장 시각에만 상장 처리한다.
+ *
+ * 정적 종목 정의가 먼저 배포돼도 listingEpochMs 전에는 아무 변화가 없다. 개장 뒤에는
+ * 창업주 지분을 공모가 평단으로 한 번만 계좌에 옮기고 `listed` 상태를 저장한다.
+ * 기존 보유분이 있으면 목표 창업주 지분까지의 부족분만 채워 다기기 재시도에도
+ * 좌수가 불어나지 않는다.
+ */
+export function reconcilePlayerCompanyIpo(
+  company: PlayerCompanyState | null | undefined,
+  holdings: Holding[],
+  stocks: StockState[],
+  now = Date.now(),
+): PlayerCompanyIpoReconcileResult | null {
+  if (!company) return null;
+  const stock = stocks.find(
+    (item) =>
+      item.id === company.ipoListingStockId ||
+      (item.ticker.toUpperCase() === company.ticker.toUpperCase() &&
+        item.leverage === undefined &&
+        !item.coveredCallUnderlyingId),
+  );
+  if (!stock) return null;
+  const listingAt = company.ipoListingAt ?? stock.listingEpochMs;
+  if (!listingAt || now < listingAt) return null;
+  if (company.founderSharesGrantedAt && company.status === "listed") {
+    return { company, holdings, grantedShares: 0 };
+  }
+
+  const founderShares = Math.max(0, Math.floor(company.founderShares));
+  const existing = holdings.find((item) => item.stockId === stock.id);
+  const grantedShares = Math.max(
+    0,
+    founderShares - Math.max(0, existing?.quantity ?? 0),
+  );
+  let nextHoldings = holdings;
+  if (grantedShares > 0) {
+    if (existing) {
+      const quantity = existing.quantity + grantedShares;
+      nextHoldings = holdings.map((item) =>
+        item.stockId === stock.id
+          ? {
+              ...item,
+              quantity,
+              quantityExact: String(quantity),
+              averagePrice:
+                (item.averagePrice * item.quantity +
+                  stock.initialPrice * grantedShares) /
+                quantity,
+            }
+          : item,
+      );
+    } else {
+      nextHoldings = [
+        ...holdings,
+        {
+          stockId: stock.id,
+          quantity: founderShares,
+          quantityExact: String(founderShares),
+          averagePrice: stock.initialPrice,
+        },
+      ];
+    }
+  }
+
+  return {
+    company: {
+      ...company,
+      status: "listed",
+      ipoListingStockId: stock.id,
+      ipoListingAt: listingAt,
+      founderSharesGrantedAt: company.founderSharesGrantedAt ?? now,
+      pendingCapitalCall: null,
+      lastActionAt: Math.max(company.lastActionAt, now),
+    },
+    holdings: nextHoldings,
+    grantedShares,
+  };
+}
+
 export function normalizePlayerCompany(
   value: unknown,
 ): PlayerCompanyState | null {
@@ -396,9 +493,12 @@ export function normalizePlayerCompany(
       : "";
   if (!name || !/^[A-Z0-9]{2,6}$/.test(ticker)) return null;
 
-  const status: PlayerCompanyStatus = ["active", "paused", "ipo-requested"].includes(
-    source.status ?? "",
-  )
+  const status: PlayerCompanyStatus = [
+    "active",
+    "paused",
+    "ipo-requested",
+    "listed",
+  ].includes(source.status ?? "")
     ? source.status!
     : "active";
   const totalShares = Math.max(
@@ -475,6 +575,20 @@ export function normalizePlayerCompany(
     lastActionAt: finiteNonNegative(source.lastActionAt, source.foundedAt),
     ...(finiteNonNegative(source.ipoRequestedAt) > 0
       ? { ipoRequestedAt: finiteNonNegative(source.ipoRequestedAt) }
+      : {}),
+    ...(typeof source.ipoListingStockId === "string" &&
+    source.ipoListingStockId.trim()
+      ? { ipoListingStockId: source.ipoListingStockId.trim().slice(0, 80) }
+      : {}),
+    ...(finiteNonNegative(source.ipoListingAt) > 0
+      ? { ipoListingAt: finiteNonNegative(source.ipoListingAt) }
+      : {}),
+    ...(finiteNonNegative(source.founderSharesGrantedAt) > 0
+      ? {
+          founderSharesGrantedAt: finiteNonNegative(
+            source.founderSharesGrantedAt,
+          ),
+        }
       : {}),
   };
 }

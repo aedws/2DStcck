@@ -51,6 +51,7 @@ const STATUS_LABEL = {
   active: "운영 중",
   paused: "운영 정지",
   "ipo-requested": "IPO 심사 중",
+  listed: "상장 완료",
   "foundation-accepted": "설립 허가",
 } as const;
 
@@ -700,9 +701,22 @@ export default function CompanyPage() {
           <Requirement ok={stats.ownership >= 0.5} label="창업주 지분 50% 이상" />
           <Requirement ok={stats.prestige >= 300} label="회사 프레스티지 300 이상" />
         </div>
-        {playerCompany.status === "ipo-requested" ? (
+        {playerCompany.status === "listed" ? (
+          <div className="mt-4 rounded-xl bg-emerald-400/10 p-3 text-sm font-bold text-emerald-300">
+            상장이 완료됐습니다. 창업주 지분은 계좌의 보통주로 반영됐습니다.
+            {playerCompany.ipoListingStockId && (
+              <Link
+                href={`/stock/${playerCompany.ipoListingStockId}`}
+                className="ml-2 underline underline-offset-2"
+              >
+                종목 보기 →
+              </Link>
+            )}
+          </div>
+        ) : playerCompany.status === "ipo-requested" ? (
           <p className="mt-4 rounded-xl bg-violet-400/10 p-3 text-sm font-bold text-violet-200">
-            IPO 심사 중입니다. 승인·정적 배포 전까지 거래할 수 없습니다.
+            IPO 심사·상장 대기 중입니다. 승인된 상장 시각 전까지 거래하거나
+            창업주 지분을 받을 수 없습니다.
           </p>
         ) : (
           <button

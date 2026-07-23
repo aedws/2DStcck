@@ -12,6 +12,7 @@ import {
   playerCompanyFoundingCost,
   playerCompanyPrestige,
   preparePlayerCompanyCapitalCall,
+  reconcilePlayerCompanyIpo,
   refusePlayerCompanyCapitalCall,
   resumePlayerCompany,
 } from "../src/lib/player/playerCompany";
@@ -133,6 +134,67 @@ assert.equal(isPlayerCompanyIpoReady(company), true);
 
 const ipo = markPlayerCompanyIpoRequested(company, now + 10);
 assert.equal(ipo.company?.status, "ipo-requested");
+assert.ok(ipo.company);
+
+const listingAt = now + 20;
+const ipoStock = {
+  id: "aura",
+  ticker: "AURA",
+  name: "오로라 캐피털",
+  instrumentType: "company",
+  sector: "금융",
+  initialPrice: 50_000,
+  currentPrice: 50_000,
+  prevDayClose: 50_000,
+  dayOpen: 50_000,
+  volatility: 0.03,
+  drift: 0.001,
+  listingEpochMs: listingAt,
+  priceHistory: [],
+  candles: [],
+  dailyCandles: [],
+  orderBook: { bids: [], asks: [] },
+} as never;
+const scheduledCompany = {
+  ...ipo.company,
+  ipoListingStockId: "aura",
+  ipoListingAt: listingAt,
+};
+assert.equal(
+  reconcilePlayerCompanyIpo(
+    scheduledCompany,
+    [],
+    [ipoStock],
+    listingAt - 1,
+  ),
+  null,
+  "개장 전에는 유저 기업 지분을 지급하거나 상태를 열면 안 됨",
+);
+const listedCompany = reconcilePlayerCompanyIpo(
+  scheduledCompany,
+  [],
+  [ipoStock],
+  listingAt,
+);
+assert.ok(listedCompany);
+assert.equal(listedCompany.company.status, "listed");
+assert.equal(
+  listedCompany.holdings[0]?.quantity,
+  scheduledCompany.founderShares,
+);
+assert.equal(listedCompany.holdings[0]?.averagePrice, 50_000);
+const repeatedListing = reconcilePlayerCompanyIpo(
+  listedCompany.company,
+  listedCompany.holdings,
+  [ipoStock],
+  listingAt + 1,
+);
+assert.equal(repeatedListing?.grantedShares, 0);
+assert.equal(
+  repeatedListing?.holdings[0]?.quantity,
+  scheduledCompany.founderShares,
+  "재접속 시 창업주 지분이 중복 지급되면 안 됨",
+);
 
 let pausedCandidate = preparePlayerCompanyCapitalCall(
   founded.company,

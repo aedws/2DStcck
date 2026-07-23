@@ -41,7 +41,7 @@ export function parsePublicPlayerCompany(
   const status: PublicPlayerCompany["status"] =
     rawStatus === "foundation-accepted"
       ? "foundation-accepted"
-      : ["active", "paused", "ipo-requested"].includes(rawStatus)
+      : ["active", "paused", "ipo-requested", "listed"].includes(rawStatus)
         ? (rawStatus as PlayerCompanyStatus)
         : "active";
   const foundedAt = Number(row.founded_at);

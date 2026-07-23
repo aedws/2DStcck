@@ -309,6 +309,7 @@ import {
   markPlayerCompanyIpoRequested as markCompanyIpoRequested,
   normalizePlayerCompany,
   preparePlayerCompanyCapitalCall as prepareCompanyCapitalCall,
+  reconcilePlayerCompanyIpo,
   refusePlayerCompanyCapitalCall as refuseCompanyCapitalCall,
   resumePlayerCompany as resumeCompany,
   type FoundPlayerCompanyInput,
@@ -2693,9 +2694,43 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       tickMarket: () => {
-        const state = get();
-        const { tick, stocks, events, openOrders } = state;
         const now = Date.now();
+        let state = get();
+        const listedCompany = reconcilePlayerCompanyIpo(
+          state.playerCompany,
+          state.holdings,
+          state.stocks,
+          now,
+        );
+        if (
+          listedCompany &&
+          (listedCompany.company !== state.playerCompany ||
+            listedCompany.holdings !== state.holdings)
+        ) {
+          set({
+            playerCompany: listedCompany.company,
+            holdings: listedCompany.holdings,
+          });
+          state = {
+            ...state,
+            playerCompany: listedCompany.company,
+            holdings: listedCompany.holdings,
+          };
+          if (listedCompany.grantedShares > 0) {
+            const stock = state.stocks.find(
+              (item) => item.id === listedCompany.company.ipoListingStockId,
+            );
+            useToastStore
+              .getState()
+              .push(
+                `🏢 ${listedCompany.company.name} 상장 · 창업주 지분 ${listedCompany.grantedShares.toLocaleString()}주가 계좌에 반영됐습니다.${stock ? ` (${stock.ticker})` : ""}`,
+                "success",
+              );
+            playSound("cash");
+          }
+          void get().saveCloud();
+        }
+        const { tick, stocks, events, openOrders } = state;
         // 결정론 공통 시장: 벽시계 기준 목표 틱까지 리플레이.
         // 오래 접속하지 않았어도 같은 시각이면 모든 클라이언트가 같은 상태에 도달한다.
         const targetTick = currentSimTick(now);
@@ -3547,6 +3582,7 @@ export const useMarketStore = create<MarketStore>()(
           lastInterestSession,
           cashPayments,
           assetManager,
+          playerCompany: state.playerCompany,
         });
 
         get().checkAchievements();

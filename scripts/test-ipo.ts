@@ -26,6 +26,7 @@ import {
 } from "../src/lib/market/earningsCalendar";
 import {
   EVENT_TEMPLATES,
+  STOCK_DEFINITIONS,
   getCompanyDefinitions,
 } from "../src/data/stocks";
 import { stockHref } from "../src/lib/ui/stockLink";
@@ -85,7 +86,27 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["asuna", "carrot", "dante", "faust", "gsck", "hifumi", "hinafg", "ifrit", "miku", "minori", "nagusa", "udnge", "wakamo", "yakumo", "yisang"],
+  [
+    "amnw",
+    "asuna",
+    "carrot",
+    "dante",
+    "faust",
+    "gsck",
+    "hifumi",
+    "hinafg",
+    "honglu",
+    "ifrit",
+    "jbinv",
+    "miku",
+    "minori",
+    "nagusa",
+    "pghg",
+    "udnge",
+    "wakamo",
+    "yakumo",
+    "yisang",
+  ],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -327,6 +348,40 @@ assert.equal(
   null,
   "상장 전 이프리트 화력발전 전용 사건이 발생함",
 );
+
+// 7/26 승인 요청 4건: 오전·오후·저녁·밤 슬롯과 전 파생상품 잠금 상속
+const july26Slots = [
+  ["jbinv", "JBINV", Date.UTC(2026, 6, 26, 0, 0)],
+  ["honglu", "HONGL", Date.UTC(2026, 6, 26, 5, 0)],
+  ["pghg", "PGHG", Date.UTC(2026, 6, 26, 10, 0)],
+  ["amnw", "AMNW", Date.UTC(2026, 6, 26, 13, 0)],
+] as const;
+for (const [id, ticker, listingAt] of july26Slots) {
+  const stock = getCompanyDefinitions().find((item) => item.id === id);
+  assert.ok(stock, `${ticker} 종목 정의가 없음`);
+  assert.equal(stock.ticker, ticker);
+  assert.equal(stock.listingEpochMs, listingAt);
+  assert.equal(isListed(stock, listingAt - 1), false);
+  assert.equal(isListed(stock, listingAt), true);
+
+  const derivativeSuffixes = [
+    "inverse",
+    "inverse-2x",
+    "leverage-2x",
+    ...(id === "honglu" ? ["covered-call"] : []),
+  ];
+  for (const suffix of derivativeSuffixes) {
+    const derivative = STOCK_DEFINITIONS.find(
+      (item) => item.id === `${id}-${suffix}`,
+    );
+    assert.ok(derivative, `${ticker} ${suffix} 파생상품 정의가 없음`);
+    assert.equal(
+      derivative.listingEpochMs,
+      listingAt,
+      `${ticker} ${suffix}가 본주보다 먼저 열림`,
+    );
+  }
+}
 
 // 나구사 야키토리&닭꼬치: 7/23 15:00 KST 개장과 AI 급등·조류독감 급락 사건
 const nagusa = getCompanyDefinitions().find((stock) => stock.id === "nagusa");

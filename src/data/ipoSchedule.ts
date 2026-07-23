@@ -42,4 +42,12 @@ export const IPO_SCHEDULE: Record<string, number> = {
   hifumi: Date.UTC(2026, 6, 26, 3, 0),
   // 이프리트 화력발전(IFRT) — 2026-07-26 15:00 KST 개장 (= 06:00 UTC)
   ifrit: Date.UTC(2026, 6, 26, 6, 0),
+  // 주붕투자증권(JBINV) — 2026-07-26 09:00 KST 개장 (= 00:00 UTC)
+  jbinv: Date.UTC(2026, 6, 26, 0, 0),
+  // 홍루 은행(HONGL) — 2026-07-26 14:00 KST 개장 (= 05:00 UTC)
+  honglu: Date.UTC(2026, 6, 26, 5, 0),
+  // 파급효과(PGHG) — 2026-07-26 19:00 KST 개장 (= 10:00 UTC)
+  pghg: Date.UTC(2026, 6, 26, 10, 0),
+  // 에이메스 네트웍스(AMNW) — 2026-07-26 22:00 KST 개장 (= 13:00 UTC)
+  amnw: Date.UTC(2026, 6, 26, 13, 0),
 };

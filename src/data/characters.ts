@@ -124,6 +124,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "불의 정령이라는 장점을 발전 사업에 그대로 투입한 대표. 보일러에 직접 불을 뿜어 연료비를 아끼고 높은 이익을 만들지만, 기분이 달아오르면 화력조절을 놓쳐 수리팀을 바쁘게 만들기도 한다.",
     emoji: "🔥",
   },
+  {
+    id: "chr_honglu",
+    name: "홍루",
+    title: "홍루 은행장",
+    traits: ["낙천적", "명문가", "자본건전성"],
+    bio: "대가문의 여유로운 도련님이자 홍루 은행의 대표. 화려한 비은행 사업보다 예적금과 대출이라는 은행의 기본에 집중하며, 높은 자기자본비율로 시장 충격을 견뎌 낸다.",
+    emoji: "🪬",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];
