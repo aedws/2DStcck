@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { createInitialStockState, normalizeStockSharePrice } from "../src/lib/market/engine";
-import { normalizeMarginLeverage } from "../src/lib/market/margin";
+import {
+  MARGIN_LEVERAGE_OPTIONS,
+  normalizeMarginLeverage,
+} from "../src/lib/market/margin";
 import {
   optionsGrossExposure,
 } from "../src/lib/market/options";
@@ -47,6 +50,11 @@ const released = normalizeStockSharePrice(
 assert.equal(released.currentPrice, 1_000, "split adjustment must resume after 5 sessions");
 assert.equal(released.shareMultiplier, 1);
 
+assert.deepEqual(MARGIN_LEVERAGE_OPTIONS, [1.25, 1.5, 1.75, 2]);
+assert.equal(normalizeMarginLeverage(1.25), 1.25);
+assert.equal(normalizeMarginLeverage(1.5), 1.5);
+assert.equal(normalizeMarginLeverage(1.75), 1.75);
+assert.equal(normalizeMarginLeverage(2), 2);
 assert.equal(normalizeMarginLeverage(5), 2);
 const longOptionExposure = optionsGrossExposure(
   [{

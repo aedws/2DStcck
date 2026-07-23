@@ -227,7 +227,7 @@ export interface Holding {
   splitMultiplier?: number;
 }
 
-export type MarginLeverage = 2;
+export type MarginLeverage = 1.25 | 1.5 | 1.75 | 2;
 
 /** 거래일 단위 자동 소수점 매수 계획. 자동 매수는 미수를 사용하지 않는다. */
 export interface RecurringInvestment {

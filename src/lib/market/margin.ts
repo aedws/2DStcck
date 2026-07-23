@@ -5,8 +5,13 @@ import {
 } from "@/lib/market/interestRate";
 
 export const DEFAULT_MARGIN_LEVERAGE: MarginLeverage = 2;
-/** 미수 총 노출 상한. 기존 300~500% 저장값도 로드 시 200%로 정규화한다. */
-export const MARGIN_LEVERAGE_OPTIONS: MarginLeverage[] = [2];
+/** 미수 총노출 선택지는 4단계이며 상한은 200%다. */
+export const MARGIN_LEVERAGE_OPTIONS: MarginLeverage[] = [
+  1.25,
+  1.5,
+  1.75,
+  2,
+];
 
 export function normalizeMarginLeverage(value: number | undefined): MarginLeverage {
   return MARGIN_LEVERAGE_OPTIONS.includes(value as MarginLeverage)
