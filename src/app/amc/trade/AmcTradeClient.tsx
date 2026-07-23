@@ -11,6 +11,8 @@ import {
   formatSignedMoney,
   formatTradeTime,
 } from "@/lib/market/engine";
+import { instrumentTypeOf } from "@/lib/market/taxonomy";
+import { isListed } from "@/lib/market/ipo";
 import {
   AMC_TRADING_SESSIONS_PER_YEAR,
   amcFundStockId,
@@ -23,7 +25,9 @@ import {
 import {
   createAmcValuationPriceResolver,
   getAmcFundChartSeries,
+  getAmcFundPerformanceComparison,
   mergeAmcPortfolioFunds,
+  type AmcPerformanceComparison,
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import type { PricePoint, StockState } from "@/lib/types/market";
@@ -147,6 +151,8 @@ export function AmcTradeClient() {
   const [quantity, setQuantity] = useState("1");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [comparisonDraft, setComparisonDraft] = useState("");
+  const [comparisonSaving, setComparisonSaving] = useState(false);
 
   const assetManager = useMarketStore((state) => state.assetManager);
   const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
@@ -162,6 +168,9 @@ export function AmcTradeClient() {
   );
   const buyAmcFund = useMarketStore((state) => state.buyAmcFund);
   const sellAmcFund = useMarketStore((state) => state.sellAmcFund);
+  const updateAmcFundComparisonStock = useMarketStore(
+    (state) => state.updateAmcFundComparisonStock,
+  );
 
   useEffect(() => {
     if (userId) void refreshListedAmcFunds();
@@ -177,6 +186,11 @@ export function AmcTradeClient() {
   );
   const fund = funds.find((item) => item.id === fundId);
   const listed = listedAmcFunds.find((item) => item.id === fundId);
+  const canEditFund = Boolean(
+    userId &&
+      (listed?.managerUserId === userId ||
+        assetManager?.funds.some((item) => item.id === fundId)),
+  );
   const holding = holdings.find(
     (item) => item.stockId === amcFundStockId(fundId),
   );
@@ -226,6 +240,32 @@ export function AmcTradeClient() {
           },
     [fund, stocks],
   );
+  const performanceComparison = useMemo(
+    () => (fund ? getAmcFundPerformanceComparison(fund, stocks) : null),
+    [fund, stocks],
+  );
+  const comparisonStockOptions = useMemo(
+    () =>
+      stocks.filter(
+        (stock) =>
+          instrumentTypeOf(stock) === "company" &&
+          isListed(stock) &&
+          stock.currentPrice > 0,
+      ),
+    [stocks],
+  );
+  const comparisonStock = fund?.comparisonStockId
+    ? stockById.get(fund.comparisonStockId)
+    : undefined;
+  const hasCoveredCallIncome = Boolean(
+    fund?.holdings.some(
+      (row) => (stockById.get(row.stockId)?.coveredCallAnnualYield ?? 0) > 0,
+    ),
+  );
+
+  useEffect(() => {
+    setComparisonDraft(fund?.comparisonStockId ?? "");
+  }, [fund?.id, fund?.comparisonStockId]);
   const history = chartSeries.history;
   const previousPrice = chartSeries.previousSessionClose;
   const fundTrades = trades.filter(
@@ -269,6 +309,17 @@ export function AmcTradeClient() {
       : await sellAmcFund(fund.id, quantityNumber);
     setMessage(result.message);
     setBusy(false);
+  };
+
+  const saveComparisonStock = async () => {
+    if (!fund || !comparisonDraft || comparisonSaving) return;
+    setComparisonSaving(true);
+    setMessage("");
+    const result = await updateAmcFundComparisonStock(fund.id, {
+      comparisonStockId: comparisonDraft,
+    });
+    setMessage(result.message);
+    setComparisonSaving(false);
   };
 
   if (!fundId) {
@@ -329,6 +380,44 @@ export function AmcTradeClient() {
                 averagePrice={holding?.averagePrice}
                 prevDayClose={previousPrice}
               />
+              <AmcPerformanceComparisonCard
+                comparison={performanceComparison}
+                comparisonName={
+                  comparisonStock
+                    ? `${comparisonStock.ticker} · ${comparisonStock.name}`
+                    : "목표 주식 미설정"
+                }
+                hasCoveredCallIncome={hasCoveredCallIncome}
+              />
+              {canEditFund && (
+                <section className="rounded-2xl bg-[var(--surface)] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <label className="min-w-0 flex-1 text-xs font-semibold">
+                      성과 비교 목표 주식
+                      <select
+                        value={comparisonDraft}
+                        onChange={(event) => setComparisonDraft(event.target.value)}
+                        className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+                      >
+                        <option value="">주식 선택</option>
+                        {comparisonStockOptions.map((stock) => (
+                          <option key={stock.id} value={stock.id}>
+                            {stock.ticker} · {stock.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      disabled={!comparisonDraft || comparisonSaving}
+                      onClick={() => void saveComparisonStock()}
+                      className="min-h-10 rounded-xl bg-[var(--accent)] px-4 text-xs font-bold text-white disabled:opacity-40"
+                    >
+                      {comparisonSaving ? "저장 중" : "비교 기준 저장"}
+                    </button>
+                  </div>
+                </section>
+              )}
               <section
                 aria-labelledby="amc-stock-info-title"
                 className="rounded-2xl bg-[var(--surface)] p-4"
@@ -543,6 +632,161 @@ export function AmcTradeClient() {
 
 function formatRate(rate: number): string {
   return `${(Math.max(0, Number.isFinite(rate) ? rate : 0) * 100).toFixed(2)}%`;
+}
+
+function AmcPerformanceComparisonCard({
+  comparison,
+  comparisonName,
+  hasCoveredCallIncome,
+}: {
+  comparison: AmcPerformanceComparison | null;
+  comparisonName: string;
+  hasCoveredCallIncome: boolean;
+}) {
+  const width = 640;
+  const height = 220;
+  const paddingX = 24;
+  const paddingY = 22;
+  const points = comparison?.points ?? [];
+  const values = points.flatMap((point) => [
+    point.fundTotalReturn,
+    point.comparisonReturn,
+    0,
+  ]);
+  const min = values.length ? Math.min(...values) : -1;
+  const max = values.length ? Math.max(...values) : 1;
+  const range = Math.max(0.01, max - min);
+  const toPolyline = (
+    key: "fundTotalReturn" | "comparisonReturn",
+  ): string =>
+    points
+      .map((point, index) => {
+        const x =
+          paddingX +
+          (index / Math.max(1, points.length - 1)) * (width - paddingX * 2);
+        const y =
+          paddingY +
+          (1 - (point[key] - min) / range) * (height - paddingY * 2);
+        return `${x},${y}`;
+      })
+      .join(" ");
+  const zeroY =
+    paddingY + (1 - (0 - min) / range) * (height - paddingY * 2);
+
+  return (
+    <section className="rounded-2xl bg-[var(--surface)] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold">목표 주식 대비 성과</h2>
+          <p className="mt-1 text-[11px] text-[var(--muted)]">
+            ETF는 배당락 후 가격에 실제 지급된 분배·배당 인컴을 더한 총수익률입니다.
+          </p>
+        </div>
+        {hasCoveredCallIncome && (
+          <span className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-[11px] font-bold text-cyan-300">
+            커버드콜 인컴 포함
+          </span>
+        )}
+      </div>
+
+      {comparison ? (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <PerformanceStat
+              label="ETF 총수익률"
+              value={formatSignedPercent(comparison.fundTotalReturn)}
+              valueClass={upDownClass(comparison.fundTotalReturn)}
+            />
+            <PerformanceStat
+              label="인컴 기여"
+              value={formatSignedPercent(comparison.fundIncomeReturn)}
+              valueClass="text-cyan-300"
+            />
+            <PerformanceStat
+              label={comparisonName}
+              value={formatSignedPercent(comparison.comparisonReturn)}
+              valueClass={upDownClass(comparison.comparisonReturn)}
+            />
+            <PerformanceStat
+              label="목표 대비 초과"
+              value={formatSignedPercent(
+                comparison.fundTotalReturn - comparison.comparisonReturn,
+              )}
+              valueClass={upDownClass(
+                comparison.fundTotalReturn - comparison.comparisonReturn,
+              )}
+            />
+          </div>
+          {points.length >= 2 ? (
+            <div className="mt-4 overflow-hidden rounded-xl bg-[var(--background)] p-2">
+              <svg
+                viewBox={`0 0 ${width} ${height}`}
+                className="h-[220px] w-full"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label={`유저 ETF 인컴 포함 총수익률과 ${comparisonName} 가격수익률 비교`}
+              >
+                <line
+                  x1={paddingX}
+                  x2={width - paddingX}
+                  y1={zeroY}
+                  y2={zeroY}
+                  stroke="var(--border)"
+                  strokeDasharray="4 4"
+                />
+                <polyline
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth="3"
+                  vectorEffect="non-scaling-stroke"
+                  points={toPolyline("fundTotalReturn")}
+                />
+                <polyline
+                  fill="none"
+                  stroke="#a78bfa"
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  vectorEffect="non-scaling-stroke"
+                  points={toPolyline("comparisonReturn")}
+                />
+              </svg>
+              <div className="flex flex-wrap gap-4 px-2 pb-1 text-[11px] text-[var(--muted)]">
+                <span><i className="mr-1.5 inline-block h-0.5 w-4 bg-cyan-400 align-middle" />ETF 총수익</span>
+                <span><i className="mr-1.5 inline-block h-0.5 w-4 bg-violet-400 align-middle" />{comparisonName}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 rounded-xl bg-[var(--background)] p-5 text-center text-xs text-[var(--muted)]">
+              다음 거래일 데이터부터 비교 곡선이 표시됩니다.
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="mt-4 rounded-xl bg-[var(--background)] p-5 text-center text-xs text-[var(--muted)]">
+          목표 주식 1개를 설정하면 같은 시작점의 성과를 비교할 수 있습니다.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function PerformanceStat({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  valueClass: string;
+}) {
+  return (
+    <div className="rounded-xl bg-[var(--background)] p-3">
+      <p className="truncate text-[11px] text-[var(--muted)]">{label}</p>
+      <p className={`mt-1 text-lg font-black tabular-nums ${valueClass}`}>
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function DividendStat({ label, value }: { label: string; value: string }) {

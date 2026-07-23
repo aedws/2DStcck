@@ -26,6 +26,7 @@ export interface ListedAmcFund {
   style: AmcFundStyle;
   feeRate: number;
   benchmarkStockId?: string;
+  comparisonStockId?: string;
   holdings: AmcHoldingWeight[];
   basketPriceFactor?: number;
   totalShares: number;
@@ -109,6 +110,7 @@ interface AmcListedFundRow {
   style: string;
   fee_rate: number;
   benchmark_stock_id: string | null;
+  comparison_stock_id?: string | null;
   holdings: unknown;
   basket_price_factor?: number | null;
   total_shares: number;
@@ -166,15 +168,24 @@ function parseDividendHistory(value: unknown): AmcDividendPoint[] {
   return value
     .map((point) => {
       if (!point || typeof point !== "object") return null;
-      const row = point as { session?: unknown; perShare?: unknown; total?: unknown };
+      const row = point as {
+        session?: unknown;
+        perShare?: unknown;
+        total?: unknown;
+        shareMultiplier?: unknown;
+      };
       const session = Math.floor(Number(row.session));
       const perShare = Math.floor(Number(row.perShare));
       const total = Math.round(Number(row.total));
       if (!Number.isFinite(session) || perShare <= 0 || total <= 0) return null;
-      return { session, perShare, total };
+      const shareMultiplier = Math.max(
+        0.000001,
+        Number(row.shareMultiplier) || 1,
+      );
+      return { session, perShare, total, shareMultiplier };
     })
-    .filter((point): point is AmcDividendPoint => point !== null)
-    .slice(-12);
+    .filter((point): point is NonNullable<typeof point> => point !== null)
+    .slice(-240);
 }
 
 export function parseListedAmcFundRow(
@@ -208,6 +219,9 @@ export function parseListedAmcFundRow(
     feeRate: Number(row.fee_rate) || 0,
     ...(style === "active" && row.benchmark_stock_id
       ? { benchmarkStockId: row.benchmark_stock_id }
+      : {}),
+    ...(row.comparison_stock_id
+      ? { comparisonStockId: row.comparison_stock_id }
       : {}),
     holdings,
     basketPriceFactor:
@@ -280,6 +294,9 @@ export function listedFundToAmcState(fund: ListedAmcFund): AmcFundState {
     ...(fund.benchmarkStockId
       ? { benchmarkStockId: fund.benchmarkStockId }
       : {}),
+    ...(fund.comparisonStockId
+      ? { comparisonStockId: fund.comparisonStockId }
+      : {}),
     holdings: fund.holdings,
     basketPriceFactor: fund.basketPriceFactor ?? 1,
     totalShares: fund.totalShares,
@@ -336,6 +353,7 @@ function fundToRow(
     style: fund.style,
     fee_rate: fund.feeRate,
     benchmark_stock_id: fund.benchmarkStockId ?? null,
+    comparison_stock_id: fund.comparisonStockId ?? null,
     holdings: fund.holdings,
     basket_price_factor: fund.basketPriceFactor ?? 1,
     total_shares: fund.totalShares,
@@ -529,6 +547,35 @@ export async function updateAmcListedFundShareAdjustment(
   return parsed
     ? { success: true, message: "자동 분할·병합 설정을 수정했습니다.", fund: parsed }
     : { success: false, message: "설정 수정 응답을 해석하지 못했습니다." };
+}
+
+/** 운용사가 상장 ETF의 성과 비교 대상 일반 주식 1개를 변경한다. */
+export async function updateAmcListedFundComparisonStock(
+  fundId: string,
+  comparisonStockId: string,
+): Promise<{ success: boolean; message: string; fund?: ListedAmcFund }> {
+  const auth = await getCurrentAuth();
+  if (!auth) {
+    return { success: false, message: "로그인 후 목표 주식을 수정할 수 있습니다." };
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "amc_update_comparison_stock",
+    {
+      p_fund_id: fundId,
+      p_comparison_stock_id: comparisonStockId.trim(),
+    },
+  );
+  if (error || !data) {
+    return {
+      success: false,
+      message: error?.message || "목표 주식 동기화에 실패했습니다.",
+    };
+  }
+  const parsed = parseListedAmcFundRow(data as AmcListedFundRow);
+  return parsed
+    ? { success: true, message: "목표 주식을 저장했습니다.", fund: parsed }
+    : { success: false, message: "목표 주식 응답을 해석하지 못했습니다." };
 }
 
 export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {
@@ -900,6 +947,8 @@ export function mergeListedAumIntoManager(
       );
     const next = {
       ...fund,
+      comparisonStockId:
+        remote.comparisonStockId ?? fund.comparisonStockId,
       holdings: holdingsChanged ? remote.holdings : fund.holdings,
       basketPriceFactor: remote.basketPriceFactor ?? fund.basketPriceFactor ?? 1,
       totalShares: remote.totalShares,
@@ -951,6 +1000,7 @@ export function mergeListedAumIntoManager(
       next.cumulativeDividendsPaid !== fund.cumulativeDividendsPaid ||
       next.dividendIntervalDays !== fund.dividendIntervalDays ||
       next.dividendRate !== fund.dividendRate ||
+      next.comparisonStockId !== fund.comparisonStockId ||
       next.dividendHistory.length !== fund.dividendHistory.length
     ) {
       changed = true;

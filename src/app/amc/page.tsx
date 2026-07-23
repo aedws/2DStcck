@@ -218,6 +218,7 @@ export default function AssetManagerPage() {
     useState<AmcDividendIntervalDays>(60);
   const [dividendRatePct, setDividendRatePct] = useState("0");
   const [benchmarkId, setBenchmarkId] = useState("");
+  const [comparisonStockId, setComparisonStockId] = useState("");
   const [seedDollars, setSeedDollars] = useState("1000");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [equalWeight, setEqualWeight] = useState(true);
@@ -326,6 +327,17 @@ export default function AssetManagerPage() {
     stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
   const valuationPriceOf = useMemo(
     () => createAmcValuationPriceResolver(stocks),
+    [stocks],
+  );
+
+  const comparisonStockOptions = useMemo(
+    () =>
+      stocks.filter(
+        (stock) =>
+          instrumentTypeOf(stock) === "company" &&
+          isListed(stock) &&
+          stock.currentPrice > 0,
+      ),
     [stocks],
   );
 
@@ -519,6 +531,7 @@ export default function AssetManagerPage() {
       style: fundStyle,
       feeRate,
       benchmarkStockId: fundStyle === "active" ? benchmarkId : undefined,
+      comparisonStockId: comparisonStockId || undefined,
       holdings: selectedHoldings,
       seedCash: seedCents,
       dividendIntervalDays,
@@ -545,6 +558,7 @@ export default function AssetManagerPage() {
       setEqualWeight(true);
       setHoldingWeightPct({});
       setDividendRatePct("0");
+      setComparisonStockId("");
       void refreshListingRequests();
       void refreshListedAmcFunds();
     }
@@ -1719,6 +1733,20 @@ export default function AssetManagerPage() {
               })}
             </div>
           )}
+          <Field label="성과 비교 목표 주식">
+            <select
+              value={comparisonStockId}
+              onChange={(event) => setComparisonStockId(event.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+            >
+              <option value="">나중에 설정</option>
+              {comparisonStockOptions.map((stock) => (
+                <option key={stock.id} value={stock.id}>
+                  {stock.ticker} · {stock.name}
+                </option>
+              ))}
+            </select>
+          </Field>
           {fundStyle === "passive" && selectedIds.length > 0 && (
             <div className="mt-3 rounded-2xl border border-cyan-400/25 bg-cyan-400/5 p-3">
               <label className="flex cursor-pointer items-start gap-2 text-xs font-bold">

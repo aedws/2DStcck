@@ -21,6 +21,7 @@ import {
   settleAmcManagementFees,
   splitAmcSeed,
   updateAmcShareAdjustmentSettings,
+  updateAmcComparisonStock,
   upgradeAmcFundHoldingBases,
   validateAmcHoldingWeights,
 } from "../src/lib/player/assetManager";
@@ -40,6 +41,7 @@ import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
 import {
   getAmcCharacterLinkedHoldings,
   getAmcFundChartSeries,
+  getAmcFundPerformanceComparison,
   getAmcFundPriceHistory,
   getAmcPortfolioPositions,
   getAmcPortfolioValue,
@@ -157,6 +159,7 @@ const created = createAmcFund(
     style: "active",
     feeRate: 0.03,
     benchmarkStockId: "bench",
+    comparisonStockId: "a",
     holdings: [
       { stockId: "a", weight: 0.4 },
       { stockId: "b", weight: 0.3 },
@@ -178,6 +181,15 @@ assert.ok(created.fund);
 assert.equal(created.burned, 100_000);
 assert.ok(isAmcFundStockId(amcFundStockId(created.fund!.id)));
 assert.equal(created.fund!.splitTriggerPrice, 500);
+assert.equal(created.fund!.comparisonStockId, "a");
+const comparisonUpdated = updateAmcComparisonStock(
+  created.manager!,
+  created.fund!.id,
+  { comparisonStockId: "b" },
+  (stockId) => ["a", "b", "c"].includes(stockId),
+);
+assert.equal(comparisonUpdated.success, true);
+assert.equal(comparisonUpdated.fund!.comparisonStockId, "b");
 assert.equal(created.fund!.splitRatio, 5);
 assert.equal(created.fund!.reverseSplitTriggerPrice, 5);
 assert.equal(created.fund!.reverseSplitRatio, 2);
@@ -566,6 +578,31 @@ assert.equal(
     series.candles,
     "rolling recent ticks must not rewrite completed user ETF candles",
   );
+
+  const dividendSession = Math.floor(
+    (dayStart + 3_600_000) / 3_600_000,
+  );
+  const comparison = getAmcFundPerformanceComparison(
+    {
+      ...fund,
+      comparisonStockId: "bench",
+      dividendHistory: [
+        {
+          session: dividendSession,
+          perShare: 10,
+          total: 10 * fund.totalShares,
+          shareMultiplier: 1,
+        },
+      ],
+    },
+    fixedChartStocks,
+  );
+  assert.ok(comparison);
+  assert.ok(comparison!.fundIncomeReturn > 0);
+  assert.ok(
+    comparison!.fundTotalReturn > comparison!.fundPriceReturn,
+    "covered-call distributions must be included in user ETF total return",
+  );
 }
 const merged = mergeListedAumIntoManager(created.manager!, [listed]);
 assert.equal(merged.funds[0]!.totalShares, created.fund!.totalShares + 5_000);
@@ -698,8 +735,24 @@ const passiveDivs = settleAmcDividends(
 );
 assert.ok(passiveDivs.dividendPayments.length >= 1);
 assert.ok(
+  Math.abs(
+    computePassiveAmcAnnualDividendYield(
+      passiveCreated.fund!.holdings,
+      priceOf,
+      (id) =>
+        id === "a"
+          ? { quarterlyDividend: 500 }
+          : id === "b"
+            ? { coveredCallAnnualYield: 24 }
+            : { quarterlyDividend: 300 },
+    ) - 0.16,
+  ) < 1e-12,
+  "mixed covered-call income must be weighted into passive ETF yield",
+);
+assert.ok(
   passiveDivs.funds[0]!.seedNavValue < passiveCreated.fund!.seedNavValue,
 );
+assert.equal(passiveDivs.funds[0]!.dividendHistory[0]!.shareMultiplier, 1);
 
 const passiveRebalance = rebalanceAmcFund(
   passiveCreated.manager!,

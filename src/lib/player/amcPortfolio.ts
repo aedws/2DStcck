@@ -27,6 +27,26 @@ export interface AmcCharacterLinkedHolding {
   holdings: { stockId: string; weight: number }[];
 }
 
+export interface AmcPerformancePoint {
+  timestamp: number;
+  /** 배당락을 포함한 ETF 가격수익률(%, 비교 시작점=0). */
+  fundPriceReturn: number;
+  /** 지급된 분배·배당 인컴의 시작 NAV 대비 기여도(%p). */
+  fundIncomeReturn: number;
+  /** 가격수익률 + 인컴 수익률(%). */
+  fundTotalReturn: number;
+  /** 목표 주식 가격수익률(%). */
+  comparisonReturn: number;
+}
+
+export interface AmcPerformanceComparison {
+  points: AmcPerformancePoint[];
+  fundPriceReturn: number;
+  fundIncomeReturn: number;
+  fundTotalReturn: number;
+  comparisonReturn: number;
+}
+
 type AmcPriceStock = Pick<
   StockState,
   "id" | "currentPrice" | "initialPrice"
@@ -377,4 +397,89 @@ export function getAmcFundChartSeries(
     Math.max(1, Math.round(fund.seedNavValue / fund.totalShares));
 
   return { candles, dailyCandles, history, previousSessionClose };
+}
+
+/**
+ * 유저 ETF와 목표 주식을 같은 시작점을 0%로 맞춘다.
+ * ETF는 배당락 후 NAV 가격수익률에 실제 지급된 좌당 인컴을 더한 총수익률을 쓴다.
+ */
+export function getAmcFundPerformanceComparison(
+  fund: AmcFundState,
+  stocks: readonly AmcChartStock[],
+): AmcPerformanceComparison | null {
+  if (!fund.comparisonStockId) return null;
+  const target = stocks.find((stock) => stock.id === fund.comparisonStockId);
+  if (!target) return null;
+  const fundDaily = synthesizeAmcFundCandles(fund, stocks, "dailyCandles");
+  const targetDaily = [...target.dailyCandles]
+    .filter(
+      (candle) =>
+        Number.isFinite(candle.timestamp) &&
+        Number.isFinite(candle.close) &&
+        candle.close > 0,
+    )
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (!fundDaily.length || !targetDaily.length) return null;
+
+  let targetIndex = 0;
+  const aligned: Array<{ fund: Candle; targetClose: number }> = [];
+  const comparisonStart = fund.createdSession * SESSION_DURATION_MS;
+  for (const candle of fundDaily) {
+    if (candle.timestamp < comparisonStart) continue;
+    while (
+      targetIndex + 1 < targetDaily.length &&
+      targetDaily[targetIndex + 1]!.timestamp <= candle.timestamp
+    ) {
+      targetIndex += 1;
+    }
+    const targetCandle = targetDaily[targetIndex];
+    if (!targetCandle || targetCandle.timestamp > candle.timestamp) continue;
+    aligned.push({ fund: candle, targetClose: targetCandle.close });
+  }
+  if (!aligned.length) return null;
+
+  const first = aligned[0]!;
+  const fundBase = first.fund.close;
+  const targetBase = first.targetClose;
+  if (!(fundBase > 0) || !(targetBase > 0)) return null;
+  const startSession = Math.floor(first.fund.timestamp / SESSION_DURATION_MS);
+  const currentMultiplier = Math.max(0.000001, fund.shareMultiplier ?? 1);
+  const dividends = [...fund.dividendHistory]
+    .filter((point) => point.session > startSession)
+    .sort((a, b) => a.session - b.session);
+  let dividendIndex = 0;
+  let incomePerCurrentShare = 0;
+  const points = aligned.map(({ fund: candle, targetClose }) => {
+    const session = Math.floor(candle.timestamp / SESSION_DURATION_MS);
+    while (
+      dividendIndex < dividends.length &&
+      dividends[dividendIndex]!.session <= session
+    ) {
+      const dividend = dividends[dividendIndex]!;
+      const eventMultiplier = Math.max(
+        0.000001,
+        dividend.shareMultiplier ?? currentMultiplier,
+      );
+      incomePerCurrentShare +=
+        dividend.perShare * (eventMultiplier / currentMultiplier);
+      dividendIndex += 1;
+    }
+    const fundPriceReturn = ((candle.close / fundBase) - 1) * 100;
+    const fundIncomeReturn = (incomePerCurrentShare / fundBase) * 100;
+    return {
+      timestamp: candle.timestamp,
+      fundPriceReturn,
+      fundIncomeReturn,
+      fundTotalReturn: fundPriceReturn + fundIncomeReturn,
+      comparisonReturn: ((targetClose / targetBase) - 1) * 100,
+    };
+  });
+  const latest = points[points.length - 1]!;
+  return {
+    points,
+    fundPriceReturn: latest.fundPriceReturn,
+    fundIncomeReturn: latest.fundIncomeReturn,
+    fundTotalReturn: latest.fundTotalReturn,
+    comparisonReturn: latest.comparisonReturn,
+  };
 }

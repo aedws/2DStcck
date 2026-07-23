@@ -55,6 +55,8 @@ export interface AmcDividendPoint {
   perShare: number;
   /** 펀드 전체 배당 총액 (센트) — NAV 차감분 */
   total: number;
+  /** 지급 당시 누적 좌수 배수. 이후 분할·병합 뒤 좌당 인컴을 환산할 때 사용한다. */
+  shareMultiplier?: number;
 }
 
 /** 마지막 확인 회차 뒤의 배당만 오래된 순서로 반환한다. */
@@ -80,6 +82,8 @@ export interface AmcFundState {
   feeRate: number;
   /** 액티브만. 벤치마크 종목 id 1개 고정 */
   benchmarkStockId?: string;
+  /** 가격수익률을 비교할 일반 주식 1개. 운용 유형과 무관하게 선택할 수 있다. */
+  comparisonStockId?: string;
   holdings: AmcHoldingWeight[];
   /** 구성별 편입 기준가 대비 현재 경제가의 가중 합 기준값. */
   basketPriceFactor?: number;
@@ -148,6 +152,7 @@ export interface CreateAmcFundInput {
   style: AmcFundStyle;
   feeRate: number;
   benchmarkStockId?: string;
+  comparisonStockId?: string;
   holdings: AmcHoldingWeight[];
   /** 시드 현금(센트). 10% 소각, 90% NAV */
   seedCash: number;
@@ -166,6 +171,10 @@ export interface UpdateAmcShareAdjustmentInput {
   splitRatio?: AmcShareAdjustmentRatio;
   reverseSplitTriggerPrice?: number;
   reverseSplitRatio?: AmcShareAdjustmentRatio;
+}
+
+export interface UpdateAmcComparisonStockInput {
+  comparisonStockId: string;
 }
 
 export type AmcActionResult = {
@@ -744,6 +753,10 @@ export function createAmcFund(
       message: "자동 병합 가격은 자동 분할 가격보다 낮아야 합니다.",
     };
   }
+  const comparisonStockId = input.comparisonStockId?.trim();
+  if (comparisonStockId && !(priceOf(comparisonStockId) > 0)) {
+    return { success: false, message: "비교할 목표 주식의 시세를 확인할 수 없습니다." };
+  }
   const fund: AmcFundState = {
     id: fundId,
     name,
@@ -754,6 +767,7 @@ export function createAmcFund(
     ...(input.style === "active" && input.benchmarkStockId
       ? { benchmarkStockId: input.benchmarkStockId.trim() }
       : {}),
+    ...(comparisonStockId ? { comparisonStockId } : {}),
     holdings,
     basketPriceFactor,
     totalShares,
@@ -857,6 +871,38 @@ export function updateAmcShareAdjustmentSettings(
   return {
     success: true,
     message: "자동 분할·병합 설정을 수정했습니다.",
+    manager: {
+      ...manager,
+      funds: manager.funds.map((item) =>
+        item.id === fundId ? updated : item,
+      ),
+      lastActionAt: now,
+    },
+    fund: updated,
+  };
+}
+
+/** 생성·상장 이후에도 성과 비교 대상 주식 1개를 변경한다. */
+export function updateAmcComparisonStock(
+  manager: AssetManagerState,
+  fundId: string,
+  input: UpdateAmcComparisonStockInput,
+  isEligibleStock: (stockId: string) => boolean,
+  now = Date.now(),
+): AmcActionResult {
+  const fund = manager.funds.find((item) => item.id === fundId);
+  if (!fund) return { success: false, message: "펀드를 찾을 수 없습니다." };
+  if (fund.status === "delisted") {
+    return { success: false, message: "상장폐지된 펀드는 수정할 수 없습니다." };
+  }
+  const comparisonStockId = input.comparisonStockId.trim();
+  if (!comparisonStockId || !isEligibleStock(comparisonStockId)) {
+    return { success: false, message: "상장된 일반 주식 1개를 선택해 주세요." };
+  }
+  const updated: AmcFundState = { ...fund, comparisonStockId };
+  return {
+    success: true,
+    message: "목표 주식 대비 성과 기준을 변경했습니다.",
     manager: {
       ...manager,
       funds: manager.funds.map((item) =>
@@ -1258,7 +1304,12 @@ export function settleAmcDividends(
         ),
         cumulativeDividendsPaid: next.cumulativeDividendsPaid + paidTotal,
       };
-      history.push({ session: dueSession, perShare, total: paidTotal });
+      history.push({
+        session: dueSession,
+        perShare,
+        total: paidTotal,
+        shareMultiplier: Math.max(0.000001, next.shareMultiplier ?? 1),
+      });
       dividendPayments.push({
         id: `amc-div-${next.id}-${dueSession}`,
         fundId: next.id,
@@ -1272,7 +1323,7 @@ export function settleAmcDividends(
       ...next,
       lastDividendSession:
         fund.lastDividendSession + periods * interval,
-      dividendHistory: history.slice(-12),
+      dividendHistory: history.slice(-240),
       navHistory: [
         ...next.navHistory,
         {
@@ -1400,6 +1451,10 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
     source.benchmarkStockId
       ? { benchmarkStockId: source.benchmarkStockId }
       : {}),
+    ...(typeof source.comparisonStockId === "string" &&
+    source.comparisonStockId
+      ? { comparisonStockId: source.comparisonStockId }
+      : {}),
     holdings,
     basketPriceFactor:
       Number.isFinite(source.basketPriceFactor) &&
@@ -1438,10 +1493,14 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
             const total = Math.round(finiteNonNegative(row.total));
             const session = Math.floor(finiteNonNegative(row.session));
             if (perShare <= 0 || total <= 0) return null;
-            return { session, perShare, total };
+            const shareMultiplier = Math.max(
+              0.000001,
+              finiteNonNegative(row.shareMultiplier, 1),
+            );
+            return { session, perShare, total, shareMultiplier };
           })
-          .filter((point): point is AmcDividendPoint => point !== null)
-          .slice(-12)
+          .filter((point): point is NonNullable<typeof point> => point !== null)
+          .slice(-240)
       : [],
     graceStartedSession:
       source.graceStartedSession == null

@@ -15,6 +15,7 @@ import {
   leverageMultiplierFor,
   seededRand,
 } from "@/lib/market/engine";
+import { instrumentTypeOf } from "@/lib/market/taxonomy";
 import { withCharacterQuote } from "@/data/eventQuotes";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
@@ -308,6 +309,7 @@ import {
   parseAmcFundId,
   rebalanceAmcFund as rebalanceManagedFund,
   updateAmcShareAdjustmentSettings as updateManagedFundShareAdjustment,
+  updateAmcComparisonStock as updateManagedFundComparisonStock,
   resolveAmcDividendPeriodRate,
   settleAmcManagementFees,
   settleAmcManagerDividends,
@@ -317,6 +319,7 @@ import {
   type CreateAmcFundInput,
   type FoundAssetManagerInput,
   type UpdateAmcShareAdjustmentInput,
+  type UpdateAmcComparisonStockInput,
 } from "@/lib/player/assetManager";
 import {
   listMyAmcFoundationRequests,
@@ -345,6 +348,7 @@ import {
   syncAmcListedFundMeta,
   tradeAmcListedFund,
   updateAmcListedFundShareAdjustment,
+  updateAmcListedFundComparisonStock,
   upsertListedCache,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
@@ -590,6 +594,10 @@ interface MarketStore extends MarketSnapshot {
   updateAmcFundShareAdjustment: (
     fundId: string,
     input: UpdateAmcShareAdjustmentInput,
+  ) => Promise<OrderResult>;
+  updateAmcFundComparisonStock: (
+    fundId: string,
+    input: UpdateAmcComparisonStockInput,
   ) => Promise<OrderResult>;
   buyAmcFund: (fundId: string, quantity: number) => Promise<OrderResult>;
   sellAmcFund: (fundId: string, quantity: number) => Promise<OrderResult>;
@@ -4958,6 +4966,74 @@ export const useMarketStore = create<MarketStore>()(
             return {
               success: false,
               message: synced.message || "공유 원장 설정 수정에 실패했습니다.",
+            };
+          }
+          set({
+            assetManager: result.manager,
+            ...(synced.fund
+              ? {
+                  listedAmcFunds: upsertListedCache(
+                    state.listedAmcFunds,
+                    synced.fund,
+                  ),
+                }
+              : {}),
+          });
+        } else {
+          set({ assetManager: result.manager });
+        }
+        useToastStore.getState().push(result.message, "success");
+        return { success: true, message: result.message };
+      },
+
+      updateAmcFundComparisonStock: async (fundId, input) => {
+        const state = get();
+        if (!state.assetManager) {
+          return { success: false, message: "자산운용사가 없습니다." };
+        }
+        const localFund = state.assetManager.funds.find(
+          (item) => item.id === fundId,
+        );
+        const listed = state.listedAmcFunds.find(
+          (item) => item.id === fundId && item.status !== "delisted",
+        );
+        const manager = localFund
+          ? state.assetManager
+          : listed
+            ? {
+                ...state.assetManager,
+                funds: [
+                  ...state.assetManager.funds,
+                  listedFundToAmcState(listed),
+                ],
+              }
+            : state.assetManager;
+        const result = updateManagedFundComparisonStock(
+          manager,
+          fundId,
+          input,
+          (stockId) => {
+            const stock = state.stocks.find((item) => item.id === stockId);
+            return Boolean(
+              stock &&
+                stock.currentPrice > 0 &&
+                isListed(stock) &&
+                instrumentTypeOf(stock) === "company",
+            );
+          },
+        );
+        if (!result.success || !result.manager || !result.fund) {
+          return { success: false, message: result.message };
+        }
+        if (listed) {
+          const synced = await updateAmcListedFundComparisonStock(
+            fundId,
+            result.fund.comparisonStockId ?? "",
+          );
+          if (!synced.success) {
+            return {
+              success: false,
+              message: synced.message || "목표 주식 동기화에 실패했습니다.",
             };
           }
           set({

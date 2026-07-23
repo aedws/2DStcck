@@ -33,6 +33,7 @@ export interface AmcEtfListingPayload {
   style: AmcFundStyle;
   feeRate: number;
   benchmarkStockId?: string;
+  comparisonStockId?: string;
   holdings: AmcHoldingWeight[];
   basketPriceFactor?: number;
   seedNavValue: number;
@@ -70,6 +71,9 @@ export function serializeAmcEtfListingRequest(
     feeRate: fund.feeRate,
     ...(fund.benchmarkStockId
       ? { benchmarkStockId: fund.benchmarkStockId }
+      : {}),
+    ...(fund.comparisonStockId
+      ? { comparisonStockId: fund.comparisonStockId }
       : {}),
     holdings: fund.holdings,
     basketPriceFactor: fund.basketPriceFactor,
@@ -149,6 +153,10 @@ export function parseAmcEtfListingRequest(
         payload.benchmarkStockId
           ? { benchmarkStockId: payload.benchmarkStockId }
           : {}),
+        ...(typeof payload.comparisonStockId === "string" &&
+        payload.comparisonStockId
+          ? { comparisonStockId: payload.comparisonStockId }
+          : {}),
         holdings,
         basketPriceFactor:
           Number.isFinite(Number(payload.basketPriceFactor)) &&
@@ -216,6 +224,9 @@ export function listingRequestToAmcState(
     feeRate: payload.feeRate,
     ...(payload.benchmarkStockId
       ? { benchmarkStockId: payload.benchmarkStockId }
+      : {}),
+    ...(payload.comparisonStockId
+      ? { comparisonStockId: payload.comparisonStockId }
       : {}),
     holdings: payload.holdings,
     basketPriceFactor: payload.basketPriceFactor ?? 1,
