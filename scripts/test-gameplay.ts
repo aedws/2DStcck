@@ -138,6 +138,7 @@ import {
   getSeasonTraitCandidates,
   markSeasonCeremonySeen,
   normalizeInvestmentSeasonState,
+  SEASON_ONE_MASTER_ARCHIVE_ID,
   selectSeasonGoal,
   selectSeasonTrait,
   seasonTierForAlpha,
@@ -416,7 +417,39 @@ const resetLegacySeason = normalizeInvestmentSeasonState({
   seenCeremonyIds: [],
 });
 assert.equal(resetLegacySeason.current, null);
-assert.equal(resetLegacySeason.history.length, 0);
+assert.equal(resetLegacySeason.history.length, 1);
+assert.equal(resetLegacySeason.history[0]?.id, SEASON_ONE_MASTER_ARCHIVE_ID);
+assert.equal(resetLegacySeason.history[0]?.tierId, "master");
+assert.equal(resetLegacySeason.history[0]?.operationalAward, true);
+assert.ok(resetLegacySeason.seenCeremonyIds.includes(SEASON_ONE_MASTER_ARCHIVE_ID));
+const preservedLegacyHistory = normalizeInvestmentSeasonState({
+  trackingEpoch: 1,
+  current: seasonStarted.state.current,
+  history: [{
+    ...seasonStarted.state.current!,
+    id: "season-2-preserved",
+    number: 2,
+    completedAt: 123_000,
+    playerReturn: 0.02,
+    benchmarkReturn: 0.01,
+    alpha: 0.01,
+    maxDrawdown: 0.01,
+    tierId: "platinum",
+    seasonScore: 60,
+    baseScore: 60,
+    goalBonus: 0,
+    goalPenalty: 0,
+    goalComplianceRate: 0,
+    traitScore: 0,
+  }],
+  seenCeremonyIds: ["season-2-preserved"],
+});
+assert.equal(preservedLegacyHistory.current, null);
+assert.deepEqual(
+  preservedLegacyHistory.history.map((item) => item.number),
+  [2, 1],
+  "tracking epoch resets must preserve completed history and restore season 1",
+);
 const seasonTraitCandidates = getSeasonTraitCandidates(seasonStarted.state.current!);
 const firstSeasonTrait = seasonTraitCandidates[0];
 const traitSelected = selectSeasonTrait(
@@ -495,7 +528,8 @@ const seasonCompleted = updateInvestmentSeason(seasonInProgress.state, {
 });
 assert.equal(seasonCompleted.completed?.tierId, "diamond");
 assert.ok(Math.abs((seasonCompleted.completed?.alpha ?? 0) - 0.03) < 1e-9);
-assert.equal(seasonCompleted.state.history.length, 1);
+assert.equal(seasonCompleted.state.history.length, 2);
+assert.deepEqual(seasonCompleted.state.history.map((item) => item.number), [2, 1]);
 assert.equal(seasonCompleted.state.current?.number, 3);
 assert.equal(seasonCompleted.state.current?.startSession, session + 20);
 const defensiveSeason = updateInvestmentSeason(

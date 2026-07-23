@@ -225,6 +225,8 @@ export interface InvestmentSeasonResult extends ActiveInvestmentSeason {
   goalPenalty: number;
   goalComplianceRate: number;
   traitScore: number;
+  /** 운영 종료로 전원 지급된 보존 시즌. 실제 투자 성과·라이벌 승부로 해석하지 않는다. */
+  operationalAward?: boolean;
 }
 
 export interface InvestmentSeasonState {
@@ -232,6 +234,47 @@ export interface InvestmentSeasonState {
   current: ActiveInvestmentSeason | null;
   history: InvestmentSeasonResult[];
   seenCeremonyIds: string[];
+}
+
+export const SEASON_ONE_MASTER_ARCHIVE_ID = "season-1-master-award";
+
+/** 시즌 1은 성과 경쟁이 아니라 전 계정 마스터 지급으로 종료한 운영 기록이다. */
+export const SEASON_ONE_MASTER_ARCHIVE: InvestmentSeasonResult = {
+  id: SEASON_ONE_MASTER_ARCHIVE_ID,
+  number: 1,
+  startSession: MARKET_ERA_START_SESSION - INVESTMENT_SEASON_SESSIONS,
+  endSession: MARKET_ERA_START_SESSION,
+  startEquity: 1,
+  startBenchmarkPrice: 1,
+  minimumEquity: 1,
+  peakEquity: 1,
+  maximumDrawdown: 0,
+  startExternalCashTotal: 0,
+  completedAt: MARKET_ERA_START_SESSION * 3_600_000,
+  playerReturn: 0,
+  benchmarkReturn: 0,
+  alpha: 0,
+  maxDrawdown: 0,
+  tierId: "master",
+  seasonScore: 100,
+  baseScore: 100,
+  goalBonus: 0,
+  goalPenalty: 0,
+  goalComplianceRate: 1,
+  traitScore: 0,
+  operationalAward: true,
+};
+
+function ensureSeasonOneArchive(
+  history: InvestmentSeasonResult[],
+): InvestmentSeasonResult[] {
+  const competitiveHistory = history
+    .filter((season) => season.number !== 1)
+    .sort((a, b) => b.number - a.number)
+    .slice(0, MAX_SEASON_HISTORY - 1);
+  return [...competitiveHistory, { ...SEASON_ONE_MASTER_ARCHIVE }]
+    .sort((a, b) => b.number - a.number)
+    .slice(0, MAX_SEASON_HISTORY);
 }
 
 export interface SeasonPerformance {
@@ -392,8 +435,8 @@ export function createInitialInvestmentSeasonState(): InvestmentSeasonState {
   return {
     trackingEpoch: INVESTMENT_SEASON_TRACKING_EPOCH,
     current: null,
-    history: [],
-    seenCeremonyIds: [],
+    history: [{ ...SEASON_ONE_MASTER_ARCHIVE }],
+    seenCeremonyIds: [SEASON_ONE_MASTER_ARCHIVE_ID],
   };
 }
 
@@ -681,11 +724,7 @@ export function normalizeInvestmentSeasonState(
   value: InvestmentSeasonState | null | undefined,
 ): InvestmentSeasonState {
   if (!value || typeof value !== "object") return createInitialInvestmentSeasonState();
-  // 구 추적값은 강제 마스터 시즌의 기준자산을 품고 있으므로 시즌 2로 승계하지 않는다.
-  if (value.trackingEpoch !== INVESTMENT_SEASON_TRACKING_EPOCH) {
-    return createInitialInvestmentSeasonState();
-  }
-  const history = Array.isArray(value.history)
+  const history = ensureSeasonOneArchive(Array.isArray(value.history)
     ? value.history
         .filter(
           (item) =>
@@ -710,22 +749,35 @@ export function normalizeInvestmentSeasonState(
           };
         })
         .slice(0, MAX_SEASON_HISTORY)
-    : [];
+    : []);
   const current = value.current;
+  const currentEpoch =
+    value.trackingEpoch === INVESTMENT_SEASON_TRACKING_EPOCH;
   const validCurrent =
+    currentEpoch &&
     current &&
     Number.isSafeInteger(current.number) && current.number > 0 &&
     Number.isSafeInteger(current.startSession) &&
     Number.isSafeInteger(current.endSession) && current.endSession > current.startSession &&
     Number.isFinite(current.startEquity) && current.startEquity > 0 &&
     Number.isFinite(current.startBenchmarkPrice) && current.startBenchmarkPrice > 0;
+  const seenCeremonyIds = Array.isArray(value.seenCeremonyIds)
+    ? value.seenCeremonyIds
+        .filter(
+          (id): id is string =>
+            typeof id === "string" && id !== SEASON_ONE_MASTER_ARCHIVE_ID,
+        )
+        .slice(0, 49)
+    : history
+        .map((result) => result.id)
+        .filter((id) => id !== SEASON_ONE_MASTER_ARCHIVE_ID)
+        .slice(0, 49);
+  seenCeremonyIds.push(SEASON_ONE_MASTER_ARCHIVE_ID);
   return {
     trackingEpoch: INVESTMENT_SEASON_TRACKING_EPOCH,
     current: validCurrent ? normalizeActiveSeason(current) : null,
     history,
-    seenCeremonyIds: Array.isArray(value.seenCeremonyIds)
-      ? value.seenCeremonyIds.filter((id): id is string => typeof id === "string").slice(0, 50)
-      : history.map((result) => result.id).slice(0, 50),
+    seenCeremonyIds,
   };
 }
 
@@ -901,7 +953,7 @@ export function updateInvestmentSeason(
     goalComplianceRate: score.goalComplianceRate,
     traitScore: score.traitScore,
   };
-  const history = [completed, ...state.history].slice(0, MAX_SEASON_HISTORY);
+  const history = ensureSeasonOneArchive([completed, ...state.history]);
   return {
     state: {
       ...state,

@@ -13,7 +13,6 @@ import { formatPrice } from "@/lib/market/engine";
 import { getBenchmark } from "@/lib/market/interestRate";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import {
-  INVESTMENT_SEASON_SESSIONS,
   INVESTMENT_SEASON_TIERS,
   SEASON_GOALS,
   calculateSeasonGoalAllocation,
@@ -342,6 +341,17 @@ export default function InvestmentSeasonPage() {
           <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--border)]">
             {seasonState.history.map((season) => {
               const tier = getInvestmentSeasonTier(season.tierId);
+              if (season.operationalAward) {
+                return (
+                  <div key={season.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 last:border-b-0 sm:grid-cols-[100px_1fr_1fr_1fr_1fr]">
+                    <p className="font-bold">시즌 {season.number}</p>
+                    <p className="text-right font-semibold sm:text-left">{tier.emoji} {tier.name}</p>
+                    <p>전원 지급</p>
+                    <p className="text-[var(--muted)]">성과 산정 제외</p>
+                    <p className="text-right font-semibold text-[var(--muted)]">운영 종료</p>
+                  </div>
+                );
+              }
               const pastRival = getSeasonRivalPerformance(season, season.endSession, season.seasonScore);
               const won = season.seasonScore >= pastRival.score;
               return (
