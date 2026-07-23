@@ -122,7 +122,14 @@ export function parseAmcEtfListingRequest(
               typeof row.stockId === "string" ? row.stockId.trim() : "";
             const weight = Number(row.weight);
             if (!stockId || !Number.isFinite(weight) || weight <= 0) return null;
-            return { stockId, weight };
+            const basePrice = Number(row.basePrice);
+            return {
+              stockId,
+              weight,
+              ...(Number.isFinite(basePrice) && basePrice > 0
+                ? { basePrice }
+                : {}),
+            };
           })
           .filter((row): row is AmcHoldingWeight => row !== null)
       : [];

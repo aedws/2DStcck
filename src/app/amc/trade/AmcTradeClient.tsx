@@ -21,6 +21,7 @@ import {
   type AmcHoldingWeight,
 } from "@/lib/player/assetManager";
 import {
+  createAmcValuationPriceResolver,
   getAmcFundChartSeries,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
@@ -186,8 +187,17 @@ export function AmcTradeClient() {
   const priceOf = (stockId: string) => stockById.get(stockId)?.currentPrice ?? 0;
   const initialPriceOf = (stockId: string) =>
     stockById.get(stockId)?.initialPrice ?? 0;
+  const valuationPriceOf = useMemo(
+    () => createAmcValuationPriceResolver(stocks),
+    [stocks],
+  );
   const nav = fund
-    ? computeAmcFundNavPerShare(fund, priceOf, initialPriceOf)
+    ? computeAmcFundNavPerShare(
+        fund,
+        priceOf,
+        initialPriceOf,
+        valuationPriceOf,
+      )
     : 0;
   const stockOf = (stockId: string) => stockById.get(stockId);
   const periodDividendRate = fund

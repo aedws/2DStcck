@@ -37,6 +37,8 @@ export type AmcFundStatus = "active" | "grace" | "delisted";
 export interface AmcHoldingWeight {
   stockId: string;
   weight: number;
+  /** 마지막 설정·리밸런싱 시점의 액면분할 전 경제가. */
+  basePrice?: number;
 }
 
 export interface AmcNavPoint {
@@ -79,11 +81,7 @@ export interface AmcFundState {
   /** 액티브만. 벤치마크 종목 id 1개 고정 */
   benchmarkStockId?: string;
   holdings: AmcHoldingWeight[];
-  /**
-   * 구성 종목의 기준 가격계수. 펀드 생성·리밸런싱 시점의 가중
-   * (현재가/초기가) 합이며, 이후 NAV는 현재 계수와의 상대 변화만 반영한다.
-   * 구 저장분은 1로 간주해 기존 가격을 보존한다.
-   */
+  /** 구성별 편입 기준가 대비 현재 경제가의 가중 합 기준값. */
   basketPriceFactor?: number;
   /** 유통 좌수 (시드·매매로 증감) */
   totalShares: number;
@@ -224,6 +222,9 @@ function normalizeWeights(
     .map((row) => ({
       stockId: String(row.stockId ?? "").trim(),
       weight: finiteNonNegative(row.weight),
+      ...(finiteNonNegative(row.basePrice) > 0
+        ? { basePrice: finiteNonNegative(row.basePrice) }
+        : {}),
     }))
     .filter((row) => row.stockId && row.weight > 0);
   if (cleaned.length < AMC_MIN_HOLDINGS) return null;
@@ -248,6 +249,11 @@ export function normalizeWeightsSafe(
 export function validateAmcHoldingWeights(
   holdings: AmcHoldingWeight[],
 ): AmcHoldingWeight[] | null {
+  const rawWeightSum = holdings.reduce(
+    (sum, row) => sum + finiteNonNegative(row.weight),
+    0,
+  );
+  if (Math.abs(rawWeightSum - 1) > 0.000001) return null;
   const normalized = normalizeWeights(holdings);
   if (!normalized) return null;
   const epsilon = 1e-9;
@@ -406,12 +412,14 @@ export function computeAmcFundNavPerShare(
   fund: AmcFundState,
   priceOf: (stockId: string) => number,
   initialPriceOf: (stockId: string) => number,
+  valuationPriceOf: (stockId: string) => number = priceOf,
 ): number {
   if (fund.totalShares <= 0 || fund.status === "delisted") return 0;
   const currentFactor = computeAmcFundBasketPriceFactor(
     fund.holdings,
     priceOf,
     initialPriceOf,
+    valuationPriceOf,
   );
   if (!(currentFactor > 0)) {
     return Math.round(fund.seedNavValue / fund.totalShares);
@@ -432,15 +440,67 @@ export function computeAmcFundBasketPriceFactor(
   holdings: AmcHoldingWeight[],
   priceOf: (stockId: string) => number,
   initialPriceOf: (stockId: string) => number,
+  valuationPriceOf: (stockId: string) => number = priceOf,
 ): number {
   let factor = 0;
   for (const row of holdings) {
-    const px = priceOf(row.stockId);
-    const base = initialPriceOf(row.stockId);
+    const hasHoldingBase = Number.isFinite(row.basePrice) && (row.basePrice ?? 0) > 0;
+    const px = hasHoldingBase
+      ? valuationPriceOf(row.stockId)
+      : priceOf(row.stockId);
+    const base = hasHoldingBase ? row.basePrice! : initialPriceOf(row.stockId);
     if (!(px > 0) || !(base > 0)) continue;
     factor += row.weight * (px / base);
   }
   return factor;
+}
+
+/**
+ * 구 ETF를 현재 NAV 그대로 구성별 편입 기준가 모델로 전환한다.
+ * 전환 순간까지의 손익은 seedNavValue에 확정하고, 이후부터 목표 비중대로 움직인다.
+ */
+export function upgradeAmcFundHoldingBases(
+  fund: AmcFundState,
+  priceOf: (stockId: string) => number,
+  initialPriceOf: (stockId: string) => number,
+  valuationPriceOf: (stockId: string) => number = priceOf,
+): AmcFundState {
+  if (
+    fund.holdings.every(
+      (row) => Number.isFinite(row.basePrice) && (row.basePrice ?? 0) > 0,
+    )
+  ) {
+    return fund;
+  }
+  const oldFactor = computeAmcFundBasketPriceFactor(
+    fund.holdings,
+    priceOf,
+    initialPriceOf,
+    valuationPriceOf,
+  );
+  const oldBase =
+    Number.isFinite(fund.basketPriceFactor) && (fund.basketPriceFactor ?? 0) > 0
+      ? fund.basketPriceFactor!
+      : 1;
+  const holdings = fund.holdings.map((row) => ({
+    ...row,
+    basePrice: valuationPriceOf(row.stockId),
+  }));
+  if (
+    !(oldFactor > 0) ||
+    holdings.some((row) => !(row.basePrice > 0))
+  ) {
+    return fund;
+  }
+  return {
+    ...fund,
+    holdings,
+    seedNavValue: Math.max(
+      0,
+      Math.round(fund.seedNavValue * (oldFactor / oldBase)),
+    ),
+    basketPriceFactor: 1,
+  };
 }
 
 /** 장부가(seed/shares). 생성·환매 시 seedNavValue는 이 값으로만 증감해야 한다. */
@@ -577,6 +637,7 @@ export function createAmcFund(
   initialPriceOf: (stockId: string) => number,
   now = Date.now(),
   reservedTickers: readonly string[] = [],
+  valuationPriceOf: (stockId: string) => number = priceOf,
 ): AmcActionResult {
   const name = input.name.trim();
   const ticker = input.ticker.trim().toUpperCase();
@@ -595,21 +656,29 @@ export function createAmcFund(
   ) {
     return { success: false, message: "이미 사용 중인 티커입니다." };
   }
-  const holdings = validateAmcHoldingWeights(input.holdings);
-  if (!holdings) {
+  const validatedHoldings = validateAmcHoldingWeights(input.holdings);
+  if (!validatedHoldings) {
     return {
       success: false,
-      message: `구성 종목은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}개, 종목별 비중은 1~50%여야 합니다.`,
+      message: `구성 종목은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}개, 합계 100%, 종목별 비중은 1~50%여야 합니다.`,
     };
   }
-  for (const row of holdings) {
-    if (!(priceOf(row.stockId) > 0) || !(initialPriceOf(row.stockId) > 0)) {
+  for (const row of validatedHoldings) {
+    if (
+      !(priceOf(row.stockId) > 0) ||
+      !(initialPriceOf(row.stockId) > 0) ||
+      !(valuationPriceOf(row.stockId) > 0)
+    ) {
       return {
         success: false,
         message: "상장·거래 중인 기업 종목만 편입할 수 있습니다.",
       };
     }
   }
+  const holdings = validatedHoldings.map((row) => ({
+    ...row,
+    basePrice: valuationPriceOf(row.stockId),
+  }));
   const maxFee = maxFeeRateForStyle(input.style);
   const feeRate = finiteNonNegative(input.feeRate);
   if (feeRate <= 0 || feeRate > maxFee + 1e-12) {
@@ -657,6 +726,7 @@ export function createAmcFund(
     holdings,
     priceOf,
     initialPriceOf,
+    valuationPriceOf,
   );
   const splitTriggerPrice = Math.round(
     finiteNonNegative(input.splitTriggerPrice),
@@ -806,19 +876,26 @@ export function rebalanceAmcFund(
   now = Date.now(),
   priceOf?: (stockId: string) => number,
   initialPriceOf?: (stockId: string) => number,
+  valuationPriceOf?: (stockId: string) => number,
 ): AmcActionResult {
   const fund = manager.funds.find((item) => item.id === fundId);
   if (!fund) return { success: false, message: "펀드를 찾을 수 없습니다." };
   if (fund.status === "delisted") {
     return { success: false, message: "상장폐지된 펀드는 변경할 수 없습니다." };
   }
-  const holdings = validateAmcHoldingWeights(nextHoldings);
-  if (!holdings) {
+  const validatedHoldings = validateAmcHoldingWeights(nextHoldings);
+  if (!validatedHoldings) {
     return {
       success: false,
-      message: `구성은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}종목, 종목별 비중은 1~50%여야 합니다.`,
+      message: `구성은 ${AMC_MIN_HOLDINGS}~${AMC_MAX_HOLDINGS}종목, 합계 100%, 종목별 비중은 1~50%여야 합니다.`,
     };
   }
+  const holdings = validatedHoldings.map((row) => ({
+    ...row,
+    ...(valuationPriceOf && valuationPriceOf(row.stockId) > 0
+      ? { basePrice: valuationPriceOf(row.stockId) }
+      : {}),
+  }));
   const prev = new Map(fund.holdings.map((row) => [row.stockId, row.weight]));
   const nextIds = new Set(holdings.map((row) => row.stockId));
   const prevIds = new Set(fund.holdings.map((row) => row.stockId));
@@ -851,11 +928,13 @@ export function rebalanceAmcFund(
       fund.holdings,
       priceOf,
       initialPriceOf,
+      valuationPriceOf ?? priceOf,
     );
     const nextFactor = computeAmcFundBasketPriceFactor(
       holdings,
       priceOf,
       initialPriceOf,
+      valuationPriceOf ?? priceOf,
     );
     if (oldFactor > 0 && nextFactor > 0) {
       const oldBase =
@@ -920,6 +999,9 @@ export function autoRebalancePassiveFunds(
   manager: AssetManagerState,
   currentSession: number,
   now = Date.now(),
+  priceOf?: (stockId: string) => number,
+  initialPriceOf?: (stockId: string) => number,
+  valuationPriceOf?: (stockId: string) => number,
 ): AssetManagerState {
   let changed = false;
   const funds = manager.funds.map((fund) => {
@@ -928,6 +1010,35 @@ export function autoRebalancePassiveFunds(
       return fund;
     }
     changed = true;
+    if (priceOf && initialPriceOf) {
+      const oldFactor = computeAmcFundBasketPriceFactor(
+        fund.holdings,
+        priceOf,
+        initialPriceOf,
+        valuationPriceOf ?? priceOf,
+      );
+      const oldBase =
+        Number.isFinite(fund.basketPriceFactor) &&
+        (fund.basketPriceFactor ?? 0) > 0
+          ? fund.basketPriceFactor!
+          : 1;
+      const holdings = fund.holdings.map((row) => ({
+        ...row,
+        basePrice: (valuationPriceOf ?? priceOf)(row.stockId),
+      }));
+      if (oldFactor > 0 && holdings.every((row) => row.basePrice > 0)) {
+        return {
+          ...fund,
+          holdings,
+          seedNavValue: Math.max(
+            0,
+            Math.round(fund.seedNavValue * (oldFactor / oldBase)),
+          ),
+          basketPriceFactor: 1,
+          lastRebalanceSession: currentSession,
+        };
+      }
+    }
     return {
       ...fund,
       lastRebalanceSession: currentSession,
@@ -983,6 +1094,7 @@ export function settleAmcManagementFees(
   priceOf: (stockId: string) => number,
   initialPriceOf: (stockId: string) => number,
   now = Date.now(),
+  valuationPriceOf: (stockId: string) => number = priceOf,
 ): {
   manager: AssetManagerState;
   feePayments: {
@@ -1008,7 +1120,12 @@ export function settleAmcManagementFees(
     let next = fund;
     for (let i = 1; i <= periods; i++) {
       const dueSession = fund.lastFeeSession + i * AMC_FEE_INTERVAL_DAYS;
-      const nav = computeAmcFundNavPerShare(next, priceOf, initialPriceOf);
+      const nav = computeAmcFundNavPerShare(
+        next,
+        priceOf,
+        initialPriceOf,
+        valuationPriceOf,
+      );
       const aum = nav * next.totalShares;
       const amount = Math.max(0, Math.round(aum * next.feeRate));
       if (amount > 0) {
@@ -1016,6 +1133,7 @@ export function settleAmcManagementFees(
           next.holdings,
           priceOf,
           initialPriceOf,
+          valuationPriceOf,
         );
         const baseFactor =
           Number.isFinite(next.basketPriceFactor) &&
@@ -1047,7 +1165,12 @@ export function settleAmcManagementFees(
         ...next.navHistory,
         {
           t: now,
-          nav: computeAmcFundNavPerShare(next, priceOf, initialPriceOf),
+          nav: computeAmcFundNavPerShare(
+            next,
+            priceOf,
+            initialPriceOf,
+            valuationPriceOf,
+          ),
         },
       ].slice(-120),
     };
@@ -1088,6 +1211,7 @@ export function settleAmcDividends(
       }
     | undefined,
   now = Date.now(),
+  valuationPriceOf: (stockId: string) => number = priceOf,
 ): { funds: AmcFundState[]; dividendPayments: AmcDividendPayment[] } {
   const dividendPayments: AmcDividendPayment[] = [];
   const nextFunds = funds.map((fund) => {
@@ -1102,7 +1226,12 @@ export function settleAmcDividends(
       const dueSession = fund.lastDividendSession + i * interval;
       const rate = resolveAmcDividendPeriodRate(next, priceOf, stockOf);
       if (!(rate > 0)) continue;
-      const nav = computeAmcFundNavPerShare(next, priceOf, initialPriceOf);
+      const nav = computeAmcFundNavPerShare(
+        next,
+        priceOf,
+        initialPriceOf,
+        valuationPriceOf,
+      );
       const aum = nav * next.totalShares;
       const total = Math.max(0, Math.round(aum * rate));
       if (total <= 0 || next.totalShares <= 0) continue;
@@ -1113,6 +1242,7 @@ export function settleAmcDividends(
         next.holdings,
         priceOf,
         initialPriceOf,
+        valuationPriceOf,
       );
       const baseFactor =
         Number.isFinite(next.basketPriceFactor) &&
@@ -1147,7 +1277,12 @@ export function settleAmcDividends(
         ...next.navHistory,
         {
           t: now,
-          nav: computeAmcFundNavPerShare(next, priceOf, initialPriceOf),
+          nav: computeAmcFundNavPerShare(
+            next,
+            priceOf,
+            initialPriceOf,
+            valuationPriceOf,
+          ),
         },
       ].slice(-120),
     };
@@ -1167,6 +1302,7 @@ export function settleAmcManagerDividends(
       }
     | undefined,
   now = Date.now(),
+  valuationPriceOf: (stockId: string) => number = priceOf,
 ): {
   manager: AssetManagerState;
   dividendPayments: AmcDividendPayment[];
@@ -1178,6 +1314,7 @@ export function settleAmcManagerDividends(
     initialPriceOf,
     stockOf,
     now,
+    valuationPriceOf,
   );
   return {
     manager: {

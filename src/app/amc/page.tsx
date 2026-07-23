@@ -55,6 +55,7 @@ import { isListed } from "@/lib/market/ipo";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
+import { createAmcValuationPriceResolver } from "@/lib/player/amcPortfolio";
 
 const fieldClass =
   "w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70";
@@ -323,6 +324,10 @@ export default function AssetManagerPage() {
     stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
   const initialPriceOf = (stockId: string) =>
     stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+  const valuationPriceOf = useMemo(
+    () => createAmcValuationPriceResolver(stocks),
+    [stocks],
+  );
 
   const refreshRequests = async () => {
     setRequests(await listMyAmcFoundationRequests());
@@ -599,6 +604,7 @@ export default function AssetManagerPage() {
               }
               priceOf={priceOf}
               initialPriceOf={initialPriceOf}
+              valuationPriceOf={valuationPriceOf}
               qty={tradeQty[fund.id] ?? "1"}
               onQty={(value) =>
                 setTradeQty((prev) => ({
@@ -836,7 +842,12 @@ export default function AssetManagerPage() {
           </p>
         ) : (
           managedFunds.map((fund) => {
-            const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
+            const nav = computeAmcFundNavPerShare(
+              fund,
+              priceOf,
+              initialPriceOf,
+              valuationPriceOf,
+            );
             const held =
               holdings.find((item) => item.stockId === amcFundStockId(fund.id))
                 ?.quantity ?? 0;
@@ -877,6 +888,13 @@ export default function AssetManagerPage() {
               (adjustmentDraft.autoSplit &&
                 adjustmentDraft.autoReverseSplit &&
                 adjustmentReverseSplitCents >= adjustmentSplitCents);
+            const rebalanceWeightTotal = fund.holdings.reduce((sum, row) => {
+              const draft = rebalanceDraft[fund.id]?.[row.stockId];
+              return sum + (draft === undefined ? row.weight * 100 : Number(draft));
+            }, 0);
+            const rebalanceWeightInvalid =
+              !Number.isFinite(rebalanceWeightTotal) ||
+              Math.abs(rebalanceWeightTotal - 100) > 0.005;
             return (
               <div
                 key={fund.id}
@@ -1278,6 +1296,15 @@ export default function AssetManagerPage() {
                             );
                           })}
                         </div>
+                        <p
+                          className={`mt-2 text-right text-xs font-black tabular-nums ${
+                            rebalanceWeightInvalid
+                              ? "text-rose-300"
+                              : "text-emerald-300"
+                          }`}
+                        >
+                          합계 {rebalanceWeightTotal.toFixed(2)}% / 100%
+                        </p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {fund.style === "passive" && (
                             <button
@@ -1310,17 +1337,20 @@ export default function AssetManagerPage() {
                             type="button"
                             className="rounded-xl border border-cyan-400/40 px-4 py-2 text-sm font-bold text-cyan-200"
                             onClick={() => {
+                              if (rebalanceWeightInvalid) {
+                                setMessage("구성 비중 합계를 정확히 100%로 맞춰 주세요.");
+                                return;
+                              }
                               const draft = rebalanceDraft[fund.id] ?? {};
                               const next = fund.holdings.map((row) => {
-                                const raw =
-                                  draft[row.stockId] ??
-                                  String(Math.round(row.weight * 1000) / 10);
-                                const pct = Number(raw);
+                                const raw = draft[row.stockId];
+                                const pct = raw === undefined ? NaN : Number(raw);
                                 return {
                                   stockId: row.stockId,
-                                  weight: Number.isFinite(pct)
-                                    ? pct / 100
-                                    : row.weight,
+                                  weight:
+                                    raw !== undefined && Number.isFinite(pct)
+                                      ? pct / 100
+                                      : row.weight,
                                 };
                               });
                               void rebalanceAmcFund(fund.id, next).then(
@@ -1819,6 +1849,7 @@ function ListedFundCard({
   holdingsQty,
   priceOf,
   initialPriceOf,
+  valuationPriceOf,
   qty,
   onQty,
   busy,
@@ -1829,6 +1860,7 @@ function ListedFundCard({
   holdingsQty: number;
   priceOf: (stockId: string) => number;
   initialPriceOf: (stockId: string) => number;
+  valuationPriceOf: (stockId: string) => number;
   qty: string;
   onQty: (value: string) => void;
   busy: boolean;
@@ -1836,7 +1868,12 @@ function ListedFundCard({
   onSell: () => void;
 }) {
   const state = listedFundToAmcState(fund);
-  const nav = computeAmcFundNavPerShare(state, priceOf, initialPriceOf);
+  const nav = computeAmcFundNavPerShare(
+    state,
+    priceOf,
+    initialPriceOf,
+    valuationPriceOf,
+  );
   const aum = Math.round(nav * fund.totalShares);
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">

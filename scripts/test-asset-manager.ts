@@ -6,6 +6,7 @@ import {
   amcFundStockId,
   applyAmcShareCreationRedemption,
   collectHoldingDividendCadences,
+  computeAmcFundBasketPriceFactor,
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
   createAmcFund,
@@ -20,6 +21,7 @@ import {
   settleAmcManagementFees,
   splitAmcSeed,
   updateAmcShareAdjustmentSettings,
+  upgradeAmcFundHoldingBases,
   validateAmcHoldingWeights,
 } from "../src/lib/player/assetManager";
 import {
@@ -87,6 +89,42 @@ assert.equal(validateAmcHoldingWeights([
   { stockId: "b", weight: 0.48 },
   { stockId: "c", weight: 0.01 },
 ]), null);
+assert.equal(validateAmcHoldingWeights([
+  { stockId: "a", weight: 0.5 },
+  { stockId: "b", weight: 0.333 },
+  { stockId: "c", weight: 0.333 },
+]), null, "리밸런싱 합계가 100%가 아니면 자동 정규화하지 않아야 함");
+
+// 편입 시점 가격을 구성별 기준으로 고정해 상장 이후 누적수익이 목표 비중을 왜곡하지 않는다.
+{
+  const holdings = [
+    { stockId: "a", weight: 0.5, basePrice: 300 },
+    { stockId: "b", weight: 0.25, basePrice: 100 },
+    { stockId: "c", weight: 0.25, basePrice: 100 },
+  ];
+  const display = (id: string) => ({ a: 330, b: 100, c: 100 })[id] ?? 0;
+  const initial = () => 100;
+  assert.ok(
+    Math.abs(
+      computeAmcFundBasketPriceFactor(holdings, display, initial, display) - 1.05,
+    ) < 1e-12,
+    "50% 구성 종목만 10% 오르면 ETF는 5% 올라야 함",
+  );
+
+  const splitDisplay = (id: string) => id === "a" ? 20 : 100;
+  const economic = () => 100;
+  const splitHoldings = holdings.map((row) => ({ ...row, basePrice: 100 }));
+  assert.equal(
+    computeAmcFundBasketPriceFactor(
+      splitHoldings,
+      splitDisplay,
+      initial,
+      economic,
+    ),
+    1,
+    "5:1 액면분할은 유저 ETF 경제가를 바꾸지 않아야 함",
+  );
+}
 
 assert.equal(
   foundAssetManager(
@@ -251,6 +289,41 @@ assert.ok(nav > 0);
     shiftedInitialOf,
   );
   assert.equal(before * shifted.fund!.totalShares, 90_000);
+  const legacyHoldings = shifted.fund!.holdings.map(({ stockId, weight }) => ({
+    stockId,
+    weight,
+  }));
+  const legacyFund = {
+    ...shifted.fund!,
+    holdings: legacyHoldings,
+    basketPriceFactor: computeAmcFundBasketPriceFactor(
+      legacyHoldings,
+      shiftedPriceOf,
+      shiftedInitialOf,
+    ),
+  };
+  const legacyNav = computeAmcFundNavPerShare(
+    legacyFund,
+    shiftedPriceOf,
+    shiftedInitialOf,
+  );
+  const upgradedLegacy = upgradeAmcFundHoldingBases(
+    legacyFund,
+    shiftedPriceOf,
+    shiftedInitialOf,
+    shiftedPriceOf,
+  );
+  assert.equal(
+    computeAmcFundNavPerShare(
+      upgradedLegacy,
+      shiftedPriceOf,
+      shiftedInitialOf,
+      shiftedPriceOf,
+    ),
+    legacyNav,
+    "기존 ETF 기준가 전환 시 NAV가 유지되어야 함",
+  );
+  assert.ok(upgradedLegacy.holdings.every((row) => (row.basePrice ?? 0) > 0));
   const shiftedRebalanced = rebalanceAmcFund(
     shifted.manager!,
     shifted.fund!.id,

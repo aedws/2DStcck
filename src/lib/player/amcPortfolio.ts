@@ -10,6 +10,10 @@ import {
   parseAmcFundId,
   type AmcFundState,
 } from "@/lib/player/assetManager";
+import {
+  computeLeveragedRawPrice,
+  leverageSplitMultiplier,
+} from "@/lib/market/engine";
 
 export interface AmcPortfolioPosition {
   holding: Holding;
@@ -26,17 +30,66 @@ export interface AmcCharacterLinkedHolding {
 type AmcPriceStock = Pick<
   StockState,
   "id" | "currentPrice" | "initialPrice"
->;
+> & Partial<Pick<
+  StockState,
+  | "leverage"
+  | "leverageUnderlyingId"
+  | "leveragePathSessionBase"
+  | "leveragePathFactors"
+>>;
 
 type AmcHistoryStock = Pick<
   StockState,
   "id" | "initialPrice" | "priceHistory"
->;
+> & Partial<AmcPriceStock>;
 
 type AmcChartStock = Pick<
   StockState,
   "id" | "initialPrice" | "priceHistory" | "candles" | "dailyCandles"
->;
+> & Partial<AmcPriceStock>;
+
+function economicPriceFromMap(
+  stockId: string,
+  stockById: ReadonlyMap<string, AmcPriceStock>,
+): number {
+  const stock = stockById.get(stockId);
+  if (!stock) return 0;
+  const currentPrice = Number(stock.currentPrice) || 0;
+  if (stock.leverage == null || !stock.leverageUnderlyingId) {
+    return currentPrice;
+  }
+  const underlying = stockById.get(stock.leverageUnderlyingId);
+  if (!underlying) return currentPrice;
+  const closedFactor =
+    underlying.leveragePathFactors?.[String(stock.leverage)] ?? 1;
+  const sessionStartRawPrice = Math.max(stock.initialPrice * closedFactor, 1e-12);
+  return computeLeveragedRawPrice(
+    sessionStartRawPrice,
+    Number(underlying.currentPrice) || 0,
+    underlying.leveragePathSessionBase ?? underlying.initialPrice,
+    stock.leverage,
+  );
+}
+
+/** 액면분할·병합에 흔들리지 않는 유저 ETF 구성 종목 경제가 resolver. */
+export function createAmcValuationPriceResolver(
+  stocks: readonly AmcPriceStock[],
+): (stockId: string) => number {
+  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+  return (stockId) => economicPriceFromMap(stockId, stockById);
+}
+
+function economicSeriesMultiplier(
+  stock: AmcHistoryStock,
+  stocks: readonly AmcHistoryStock[],
+): number {
+  if (stock.leverage == null || !stock.leverageUnderlyingId) return 1;
+  const stockById = new Map(
+    (stocks as readonly AmcPriceStock[]).map((item) => [item.id, item]),
+  );
+  const rawPrice = economicPriceFromMap(stock.id, stockById);
+  return rawPrice > 0 ? leverageSplitMultiplier(rawPrice) : 1;
+}
 
 export interface AmcFundChartSeries {
   candles: Candle[];
@@ -70,6 +123,7 @@ export function getAmcPortfolioPositions(
     stockById.get(stockId)?.currentPrice ?? 0;
   const initialPriceOf = (stockId: string) =>
     stockById.get(stockId)?.initialPrice ?? 0;
+  const valuationPriceOf = createAmcValuationPriceResolver(stocks);
 
   return holdings.flatMap((holding) => {
     const fundId = parseAmcFundId(holding.stockId);
@@ -81,6 +135,7 @@ export function getAmcPortfolioPositions(
       fund,
       priceOf,
       initialPriceOf,
+      valuationPriceOf,
     );
     if (!(navPerShare > 0)) return [];
     return [{
@@ -131,11 +186,18 @@ export function getAmcFundPriceHistory(
   }
 
   const changes = new Map<number, Array<{ stockId: string; price: number }>>();
-  for (const { stock } of rows) {
+  for (const { holding, stock } of rows) {
     for (const point of stock.priceHistory) {
       if (!(point.price > 0) || !Number.isFinite(point.timestamp)) continue;
       const updates = changes.get(point.timestamp) ?? [];
-      updates.push({ stockId: stock.id, price: point.price });
+      updates.push({
+        stockId: stock.id,
+        price:
+          point.price *
+          (holding.basePrice
+            ? economicSeriesMultiplier(stock, stocks)
+            : 1),
+      });
       changes.set(point.timestamp, updates);
     }
   }
@@ -156,11 +218,12 @@ export function getAmcFundPriceHistory(
     let complete = true;
     for (const { holding, stock } of rows) {
       const price = lastPrice.get(stock.id);
-      if (!(price && stock.initialPrice > 0)) {
+      const base = holding.basePrice ?? stock.initialPrice;
+      if (!(price && base > 0)) {
         complete = false;
         break;
       }
-      factor += holding.weight * (price / stock.initialPrice);
+      factor += holding.weight * (price / base);
     }
     if (!complete || !(factor > 0)) continue;
     history.push({
@@ -209,7 +272,10 @@ function synthesizeAmcFundCandles(
   if (!rows.length) return [];
 
   const changes = new Map<number, Array<{ stockId: string; candle: Candle }>>();
-  for (const { stock } of rows) {
+  for (const { holding, stock } of rows) {
+    const seriesMultiplier = holding.basePrice
+      ? economicSeriesMultiplier(stock, stocks)
+      : 1;
     for (const candle of stock[source]) {
       if (
         !Number.isFinite(candle.timestamp) ||
@@ -221,7 +287,18 @@ function synthesizeAmcFundCandles(
         continue;
       }
       const updates = changes.get(candle.timestamp) ?? [];
-      updates.push({ stockId: stock.id, candle });
+      updates.push({
+        stockId: stock.id,
+        candle: seriesMultiplier === 1
+          ? candle
+          : {
+              timestamp: candle.timestamp,
+              open: candle.open * seriesMultiplier,
+              high: candle.high * seriesMultiplier,
+              low: candle.low * seriesMultiplier,
+              close: candle.close * seriesMultiplier,
+            },
+      });
       changes.set(candle.timestamp, updates);
     }
   }
@@ -244,14 +321,15 @@ function synthesizeAmcFundCandles(
     let complete = true;
     for (const { holding, stock } of rows) {
       const candle = lastCandle.get(stock.id);
-      if (!candle || !(stock.initialPrice > 0)) {
+      const base = holding.basePrice ?? stock.initialPrice;
+      if (!candle || !(base > 0)) {
         complete = false;
         break;
       }
-      openFactor += holding.weight * (candle.open / stock.initialPrice);
-      highFactor += holding.weight * (candle.high / stock.initialPrice);
-      lowFactor += holding.weight * (candle.low / stock.initialPrice);
-      closeFactor += holding.weight * (candle.close / stock.initialPrice);
+      openFactor += holding.weight * (candle.open / base);
+      highFactor += holding.weight * (candle.high / base);
+      lowFactor += holding.weight * (candle.low / base);
+      closeFactor += holding.weight * (candle.close / base);
     }
     if (!complete || !(closeFactor > 0)) continue;
 

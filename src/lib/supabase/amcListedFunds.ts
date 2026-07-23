@@ -143,12 +143,19 @@ function parseHoldings(value: unknown): AmcHoldingWeight[] | null {
         stockId?: unknown;
         stock_id?: unknown;
         weight?: unknown;
+        basePrice?: unknown;
+        base_price?: unknown;
       };
       const stockIdRaw = item.stockId ?? item.stock_id;
       const stockId = typeof stockIdRaw === "string" ? stockIdRaw.trim() : "";
       const weight = Number(item.weight);
       if (!stockId || !Number.isFinite(weight) || weight <= 0) return null;
-      return { stockId, weight };
+      const basePrice = Number(item.basePrice ?? item.base_price);
+      return {
+        stockId,
+        weight,
+        ...(Number.isFinite(basePrice) && basePrice > 0 ? { basePrice } : {}),
+      };
     })
     .filter((row): row is AmcHoldingWeight => row !== null);
   return normalizeWeightsSafe(rows);
@@ -885,7 +892,11 @@ export function mergeListedAumIntoManager(
       remote.holdings.some(
         (row, index) =>
           row.stockId !== fund.holdings[index]?.stockId ||
-          Math.abs(row.weight - (fund.holdings[index]?.weight ?? 0)) > 1e-12,
+          Math.abs(row.weight - (fund.holdings[index]?.weight ?? 0)) > 1e-12 ||
+          Math.abs(
+            (row.basePrice ?? 0) -
+              (fund.holdings[index]?.basePrice ?? 0),
+          ) > 1e-9,
       );
     const next = {
       ...fund,

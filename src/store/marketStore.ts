@@ -269,6 +269,7 @@ import {
 import { computePrestige } from "@/lib/player/prestige";
 import { reconcileAmcLedgerCash } from "@/lib/player/amcLedger";
 import {
+  createAmcValuationPriceResolver,
   getAmcCharacterLinkedHoldings,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
@@ -310,6 +311,7 @@ import {
   resolveAmcDividendPeriodRate,
   settleAmcManagementFees,
   settleAmcManagerDividends,
+  upgradeAmcFundHoldingBases,
   type AmcHoldingWeight,
   type AssetManagerState,
   type CreateAmcFundInput,
@@ -2643,6 +2645,7 @@ export const useMarketStore = create<MarketStore>()(
           combinedStocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOfAmc = (stockId: string) =>
           combinedStocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const valuationPriceOfAmc = createAmcValuationPriceResolver(combinedStocks);
 
         if (assetManager) {
           assetManager = mergeListedAumIntoManager(assetManager, listedAmcFunds);
@@ -2654,12 +2657,24 @@ export const useMarketStore = create<MarketStore>()(
           );
           let localManager: AssetManagerState = {
             ...assetManager,
-            funds: assetManager.funds.filter((fund) => !listedIds.has(fund.id)),
+            funds: assetManager.funds
+              .filter((fund) => !listedIds.has(fund.id))
+              .map((fund) =>
+                upgradeAmcFundHoldingBases(
+                  fund,
+                  priceOfAmc,
+                  initialPriceOfAmc,
+                  valuationPriceOfAmc,
+                ),
+              ),
           };
           localManager = autoRebalancePassiveFunds(
             localManager,
             currentSession,
             now,
+            priceOfAmc,
+            initialPriceOfAmc,
+            valuationPriceOfAmc,
           );
           const compliance = evaluateAmcCompliance(
             localManager,
@@ -2675,6 +2690,7 @@ export const useMarketStore = create<MarketStore>()(
                 { ...fund, status: "active" },
                 priceOfAmc,
                 initialPriceOfAmc,
+                valuationPriceOfAmc,
               );
               const total = Math.round(nav * holding.quantity);
               cash += total;
@@ -2704,6 +2720,7 @@ export const useMarketStore = create<MarketStore>()(
             priceOfAmc,
             initialPriceOfAmc,
             now,
+            valuationPriceOfAmc,
           );
           localManager = feeSettle.manager;
           const paidIds = new Set(cashPayments.map((payment) => payment.id));
@@ -2733,6 +2750,7 @@ export const useMarketStore = create<MarketStore>()(
             initialPriceOfAmc,
             stockOfAmc,
             now,
+            valuationPriceOfAmc,
           );
           localManager = divSettle.manager;
           for (const div of divSettle.dividendPayments) {
@@ -4206,6 +4224,7 @@ export const useMarketStore = create<MarketStore>()(
             state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
           const initialPriceOf = (stockId: string) =>
             state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+          const valuationPriceOf = createAmcValuationPriceResolver(state.stocks);
           const stockOf = (stockId: string) =>
             state.stocks.find((stock) => stock.id === stockId);
           const adjustmentFunds = merged.filter((fund) => {
@@ -4219,6 +4238,7 @@ export const useMarketStore = create<MarketStore>()(
               listedFundToAmcState(fund),
               priceOf,
               initialPriceOf,
+              valuationPriceOf,
             );
             return (
               (Boolean(fund.splitTriggerPrice) &&
@@ -4236,6 +4256,7 @@ export const useMarketStore = create<MarketStore>()(
                   fund.holdings,
                   priceOf,
                   initialPriceOf,
+                  valuationPriceOf,
                 ),
               }),
             ),
@@ -4260,6 +4281,7 @@ export const useMarketStore = create<MarketStore>()(
                 fund.holdings,
                 priceOf,
                 initialPriceOf,
+                valuationPriceOf,
               );
               const passivePeriodRate =
                 fund.style === "passive"
@@ -4337,6 +4359,7 @@ export const useMarketStore = create<MarketStore>()(
               stateFund,
               priceOf,
               initialPriceOf,
+              valuationPriceOf,
             );
             const cursor = fund.dividendHistory.reduce(
               (max, entry) => Math.max(max, entry.session),
@@ -4399,6 +4422,41 @@ export const useMarketStore = create<MarketStore>()(
               assetManager,
               requests,
             );
+            let upgradedManager: AssetManagerState = assetManager;
+            for (const fund of [...upgradedManager.funds]) {
+              const upgraded = upgradeAmcFundHoldingBases(
+                fund,
+                priceOf,
+                initialPriceOf,
+                valuationPriceOf,
+              );
+              if (upgraded === fund) continue;
+              const listed = merged.some((item) => item.id === fund.id);
+              if (listed) {
+                const nextManager: AssetManagerState = {
+                  ...upgradedManager,
+                  funds: upgradedManager.funds.map((item) =>
+                    item.id === fund.id ? upgraded : item,
+                  ),
+                };
+                const synced = await syncAmcListedFundMeta(
+                  upgraded,
+                  nextManager,
+                  true,
+                );
+                if (!synced.success || !synced.fund) continue;
+                merged = upsertListedCache(merged, synced.fund);
+                upgradedManager = nextManager;
+              } else {
+                upgradedManager = {
+                  ...upgradedManager,
+                  funds: upgradedManager.funds.map((item) =>
+                    item.id === fund.id ? upgraded : item,
+                  ),
+                };
+              }
+            }
+            assetManager = upgradedManager;
           }
           const existingTradeIds = new Set(latest.trades.map((trade) => trade.id));
           const ledgerTrades: Trade[] = ledger.trades
@@ -4560,6 +4618,7 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOf = (stockId: string) =>
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const valuationPriceOf = createAmcValuationPriceResolver(state.stocks);
         const reservedTickers = [
           ...state.stocks.map((stock) => stock.ticker),
           ...state.listedAmcFunds
@@ -4575,6 +4634,7 @@ export const useMarketStore = create<MarketStore>()(
           initialPriceOf,
           now,
           reservedTickers,
+          valuationPriceOf,
         );
         if (
           !result.success ||
@@ -4591,6 +4651,7 @@ export const useMarketStore = create<MarketStore>()(
           result.fund,
           priceOf,
           initialPriceOf,
+          valuationPriceOf,
         );
         const payments: CashPayment[] = [];
         if ((result.burned ?? 0) > 0) {
@@ -4819,6 +4880,7 @@ export const useMarketStore = create<MarketStore>()(
             state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0,
           (stockId) =>
             state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0,
+          createAmcValuationPriceResolver(state.stocks),
         );
         if (!result.success || !result.manager || !result.fund) {
           return { success: false, message: result.message };
@@ -4961,7 +5023,13 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOf = (stockId: string) =>
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
-        const nav = computeAmcFundNavPerShare(fund, priceOf, initialPriceOf);
+        const valuationPriceOf = createAmcValuationPriceResolver(state.stocks);
+        const nav = computeAmcFundNavPerShare(
+          fund,
+          priceOf,
+          initialPriceOf,
+          valuationPriceOf,
+        );
         const total = Math.round(nav * qty);
         if (state.cash < total) {
           return { success: false, message: "현금이 부족합니다." };
@@ -4976,6 +5044,7 @@ export const useMarketStore = create<MarketStore>()(
           fund.holdings,
           priceOf,
           initialPriceOf,
+          valuationPriceOf,
         );
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         const settled = await settleAmcListedFund({
@@ -5152,6 +5221,7 @@ export const useMarketStore = create<MarketStore>()(
           state.stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0;
         const initialPriceOf = (stockId: string) =>
           state.stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0;
+        const valuationPriceOf = createAmcValuationPriceResolver(state.stocks);
         if (!(await state.saveCloud())) {
           return {
             success: false,
@@ -5162,6 +5232,7 @@ export const useMarketStore = create<MarketStore>()(
           fund.holdings,
           priceOf,
           initialPriceOf,
+          valuationPriceOf,
         );
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         await settleAmcListedFund({
