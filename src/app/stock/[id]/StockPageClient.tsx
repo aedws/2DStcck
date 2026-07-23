@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FuturesView } from "./FuturesView";
 import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
@@ -397,6 +397,10 @@ function UpcomingIpoView({ stock }: { stock: StockState }) {
 
 export function StockPageClient({ id }: { id: string }) {
   const [tab, setTab] = useState(0);
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested === "options") setTab(1);
+  }, [id]);
   const stocks = useMarketStore((s) => s.stocks);
   const events = useMarketStore((s) => s.events);
   const stock = stocks.find((s) => s.id === id);

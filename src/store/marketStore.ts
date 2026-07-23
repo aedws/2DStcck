@@ -337,6 +337,7 @@ import {
   resolveAmcDividendPeriodRate,
   settleAmcManagementFees,
   settleAmcManagerDividends,
+  shouldSettleAmcFundLocally,
   upgradeAmcFundHoldingBases,
   type AmcHoldingWeight,
   type AssetManagerState,
@@ -391,6 +392,8 @@ import {
 interface MarketStore extends MarketSnapshot {
   userId: string | null;
   isReady: boolean;
+  /** 설정에서 마지막으로 게임 계좌 전체를 초기화한 시각. */
+  accountResetAt: number;
   /** 로그인 지갑을 클라우드에서 확인한 뒤에만 자동 저장을 허용한다. */
   cloudSyncReady: boolean;
   /** 마지막 명시적 클라우드 저장 실패 시각. 로컬 복구 허용의 유일한 근거. */
@@ -693,6 +696,8 @@ interface MarketStore extends MarketSnapshot {
   buyCurrent: (stockId: string, quantity: number) => OrderResult;
   sellCurrent: (stockId: string, quantity: number) => OrderResult;
   reset: () => void;
+  /** 로그인은 유지하고 지갑·진행도·로컬 회사/ETF를 새 계좌로 확정 저장한다. */
+  resetAccount: () => Promise<OrderResult>;
   getTotalAssets: () => number;
   /** 순자산의 권위 정수 센트 문자열. */
   getTotalAssetsExact: () => string;
@@ -702,6 +707,7 @@ interface MarketStore extends MarketSnapshot {
 function createInitialState(): MarketSnapshot & {
   userId: string | null;
   isReady: boolean;
+  accountResetAt: number;
   cloudSyncReady: boolean;
   cloudSaveFailedAt: number;
   refreshingAmcLedger: boolean;
@@ -791,6 +797,7 @@ function createInitialState(): MarketSnapshot & {
     events: initialMarket.events,
     userId: null,
     isReady: false,
+    accountResetAt: 0,
     cloudSyncReady: false,
     cloudSaveFailedAt: 0,
     refreshingAmcLedger: false,
@@ -2306,6 +2313,10 @@ export const useMarketStore = create<MarketStore>()(
         );
         set({
           walletEpoch: WALLET_EPOCH,
+          accountResetAt:
+            Number.isFinite(wallet.accountResetAt) && wallet.accountResetAt! > 0
+              ? wallet.accountResetAt!
+              : 0,
           cloudSaveFailedAt: 0,
           cash: exactToNumber(cloudCashExact),
           cashExact: cloudCashExact,
@@ -2448,6 +2459,7 @@ export const useMarketStore = create<MarketStore>()(
         const s = get();
         const saveResult = await saveGameSave({
           walletEpoch: WALLET_EPOCH,
+          accountResetAt: s.accountResetAt,
           sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
           cashExact: exactCashOf(s),
@@ -3063,7 +3075,12 @@ export const useMarketStore = create<MarketStore>()(
           let localManager: AssetManagerState = {
             ...assetManager,
             funds: assetManager.funds
-              .filter((fund) => !listedIds.has(fund.id))
+              // 상장 신청 순간부터 배당·운용료 권위는 서버 원장으로 넘긴다.
+              // 로그인 직후 listedAmcFunds가 아직 비어 있는 짧은 구간에 로컬 정산까지
+              // 실행되면, 같은 회차가 서버 이벤트와 로컬 현금에 각각 한 번씩 잡힌다.
+              .filter(
+                (fund) => shouldSettleAmcFundLocally(fund, listedIds),
+              )
               .map((fund) =>
                 upgradeAmcFundHoldingBases(
                   fund,
@@ -4463,13 +4480,20 @@ export const useMarketStore = create<MarketStore>()(
           ]);
           const latest = get();
           if (latest.playerCompany) return;
+          const afterReset = (createdAt: string) => {
+            const created = Date.parse(createdAt);
+            return (
+              latest.accountResetAt <= 0 ||
+              (Number.isFinite(created) && created > latest.accountResetAt)
+            );
+          };
           const now = Date.now();
           const recovered = recoverPlayerCompanyFromServerRecords(
-            requests,
+            requests.filter((request) => afterReset(request.createdAt)),
             latest.cashPayments,
             Math.floor(now / SESSION_DURATION_MS),
             now,
-            stockRequests,
+            stockRequests.filter((request) => afterReset(request.created_at)),
           );
           if (!recovered) return;
           set({ playerCompany: recovered.entity });
@@ -4674,12 +4698,29 @@ export const useMarketStore = create<MarketStore>()(
         if (state.refreshingAmcLedger) return;
         set({ refreshingAmcLedger: true });
         try {
-          const [live, ownedListed, requests, foundationRequests] = await Promise.all([
+          const [live, ownedListedRaw, requestsRaw, foundationRequestsRaw] = await Promise.all([
             fetchLiveListedAmcFunds(),
             fetchListedAmcFundsByManager(state.userId),
             listMyAmcEtfListingRequests().catch(() => []),
             listMyAmcFoundationRequests().catch(() => []),
           ]);
+          const afterReset = (createdAt: string | number) => {
+            const created =
+              typeof createdAt === "number" ? createdAt : Date.parse(createdAt);
+            return (
+              state.accountResetAt <= 0 ||
+              (Number.isFinite(created) && created > state.accountResetAt)
+            );
+          };
+          const ownedListed = ownedListedRaw.filter((fund) =>
+            afterReset(fund.createdAt),
+          );
+          const requests = requestsRaw.filter((request) =>
+            afterReset(request.createdAt),
+          );
+          const foundationRequests = foundationRequestsRaw.filter((request) =>
+            afterReset(request.createdAt),
+          );
           const heldIds = state.holdings
             .map((item) => parseAmcFundId(item.stockId))
             .filter((id): id is string => Boolean(id));
@@ -4859,8 +4900,13 @@ export const useMarketStore = create<MarketStore>()(
             });
           }
 
+          const managerRecoveryFunds = merged.filter(
+            (fund) =>
+              fund.managerUserId !== state.userId ||
+              afterReset(fund.createdAt),
+          );
           let assetManager = rebuildAssetManagerFromOwnedListed(
-            merged,
+            managerRecoveryFunds,
             state.userId,
             latest.assetManager,
           );
@@ -6272,6 +6318,78 @@ export const useMarketStore = create<MarketStore>()(
 
       reset: () => set(createInitialState()),
 
+      resetAccount: async () => {
+        const before = get();
+        if (!before.userId || !before.cloudSyncReady) {
+          return {
+            success: false,
+            message: "로그인과 클라우드 동기화가 완료된 뒤 초기화할 수 있습니다.",
+          };
+        }
+
+        // 서버 원장에 남은 유저 ETF 좌수가 새 지갑으로 다시 복원되지 않도록,
+        // 현재 NAV로 전량 환매한 뒤 환매 현금까지 새 계좌 기준선에 포함해 소각한다.
+        await get().refreshListedAmcFunds();
+        const refreshed = get();
+        const listedIds = new Set(
+          refreshed.listedAmcFunds.map((fund) => fund.id),
+        );
+        const serverPositions = refreshed.holdings.flatMap((holding) => {
+          const fundId = parseAmcFundId(holding.stockId);
+          return fundId && listedIds.has(fundId) && holding.quantity > 0
+            ? [{ fundId, quantity: holding.quantity }]
+            : [];
+        });
+        for (const position of serverPositions) {
+          const result = await get().sellAmcFund(
+            position.fundId,
+            position.quantity,
+          );
+          if (!result.success) {
+            return {
+              success: false,
+              message: `유저 ETF ${position.fundId} 정리 실패: ${result.message}`,
+            };
+          }
+        }
+
+        const latest = get();
+        const userId = latest.userId;
+        if (!userId) {
+          return { success: false, message: "로그인 상태가 변경되었습니다." };
+        }
+        const resetAt = Date.now();
+        const fresh = createInitialState();
+        set({
+          ...fresh,
+          userId,
+          isReady: true,
+          cloudSyncReady: true,
+          accountResetAt: resetAt,
+          // 과거 ETF 원장 잔액은 이미 현재 cash에 반영된 기준값이므로, 새 지갑이
+          // 이를 다시 현금으로 더하지 않게 서버 누적값만 기준선으로 보존한다.
+          amcLedgerBalance: latest.amcLedgerBalance,
+          amcLedgerBalanceExact: latest.amcLedgerBalanceExact,
+          amcLedgerRevision: latest.amcLedgerRevision,
+          listedAmcFunds: latest.listedAmcFunds,
+        });
+        window.localStorage.removeItem(
+          `2dstock-leaderboard-sync:${userId}`,
+        );
+        const saved = await get().saveCloud();
+        if (!saved) {
+          return {
+            success: false,
+            message:
+              "새 계좌는 로컬에 적용됐지만 클라우드 저장이 지연되고 있습니다. 수동 저장을 다시 눌러 주세요.",
+          };
+        }
+        return {
+          success: true,
+          message: "게임 계좌와 진행도를 초기 상태로 되돌렸습니다.",
+        };
+      },
+
       getTotalAssets: () => {
         return exactToNumber(totalAssetsExactOf(get()));
       },
@@ -6290,6 +6408,7 @@ export const useMarketStore = create<MarketStore>()(
         tick: state.tick,
         marketVersion: state.marketVersion,
         walletEpoch: state.walletEpoch,
+        accountResetAt: state.accountResetAt,
         sessionDurationMs: state.sessionDurationMs,
         marketStartedAt: state.marketStartedAt,
         cash: state.cash,
@@ -6628,6 +6747,14 @@ export const useMarketStore = create<MarketStore>()(
           ...walletSource,
           marketVersion: MARKET_SIM_VERSION,
           walletEpoch: WALLET_EPOCH,
+          accountResetAt: Number.isFinite(
+            (walletSource as Partial<MarketStore>).accountResetAt,
+          )
+            ? Math.max(
+                0,
+                (walletSource as Partial<MarketStore>).accountResetAt!,
+              )
+            : 0,
           sessionDurationMs: SESSION_DURATION_MS,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : current.tick,

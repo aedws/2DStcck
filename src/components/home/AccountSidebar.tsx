@@ -18,6 +18,13 @@ import {
 } from "@/lib/market/salary";
 import { computePrestige } from "@/lib/player/prestige";
 import { getBenchmark } from "@/lib/market/interestRate";
+import { getAnnualRatePercent } from "@/lib/market/interestRate";
+import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import {
+  isZeroDteExpiry,
+  optionLabel,
+  positionMark,
+} from "@/lib/market/options";
 import {
   calculateAccountInvestmentPerformance,
   calculateSeasonPerformance,
@@ -37,6 +44,7 @@ export function AccountSidebar() {
   const cash = useMarketStore((s) => s.cash);
   const cashExact = useMarketStore((s) => s.cashExact);
   const holdings = useMarketStore((s) => s.holdings);
+  const options = useMarketStore((s) => s.options);
   const stocks = useMarketStore((s) => s.stocks);
   const assetManager = useMarketStore((s) => s.assetManager);
   const listedAmcFunds = useMarketStore((s) => s.listedAmcFunds);
@@ -46,7 +54,7 @@ export function AccountSidebar() {
   const getTotalAssetsExact = useMarketStore((s) => s.getTotalAssetsExact);
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
-  const reset = useMarketStore((s) => s.reset);
+  const getRateLevel = useMarketStore((s) => s.getRateLevel);
   const achievements = useMarketStore((s) => s.achievements);
   const characterProgress = useMarketStore((s) => s.characterProgress);
   const unlockedSeasonRewardIds = useMarketStore((s) => s.unlockedSeasonRewardIds);
@@ -98,6 +106,40 @@ export function AccountSidebar() {
     );
     return [...regular, ...userEtfs];
   }, [assetManager, holdings, listedAmcFunds, stocks]);
+
+  const optionPositions = useMemo(() => {
+    const sessionExact = Date.now() / SESSION_DURATION_MS;
+    const rate = getAnnualRatePercent(getRateLevel()) / 100;
+    return options.flatMap((position) => {
+      const stock = stocks.find((item) => item.id === position.stockId);
+      if (!stock) return [];
+      const mark = positionMark(
+        position,
+        stock,
+        sessionExact,
+        rate,
+        stocks,
+      );
+      const pnl =
+        (position.side === "long"
+          ? mark - position.openPremium
+          : position.openPremium - mark) * position.quantity;
+      return [{
+        id: position.id,
+        stockId: position.stockId,
+        stockName: stock.name,
+        ticker: stock.ticker,
+        label: optionLabel(position.kind, position.side),
+        strike: position.strike,
+        quantity: position.quantity,
+        mark,
+        value:
+          (position.side === "long" ? mark : -mark) * position.quantity,
+        pnl,
+        zeroDte: isZeroDteExpiry(position.expirySession, sessionExact),
+      }];
+    });
+  }, [getRateLevel, options, stocks]);
 
   const prestige = computePrestige({
     achievements,
@@ -226,51 +268,105 @@ export function AccountSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {accountPositions.length === 0 ? (
+        {accountPositions.length === 0 && optionPositions.length === 0 ? (
           <p className="py-6 text-center text-xs text-[var(--muted)]">
             보유 종목이 없어요
           </p>
         ) : (
-          <ul className="space-y-2">
-            {accountPositions.map((position) => {
-              return (
-                <li
-                  key={position.id}
-                  className="rounded-xl bg-[var(--surface)] px-3 py-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <Link
-                      href={position.href}
-                      className="text-sm font-medium hover:text-[var(--up)]"
+          <>
+            {accountPositions.length > 0 && (
+              <ul className="space-y-2">
+                {accountPositions.map((position) => {
+                  return (
+                    <li
+                      key={position.id}
+                      className="rounded-xl bg-[var(--surface)] px-3 py-3"
                     >
-                      {position.name}
-                      <span className="ml-1 text-[10px] text-[var(--muted)]">
-                        {position.ticker}
-                      </span>
-                      {position.userEtf && (
-                        <span className="ml-1 rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] text-emerald-300">
-                          유저 ETF
+                      <div className="flex items-center justify-between">
+                        <Link
+                          href={position.href}
+                          className="text-sm font-medium hover:text-[var(--up)]"
+                        >
+                          {position.name}
+                          <span className="ml-1 text-[10px] text-[var(--muted)]">
+                            {position.ticker}
+                          </span>
+                          {position.userEtf && (
+                            <span className="ml-1 rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] text-emerald-300">
+                              유저 ETF
+                            </span>
+                          )}
+                        </Link>
+                        <span className="text-sm tabular-nums">
+                          {formatPrice(position.evaluation)}
                         </span>
-                      )}
-                    </Link>
-                    <span className="text-sm tabular-nums">
-                      {formatPrice(position.evaluation)}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-xs">
-                    <span className="text-[var(--muted)]">
-                      {position.quantity.toLocaleString("ko-KR", {
-                        maximumFractionDigits: 6,
-                      })}주
-                    </span>
-                    <span className={`tabular-nums ${upDownClass(position.pnl)}`}>
-                      {formatSignedPercent(position.pnl)}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs">
+                        <span className="text-[var(--muted)]">
+                          {position.quantity.toLocaleString("ko-KR", {
+                            maximumFractionDigits: 6,
+                          })}주
+                        </span>
+                        <span className={`tabular-nums ${upDownClass(position.pnl)}`}>
+                          {formatSignedPercent(position.pnl)}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {optionPositions.length > 0 && (
+              <div className={accountPositions.length > 0 ? "mt-5" : ""}>
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <h3 className="text-xs font-semibold">보유 옵션</h3>
+                  <span className="text-[10px] text-[var(--muted)]">
+                    {optionPositions.length}개 포지션
+                  </span>
+                </div>
+                <ul className="space-y-2">
+                  {optionPositions.map((position) => (
+                    <li
+                      key={position.id}
+                      className="rounded-xl border border-violet-400/15 bg-violet-500/5 px-3 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={`/stock/${position.stockId}?tab=options`}
+                          className="min-w-0 text-sm font-medium hover:text-violet-300"
+                        >
+                          <span className="block truncate">
+                            {position.stockName}
+                            <span className="ml-1 text-[10px] text-[var(--muted)]">
+                              {position.ticker}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-violet-300">
+                            {position.label} · 행사가 {formatPrice(position.strike)}
+                            {position.zeroDte ? " · ⚡ 0DTE" : ""}
+                          </span>
+                        </Link>
+                        <span
+                          className={`shrink-0 text-xs tabular-nums ${upDownClass(position.value)}`}
+                        >
+                          {formatPrice(position.value)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between text-xs">
+                        <span className="text-[var(--muted)]">
+                          {position.quantity.toLocaleString("ko-KR")}계약 · 마크{" "}
+                          {formatPrice(position.mark)}
+                        </span>
+                        <span className={`tabular-nums ${upDownClass(position.pnl)}`}>
+                          {formatSignedCompact(position.pnl)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -344,14 +440,6 @@ export function AccountSidebar() {
           </ul>
         )}
 
-        <button
-          onClick={() => {
-            if (confirm("게임을 초기화하시겠습니까?")) reset();
-          }}
-          className="mt-4 w-full rounded-xl border border-[var(--border)] py-2 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)]"
-        >
-          초기화
-        </button>
       </div>
     </aside>
   );

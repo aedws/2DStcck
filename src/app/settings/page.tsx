@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AuthButton } from "@/components/auth/AuthButton";
+import { AccountResetPanel } from "@/components/auth/AccountResetPanel";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import {
   MISSION_TUTORIAL_STEPS,
@@ -227,6 +228,7 @@ export default function SettingsPage() {
             <AuthButton wide />
           </div>
         </div>
+        <AccountResetPanel />
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">

@@ -24,6 +24,7 @@ import {
   rebalanceAmcFund,
   settleAmcDividends,
   settleAmcManagementFees,
+  shouldSettleAmcFundLocally,
   splitAmcSeed,
   updateAmcShareAdjustmentSettings,
   updateAssetManagerProfile,
@@ -1186,5 +1187,27 @@ assert.ok(
   assert.ok(mergedExisting);
   assert.equal(mergedExisting!.funds.length, 1);
 }
+
+assert.equal(
+  shouldSettleAmcFundLocally(created.fund!, new Set()),
+  true,
+  "상장 신청 전 로컬 ETF는 로컬 정산 대상이어야 함",
+);
+assert.equal(
+  shouldSettleAmcFundLocally(
+    { ...created.fund!, listingRequestId: "listing-request-1" },
+    new Set(),
+  ),
+  false,
+  "공유 목록 복원 전이라도 상장 신청 ETF는 서버 정산만 사용해야 함",
+);
+assert.equal(
+  shouldSettleAmcFundLocally(
+    created.fund!,
+    new Set([created.fund!.id]),
+  ),
+  false,
+  "공유 상장 ETF는 로컬에서 중복 정산하면 안 됨",
+);
 
 console.log("asset manager founding · fee · compliance scenarios passed");

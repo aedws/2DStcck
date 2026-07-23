@@ -224,6 +224,17 @@ export interface AmcFundState {
   listingRequestId?: string;
 }
 
+/**
+ * 상장 신청 전 로컬 전용 ETF만 브라우저가 배당·운용료를 정산한다.
+ * 신청 이후에는 공유 목록 복원이 잠시 늦더라도 서버 원장이 단일 권위다.
+ */
+export function shouldSettleAmcFundLocally(
+  fund: Pick<AmcFundState, "id" | "listingRequestId">,
+  listedFundIds: ReadonlySet<string>,
+): boolean {
+  return !listedFundIds.has(fund.id) && !fund.listingRequestId;
+}
+
 export interface AssetManagerState {
   id: string;
   name: string;

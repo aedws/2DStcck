@@ -41,6 +41,8 @@ export interface WalletSave {
    * (비정상 자산·거래내역 누락 시즌을 한 번에 리셋할 때 올린다.)
    */
   walletEpoch?: number;
+  /** 사용자가 설정에서 게임 계좌를 초기화한 시각. 이전 서버 신청은 복구하지 않는다. */
+  accountResetAt?: number;
   /** 저장 당시 거래일 길이. 구버전(없음)은 3시간으로 간주한다. */
   sessionDurationMs?: number;
   cash: number;

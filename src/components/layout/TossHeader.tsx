@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthButton } from "@/components/auth/AuthButton";
+import { ManualCloudSaveButton } from "@/components/auth/ManualCloudSaveButton";
 import { formatPrice, getDayChangePercent } from "@/lib/market/engine";
 import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
@@ -200,11 +201,19 @@ export function TossHeader() {
             ⚙️
           </Link>
           <span className="hidden h-4 w-px bg-[var(--border)] md:inline-block" aria-hidden />
+          <span className="hidden sm:inline-flex">
+            <ManualCloudSaveButton />
+          </span>
           <AuthButton />
         </div>
       </div>
-      <div className="px-3 pb-3 lg:hidden">
-        <StockSearch />
+      <div className="flex items-center gap-2 px-3 pb-3 lg:hidden">
+        <div className="min-w-0 flex-1">
+          <StockSearch />
+        </div>
+        <span className="shrink-0 sm:hidden">
+          <ManualCloudSaveButton />
+        </span>
       </div>
     </header>
   );
