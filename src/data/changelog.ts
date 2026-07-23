@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-24": {
     highlights: [
+      "분할 주수 누락 복구 — Worker가 시장을 한 번에 따라잡을 때 가격만 액면조정되고 보유·공매·지정가 수량이 다음 틱까지 정산되지 않던 경로를 원자적으로 수정하고, 영향 25계정의 42개 보유·2개 공매·1개 주문을 가치 중립 보정했습니다. (@warning)",
       "미수 선택 4단계 유지 — 총노출 상한은 200%로 제한하면서 일반 종목·유저 ETF 주문창에 125%·150%·175%·200% 선택 버튼을 제공합니다.",
       "유저 ETF 평단 계산 퀵 액세스 — 유저 ETF 상세 주문 패널에서도 현재 보유 좌수·평단·NAV가 자동 입력된 물타기/불타기 계산기를 바로 열 수 있습니다. (@bradje)",
       "유저 ETF 상장 신청 복구 — 17~30종목 ETF의 구성 기준가·벤치마크·분할 설정이 서버 1,000자 제한을 넘어 신청 저장에 실패하던 원인을 제거하고 최대 20,000자로 확장했습니다. (@asset_management)",
@@ -249,6 +250,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-24",
+    tag: "수정",
+    title: "액면분할 가격·주수 원자적 정산 및 기존 계정 복구",
+    detail:
+      "장기 공백 뒤 Web Worker가 목표 시각의 시장 체크포인트를 적용하면 가격과 액면배수만 먼저 바뀌고, 목표 틱 차이가 0이라 후속 시장 틱이 생략될 때 보유 주수·평단·공매·지정가 주문 정산이 실행되지 않을 수 있었습니다. 체크포인트 적용과 같은 상태 갱신에서 주수×배수·평단÷배수·지정가 가격÷배수를 원자적으로 처리하도록 수정했습니다. 운영 원장 전수 점검으로 확인한 25계정의 42개 보유 포지션, 2개 공매, 1개 지정가 주문도 현재 액면배수에 맞춰 가치 중립 복구했습니다. (@warning)",
+  },
   {
     date: "2026-07-24",
     tag: "개선",

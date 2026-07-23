@@ -16,6 +16,7 @@ import {
 } from "@/lib/market/engine";
 import {
   reconcileLeveragePositionSplits,
+  reconcileSplitAdjustedOrders,
   stampLeveragePositionMultiplier,
   currentPositionSplitMultiplier,
 } from "@/lib/market/leveragePositionSplits";
@@ -2829,24 +2830,10 @@ export const useMarketStore = create<MarketStore>()(
         let holdings = state.holdings;
         let trades = state.trades;
         const pendingOrderTaxPayments: CashPayment[] = [];
-        const splitAdjustedOrders = openOrders.map((order) => {
-          const stock = combinedStocks.find((item) => item.id === order.stockId);
-          if (!stock) return order;
-          const target = currentPositionSplitMultiplier(stock, combinedStocks);
-          const applied = order.splitMultiplier ?? 1;
-          if (!(target > 0) || !(applied > 0) || target === applied) {
-            return order.splitMultiplier === target
-              ? order
-              : { ...order, splitMultiplier: target };
-          }
-          const ratio = target / applied;
-          return {
-            ...order,
-            price: Math.max(1, Math.round(order.price / ratio)),
-            quantity: normalizeShareQuantity(order.quantity * ratio),
-            splitMultiplier: target,
-          };
-        });
+        const splitAdjustedOrders = reconcileSplitAdjustedOrders(
+          openOrders,
+          combinedStocks,
+        );
         let remainingOrders = splitAdjustedOrders;
         if (splitAdjustedOrders.length > 0) {
           remainingOrders = [];
@@ -3758,13 +3745,45 @@ export const useMarketStore = create<MarketStore>()(
 
       applyMarketCheckpoint: (checkpoint) => {
         const hydrated = hydrateMarketCheckpoint(checkpoint);
+        const checkpointStocks = replaceActivePumpStocks(
+          hydrated.stocks,
+          Date.now(),
+        );
+        // Worker가 목표 틱까지 정확히 따라잡으면 직후 tickMarket()은 gap=0으로
+        // 즉시 종료된다. 따라서 체크포인트 적용과 같은 원자적 set에서 보유·공매·
+        // 지정가 주문의 액면 배수를 먼저 정산해야 가격만 바뀌는 구간이 생기지 않는다.
+        const state = get();
+        const splitHoldings = reconcileLeverageSplits(
+          state.holdings,
+          checkpointStocks,
+        );
+        const splitShorts = reconcileLeveragePositionSplits(
+          state.shorts,
+          checkpointStocks,
+        );
+        const splitOrders = reconcileSplitAdjustedOrders(
+          state.openOrders,
+          checkpointStocks,
+        );
         set({
           marketVersion: MARKET_SIM_VERSION,
           marketStartedAt: MARKET_EPOCH_MS,
           tick: hydrated.tick,
-          stocks: replaceActivePumpStocks(hydrated.stocks, Date.now()),
+          stocks: checkpointStocks,
           events: hydrated.events.map(ensureEventDialogue),
+          holdings: splitHoldings.holdings,
+          shorts: splitShorts.positions,
+          openOrders: splitOrders,
         });
+        for (const event of splitHoldings.events) {
+          const isSplit = event.ratio > 1;
+          useToastStore.getState().push(
+            isSplit
+              ? `📈 ${event.ticker} ${Math.round(event.ratio)}:1 액면분할 — 보유 주수 ${Math.round(event.ratio)}배`
+              : `📉 ${event.ticker} ${Math.round(1 / event.ratio)}:1 병합 — 보유 주수 ${Math.round(1 / event.ratio)}분의 1`,
+            "info",
+          );
+        }
       },
 
       settleCashflows: () => {

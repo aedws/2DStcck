@@ -6,6 +6,7 @@ import {
   leverageSplitMultiplier,
   leverageDisplayPrice,
   computeLeveragedRawPrice,
+  normalizeStockSharePrice,
 } from "../src/lib/market/engine";
 import {
   LEVERAGE_SPLIT_AT,
@@ -15,6 +16,7 @@ import {
 import type { ShortPosition, StockDefinition } from "../src/lib/types/market";
 import {
   reconcileLeveragePositionSplits,
+  reconcileSplitAdjustedOrders,
   stampLeveragePositionMultiplier,
 } from "../src/lib/market/leveragePositionSplits";
 
@@ -278,5 +280,55 @@ assert.equal(
   releasedSnapshot.lastShareAdjustmentSession,
   splitSession + 5,
 );
+
+// 8) Worker 체크포인트가 일반 종목 10:1 분할을 가져와도 보유·지정가를
+//    다음 틱에 미루지 않고 같은 배수로 즉시 정산한다.
+const plainBefore = {
+  ...createInitialStockState(
+    {
+      id: "plain-split",
+      ticker: "PLAIN",
+      name: "일반 분할 테스트",
+      sector: "테스트",
+      initialPrice: 120_000,
+      volatility: 0,
+      drift: 0,
+    },
+    splitSession * SESSION_DURATION_MS,
+  ),
+  currentPrice: 120_000,
+  prevDayClose: 120_000,
+  dayOpen: 120_000,
+};
+const plainAfter = normalizeStockSharePrice(
+  plainBefore,
+  splitSession * SESSION_DURATION_MS,
+);
+const checkpointHolding = reconcileLeveragePositionSplits(
+  [{
+    stockId: plainBefore.id,
+    quantity: 2,
+    quantityExact: "2",
+    averagePrice: 120_000,
+    splitMultiplier: 1,
+  }],
+  [plainAfter],
+).positions[0]!;
+assert.equal(checkpointHolding.quantity, 20);
+assert.equal(checkpointHolding.quantityExact, "20");
+assert.equal(checkpointHolding.averagePrice, 12_000);
+assert.equal(checkpointHolding.splitMultiplier, 10);
+const checkpointOrder = reconcileSplitAdjustedOrders(
+  [{
+    stockId: plainBefore.id,
+    price: 110_000,
+    quantity: 3,
+    splitMultiplier: 1,
+  }],
+  [plainAfter],
+)[0]!;
+assert.equal(checkpointOrder.price, 11_000);
+assert.equal(checkpointOrder.quantity, 30);
+assert.equal(checkpointOrder.splitMultiplier, 10);
 
 console.log("leverage daily-reset · split/merge scenarios passed");

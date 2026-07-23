@@ -4,6 +4,7 @@ import {
   exactQuantityMultiply,
   normalizeExactQuantity,
 } from "@/lib/market/exactAmount";
+import { normalizeShareQuantity } from "@/lib/market/trading";
 
 export interface SplitAdjustedPosition {
   stockId: string;
@@ -16,6 +17,13 @@ export interface SplitAdjustedPosition {
 export interface LeverageSplitEvent {
   ticker: string;
   ratio: number;
+}
+
+export interface SplitAdjustedOrder {
+  stockId: string;
+  price: number;
+  quantity: number;
+  splitMultiplier?: number;
 }
 
 export function currentPositionSplitMultiplier(
@@ -102,4 +110,33 @@ export function stampLeveragePositionMultiplier<
       ? ({ ...position, splitMultiplier: multiplier } as T)
       : position,
   );
+}
+
+/** 지정가 주문도 액면 변동에 맞춰 가격÷배수·수량×배수로 함께 조정한다. */
+export function reconcileSplitAdjustedOrders<T extends SplitAdjustedOrder>(
+  orders: T[],
+  stocks: StockState[],
+): T[] {
+  const byId = new Map(stocks.map((stock) => [stock.id, stock]));
+  let changed = false;
+  const next = orders.map((order) => {
+    const stock = byId.get(order.stockId);
+    if (!stock) return order;
+    const target = currentPositionSplitMultiplier(stock, stocks);
+    const applied = order.splitMultiplier ?? 1;
+    if (!(target > 0) || !(applied > 0) || target === applied) {
+      if (order.splitMultiplier === target) return order;
+      changed = true;
+      return { ...order, splitMultiplier: target } as T;
+    }
+    const ratio = target / applied;
+    changed = true;
+    return {
+      ...order,
+      price: Math.max(1, Math.round(order.price / ratio)),
+      quantity: normalizeShareQuantity(order.quantity * ratio),
+      splitMultiplier: target,
+    } as T;
+  });
+  return changed ? next : orders;
 }
