@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { formatPercent, formatPrice, formatCompactMoney } from "@/lib/market/engine";
+import { formatExactMoney } from "@/lib/market/exactAmount";
 import {
   getSalaryDaysRemaining,
   SALARY_AMOUNT,
@@ -69,6 +70,7 @@ export default function PortfolioPage() {
     direction: SortDirection;
   }>({ key: null, direction: "desc" });
   const cash = useMarketStore((s) => s.cash);
+  const cashExact = useMarketStore((s) => s.cashExact);
   const holdings = useMarketStore((s) => s.holdings);
   const shorts = useMarketStore((s) => s.shorts);
   const options = useMarketStore((s) => s.options);
@@ -81,6 +83,7 @@ export default function PortfolioPage() {
   const preferredShares = useMarketStore((s) => s.preferredShares);
   const netWorthHistory = useMarketStore((s) => s.netWorthHistory);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
+  const getTotalAssetsExact = useMarketStore((s) => s.getTotalAssetsExact);
   const getEquity = useMarketStore((s) => s.getEquity);
   const getRateLevel = useMarketStore((s) => s.getRateLevel);
   const marginCallAt = useMarketStore((s) => s.marginCallAt);
@@ -97,6 +100,7 @@ export default function PortfolioPage() {
   );
 
   const total = getTotalAssets();
+  const totalExact = getTotalAssetsExact();
   const luxuryValue = getLuxuryValue(ownedLuxuries);
   // 우선주는 집중 유지 중인 활성분만 자산 반영 — 총자산과 일치시킨다.
   const preferredConcentration = computeCharacterConcentration(
@@ -303,7 +307,7 @@ export default function PortfolioPage() {
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="총 자산" value={formatCompactMoney(total)} />
+        <SummaryCard label="총 자산" value={formatExactMoney(totalExact)} />
         <SummaryCard label="보유 평가액" value={formatCompactMoney(stockValue)} />
         <SummaryCard
           label="투자 수익률"
@@ -339,7 +343,7 @@ export default function PortfolioPage() {
           value={shortLiab > 0 ? formatCompactMoney(shortLiab) : "-"}
           color={shortLiab > 0 ? "text-amber-400" : "text-zinc-100"}
         />
-        <SummaryCard label="현금" value={formatCompactMoney(cash)} />
+        <SummaryCard label="현금" value={formatExactMoney(cashExact ?? cash)} />
       </div>
 
       {shorts.length > 0 && (

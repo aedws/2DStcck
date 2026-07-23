@@ -82,17 +82,30 @@ assert.ok(
 const ledgerDebit = reconcileAmcLedgerCash(100_000, 0, -10_000)!;
 assert.deepEqual(ledgerDebit, {
   cash: 90_000,
+  cashExact: "90000",
   appliedBalance: -10_000,
+  appliedBalanceExact: "-10000",
   delta: -10_000,
+  deltaExact: "-10000",
 });
 assert.deepEqual(
   reconcileAmcLedgerCash(ledgerDebit.cash, ledgerDebit.appliedBalance, -10_000),
-  { cash: 90_000, appliedBalance: -10_000, delta: 0 },
+  {
+    cash: 90_000,
+    cashExact: "90000",
+    appliedBalance: -10_000,
+    appliedBalanceExact: "-10000",
+    delta: 0,
+    deltaExact: "0",
+  },
 );
 assert.deepEqual(reconcileAmcLedgerCash(90_000, -10_000, -7_500), {
   cash: 92_500,
+  cashExact: "92500",
   appliedBalance: -7_500,
+  appliedBalanceExact: "-7500",
   delta: 2_500,
+  deltaExact: "2500",
 });
 
 const prices: Record<string, number> = {

@@ -2,19 +2,28 @@
 
 import type { ReactNode } from "react";
 import { useMarketStore } from "@/store/marketStore";
-import { formatMarketTime, formatPrice } from "@/lib/market/engine";
+import { formatMarketTime } from "@/lib/market/engine";
 import { calculateAccountInvestmentPerformance } from "@/lib/market/investmentSeasons";
+import {
+  exactPercentChange,
+  formatExactMoney,
+  formatExactPercent,
+} from "@/lib/market/exactAmount";
 
 export function MarketHeader() {
   const tick = useMarketStore((s) => s.tick);
   const marketStartedAt = useMarketStore((s) => s.marketStartedAt);
   const cash = useMarketStore((s) => s.cash);
+  const cashExact = useMarketStore((s) => s.cashExact);
   const cashPayments = useMarketStore((s) => s.cashPayments);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
+  const getTotalAssetsExact = useMarketStore((s) => s.getTotalAssetsExact);
   const reset = useMarketStore((s) => s.reset);
 
   const total = getTotalAssets();
+  const totalExact = getTotalAssetsExact();
   const initialCash = useMarketStore((s) => s.initialCash);
+  const initialCashExact = useMarketStore((s) => s.initialCashExact);
   const { returnRate } = calculateAccountInvestmentPerformance(
     total,
     initialCash,
@@ -39,11 +48,13 @@ export function MarketHeader() {
         label="장 운영 시간"
         value={formatMarketTime(marketStartedAt, tick)}
       />
-      <StatCard label="보유 현금" value={formatPrice(cash)} />
-      <StatCard label="총 자산" value={formatPrice(total)} />
+      <StatCard label="보유 현금" value={formatExactMoney(cashExact ?? cash)} />
+      <StatCard label="총 자산" value={formatExactMoney(totalExact)} />
       <StatCard
         label="투자 수익률"
-        value={`${returnRate >= 0 ? "+" : ""}${returnRate.toFixed(2)}%`}
+        value={formatExactPercent(
+          exactPercentChange(totalExact, initialCashExact ?? initialCash),
+        )}
         highlight={returnRate >= 0 ? "up" : "down"}
       />
 

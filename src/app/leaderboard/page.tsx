@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatPercent, formatCompactMoney } from "@/lib/market/engine";
+import {
+  formatExactMoney,
+  formatExactPercent,
+} from "@/lib/market/exactAmount";
 import {
   LEADERBOARD_REFRESH_MS,
   fetchLeaderboard,
@@ -172,15 +175,15 @@ export default function LeaderboardPage() {
                     {mode === "prestige"
                       ? `✨ ${entry.prestige.toLocaleString()}`
                       : mode === "weekly"
-                        ? `${entry.weeklyReturn >= 0 ? "+" : ""}${entry.weeklyReturn.toFixed(2)}%`
-                        : formatCompactMoney(entry.netWorth)}
+                        ? formatExactPercent(entry.weeklyReturnExact)
+                        : formatExactMoney(entry.netWorthExact)}
                   </p>
                   <p className={`text-xs tabular-nums ${mode === "prestige" ? "text-[var(--muted)]" : upDownClass(mode === "weekly" ? entry.weeklyReturn : entry.returnRate)}`}>
                     {mode === "prestige"
-                      ? `${formatCompactMoney(entry.netWorth)} · ${entry.tradeCount}체결`
+                      ? `${formatExactMoney(entry.netWorthExact)} · ${entry.tradeCount}체결`
                       : mode === "weekly"
-                        ? `${formatCompactMoney(entry.netWorth)} · 승률 ${entry.winRate.toFixed(0)}%`
-                        : `${formatPercent(entry.returnRate)} · ${entry.tradeCount}체결`}
+                        ? `${formatExactMoney(entry.netWorthExact)} · 승률 ${entry.winRate.toFixed(0)}%`
+                        : `${formatExactPercent(entry.returnRateExact)} · ${entry.tradeCount}체결`}
                   </p>
                 </div>
               </li>

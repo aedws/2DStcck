@@ -1,7 +1,17 @@
+import {
+  exactAdd,
+  exactSubtract,
+  exactToNumber,
+  normalizeExactAmount,
+} from "@/lib/market/exactAmount";
+
 export interface AmcLedgerCashReconciliation {
   cash: number;
   appliedBalance: number;
   delta: number;
+  cashExact: string;
+  appliedBalanceExact: string;
+  deltaExact: string;
 }
 
 /**
@@ -12,6 +22,9 @@ export function reconcileAmcLedgerCash(
   cash: number,
   appliedBalance: number,
   serverBalance: number,
+  cashExact?: string,
+  appliedBalanceExact?: string,
+  serverBalanceExact?: string,
 ): AmcLedgerCashReconciliation | null {
   if (
     !Number.isFinite(cash) ||
@@ -20,14 +33,32 @@ export function reconcileAmcLedgerCash(
   ) {
     return null;
   }
-  const normalizedApplied = Math.round(appliedBalance);
-  const normalizedServer = Math.round(serverBalance);
-  const delta = normalizedServer - normalizedApplied;
-  const nextCash = cash + delta;
+  const normalizedAppliedExact = normalizeExactAmount(
+    appliedBalanceExact,
+    normalizeExactAmount(appliedBalance),
+  );
+  const normalizedServerExact = normalizeExactAmount(
+    serverBalanceExact,
+    normalizeExactAmount(serverBalance),
+  );
+  const deltaExact = exactSubtract(
+    normalizedServerExact,
+    normalizedAppliedExact,
+  );
+  const nextCashExact = exactAdd(
+    normalizeExactAmount(cashExact, normalizeExactAmount(cash)),
+    deltaExact,
+  );
+  const normalizedServer = exactToNumber(normalizedServerExact);
+  const delta = exactToNumber(deltaExact);
+  const nextCash = exactToNumber(nextCashExact);
   if (!Number.isFinite(nextCash)) return null;
   return {
     cash: nextCash,
     appliedBalance: normalizedServer,
     delta,
+    cashExact: nextCashExact,
+    appliedBalanceExact: normalizedServerExact,
+    deltaExact,
   };
 }

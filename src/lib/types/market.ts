@@ -192,6 +192,8 @@ export interface NetWorthPoint {
   t: number;
   /** 총 순자산(현금 + 주식 평가 + 사치재 가치, 센트) */
   value: number;
+  /** Number.MAX_SAFE_INTEGER 이후에도 보존되는 정수 센트 문자열. */
+  valueExact?: string;
 }
 
 export interface Candle {
@@ -206,6 +208,8 @@ export interface Holding {
   stockId: string;
   /** 현물은 최대 소수점 6자리까지 보유할 수 있다. */
   quantity: number;
+  /** 최대 소수 6자리의 정확한 보유 수량 문자열. */
+  quantityExact?: string;
   averagePrice: number;
   /** 유저 ETF에서 마지막으로 확인·수령한 배당 회차. 과거 배당 소급 지급 방지용. */
   amcDividendCursorSession?: number;
@@ -239,6 +243,8 @@ export interface ShortPosition {
   stockId: string;
   /** 공매도 수량 (양수) */
   quantity: number;
+  /** 큰 수 공매 수량을 보존하는 정확한 수량 문자열. */
+  quantityExact?: string;
   /** 평균 진입(매도) 단가 */
   averagePrice: number;
   /** 레버리지·인버스 상품의 진입 시점 액면 분할/병합 배수 */
@@ -264,6 +270,8 @@ export interface OptionPosition {
   expirySession: number;
   /** 계약 수 */
   quantity: number;
+  /** 큰 수 계약 수량을 보존하는 정확한 수량 문자열. */
+  quantityExact?: string;
   /** 개시 시 계약당 프리미엄 (센트) */
   openPremium: number;
   openedAt: number;
@@ -291,8 +299,12 @@ export interface Trade {
   ticker: string;
   type: TradeType;
   quantity: number;
+  /** 최대 소수 6자리의 정확한 체결 수량 문자열. */
+  quantityExact?: string;
   price: number;
   total: number;
+  /** 체결 대금의 정확한 정수 센트 문자열. */
+  totalExact?: string;
   timestamp: number;
   /** 옵션 거래일 때 계약 식별·손익 재생에 사용한다. */
   optionId?: string;
@@ -335,6 +347,8 @@ export interface CashPayment {
   quantity?: number;
   amountPerShare?: number;
   amount: number;
+  /** 지급액의 정확한 정수 센트 문자열. */
+  amountExact?: string;
   timestamp: number;
 }
 
@@ -488,8 +502,12 @@ export interface MarketSnapshot {
   tick: number;
   marketStartedAt: number;
   cash: number;
+  /** 현금의 권위값. cash는 기존 화면·차트 호환용 근삿값이다. */
+  cashExact?: string;
   /** 서버 ETF 현금원장에서 로컬 지갑에 마지막으로 반영한 누적값. */
   amcLedgerBalance: number;
+  /** 유저 ETF 서버 현금 원장의 권위값. */
+  amcLedgerBalanceExact?: string;
   /** 서버 ETF 원장 변경 순번. 진단·동기화 표시용. */
   amcLedgerRevision: number;
   /** 마지막 월급 지급 기준 거래일. 이 시점부터 20거래일마다 고정급 지급 */
@@ -510,6 +528,8 @@ export interface MarketSnapshot {
   stocks: StockState[];
   events: MarketEvent[];
   initialCash: number;
+  /** 초기 투자금의 정확한 정수 센트 문자열. */
+  initialCashExact?: string;
   /** 마지막으로 마진 이자·대여수수료를 정산한 거래일 */
   lastInterestSession: number;
 }

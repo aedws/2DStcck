@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMarketStore } from "@/store/marketStore";
 import {
   formatPrice,
-  formatCompactMoney,
   formatSignedCompact,
   formatTradeTime,
 } from "@/lib/market/engine";
@@ -29,12 +28,14 @@ import {
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
+import { formatExactMoney } from "@/lib/market/exactAmount";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
 export function AccountSidebar() {
   const [orderTab, setOrderTab] = useState(1);
   const cash = useMarketStore((s) => s.cash);
+  const cashExact = useMarketStore((s) => s.cashExact);
   const holdings = useMarketStore((s) => s.holdings);
   const stocks = useMarketStore((s) => s.stocks);
   const assetManager = useMarketStore((s) => s.assetManager);
@@ -42,6 +43,7 @@ export function AccountSidebar() {
   const trades = useMarketStore((s) => s.trades);
   const cashPayments = useMarketStore((s) => s.cashPayments);
   const getTotalAssets = useMarketStore((s) => s.getTotalAssets);
+  const getTotalAssetsExact = useMarketStore((s) => s.getTotalAssetsExact);
   const initialCash = useMarketStore((s) => s.initialCash);
   const lastSalarySession = useMarketStore((s) => s.lastSalarySession);
   const reset = useMarketStore((s) => s.reset);
@@ -108,6 +110,7 @@ export function AccountSidebar() {
     playerCompany,
   });
   const total = getTotalAssets();
+  const totalExact = getTotalAssetsExact();
   const { profit, returnRate } = calculateAccountInvestmentPerformance(
     total,
     initialCash,
@@ -145,14 +148,14 @@ export function AccountSidebar() {
             상세 →
           </Link>
         </div>
-        <p className="mt-3 text-2xl font-bold tabular-nums" title={formatPrice(total)}>
-          {formatCompactMoney(total)}
+        <p className="mt-3 text-2xl font-bold tabular-nums" title={formatExactMoney(totalExact)}>
+          {formatExactMoney(totalExact)}
         </p>
         <p className={`mt-1 text-sm tabular-nums ${upDownClass(profit)}`}>
           {formatSignedCompact(profit)} {formatSignedPercent(returnRate)}
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          가용 현금 {formatCompactMoney(cash)}
+          가용 현금 {formatExactMoney(cashExact ?? cash)}
         </p>
         {skillPerf && (
           <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">

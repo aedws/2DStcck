@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "천문학적 큰 수 정밀 원장 — 현금·보유좌수·순자산을 JSON 숫자가 아닌 10진 문자열로 저장하고 필요한 연산만 BigInt로 수행합니다. 랭킹과 유저 ETF 서버 원장도 PostgreSQL numeric을 문자열로 왕복해 새로고침·다중 기기 동기화 뒤 자산 끝자리가 반올림되거나 거래가 사라지는 문제를 근본 차단했습니다.",
       "차트 설정 유지 개선 — 봉 주기와 이동평균선·지수이동평균선·VWAP·볼린저밴드·거래량·장중 구분·RSI 표시 설정이 페이지·종목·옵션 이동 뒤에도 마지막 상태로 복원됩니다. (@doglife)",
       "자산운용사 정보 수정 — 설립한 운용사의 이름·한줄 소개·상세 소개를 수정할 수 있고, 변경 내용이 본인 소유의 공유 상장 ETF와 클라우드 저장 데이터에도 함께 반영됩니다. (@monoch)",
       "기기 간 계좌 동기화·보상 중복 방지 — 새 기기에서는 서버 계좌를 우선 사용하고 명시적인 저장 실패 직후에만 로컬 복구본을 적용합니다. 기존 지급 거래 ID도 완료 증거로 확인해 피드백·버그·IPO 환급 보상의 반복 수령을 차단했습니다. 운영 데이터 점검 결과 기존 중복 지급은 없었습니다. (@gudokza111)",
@@ -227,6 +228,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "수정",
+    title: "랭킹·순자산·유저 ETF 큰 수 정밀 원장 전환",
+    detail:
+      "JavaScript number의 안전 정수 한계를 넘는 현금·보유좌수·순자산은 정수 센트 문자열을 기준값으로 저장하고, 덧셈·뺄셈·평가액·수익률 계산 때만 BigInt 정밀 연산을 사용하도록 전환했습니다. 화면용 number는 호환 보조값으로만 유지합니다. 랭킹 제출·조회는 PostgreSQL numeric을 text RPC로 왕복해 JSON 파싱 단계의 반올림을 없앴고, 유저 ETF 계정 원장·보유좌수·체결대금·배당도 numeric 및 정확 문자열 필드로 승격했습니다. 일반 매매·공매·옵션·자동매수·분할·배당·보상·상점·복권·강제청산까지 현금 변동이 같은 정밀 잔고를 갱신하며, 계좌·시장 헤더·포트폴리오·랭킹에는 해당 기준값을 직접 표시합니다.",
+  },
   {
     date: "2026-07-23",
     tag: "개선",

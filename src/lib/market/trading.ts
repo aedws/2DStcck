@@ -1,4 +1,14 @@
 import type { Holding, OrderResult, Trade } from "@/lib/types/market";
+import {
+  exactCompare,
+  exactPositionValue,
+  exactQuantityAdd,
+  exactSubtract,
+  exactAdd,
+  exactToNumber,
+  normalizeExactAmount,
+  normalizeExactQuantity,
+} from "@/lib/market/exactAmount";
 
 export const MIN_SHARE_QUANTITY = 0.001;
 export const SHARE_QUANTITY_DECIMALS = 6;
@@ -36,17 +46,25 @@ export function executeBuy(
   price: number,
   quantity: number,
   timestamp: number,
-): { cash: number; holdings: Holding[]; trade: Trade } | OrderResult {
+  cashExact?: string,
+): { cash: number; cashExact: string; holdings: Holding[]; trade: Trade } | OrderResult {
   if (!isValidShareQuantity(quantity)) {
     return { success: false, message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요." };
   }
 
   const normalizedQuantity = normalizeShareQuantity(quantity);
-  const total = shareOrderTotal(price, normalizedQuantity);
+  const orderQuantityExact = normalizeExactQuantity(normalizedQuantity);
+  const totalExact = exactPositionValue(price, orderQuantityExact);
+  const total = exactToNumber(totalExact);
   if (total < 1) {
     return { success: false, message: "주문 금액은 최소 $0.01이어야 합니다." };
   }
-  if (total > cash) {
+  if (
+    cash !== Number.POSITIVE_INFINITY &&
+    (cashExact
+      ? exactCompare(totalExact, cashExact) > 0
+      : total > cash)
+  ) {
     return { success: false, message: "보유 현금이 부족합니다." };
   }
 
@@ -55,17 +73,31 @@ export function executeBuy(
 
   if (existing) {
     const newQty = normalizeShareQuantity(existing.quantity + normalizedQuantity);
+    const newQuantityExact = exactQuantityAdd(
+      existing.quantityExact ?? existing.quantity,
+      orderQuantityExact,
+    );
     const newAvg =
       (existing.averagePrice * existing.quantity + price * normalizedQuantity) / newQty;
     newHoldings = holdings.map((h) =>
       h.stockId === stockId
-        ? { ...h, quantity: newQty, averagePrice: newAvg }
+        ? {
+            ...h,
+            quantity: newQty,
+            quantityExact: newQuantityExact,
+            averagePrice: newAvg,
+          }
         : h,
     );
   } else {
     newHoldings = [
       ...holdings,
-      { stockId, quantity: normalizedQuantity, averagePrice: price },
+      {
+        stockId,
+        quantity: normalizedQuantity,
+        quantityExact: orderQuantityExact,
+        averagePrice: price,
+      },
     ];
   }
 
@@ -77,11 +109,17 @@ export function executeBuy(
     quantity: normalizedQuantity,
     price,
     total,
+    totalExact,
     timestamp,
   };
 
   return {
-    cash: cash - total,
+    cash: cashExact
+      ? exactToNumber(exactSubtract(cashExact, totalExact))
+      : cash - total,
+    cashExact: cashExact
+      ? exactSubtract(cashExact, totalExact)
+      : normalizeExactAmount(cash - total),
     holdings: newHoldings,
     trade,
   };
@@ -95,30 +133,39 @@ export function executeSell(
   price: number,
   quantity: number,
   timestamp: number,
-): { cash: number; holdings: Holding[]; trade: Trade } | OrderResult {
+  cashExact?: string,
+): { cash: number; cashExact: string; holdings: Holding[]; trade: Trade } | OrderResult {
   if (!isValidShareQuantity(quantity)) {
     return { success: false, message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요." };
   }
 
   const normalizedQuantity = normalizeShareQuantity(quantity);
+  const orderQuantityExact = normalizeExactQuantity(normalizedQuantity);
 
   const existing = holdings.find((h) => h.stockId === stockId);
   if (!existing || existing.quantity + 1e-9 < normalizedQuantity) {
     return { success: false, message: "보유 수량이 부족합니다." };
   }
 
-  const total = shareOrderTotal(price, normalizedQuantity);
+  const totalExact = exactPositionValue(price, orderQuantityExact);
+  const total = exactToNumber(totalExact);
   if (total < 1) {
     return { success: false, message: "주문 금액은 최소 $0.01이어야 합니다." };
   }
   const newQty = normalizeShareQuantity(existing.quantity - normalizedQuantity);
+  const newQuantityExact = exactQuantityAdd(
+    existing.quantityExact ?? existing.quantity,
+    `-${orderQuantityExact}`,
+  );
 
   let newHoldings: Holding[];
   if (newQty < MIN_SHARE_QUANTITY) {
     newHoldings = holdings.filter((h) => h.stockId !== stockId);
   } else {
     newHoldings = holdings.map((h) =>
-      h.stockId === stockId ? { ...h, quantity: newQty } : h,
+      h.stockId === stockId
+        ? { ...h, quantity: newQty, quantityExact: newQuantityExact }
+        : h,
     );
   }
 
@@ -130,11 +177,17 @@ export function executeSell(
     quantity: normalizedQuantity,
     price,
     total,
+    totalExact,
     timestamp,
   };
 
   return {
-    cash: cash + total,
+    cash: cashExact
+      ? exactToNumber(exactAdd(cashExact, totalExact))
+      : cash + total,
+    cashExact: cashExact
+      ? exactAdd(cashExact, totalExact)
+      : normalizeExactAmount(cash + total),
     holdings: newHoldings,
     trade,
   };
@@ -142,6 +195,11 @@ export function executeSell(
 
 export function isOrderSuccess(
   result: ReturnType<typeof executeBuy>,
-): result is { cash: number; holdings: Holding[]; trade: Trade } {
+): result is {
+  cash: number;
+  cashExact: string;
+  holdings: Holding[];
+  trade: Trade;
+} {
   return "trade" in result;
 }

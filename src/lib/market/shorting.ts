@@ -1,7 +1,17 @@
 import type { OrderResult, ShortPosition, Trade } from "@/lib/types/market";
+import {
+  exactAdd,
+  exactPositionValue,
+  exactQuantityAdd,
+  exactSubtract,
+  exactToNumber,
+  normalizeExactAmount,
+  normalizeExactQuantity,
+} from "@/lib/market/exactAmount";
 
 export interface ShortResult {
   cash: number;
+  cashExact: string;
   shorts: ShortPosition[];
   trade: Trade;
 }
@@ -14,14 +24,18 @@ function makeTrade(
   price: number,
   timestamp: number,
 ): Trade {
+  const quantityExact = normalizeExactQuantity(quantity);
+  const totalExact = exactPositionValue(price, quantityExact);
   return {
     id: `trade-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     stockId,
     ticker,
     type,
     quantity,
+    quantityExact,
     price,
-    total: price * quantity,
+    total: exactToNumber(totalExact),
+    totalExact,
     timestamp,
   };
 }
@@ -35,6 +49,7 @@ export function openShort(
   price: number,
   quantity: number,
   timestamp: number,
+  cashExact?: string,
 ): ShortResult | OrderResult {
   if (quantity <= 0 || !Number.isInteger(quantity)) {
     return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
@@ -43,18 +58,40 @@ export function openShort(
   let next: ShortPosition[];
   if (existing) {
     const newQty = existing.quantity + quantity;
+    const newQuantityExact = exactQuantityAdd(
+      existing.quantityExact ?? existing.quantity,
+      quantity,
+    );
     const newAvg =
       (existing.averagePrice * existing.quantity + price * quantity) / newQty;
     next = shorts.map((s) =>
       s.stockId === stockId
-        ? { ...s, quantity: newQty, averagePrice: newAvg }
+        ? {
+            ...s,
+            quantity: newQty,
+            quantityExact: newQuantityExact,
+            averagePrice: newAvg,
+          }
         : s,
     );
   } else {
-    next = [...shorts, { stockId, quantity, averagePrice: price }];
+    next = [
+      ...shorts,
+      {
+        stockId,
+        quantity,
+        quantityExact: normalizeExactQuantity(quantity),
+        averagePrice: price,
+      },
+    ];
   }
+  const proceedsExact = exactPositionValue(price, quantity);
+  const nextCashExact = cashExact
+    ? exactAdd(cashExact, proceedsExact)
+    : normalizeExactAmount(cash + price * quantity);
   return {
-    cash: cash + price * quantity,
+    cash: exactToNumber(nextCashExact),
+    cashExact: nextCashExact,
     shorts: next,
     trade: makeTrade(stockId, ticker, "short", quantity, price, timestamp),
   };
@@ -69,6 +106,7 @@ export function coverShort(
   price: number,
   quantity: number,
   timestamp: number,
+  cashExact?: string,
 ): ShortResult | OrderResult {
   if (quantity <= 0 || !Number.isInteger(quantity)) {
     return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
@@ -78,14 +116,25 @@ export function coverShort(
     return { success: false, message: "청산할 공매도 수량이 부족합니다." };
   }
   const remaining = existing.quantity - quantity;
+  const remainingExact = exactQuantityAdd(
+    existing.quantityExact ?? existing.quantity,
+    `-${normalizeExactQuantity(quantity)}`,
+  );
   const next =
     remaining === 0
       ? shorts.filter((s) => s.stockId !== stockId)
       : shorts.map((s) =>
-          s.stockId === stockId ? { ...s, quantity: remaining } : s,
+          s.stockId === stockId
+            ? { ...s, quantity: remaining, quantityExact: remainingExact }
+            : s,
         );
+  const costExact = exactPositionValue(price, quantity);
+  const nextCashExact = cashExact
+    ? exactSubtract(cashExact, costExact)
+    : normalizeExactAmount(cash - price * quantity);
   return {
-    cash: cash - price * quantity,
+    cash: exactToNumber(nextCashExact),
+    cashExact: nextCashExact,
     shorts: next,
     trade: makeTrade(stockId, ticker, "cover", quantity, price, timestamp),
   };

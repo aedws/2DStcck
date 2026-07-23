@@ -1,9 +1,14 @@
 import { leverageMultiplierFor } from "@/lib/market/engine";
 import type { StockState } from "@/lib/types/market";
+import {
+  exactQuantityMultiply,
+  normalizeExactQuantity,
+} from "@/lib/market/exactAmount";
 
 export interface SplitAdjustedPosition {
   stockId: string;
   quantity: number;
+  quantityExact?: string;
   averagePrice: number;
   splitMultiplier?: number;
 }
@@ -49,6 +54,13 @@ export function reconcileLeveragePositionSplits<
     return {
       ...position,
       quantity: position.quantity * ratio,
+      quantityExact: exactQuantityMultiply(
+        normalizeExactQuantity(
+          position.quantityExact,
+          normalizeExactQuantity(position.quantity),
+        ),
+        ratio,
+      ),
       averagePrice: position.averagePrice / ratio,
       splitMultiplier: target,
     } as T;

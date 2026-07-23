@@ -13,6 +13,11 @@ import {
 } from "@/lib/player/assetManager";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
+import {
+  exactToNumber,
+  normalizeExactAmount,
+  normalizeExactQuantity,
+} from "@/lib/market/exactAmount";
 
 export interface ListedAmcFund {
   id: string;
@@ -55,10 +60,12 @@ export interface ListedAmcFund {
 export interface AmcLedgerPosition {
   fundId: string;
   quantity: number;
+  quantityExact: string;
 }
 
 export interface AmcLedgerSnapshot {
   balance: number;
+  balanceExact: string;
   revision: number;
   positions: AmcLedgerPosition[];
   trades: AmcLedgerTrade[];
@@ -69,8 +76,10 @@ export interface AmcLedgerTrade {
   id: string;
   fundId: string;
   delta: number;
+  deltaExact: string;
   navPerShare: number;
   total: number;
+  totalExact: string;
   createdAt: number;
 }
 
@@ -81,8 +90,10 @@ export interface AmcLedgerPayment {
   kind: "management_fee" | "dividend" | "delist";
   dueSession: number;
   quantity: number;
+  quantityExact: string;
   perShare: number;
   amount: number;
+  amountExact: string;
   createdAt: number;
 }
 
@@ -91,10 +102,14 @@ export interface AmcLedgerTradeResult {
   message: string;
   fund?: ListedAmcFund;
   position?: number;
+  positionExact?: string;
   navPerShare?: number;
   total?: number;
+  totalExact?: string;
   cashDelta?: number;
+  cashDeltaExact?: string;
   ledgerBalance?: number;
+  ledgerBalanceExact?: string;
   ledgerRevision?: number;
 }
 
@@ -656,12 +671,92 @@ export async function voluntarilyDelistAmcListedFund(input: {
     : { success: false, message: "상장폐지 응답을 해석하지 못했습니다." };
 }
 
+function parseExactLedgerSnapshot(data: unknown): AmcLedgerSnapshot | null {
+  if (!data || typeof data !== "object") return null;
+  const row = data as Record<string, unknown>;
+  const balanceExact = normalizeExactAmount(row.balanceExact ?? "0");
+  const positions = Array.isArray(row.positions)
+    ? row.positions.flatMap((value) => {
+        if (!value || typeof value !== "object") return [];
+        const item = value as Record<string, unknown>;
+        const fundId = String(item.fundId ?? "");
+        const quantityExact = normalizeExactQuantity(item.quantityExact ?? "0");
+        return fundId
+          ? [{ fundId, quantity: Number(quantityExact), quantityExact }]
+          : [];
+      })
+    : [];
+  const trades = Array.isArray(row.trades)
+    ? row.trades.flatMap((value) => {
+        if (!value || typeof value !== "object") return [];
+        const item = value as Record<string, unknown>;
+        const deltaExact = normalizeExactQuantity(item.deltaExact ?? "0");
+        const totalExact = normalizeExactAmount(item.totalExact ?? "0");
+        return [{
+          id: String(item.id ?? ""),
+          fundId: String(item.fundId ?? ""),
+          delta: Number(deltaExact),
+          deltaExact,
+          navPerShare: Math.max(1, Number(item.navPerShare) || 1),
+          total: exactToNumber(totalExact),
+          totalExact,
+          createdAt: Date.parse(String(item.createdAt ?? "")) || Date.now(),
+        }];
+      })
+    : [];
+  const payments = Array.isArray(row.payments)
+    ? row.payments.flatMap((value) => {
+        if (!value || typeof value !== "object") return [];
+        const item = value as Record<string, unknown>;
+        const kind = String(item.kind ?? "");
+        if (kind !== "management_fee" && kind !== "dividend" && kind !== "delist") {
+          return [];
+        }
+        const quantityExact = normalizeExactQuantity(item.quantityExact ?? "0");
+        const amountExact = normalizeExactAmount(item.amountExact ?? "0");
+        return [{
+          eventId: Number(item.eventId) || 0,
+          fundId: String(item.fundId ?? ""),
+          ticker: String(item.ticker ?? ""),
+          kind,
+          dueSession: Number(item.dueSession) || 0,
+          quantity: Number(quantityExact),
+          quantityExact,
+          perShare: Math.max(0, Number(item.perShare) || 0),
+          amount: exactToNumber(amountExact),
+          amountExact,
+          createdAt: Date.parse(String(item.createdAt ?? "")) || Date.now(),
+        } satisfies AmcLedgerPayment];
+      })
+    : [];
+  return {
+    balance: exactToNumber(balanceExact),
+    balanceExact,
+    revision: Math.max(0, Number(row.revision) || 0),
+    positions,
+    trades,
+    payments,
+  };
+}
+
 export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {
   const auth = await getCurrentAuth();
   if (!auth) {
-    return { balance: 0, revision: 0, positions: [], trades: [], payments: [] };
+    return {
+      balance: 0,
+      balanceExact: "0",
+      revision: 0,
+      positions: [],
+      trades: [],
+      payments: [],
+    };
   }
   const supabase = createClient();
+  const precise = await supabase.rpc("amc_get_my_ledger_exact");
+  if (!precise.error) {
+    const parsed = parseExactLedgerSnapshot(precise.data);
+    if (parsed) return parsed;
+  }
   const [accountResult, positionsResult, tradesResult, paymentsResult] =
     await Promise.all([
     supabase
@@ -712,6 +807,7 @@ export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {
     .map((row) => ({
       fundId: String(row.fund_id ?? ""),
       quantity: Math.max(0, Number(row.quantity) || 0),
+      quantityExact: normalizeExactQuantity(row.quantity ?? "0"),
     }))
     .filter((row) => row.fundId);
   const trades = ((tradesResult.data ?? []) as Array<{
@@ -725,8 +821,10 @@ export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {
     id: String(row.client_order_id ?? ""),
     fundId: String(row.fund_id ?? ""),
     delta: Number(row.delta_shares) || 0,
+    deltaExact: normalizeExactQuantity(row.delta_shares ?? "0"),
     navPerShare: Math.max(1, Math.round(Number(row.nav_per_share) || 1)),
     total: Math.max(0, Math.round(Number(row.total) || 0)),
+    totalExact: normalizeExactAmount(row.total ?? "0"),
     createdAt: Date.parse(String(row.created_at ?? "")) || Date.now(),
   }));
   const payments = ((paymentsResult.data ?? []) as Array<{
@@ -756,13 +854,16 @@ export async function fetchMyAmcLedger(): Promise<AmcLedgerSnapshot> {
       kind,
       dueSession: Math.floor(Number(item.due_session) || 0),
       quantity: Math.max(0, Number(row.quantity) || 0),
+      quantityExact: normalizeExactQuantity(row.quantity ?? "0"),
       perShare: Math.max(0, Math.round(Number(item.per_share) || 0)),
       amount: Math.max(0, Math.round(Number(row.amount) || 0)),
+      amountExact: normalizeExactAmount(row.amount ?? "0"),
       createdAt: Date.parse(String(row.created_at ?? "")) || Date.now(),
     } satisfies AmcLedgerPayment];
   });
   return {
     balance: Math.round(Number(account?.balance_delta) || 0),
+    balanceExact: normalizeExactAmount(account?.balance_delta ?? "0"),
     revision: Math.max(0, Math.floor(Number(account?.revision) || 0)),
     positions,
     trades,
@@ -782,7 +883,13 @@ export async function bootstrapAmcPosition(
   const row = data as { fund_id?: unknown; quantity?: unknown };
   const id = String(row.fund_id ?? fundId);
   const parsedQuantity = Math.max(0, Number(row.quantity) || 0);
-  return id ? { fundId: id, quantity: parsedQuantity } : null;
+  return id
+    ? {
+        fundId: id,
+        quantity: parsedQuantity,
+        quantityExact: normalizeExactQuantity(row.quantity ?? "0"),
+      }
+    : null;
 }
 
 export async function settleAmcListedFund(input: {
@@ -840,9 +947,28 @@ export async function tradeAmcListedFund(input: {
   clientOrderId: string;
   allowMargin?: boolean;
   marginBuyingPower?: number;
+  marginBuyingPowerExact?: string;
 }): Promise<AmcLedgerTradeResult> {
   const supabase = createClient();
-  const { data, error } = await supabase.rpc("amc_trade_fund", {
+  let { data, error } = await supabase.rpc("amc_trade_fund_exact", {
+    p_fund_id: input.fundId,
+    p_delta: normalizeExactQuantity(input.delta),
+    p_expected_position: normalizeExactQuantity(input.expectedPosition),
+    p_price_factor: String(input.priceFactor),
+    p_client_order_id: input.clientOrderId,
+    p_allow_margin: input.allowMargin === true,
+    p_margin_buying_power: normalizeExactAmount(
+      input.marginBuyingPowerExact,
+      normalizeExactAmount(input.marginBuyingPower ?? 0),
+    ),
+  });
+  if (
+    error &&
+    (error.code === "42883" ||
+      error.code === "PGRST202" ||
+      /amc_trade_fund_exact|function/i.test(error.message ?? ""))
+  ) {
+    ({ data, error } = await supabase.rpc("amc_trade_fund", {
     p_fund_id: input.fundId,
     p_delta: input.delta,
     p_expected_position: input.expectedPosition,
@@ -853,7 +979,8 @@ export async function tradeAmcListedFund(input: {
       0,
       Math.round(Number(input.marginBuyingPower) || 0),
     ),
-  });
+    }));
+  }
   if (error || !data) {
     const raw = error?.message ?? "";
     const message = raw.includes("position_conflict")
@@ -877,6 +1004,10 @@ export async function tradeAmcListedFund(input: {
     cashDelta?: unknown;
     ledgerBalance?: unknown;
     ledgerRevision?: unknown;
+    positionExact?: unknown;
+    totalExact?: unknown;
+    cashDeltaExact?: unknown;
+    ledgerBalanceExact?: unknown;
   };
   const fund =
     row.fund && typeof row.fund === "object"
@@ -887,11 +1018,21 @@ export async function tradeAmcListedFund(input: {
     success: true,
     message: "ok",
     fund,
-    position: Math.max(0, Number(row.position) || 0),
+    position: Math.max(0, Number(row.positionExact ?? row.position) || 0),
+    positionExact: normalizeExactQuantity(row.positionExact ?? row.position ?? "0"),
     navPerShare: Math.max(1, Math.round(Number(row.navPerShare) || 1)),
-    total: Math.max(0, Math.round(Number(row.total) || 0)),
-    cashDelta: Math.round(Number(row.cashDelta) || 0),
-    ledgerBalance: Math.round(Number(row.ledgerBalance) || 0),
+    total: exactToNumber(row.totalExact ?? row.total ?? "0"),
+    totalExact: normalizeExactAmount(row.totalExact ?? row.total ?? "0"),
+    cashDelta: exactToNumber(row.cashDeltaExact ?? row.cashDelta ?? "0"),
+    cashDeltaExact: normalizeExactAmount(
+      row.cashDeltaExact ?? row.cashDelta ?? "0",
+    ),
+    ledgerBalance: exactToNumber(
+      row.ledgerBalanceExact ?? row.ledgerBalance ?? "0",
+    ),
+    ledgerBalanceExact: normalizeExactAmount(
+      row.ledgerBalanceExact ?? row.ledgerBalance ?? "0",
+    ),
     ledgerRevision: Math.max(0, Math.floor(Number(row.ledgerRevision) || 0)),
   };
 }

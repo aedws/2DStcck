@@ -25,6 +25,11 @@ import type { PortfolioStrategyId } from "@/lib/market/portfolioStrategies";
 import type { SeasonRewardId } from "@/lib/player/seasonRewards";
 import type { PlayerCompanyState } from "@/lib/player/playerCompany";
 import type { AssetManagerState } from "@/lib/player/assetManager";
+import {
+  exactPercentChange,
+  exactToNumber,
+  normalizeExactAmount,
+} from "@/lib/market/exactAmount";
 
 /**
  * 경량 계정 동기화의 저장 단위 — 유저 지갑.
@@ -39,10 +44,13 @@ export interface WalletSave {
   /** 저장 당시 거래일 길이. 구버전(없음)은 3시간으로 간주한다. */
   sessionDurationMs?: number;
   cash: number;
+  cashExact?: string;
   /** 서버 ETF 누적 현금원장에서 이 지갑에 반영 완료한 값. */
   amcLedgerBalance?: number;
+  amcLedgerBalanceExact?: string;
   amcLedgerRevision?: number;
   initialCash: number;
+  initialCashExact?: string;
   holdings: Holding[];
   trades: Trade[];
   openOrders: OpenOrder[];
@@ -188,12 +196,16 @@ export interface LeaderboardEntry {
   userId: string;
   displayName: string;
   netWorth: number;
+  /** JSON number로 변환하지 않은 DB numeric 원문. 표시·재계산의 기준값이다. */
+  netWorthExact: string;
   returnRate: number;
+  returnRateExact: string;
   topTier: number;
   luxuryCount: number;
   showcase: string[];
   updatedAt: number;
   weeklyReturn: number;
+  weeklyReturnExact: string;
   title: string;
   tradeCount: number;
   winRate: number;
@@ -221,8 +233,11 @@ export const LEADERBOARD_REFRESH_MS = 60 * 1_000;
 /** 계산된 지표를 본인 리더보드 행에 upsert 한다. 로그인 상태가 아니면 무시. */
 export async function syncLeaderboard(stats: {
   netWorth: number;
+  netWorthExact?: string;
   returnRate: number;
+  returnRateExact?: string;
   initialCash: number;
+  initialCashExact?: string;
   marketSession: number;
   topTier: number;
   luxuryCount: number;
@@ -252,20 +267,31 @@ export async function syncLeaderboard(stats: {
   // 브라우저 개발자 도구의 단순 값 변조를 먼저 거른다. 진짜 권한 경계는
   // basic_leaderboard_integrity 마이그레이션의 submit_leaderboard RPC이며,
   // 저장 지갑과 세션을 재검증한다.
-  const expectedReturn =
-    stats.initialCash > 0
-      ? ((stats.netWorth - stats.initialCash) / stats.initialCash) * 100
-      : Number.NaN;
+  const netWorthExact = normalizeExactAmount(
+    stats.netWorthExact,
+    normalizeExactAmount(stats.netWorth),
+  );
+  const initialCashExact = normalizeExactAmount(
+    stats.initialCashExact,
+    normalizeExactAmount(stats.initialCash),
+  );
+  const expectedReturnExact =
+    BigInt(initialCashExact) > 0n
+      ? exactPercentChange(netWorthExact, initialCashExact, 8)
+      : "NaN";
+  const expectedReturn = Number(expectedReturnExact);
+  const submittedReturnExact =
+    stats.returnRateExact?.trim() || expectedReturnExact;
+  const submittedReturn = Number(submittedReturnExact);
   // 순자산은 상한 없이 커질 수 있으므로 '안전 정수'가 아니라 '유한값'만 요구한다.
   // 정밀도 검증 오차는 값 크기에 비례해 완화한다(거액에서 float 반올림으로 오탐
   // 안 나게). DB도 numeric으로 저장하므로 Qa 이후 값을 잘라낼 필요가 없다.
   const returnTolerance = Math.max(0.05, Math.abs(expectedReturn) * 1e-4);
   if (
-    !Number.isFinite(stats.netWorth) ||
-    !Number.isFinite(stats.initialCash) ||
-    stats.initialCash <= 0 ||
-    !Number.isFinite(stats.returnRate) ||
-    Math.abs(expectedReturn - stats.returnRate) > returnTolerance ||
+    BigInt(initialCashExact) <= 0n ||
+    !Number.isFinite(expectedReturn) ||
+    !Number.isFinite(submittedReturn) ||
+    Math.abs(expectedReturn - submittedReturn) > returnTolerance ||
     !Number.isSafeInteger(stats.marketSession) ||
     stats.luxuryCount < 0 ||
     stats.luxuryCount > 100 ||
@@ -276,9 +302,9 @@ export async function syncLeaderboard(stats: {
 
   const baseParams = {
     p_display_name: displayName,
-    p_net_worth: Math.round(stats.netWorth),
-    p_return_rate: Number(stats.returnRate.toFixed(2)),
-    p_initial_cash: Math.round(stats.initialCash),
+    p_net_worth: netWorthExact,
+    p_return_rate: submittedReturnExact,
+    p_initial_cash: initialCashExact,
     p_market_session: stats.marketSession,
     p_top_tier: stats.topTier,
     p_luxury_count: stats.luxuryCount,
@@ -290,11 +316,18 @@ export async function syncLeaderboard(stats: {
   };
   const p_prestige = Math.max(0, Math.min(100000000, Math.round(stats.prestige)));
 
-  // 1) 프레스티지 포함 신 시그니처. 2) 아직 마이그레이션 전이면 구 시그니처로 재시도.
-  let { error: rpcError } = await supabase.rpc("submit_leaderboard", {
+  // text 파라미터를 받는 정밀 RPC가 numeric 캐스팅과 검증을 서버 안에서 수행한다.
+  // 따라서 PostgREST JSON 디코더가 큰 수를 JS number로 바꾸는 구간 자체를 통과하지 않는다.
+  let { error: rpcError } = await supabase.rpc("submit_leaderboard_precise", {
     ...baseParams,
     p_prestige,
   });
+  if (rpcError && isMissingSchema(rpcError)) {
+    ({ error: rpcError } = await supabase.rpc("submit_leaderboard", {
+      ...baseParams,
+      p_prestige,
+    }));
+  }
   if (rpcError && isMissingSchema(rpcError)) {
     ({ error: rpcError } = await supabase.rpc("submit_leaderboard", baseParams));
   }
@@ -311,8 +344,8 @@ export async function syncLeaderboard(stats: {
   const { error } = await supabase.from("leaderboard").upsert({
     user_id: user.id,
     display_name: displayName,
-    net_worth: Math.round(stats.netWorth),
-    return_rate: Number(stats.returnRate.toFixed(2)),
+    net_worth: netWorthExact,
+    return_rate: submittedReturnExact,
     top_tier: stats.topTier,
     luxury_count: stats.luxuryCount,
     showcase: stats.showcase,
@@ -325,12 +358,52 @@ export async function syncLeaderboard(stats: {
   return !error;
 }
 
+function parseLeaderboardRow(row: Record<string, unknown>): LeaderboardEntry {
+  const netWorthExact = normalizeExactAmount(
+    String(row.net_worth_exact ?? row.net_worth ?? "0"),
+  );
+  const returnRateExact = String(
+    row.return_rate_exact ?? row.return_rate ?? "0",
+  );
+  const weeklyReturnExact = String(
+    row.weekly_return_exact ?? row.weekly_return ?? "0",
+  );
+  return {
+    userId: String(row.user_id),
+    displayName: String(row.display_name),
+    netWorth: exactToNumber(netWorthExact),
+    netWorthExact,
+    returnRate: Number(returnRateExact),
+    returnRateExact,
+    topTier: Number(row.top_tier),
+    luxuryCount: Number(row.luxury_count),
+    showcase: (row.showcase as string[]) ?? [],
+    updatedAt: new Date(row.updated_at as string).getTime(),
+    weeklyReturn: Number(weeklyReturnExact),
+    weeklyReturnExact,
+    title: String(row.title ?? ""),
+    tradeCount: Number(row.trade_count ?? 0),
+    winRate: Number(row.win_rate ?? 0),
+    prestige: Number(row.prestige ?? 0),
+  };
+}
+
 /** 순자산 상위 랭킹을 읽는다 (공개). 실패 시 빈 배열. */
 export async function fetchLeaderboard(
   limit = 100,
   sort: "netWorth" | "weekly" | "prestige" = "netWorth",
 ): Promise<LeaderboardEntry[]> {
   const supabase = createClient();
+  const precise = await supabase.rpc("get_leaderboard_exact", {
+    p_limit: limit,
+    p_sort: sort,
+  });
+  if (!precise.error && Array.isArray(precise.data)) {
+    return (precise.data as Array<Record<string, unknown>>).map(
+      parseLeaderboardRow,
+    );
+  }
+
   const baseCols =
     "user_id, display_name, net_worth, return_rate, weekly_return, title, trade_count, win_rate, top_tier, luxury_count, showcase, updated_at";
   const orderCol =
@@ -359,21 +432,7 @@ export async function fetchLeaderboard(
   }
 
   if (error || !rows) return [];
-  return rows.map((row) => ({
-    userId: String(row.user_id),
-    displayName: String(row.display_name),
-    netWorth: Number(row.net_worth),
-    returnRate: Number(row.return_rate),
-    topTier: Number(row.top_tier),
-    luxuryCount: Number(row.luxury_count),
-    showcase: (row.showcase as string[]) ?? [],
-    updatedAt: new Date(row.updated_at as string).getTime(),
-    weeklyReturn: Number(row.weekly_return ?? 0),
-    title: String(row.title ?? ""),
-    tradeCount: Number(row.trade_count ?? 0),
-    winRate: Number(row.win_rate ?? 0),
-    prestige: Number(row.prestige ?? 0),
-  }));
+  return rows.map(parseLeaderboardRow);
 }
 
 /** 아이디·이메일을 노출하지 않고 등록된 게임 계정 수만 집계한다. */

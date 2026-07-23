@@ -29,6 +29,15 @@ import {
   normalizeShareQuantity,
   shareOrderTotal,
 } from "@/lib/market/trading";
+import {
+  exactAdd,
+  exactPercentChange,
+  exactPositionValue,
+  exactSubtract,
+  exactToNumber,
+  normalizeExactAmount,
+  normalizeExactQuantity,
+} from "@/lib/market/exactAmount";
 import type {
   CashPayment,
   CharacterProgressMap,
@@ -281,6 +290,7 @@ import { reconcileAmcLedgerCash } from "@/lib/player/amcLedger";
 import {
   createAmcValuationPriceResolver,
   getAmcCharacterLinkedHoldings,
+  getAmcPortfolioPositions,
   getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
@@ -683,6 +693,8 @@ interface MarketStore extends MarketSnapshot {
   sellCurrent: (stockId: string, quantity: number) => OrderResult;
   reset: () => void;
   getTotalAssets: () => number;
+  /** 순자산의 권위 정수 센트 문자열. */
+  getTotalAssetsExact: () => string;
   getStockById: (id: string) => StockState | undefined;
 }
 
@@ -748,9 +760,12 @@ function createInitialState(): MarketSnapshot & {
     // 시장은 항상 고정 기원점 기반 결정론 — 모든 클라이언트가 동일한 시장을 본다
     marketStartedAt: MARKET_EPOCH_MS,
     cash: INITIAL_CASH,
+    cashExact: normalizeExactAmount(INITIAL_CASH),
     amcLedgerBalance: 0,
+    amcLedgerBalanceExact: "0",
     amcLedgerRevision: 0,
     initialCash: INITIAL_CASH,
+    initialCashExact: normalizeExactAmount(INITIAL_CASH),
     lastSalarySession: Math.floor(now / SESSION_DURATION_MS),
     // 분배·배당 회차는 기원점 절대 그리드에 정렬 (배당락 시점과 일치)
     lastMonthlyDistributionSession: alignSessionToGrid(
@@ -910,10 +925,11 @@ function appendNetWorthPoint(
   history: NetWorthPoint[],
   value: number,
   now: number,
+  valueExact?: string,
 ): NetWorthPoint[] {
   const last = history[history.length - 1];
   if (last && now - last.t < NET_WORTH_SAMPLE_MS) return history;
-  return [...history, { t: now, value }].slice(-MAX_NET_WORTH_POINTS);
+  return [...history, { t: now, value, valueExact }].slice(-MAX_NET_WORTH_POINTS);
 }
 
 /** 현재 기준금리(연 소수) */
@@ -981,6 +997,147 @@ function longBuyingPower(s: MarginAwareState): number {
 
 function fullEquityOf(s: Parameters<typeof marginContext>[0]): number {
   return marginContext(s).equity;
+}
+
+function exactCashOf(state: { cash: number; cashExact?: string }): string {
+  return normalizeExactAmount(
+    state.cashExact,
+    normalizeExactAmount(state.cash),
+  );
+}
+
+function exactInitialCashOf(state: {
+  initialCash: number;
+  initialCashExact?: string;
+}): string {
+  return normalizeExactAmount(
+    state.initialCashExact,
+    normalizeExactAmount(state.initialCash),
+  );
+}
+
+function withExactCashDelta(
+  state: { cash: number; cashExact?: string },
+  delta: unknown,
+): { cash: number; cashExact: string } {
+  const cashExact = exactAdd(exactCashOf(state), delta);
+  return { cash: exactToNumber(cashExact), cashExact };
+}
+
+function withExactCashValue(value: unknown): {
+  cash: number;
+  cashExact: string;
+} {
+  const cashExact = normalizeExactAmount(value);
+  return { cash: exactToNumber(cashExact), cashExact };
+}
+
+function exactCashPaymentDelta(
+  before: CashPayment[],
+  after: CashPayment[],
+): string {
+  const existing = new Set(before.map((payment) => payment.id));
+  return after
+    .filter((payment) => !existing.has(payment.id))
+    .reduce(
+      (sum, payment) =>
+        exactAdd(
+          sum,
+          payment.amountExact ?? normalizeExactAmount(payment.amount),
+        ),
+      "0",
+    );
+}
+
+function exactTradeValue(trade: Trade): string {
+  return (
+    trade.totalExact ??
+    exactPositionValue(trade.price, trade.quantityExact ?? trade.quantity)
+  );
+}
+
+function exactTradeCashDelta(trade: Trade): string {
+  const value = exactTradeValue(trade);
+  if (
+    trade.type === "buy" ||
+    trade.type === "cover" ||
+    trade.type === "option_buy" ||
+    (trade.type === "option_close" && trade.optionSide === "short") ||
+    (trade.type === "option_expire" && trade.optionSide === "short")
+  ) {
+    return exactSubtract("0", value);
+  }
+  return value;
+}
+
+function applyNewTradeCashDelta(
+  cashExact: string,
+  before: Trade[],
+  after: Trade[],
+): string {
+  const existing = new Set(before.map((trade) => trade.id));
+  return after
+    .filter((trade) => !existing.has(trade.id))
+    .reduce(
+      (sum, trade) => exactAdd(sum, exactTradeCashDelta(trade)),
+      cashExact,
+    );
+}
+
+function quantityExactOf(position: { quantity: number; quantityExact?: string }) {
+  return normalizeExactQuantity(
+    position.quantityExact,
+    normalizeExactQuantity(position.quantity),
+  );
+}
+
+function normalizePositionExactQuantities<
+  T extends { quantity: number; quantityExact?: string },
+>(positions: T[]): T[] {
+  return positions.map((position) => ({
+    ...position,
+    quantityExact: quantityExactOf(position),
+  }));
+}
+
+function fullEquityExactOf(
+  state: Parameters<typeof marginContext>[0] & { cashExact?: string },
+): string {
+  const prices = Object.fromEntries(
+    state.stocks.map((stock) => [stock.id, stock.currentPrice]),
+  );
+  let total = exactCashOf(state);
+  for (const holding of state.holdings) {
+    const price = prices[holding.stockId];
+    if (price === undefined) continue;
+    total = exactAdd(
+      total,
+      exactPositionValue(price, quantityExactOf(holding)),
+    );
+  }
+  for (const short of state.shorts) {
+    const price = prices[short.stockId];
+    if (price === undefined) continue;
+    total = exactSubtract(
+      total,
+      exactPositionValue(price, quantityExactOf(short)),
+    );
+  }
+  total = exactAdd(total, getLuxuryValue(state.ownedLuxuries));
+
+  const session = Date.now() / SESSION_DURATION_MS;
+  const rate = currentRateDecimal(state.stocks);
+  for (const option of state.options) {
+    const stock = state.stocks.find((item) => item.id === option.stockId);
+    if (!stock) continue;
+    const mark = positionMark(option, stock, session, rate, state.stocks);
+    const value = exactPositionValue(mark, quantityExactOf(option));
+    total =
+      option.side === "long"
+        ? exactAdd(total, value)
+        : exactSubtract(total, value);
+  }
+  return total;
 }
 
 function userEtfRelationshipHoldingsOf(
@@ -1103,8 +1260,53 @@ function fullNeedsLiquidation(s: MarginAwareState): boolean {
   return equity + userEtfPortfolioValueOf(s) < maintenance * exposure;
 }
 
+function userEtfPortfolioValueExactOf(
+  state: Pick<MarketStore, "holdings" | "stocks"> &
+    Partial<Pick<MarketStore, "assetManager" | "listedAmcFunds">>,
+): string {
+  const funds = mergeAmcPortfolioFunds(
+    state.assetManager?.funds ?? [],
+    (state.listedAmcFunds ?? []).map(listedFundToAmcState),
+  );
+  let total = "0";
+  for (const position of getAmcPortfolioPositions(
+    state.holdings,
+    funds,
+    state.stocks,
+  )) {
+    total = exactAdd(
+      total,
+      exactPositionValue(
+        position.navPerShare,
+        quantityExactOf(position.holding),
+      ),
+    );
+  }
+  return total;
+}
+
+function totalAssetsExactOf(state: MarketStore): string {
+  const regularAndOptions = fullEquityExactOf(state);
+  const userEtfs = userEtfPortfolioValueExactOf(state);
+  const approximateEquity =
+    exactToNumber(exactAdd(regularAndOptions, userEtfs));
+  const activePreferred = getActivePreferredShares(
+    state.preferredShares,
+    computeCharacterConcentration(
+      state.holdings,
+      state.stocks,
+      approximateEquity,
+    ),
+  );
+  return exactAdd(
+    exactAdd(regularAndOptions, userEtfs),
+    getPreferredShareValue(activePreferred),
+  );
+}
+
 interface InterestOutcome {
   cash?: number;
+  cashExact?: string;
   cashPayments?: CashPayment[];
   lastInterestSession: number;
 }
@@ -1113,7 +1315,12 @@ interface InterestOutcome {
 function settleInterest(
   state: Pick<
     MarketStore,
-    "cash" | "shorts" | "stocks" | "cashPayments" | "lastInterestSession"
+    | "cash"
+    | "cashExact"
+    | "shorts"
+    | "stocks"
+    | "cashPayments"
+    | "lastInterestSession"
   >,
   currentSession: number,
   now: number,
@@ -1142,7 +1349,7 @@ function settleInterest(
     timestamp: now,
   };
   return {
-    cash: state.cash - cost,
+    ...withExactCashDelta(state, -cost),
     cashPayments: [payment, ...state.cashPayments].slice(0, 200),
     lastInterestSession: currentSession,
   };
@@ -1410,7 +1617,7 @@ function applyLocalBuySell(
     );
     if (!isOrderSuccess(merged)) return merged;
     set({
-      cash: state.cash - total,
+      ...withExactCashDelta(state, -total),
       holdings: stampLeverageMultiplier(merged.holdings, stockId, state.stocks),
       trades: [merged.trade, ...state.trades],
     });
@@ -1432,10 +1639,12 @@ function applyLocalBuySell(
     price,
     quantity,
     Date.now(),
+    exactCashOf(state),
   );
   if (!isOrderSuccess(result)) return result;
   set({
     cash: result.cash,
+    cashExact: result.cashExact,
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
   });
@@ -1560,7 +1769,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: state.cash + claimed.reward,
+          ...withExactCashDelta(state, claimed.reward),
           attendance: claimed.state,
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
@@ -1598,7 +1807,9 @@ export const useMarketStore = create<MarketStore>()(
               ]
             : [];
         set({
-          cash: state.initialCash + action.compensationAmount,
+          ...withExactCashValue(
+            exactAdd(exactInitialCashOf(state), action.compensationAmount),
+          ),
           holdings: [],
           trades: [],
           options: [],
@@ -1740,7 +1951,7 @@ export const useMarketStore = create<MarketStore>()(
           }));
         const totalReward = rewardPayments.reduce((sum, p) => sum + p.amount, 0);
         set({
-          cash: state.cash + totalReward,
+          ...withExactCashDelta(state, totalReward),
           cashPayments: [...rewardPayments, ...state.cashPayments],
           resolvedBugReportIds: [
             ...fresh.map((r) => r.id),
@@ -1777,7 +1988,7 @@ export const useMarketStore = create<MarketStore>()(
           }));
         const totalReward = rewardPayments.reduce((sum, p) => sum + p.amount, 0);
         set({
-          cash: state.cash + totalReward,
+          ...withExactCashDelta(state, totalReward),
           cashPayments: [...rewardPayments, ...state.cashPayments],
           resolvedFeedbackIds: [
             ...fresh.map((r) => r.id),
@@ -1820,7 +2031,7 @@ export const useMarketStore = create<MarketStore>()(
               `${state.playerCompany!.name} (${state.playerCompany!.ticker})`,
           );
         set({
-          cash: state.cash + totalRefund,
+          ...withExactCashDelta(state, totalRefund),
           cashPayments: [...refundPayments, ...state.cashPayments],
           playerCompany: companyIpoRejected
             ? {
@@ -2046,13 +2257,18 @@ export const useMarketStore = create<MarketStore>()(
           Number.isFinite(value) ? Math.floor(value!) : nowSession;
         // 오버플로우로 깨진 클라우드 지갑도 복구 지원금으로 재출발시킨다(멱등).
         const cloudRepair = recoverFromOverflow({
-          cash: Number(wallet.cash ?? 0),
+          cash: exactToNumber(
+            normalizeExactAmount(
+              wallet.cashExact,
+              normalizeExactAmount(wallet.cash ?? 0),
+            ),
+          ),
           holdings: reconcileLeverageSplits(
-            wallet.holdings ?? [],
+            normalizePositionExactQuantities(wallet.holdings ?? []),
             get().stocks,
           ).holdings,
           shorts: reconcileLeveragePositionSplits(
-            wallet.shorts ?? [],
+            normalizePositionExactQuantities(wallet.shorts ?? []),
             get().stocks,
           ).positions,
           options: wallet.options ?? [],
@@ -2066,17 +2282,39 @@ export const useMarketStore = create<MarketStore>()(
           cashPayments: wallet.cashPayments ?? [],
           claimedCompensationIds: wallet.claimedCompensationIds,
         });
+        const cloudBaseCashExact = cloudRepair.broken
+          ? normalizeExactAmount(cloudRepair.cash)
+          : normalizeExactAmount(
+              wallet.cashExact,
+              normalizeExactAmount(wallet.cash),
+            );
+        const cloudCashExact = exactAdd(
+          exactSubtract(
+            cloudBaseCashExact,
+            cloudCompensation.reconciledCents,
+          ),
+          cloudCompensation.grantedCents,
+        );
+        const cloudLedgerExact = normalizeExactAmount(
+          wallet.amcLedgerBalanceExact,
+          normalizeExactAmount(wallet.amcLedgerBalance ?? 0),
+        );
+        const cloudInitialExact = normalizeExactAmount(
+          wallet.initialCashExact,
+          normalizeExactAmount(wallet.initialCash),
+        );
         set({
           walletEpoch: WALLET_EPOCH,
           cloudSaveFailedAt: 0,
-          cash: cloudCompensation.cash,
-          amcLedgerBalance: Number.isFinite(wallet.amcLedgerBalance)
-            ? Math.round(wallet.amcLedgerBalance!)
-            : 0,
+          cash: exactToNumber(cloudCashExact),
+          cashExact: cloudCashExact,
+          amcLedgerBalance: exactToNumber(cloudLedgerExact),
+          amcLedgerBalanceExact: cloudLedgerExact,
           amcLedgerRevision: Number.isFinite(wallet.amcLedgerRevision)
             ? Math.max(0, Math.floor(wallet.amcLedgerRevision!))
             : 0,
-          initialCash: wallet.initialCash,
+          initialCash: exactToNumber(cloudInitialExact),
+          initialCashExact: cloudInitialExact,
           holdings: cloudRepair.holdings,
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
@@ -2211,9 +2449,15 @@ export const useMarketStore = create<MarketStore>()(
           walletEpoch: WALLET_EPOCH,
           sessionDurationMs: SESSION_DURATION_MS,
           cash: s.cash,
+          cashExact: exactCashOf(s),
           amcLedgerBalance: s.amcLedgerBalance,
+          amcLedgerBalanceExact: normalizeExactAmount(
+            s.amcLedgerBalanceExact,
+            normalizeExactAmount(s.amcLedgerBalance),
+          ),
           amcLedgerRevision: s.amcLedgerRevision,
           initialCash: s.initialCash,
+          initialCashExact: exactInitialCashOf(s),
           holdings: s.holdings,
           // 단타 위주 계정은 하루 100건을 쉽게 넘긴다 — 당일 내역이 밀려나지
           // 않도록 여유 있게 보존한다.
@@ -2282,7 +2526,14 @@ export const useMarketStore = create<MarketStore>()(
         const s = get();
         // 공유 리더보드 갱신: 큰 지갑 본문과 분리된 순자산·수익률·과시 요약만
         // 제출한다. 서버는 game_saves의 STORED 요약 열로 무결성을 검증한다.
-        const netWorth = s.getTotalAssets();
+        const netWorthExact = s.getTotalAssetsExact();
+        const initialCashExact = exactInitialCashOf(s);
+        const returnRateExact = exactPercentChange(
+          netWorthExact,
+          initialCashExact,
+          8,
+        );
+        const netWorth = exactToNumber(netWorthExact);
         const tradingStats = buildTradingStats(s.trades.slice(0, 500));
         const playerTitle = getPlayerTitle(s.selectedTitleId);
         const seasonFrame = getSeasonReward(s.selectedSeasonFrameId);
@@ -2299,11 +2550,11 @@ export const useMarketStore = create<MarketStore>()(
         ].slice(0, 5);
         return syncLeaderboardSnapshot({
           netWorth,
-          returnRate:
-            s.initialCash > 0
-              ? ((netWorth - s.initialCash) / s.initialCash) * 100
-              : 0,
-          initialCash: s.initialCash,
+          netWorthExact,
+          returnRate: Number(returnRateExact),
+          returnRateExact,
+          initialCash: exactToNumber(initialCashExact),
+          initialCashExact,
           marketSession: Math.floor(Date.now() / SESSION_DURATION_MS),
           topTier: getTopLuxuryTier(s.ownedLuxuries),
           // 서버 무결성 열은 실제 사치재 배열 길이를 검증한다. 마이룸 프리미엄
@@ -2455,6 +2706,7 @@ export const useMarketStore = create<MarketStore>()(
 
         // 로컬 지정가 대기 주문: 가격 도달 시 체결 (잔고 부족 시 자동 취소)
         let cash = state.cash;
+        let cashExact = exactCashOf(state);
         let holdings = state.holdings;
         let trades = state.trades;
         let remainingOrders = openOrders;
@@ -2495,6 +2747,10 @@ export const useMarketStore = create<MarketStore>()(
                   : { success: false, message: "매수여력이 부족합니다." };
               if (isOrderSuccess(result)) {
                 result = { ...result, cash: cash - total };
+                cashExact = exactSubtract(
+                  cashExact,
+                  exactPositionValue(stock.currentPrice, order.quantity),
+                );
               }
             } else {
               result = executeSell(
@@ -2505,10 +2761,12 @@ export const useMarketStore = create<MarketStore>()(
                 stock.currentPrice,
                 order.quantity,
                 now,
+                cashExact,
               );
             }
             if (isOrderSuccess(result)) {
               cash = result.cash;
+              if (order.side === "sell") cashExact = result.cashExact;
               holdings =
                 order.side === "buy"
                   ? stampLeverageMultiplier(
@@ -2529,7 +2787,12 @@ export const useMarketStore = create<MarketStore>()(
         holdings = holdings.filter((h) => {
           const finalPrice = delistedPumpFinalPrice(h.stockId, now);
           if (finalPrice === null) return true;
-          cash += finalPrice * h.quantity;
+          const totalExact = exactPositionValue(
+            finalPrice,
+            quantityExactOf(h),
+          );
+          cashExact = exactAdd(cashExact, totalExact);
+          cash = exactToNumber(cashExact);
           trades = [
             {
               id: `delist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -2537,8 +2800,10 @@ export const useMarketStore = create<MarketStore>()(
               ticker: h.stockId.toUpperCase(),
               type: "sell",
               quantity: h.quantity,
+              quantityExact: quantityExactOf(h),
               price: finalPrice,
               total: finalPrice * h.quantity,
+              totalExact,
               timestamp: now,
             },
             ...trades,
@@ -2553,9 +2818,15 @@ export const useMarketStore = create<MarketStore>()(
         );
         cash = settled.cash;
         let cashPayments = settled.cashPayments;
+        cashExact = exactAdd(
+          cashExact,
+          exactCashPaymentDelta(state.cashPayments, cashPayments),
+        );
+        cash = exactToNumber(cashExact);
         let shorts = state.shorts;
 
         // 만기 도달 옵션 현금정산
+        const tradesBeforeExpiry = trades;
         const expired = settleExpiredOptions(
           cash,
           state.options,
@@ -2567,20 +2838,35 @@ export const useMarketStore = create<MarketStore>()(
         let options = expired.options;
         if (expired.trades.length > 0) {
           trades = [...expired.trades, ...trades];
+          cashExact = applyNewTradeCashDelta(
+            cashExact,
+            tradesBeforeExpiry,
+            trades,
+          );
+          cash = exactToNumber(cashExact);
         }
 
         // 마진 이자·공매도 대여수수료 (경과 거래일만큼)
         const interest = settleInterest(
-          { ...state, cash, shorts, stocks: combinedStocks, cashPayments },
+          {
+            ...state,
+            cash,
+            cashExact,
+            shorts,
+            stocks: combinedStocks,
+            cashPayments,
+          },
           currentSession,
           now,
         );
         if (interest?.cash !== undefined) cash = interest.cash;
+        if (interest?.cashExact !== undefined) cashExact = interest.cashExact;
         if (interest?.cashPayments) cashPayments = interest.cashPayments;
         const lastInterestSession =
           interest?.lastInterestSession ?? state.lastInterestSession;
 
         // 모으기는 현금으로만 한 번 체결한다. 미접속 기간의 밀린 회차는 몰아서 사지 않는다.
+        const tradesBeforeRecurring = trades;
         const recurring = processRecurringInvestments(
           state.recurringInvestments,
           cash,
@@ -2600,6 +2886,12 @@ export const useMarketStore = create<MarketStore>()(
           );
         }
         trades = recurring.trades;
+        cashExact = applyNewTradeCashDelta(
+          cashExact,
+          tradesBeforeRecurring,
+          trades,
+        );
+        cash = exactToNumber(cashExact);
         const recurringInvestments = recurring.plans;
         if (recurring.filledPlans.length > 0) {
           useToastStore.getState().push(
@@ -2678,6 +2970,7 @@ export const useMarketStore = create<MarketStore>()(
         const liquidationRecentlyApplied =
           marginCallAt !== null && now - marginCallAt < 10_000;
         if (fullNeedsLiquidation(liveState) && !liquidationRecentlyApplied) {
+          const tradesBeforeLiquidation = trades;
           const liq = liquidatePositions(
             cash,
             holdings,
@@ -2692,6 +2985,12 @@ export const useMarketStore = create<MarketStore>()(
           shorts = liq.shorts;
           options = liq.options;
           trades = liq.trades;
+          cashExact = applyNewTradeCashDelta(
+            cashExact,
+            tradesBeforeLiquidation,
+            trades,
+          );
+          cash = exactToNumber(cashExact);
           marginCallAt = now;
         }
 
@@ -2749,8 +3048,13 @@ export const useMarketStore = create<MarketStore>()(
                 initialPriceOfAmc,
                 valuationPriceOfAmc,
               );
-              const total = Math.round(nav * holding.quantity);
-              cash += total;
+              const totalExact = exactPositionValue(
+                nav,
+                quantityExactOf(holding),
+              );
+              const total = exactToNumber(totalExact);
+              cashExact = exactAdd(cashExact, totalExact);
+              cash = exactToNumber(cashExact);
               holdings = holdings.filter((item) => item.stockId !== stockId);
               trades = [
                 {
@@ -2759,8 +3063,10 @@ export const useMarketStore = create<MarketStore>()(
                   ticker: fund.ticker,
                   type: "sell",
                   quantity: holding.quantity,
+                  quantityExact: quantityExactOf(holding),
                   price: nav,
                   total,
+                  totalExact,
                   timestamp: now,
                 },
                 ...trades,
@@ -2783,7 +3089,11 @@ export const useMarketStore = create<MarketStore>()(
           const paidIds = new Set(cashPayments.map((payment) => payment.id));
           for (const fee of feeSettle.feePayments) {
             if (paidIds.has(fee.id)) continue;
-            cash += fee.amount;
+            cashExact = exactAdd(
+              cashExact,
+              normalizeExactAmount(fee.amount),
+            );
+            cash = exactToNumber(cashExact);
             cashPayments = [
               {
                 id: fee.id,
@@ -2815,7 +3125,8 @@ export const useMarketStore = create<MarketStore>()(
             const holding = holdings.find((item) => item.stockId === stockId);
             const amount = Math.round((holding?.quantity ?? 0) * div.perShare);
             if (amount > 0 && !paidIds.has(div.id)) {
-              cash += amount;
+              cashExact = exactAdd(cashExact, amount);
+              cash = exactToNumber(cashExact);
               cashPayments = [
                 {
                   id: div.id,
@@ -2875,6 +3186,23 @@ export const useMarketStore = create<MarketStore>()(
             assetManager,
             listedAmcFunds,
           });
+        const netWorthExact = exactAdd(
+          fullEquityExactOf({
+            ...state,
+            cash,
+            cashExact,
+            holdings,
+            shorts,
+            options,
+            stocks: combinedStocks,
+          }),
+          userEtfPortfolioValueExactOf({
+            holdings,
+            stocks: combinedStocks,
+            assetManager,
+            listedAmcFunds,
+          }),
+        );
         let reputation = state.reputation;
         let dailyOperation = state.dailyOperation;
         let dailyOperationHistory = state.dailyOperationHistory;
@@ -3023,6 +3351,7 @@ export const useMarketStore = create<MarketStore>()(
           state.netWorthHistory,
           netWorth,
           now,
+          netWorthExact,
         );
         const investmentMastery = updateInvestmentMastery(
           state.investmentMastery,
@@ -3132,7 +3461,8 @@ export const useMarketStore = create<MarketStore>()(
         const preferredIssuedCharacterIds = preferredReconcile.issuedCharacterIds;
         // 집중 해제로 매각된 우선주는 액면가를 현금으로 지급한다.
         if (preferredReconcile.proceeds > 0) {
-          cash += preferredReconcile.proceeds;
+          cashExact = exactAdd(cashExact, preferredReconcile.proceeds);
+          cash = exactToNumber(cashExact);
           const salePayment: CashPayment = {
             id: `preferred-sale-${currentSession}-${preferredReconcile.sold[0]?.characterId ?? "x"}`,
             kind: "preferred_dividend",
@@ -3166,6 +3496,7 @@ export const useMarketStore = create<MarketStore>()(
           tick: nextTick,
           events: nextEvents,
           cash,
+          cashExact,
           netWorthHistory,
           // 주가 조정(배당락)은 리플레이가 절대 그리드로 이미 반영 —
           // settle의 주가 변형은 버리고 현금·회차 카운터만 반영한다 (시장 일원화)
@@ -3240,8 +3571,17 @@ export const useMarketStore = create<MarketStore>()(
         const baseCashPayments = settled.changed
           ? settled.cashPayments
           : state.cashPayments;
+        const baseCashExact = exactAdd(
+          exactCashOf(state),
+          exactCashPaymentDelta(state.cashPayments, baseCashPayments),
+        );
         const interest = settleInterest(
-          { ...state, cash: baseCash, cashPayments: baseCashPayments },
+          {
+            ...state,
+            cash: baseCash,
+            cashExact: baseCashExact,
+            cashPayments: baseCashPayments,
+          },
           currentSession,
           now,
         );
@@ -3277,8 +3617,12 @@ export const useMarketStore = create<MarketStore>()(
 
         if (!settled.changed && !interest && !annuitiesChanged) return;
         const mergedPayments = interest?.cashPayments ?? baseCashPayments;
+        const nextCashExact = exactAdd(
+          interest?.cashExact ?? baseCashExact,
+          annuityCash,
+        );
         set({
-          cash: (interest?.cash ?? baseCash) + annuityCash,
+          ...withExactCashValue(nextCashExact),
           // 주가 조정은 결정론 리플레이 담당 — 현금·카운터만 반영
           lastSalarySession: settled.lastSalarySession,
           lastMonthlyDistributionSession:
@@ -3428,7 +3772,7 @@ export const useMarketStore = create<MarketStore>()(
           paidPrice: price,
         };
         set({
-          cash: state.cash - price,
+          ...withExactCashDelta(state, -price),
           ownedLuxuries: [...state.ownedLuxuries, owned],
         });
         get().checkAchievements();
@@ -3469,7 +3813,7 @@ export const useMarketStore = create<MarketStore>()(
           rotation,
         };
         set({
-          cash: state.cash - item.price,
+          ...withExactCashDelta(state, -item.price),
           myRoomItems: [...state.myRoomItems, placed],
         });
         playSound("cash");
@@ -3553,7 +3897,7 @@ export const useMarketStore = create<MarketStore>()(
           return { success: false, message: "가구 위 소품을 먼저 옮기거나 판매해 주세요." };
         }
         set({
-          cash: state.cash + refund,
+          ...withExactCashDelta(state, refund),
           myRoomItems: nextItems,
         });
         playSound("cash");
@@ -3574,7 +3918,7 @@ export const useMarketStore = create<MarketStore>()(
           return { success: false, message: "보유 현금이 부족합니다." };
         }
         set({
-          cash: state.cash - theme.price,
+          ...withExactCashDelta(state, -theme.price),
           myRoomOwnedThemes: [...state.myRoomOwnedThemes, themeId],
           myRoomTheme: themeId,
         });
@@ -3638,7 +3982,7 @@ export const useMarketStore = create<MarketStore>()(
           return { success: false, message: "보유 현금이 부족합니다." };
         }
         set({
-          cash: state.cash - expansion.price,
+          ...withExactCashDelta(state, -expansion.price),
           myRoomLevel: expansion.level,
         });
         playSound("cash");
@@ -3681,6 +4025,7 @@ export const useMarketStore = create<MarketStore>()(
           price,
           quantity,
           Date.now(),
+          exactCashOf(state),
         );
         if (!isShortSuccess(result)) return result;
         const stampedShorts = stampLeveragePositionMultiplier(
@@ -3690,6 +4035,7 @@ export const useMarketStore = create<MarketStore>()(
         );
         set({
           cash: result.cash,
+          cashExact: result.cashExact,
           shorts: stampedShorts,
           trades: [result.trade, ...state.trades],
         });
@@ -3714,10 +4060,12 @@ export const useMarketStore = create<MarketStore>()(
           price,
           quantity,
           Date.now(),
+          exactCashOf(state),
         );
         if (!isShortSuccess(result)) return result;
         set({
           cash: result.cash,
+          cashExact: result.cashExact,
           shorts: result.shorts,
           trades: [result.trade, ...state.trades],
         });
@@ -3816,7 +4164,11 @@ export const useMarketStore = create<MarketStore>()(
           strike,
           expirySession,
         };
-        set({ cash: state.cash - cost, options, trades: [trade, ...state.trades] });
+        set({
+          ...withExactCashDelta(state, -cost),
+          options,
+          trades: [trade, ...state.trades],
+        });
         get().checkAchievements();
         return {
           success: true,
@@ -3907,7 +4259,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession,
         };
         set({
-          cash: state.cash + premium * quantity,
+          ...withExactCashDelta(state, premium * quantity),
           options,
           trades: [trade, ...state.trades],
         });
@@ -3962,7 +4314,7 @@ export const useMarketStore = create<MarketStore>()(
           expirySession: pos.expirySession,
         };
         set({
-          cash: state.cash + delta,
+          ...withExactCashDelta(state, delta),
           options,
           trades: [trade, ...state.trades],
         });
@@ -4045,7 +4397,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: state.cash + value,
+          ...withExactCashDelta(state, value),
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
         playSound("cash");
@@ -4127,7 +4479,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: result.cash,
+          ...withExactCashDelta(approvedState, -(result.burned ?? 0)),
           playerCompany: result.company,
           cashPayments: [payment, ...approvedState.cashPayments].slice(0, 200),
         });
@@ -4176,7 +4528,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: result.cash,
+          ...withExactCashDelta(state, -(result.burned ?? 0)),
           playerCompany: result.company,
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
@@ -4399,7 +4751,7 @@ export const useMarketStore = create<MarketStore>()(
 
           const latest = get();
           const ledgerById = new Map(
-            ledger.positions.map((row) => [row.fundId, row.quantity]),
+            ledger.positions.map((row) => [row.fundId, row]),
           );
           const existingAmcIds = new Set<string>();
           const holdings = latest.holdings.flatMap((holding) => {
@@ -4407,7 +4759,8 @@ export const useMarketStore = create<MarketStore>()(
             if (!fundId) return [holding];
             existingAmcIds.add(fundId);
             if (!ledgerById.has(fundId)) return [holding];
-            const quantity = ledgerById.get(fundId) ?? 0;
+            const ledgerPosition = ledgerById.get(fundId);
+            const quantity = ledgerPosition?.quantity ?? 0;
             const shareMultiplier =
               merged.find((fund) => fund.id === fundId)?.shareMultiplier ?? 1;
             const appliedMultiplier = holding.amcShareMultiplier ?? 1;
@@ -4420,6 +4773,7 @@ export const useMarketStore = create<MarketStore>()(
                   {
                     ...holding,
                     quantity,
+                    quantityExact: ledgerPosition?.quantityExact,
                     averagePrice: holding.averagePrice / adjustmentRatio,
                     amcShareMultiplier: shareMultiplier,
                   },
@@ -4446,6 +4800,7 @@ export const useMarketStore = create<MarketStore>()(
             holdings.push({
               stockId: amcFundStockId(position.fundId),
               quantity: position.quantity,
+              quantityExact: position.quantityExact,
               averagePrice: nav,
               amcShareMultiplier: fund.shareMultiplier ?? 1,
               ...(Number.isFinite(cursor)
@@ -4547,8 +4902,14 @@ export const useMarketStore = create<MarketStore>()(
                 ticker: fund?.ticker ?? trade.fundId,
                 type: trade.delta > 0 ? ("buy" as const) : ("sell" as const),
                 quantity: Math.abs(trade.delta),
+                quantityExact: normalizeExactQuantity(
+                  trade.deltaExact.startsWith("-")
+                    ? trade.deltaExact.slice(1)
+                    : trade.deltaExact,
+                ),
                 price: trade.navPerShare,
                 total: trade.total,
+                totalExact: trade.totalExact,
                 timestamp: trade.createdAt,
               };
             });
@@ -4566,8 +4927,10 @@ export const useMarketStore = create<MarketStore>()(
               ticker: payment.ticker,
               type: "sell" as const,
               quantity: payment.quantity,
+              quantityExact: payment.quantityExact,
               price: payment.perShare,
               total: payment.amount,
+              totalExact: payment.amountExact,
               timestamp: payment.createdAt,
             }));
           const existingPaymentIds = new Set(
@@ -4594,12 +4957,16 @@ export const useMarketStore = create<MarketStore>()(
               quantity: payment.quantity,
               amountPerShare: payment.perShare || undefined,
               amount: payment.amount,
+              amountExact: payment.amountExact,
               timestamp: payment.createdAt,
             }));
           const ledgerCash = reconcileAmcLedgerCash(
             latest.cash,
             latest.amcLedgerBalance,
             ledger.balance,
+            exactCashOf(latest),
+            latest.amcLedgerBalanceExact,
+            ledger.balanceExact,
           );
           if (!ledgerCash) throw new Error("invalid AMC ledger balance");
           set({
@@ -4607,7 +4974,9 @@ export const useMarketStore = create<MarketStore>()(
             assetManager,
             holdings,
             cash: ledgerCash.cash,
+            cashExact: ledgerCash.cashExact,
             amcLedgerBalance: ledgerCash.appliedBalance,
+            amcLedgerBalanceExact: ledgerCash.appliedBalanceExact,
             amcLedgerRevision: ledger.revision,
             trades: [...ledgerTrades, ...redemptionTrades, ...latest.trades]
               .sort((a, b) => b.timestamp - a.timestamp)
@@ -4669,7 +5038,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: result.cash,
+          ...withExactCashDelta(approved, -(result.burned ?? 0)),
           assetManager: result.manager,
           cashPayments: [payment, ...approved.cashPayments].slice(0, 200),
         });
@@ -4795,6 +5164,7 @@ export const useMarketStore = create<MarketStore>()(
           {
             stockId: seedStockId,
             quantity: seedQty,
+            quantityExact: normalizeExactQuantity(seedQty),
             averagePrice: nav,
             amcDividendCursorSession: currentSession,
             amcShareMultiplier: 1,
@@ -4814,7 +5184,7 @@ export const useMarketStore = create<MarketStore>()(
             )
           : state.characterProgress;
         set({
-          cash: result.cash,
+          ...withExactCashDelta(state, -(result.burned ?? 0)),
           assetManager: result.manager,
           holdings,
           characterProgress,
@@ -4826,8 +5196,10 @@ export const useMarketStore = create<MarketStore>()(
               ticker: result.fund.ticker,
               type: "buy",
               quantity: seedQty,
+              quantityExact: normalizeExactQuantity(seedQty),
               price: nav,
               total: nav * seedQty,
+              totalExact: exactPositionValue(nav, seedQty),
               timestamp: now,
             },
             ...state.trades,
@@ -5399,6 +5771,7 @@ export const useMarketStore = create<MarketStore>()(
           clientOrderId: orderId,
           allowMargin: state.marginEnabled,
           marginBuyingPower: buyingPower,
+          marginBuyingPowerExact: normalizeExactAmount(buyingPower),
         });
         if (
           !traded.success ||
@@ -5447,13 +5820,18 @@ export const useMarketStore = create<MarketStore>()(
           state.cash,
           state.amcLedgerBalance,
           traded.ledgerBalance,
+          exactCashOf(state),
+          state.amcLedgerBalanceExact,
+          traded.ledgerBalanceExact,
         );
         if (!ledgerCash) {
           return { success: false, message: "ETF 현금원장 값이 올바르지 않습니다." };
         }
         set({
           cash: ledgerCash.cash,
+          cashExact: ledgerCash.cashExact,
           amcLedgerBalance: ledgerCash.appliedBalance,
+          amcLedgerBalanceExact: ledgerCash.appliedBalanceExact,
           amcLedgerRevision: traded.ledgerRevision,
           assetManager: nextManager,
           listedAmcFunds: nextListed,
@@ -5463,6 +5841,7 @@ export const useMarketStore = create<MarketStore>()(
                   ? {
                       ...item,
                       quantity: newQty,
+                      quantityExact: traded.positionExact,
                       averagePrice: newAvg,
                       amcShareMultiplier: traded.fund!.shareMultiplier ?? 1,
                     }
@@ -5473,6 +5852,7 @@ export const useMarketStore = create<MarketStore>()(
                 {
                   stockId,
                   quantity: qty,
+                  quantityExact: normalizeExactQuantity(qty),
                   averagePrice: traded.navPerShare,
                   amcShareMultiplier: traded.fund.shareMultiplier ?? 1,
                   ...(Number.isFinite(dividendCursorSession)
@@ -5487,8 +5867,10 @@ export const useMarketStore = create<MarketStore>()(
               ticker: fund.ticker,
               type: "buy",
               quantity: qty,
+              quantityExact: normalizeExactQuantity(qty),
               price: traded.navPerShare,
               total: traded.total,
+              totalExact: traded.totalExact,
               timestamp: now,
             },
             ...state.trades,
@@ -5627,13 +6009,18 @@ export const useMarketStore = create<MarketStore>()(
           state.cash,
           state.amcLedgerBalance,
           traded.ledgerBalance,
+          exactCashOf(state),
+          state.amcLedgerBalanceExact,
+          traded.ledgerBalanceExact,
         );
         if (!ledgerCash) {
           return { success: false, message: "ETF 현금원장 값이 올바르지 않습니다." };
         }
         set({
           cash: ledgerCash.cash,
+          cashExact: ledgerCash.cashExact,
           amcLedgerBalance: ledgerCash.appliedBalance,
+          amcLedgerBalanceExact: ledgerCash.appliedBalanceExact,
           amcLedgerRevision: traded.ledgerRevision,
           assetManager: nextManager,
           listedAmcFunds: nextListed,
@@ -5644,6 +6031,7 @@ export const useMarketStore = create<MarketStore>()(
                     ? {
                         ...item,
                         quantity: remaining,
+                        quantityExact: traded.positionExact,
                         amcShareMultiplier: traded.fund!.shareMultiplier ?? 1,
                       }
                     : item,
@@ -5656,8 +6044,10 @@ export const useMarketStore = create<MarketStore>()(
               ticker: fund.ticker,
               type: "sell",
               quantity: qty,
+              quantityExact: normalizeExactQuantity(qty),
               price: traded.navPerShare,
               total: traded.total,
+              totalExact: traded.totalExact,
               timestamp: now,
             },
             ...state.trades,
@@ -5689,7 +6079,7 @@ export const useMarketStore = create<MarketStore>()(
         const s = get();
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         set({
-          cash: s.cash - STOCK_REQUEST_COST,
+          ...withExactCashDelta(s, -STOCK_REQUEST_COST),
           lastStockRequestSession: currentSession,
         });
       },
@@ -5727,7 +6117,7 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         };
         set({
-          cash: state.cash + net,
+          ...withExactCashDelta(state, net),
           lotteryWindowStart: window,
           lotteryTicketsBought: bought + 1,
           wonJackpot: state.wonJackpot || prize.tier === "jackpot",
@@ -5797,7 +6187,7 @@ export const useMarketStore = create<MarketStore>()(
             ].slice(0, 20)
           : state.pensionAnnuities;
         set({
-          cash: state.cash + net,
+          ...withExactCashDelta(state, net),
           lotteryWindowStart: window,
           lotteryTicketsBought: bought + 1,
           pensionAnnuities,
@@ -5833,16 +6223,9 @@ export const useMarketStore = create<MarketStore>()(
       reset: () => set(createInitialState()),
 
       getTotalAssets: () => {
-        const s = get();
-        const equity = fullEquityOf(s) + userEtfPortfolioValueOf(s);
-        // 우선주는 집중(focused) 유지 중인 활성분만 자산에 반영한다.
-        const active = getActivePreferredShares(
-          s.preferredShares,
-          computeCharacterConcentration(s.holdings, s.stocks, equity),
-        );
-        // 유저 ETF는 일반 stocks 맵 밖에 있어 NAV 평가액을 별도로 더한다.
-        return equity + getPreferredShareValue(active);
+        return exactToNumber(totalAssetsExactOf(get()));
       },
+      getTotalAssetsExact: () => totalAssetsExactOf(get()),
 
       getStockById: (id) => get().stocks.find((s) => s.id === id),
     }),
@@ -5860,9 +6243,15 @@ export const useMarketStore = create<MarketStore>()(
         sessionDurationMs: state.sessionDurationMs,
         marketStartedAt: state.marketStartedAt,
         cash: state.cash,
+        cashExact: exactCashOf(state),
         amcLedgerBalance: state.amcLedgerBalance,
+        amcLedgerBalanceExact: normalizeExactAmount(
+          state.amcLedgerBalanceExact,
+          normalizeExactAmount(state.amcLedgerBalance),
+        ),
         amcLedgerRevision: state.amcLedgerRevision,
         initialCash: state.initialCash,
+        initialCashExact: exactInitialCashOf(state),
         cloudSaveFailedAt: state.cloudSaveFailedAt,
         lastSalarySession: state.lastSalarySession,
         lastMonthlyDistributionSession: state.lastMonthlyDistributionSession,
@@ -6110,20 +6499,31 @@ export const useMarketStore = create<MarketStore>()(
         );
         // 복원 직후 레버리지 ETF 보유 좌수를 현재 분할·병합 배수로 정산한다.
         const reconciledHoldings = reconcileLeverageSplits(
-          Array.isArray(walletSource.holdings) ? walletSource.holdings : [],
+          normalizePositionExactQuantities(
+            Array.isArray(walletSource.holdings) ? walletSource.holdings : [],
+          ),
           stocksWithDerived,
         ).holdings;
         const reconciledShorts = reconcileLeveragePositionSplits(
-          Array.isArray((walletSource as Partial<MarketStore>).shorts)
-            ? (walletSource as Partial<MarketStore>).shorts!
-            : [],
+          normalizePositionExactQuantities(
+            Array.isArray((walletSource as Partial<MarketStore>).shorts)
+              ? (walletSource as Partial<MarketStore>).shorts!
+              : [],
+          ),
           stocksWithDerived,
         ).positions;
 
         // 자금 상한 제거 이전, 2^53 경계를 넘겨 자산이 오염·마이너스로 깨진 계정을
         // 복구 지원금($10M)으로 재출발시킨다. 판정이 곧 멱등성이라 정상 계정은 무시.
         const overflowRepair = recoverFromOverflow({
-          cash: Number((walletSource as Partial<MarketStore>).cash ?? 0),
+          cash: exactToNumber(
+            normalizeExactAmount(
+              (walletSource as Partial<MarketStore>).cashExact,
+              normalizeExactAmount(
+                (walletSource as Partial<MarketStore>).cash ?? 0,
+              ),
+            ),
+          ),
           holdings: reconciledHoldings,
           shorts: reconciledShorts,
           options: Array.isArray((walletSource as Partial<MarketStore>).options)
@@ -6148,6 +6548,31 @@ export const useMarketStore = create<MarketStore>()(
           claimedCompensationIds: (walletSource as Partial<MarketStore>)
             .claimedCompensationIds,
         });
+        const localBaseCashExact = overflowRepair.broken
+          ? normalizeExactAmount(overflowRepair.cash)
+          : normalizeExactAmount(
+              (walletSource as Partial<MarketStore>).cashExact,
+              normalizeExactAmount(
+                (walletSource as Partial<MarketStore>).cash ?? 0,
+              ),
+            );
+        const localCashExact = exactAdd(
+          exactSubtract(localBaseCashExact, compensation.reconciledCents),
+          compensation.grantedCents,
+        );
+        const localLedgerExact = normalizeExactAmount(
+          (walletSource as Partial<MarketStore>).amcLedgerBalanceExact,
+          normalizeExactAmount(
+            (walletSource as Partial<MarketStore>).amcLedgerBalance ?? 0,
+          ),
+        );
+        const localInitialExact = normalizeExactAmount(
+          (walletSource as Partial<MarketStore>).initialCashExact,
+          normalizeExactAmount(
+            (walletSource as Partial<MarketStore>).initialCash ??
+              current.initialCash,
+          ),
+        );
 
         return {
           ...walletSource,
@@ -6157,14 +6582,10 @@ export const useMarketStore = create<MarketStore>()(
           marketStartedAt: MARKET_EPOCH_MS,
           tick: marketValid ? merged.tick : current.tick,
           stocks: stocksWithDerived,
-          cash: compensation.cash,
-          amcLedgerBalance: Number.isFinite(
-            (walletSource as Partial<MarketStore>).amcLedgerBalance,
-          )
-            ? Math.round(
-                (walletSource as Partial<MarketStore>).amcLedgerBalance!,
-              )
-            : 0,
+          cash: exactToNumber(localCashExact),
+          cashExact: localCashExact,
+          amcLedgerBalance: exactToNumber(localLedgerExact),
+          amcLedgerBalanceExact: localLedgerExact,
           amcLedgerRevision: Number.isFinite(
             (walletSource as Partial<MarketStore>).amcLedgerRevision,
           )
@@ -6385,6 +6806,8 @@ export const useMarketStore = create<MarketStore>()(
                 (walletSource as Partial<MarketStore>).cloudSaveFailedAt!,
               )
             : 0,
+          initialCash: exactToNumber(localInitialExact),
+          initialCashExact: localInitialExact,
         };
       },
     },
