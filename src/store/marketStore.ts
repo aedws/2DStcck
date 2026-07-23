@@ -3930,12 +3930,14 @@ export const useMarketStore = create<MarketStore>()(
       checkAchievements: () => {
         const s = get();
         const unlocked = new Set(s.achievements);
-        const equity = fullEquityOf(s);
+        const relationshipEquity = relationshipEquityOf(s);
+        const equity = relationshipEquity.equity;
         // 캐릭터별 보유 집중도 — 원 앤 온리·트윈 스타·트리플 하르모니아 판정용.
         const concentration = computeCharacterConcentration(
           s.holdings,
           s.stocks,
           equity,
+          relationshipEquity.userEtfHoldings,
         );
         const ctx = {
           netWorth: equity,

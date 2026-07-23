@@ -10,6 +10,8 @@ import {
 } from "@/lib/market/portfolioStrategies";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { STRATEGY_TUTORIAL_STEPS } from "@/data/featureTutorials";
+import { mergeAmcPortfolioFunds } from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -45,6 +47,8 @@ export default function PortfolioStrategyPage() {
   const selectStrategy = useMarketStore((state) => state.selectPortfolioStrategy);
   const holdings = useMarketStore((state) => state.holdings);
   const stocks = useMarketStore((state) => state.stocks);
+  const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const cash = useMarketStore((state) => state.cash);
   const equity = useMarketStore((state) => state.getTotalAssets());
   const [message, setMessage] = useState<string | null>(null);
@@ -56,12 +60,17 @@ export default function PortfolioStrategyPage() {
   );
   useEffect(() => setMounted(true), []);
   const selected = getPortfolioStrategy(selectedId);
+  const userEtfFunds = mergeAmcPortfolioFunds(
+    assetManager?.funds ?? [],
+    listedAmcFunds.map(listedFundToAmcState),
+  );
   const allocation = calculateStrategyAllocation(
     selected,
     holdings,
     stocks,
     cash,
     equity,
+    userEtfFunds,
   );
   const stats = strategyStats(stocks);
 

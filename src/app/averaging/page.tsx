@@ -4,32 +4,50 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AveragingCalculator } from "@/components/market/AveragingCalculator";
 import { formatPrice } from "@/lib/market/engine";
+import {
+  getAmcPortfolioPositions,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { useMarketStore } from "@/store/marketStore";
 
 export default function AveragingPage() {
   const holdings = useMarketStore((state) => state.holdings);
   const stocks = useMarketStore((state) => state.stocks);
+  const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const [selectedId, setSelectedId] = useState<string>("");
 
-  const holdingOptions = useMemo(
-    () =>
-      holdings
-        .filter((holding) => holding.quantity > 0)
-        .map((holding) => {
-          const stock = stocks.find((item) => item.id === holding.stockId);
-          return {
-            id: holding.stockId,
-            label: stock
+  const holdingOptions = useMemo(() => {
+    const funds = mergeAmcPortfolioFunds(
+      assetManager?.funds ?? [],
+      listedAmcFunds.map(listedFundToAmcState),
+    );
+    const userEtfByStockId = new Map(
+      getAmcPortfolioPositions(holdings, funds, stocks).map((position) => [
+        position.holding.stockId,
+        position,
+      ]),
+    );
+    return holdings
+      .filter((holding) => holding.quantity > 0)
+      .map((holding) => {
+        const stock = stocks.find((item) => item.id === holding.stockId);
+        const userEtf = userEtfByStockId.get(holding.stockId);
+        return {
+          id: holding.stockId,
+          label: userEtf
+            ? `${userEtf.fund.name} (${userEtf.fund.ticker})`
+            : stock
               ? `${stock.name} (${stock.ticker})`
               : holding.stockId,
-            quantity: holding.quantity,
-            averagePrice: holding.averagePrice,
-            markPrice: stock?.currentPrice ?? 0,
-          };
-        })
-        .sort((a, b) => a.label.localeCompare(b.label, "ko")),
-    [holdings, stocks],
-  );
+          quantity: holding.quantity,
+          averagePrice: holding.averagePrice,
+          markPrice: userEtf?.navPerShare ?? stock?.currentPrice ?? 0,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  }, [assetManager, holdings, listedAmcFunds, stocks]);
 
   const selected =
     holdingOptions.find((item) => item.id === selectedId) ?? null;

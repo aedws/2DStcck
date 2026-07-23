@@ -1,4 +1,6 @@
 import type { Holding, StockDefinition, StockState } from "@/lib/types/market";
+import type { AmcFundState } from "@/lib/player/assetManager";
+import { getAmcPortfolioPositions } from "@/lib/player/amcPortfolio";
 
 export type PortfolioStrategyId =
   | "index_core"
@@ -233,6 +235,7 @@ export function calculateStrategyAllocation(
   stocks: StockState[],
   cash: number,
   equity: number,
+  userEtfFunds: readonly AmcFundState[] = [],
 ): StrategyAllocationResult {
   const values = new Map(strategy.buckets.map((bucket) => [bucket.id, 0]));
   const byId = new Map(stocks.map((stock) => [stock.id, stock]));
@@ -247,6 +250,33 @@ export function calculateStrategyAllocation(
       bucket.id,
       (values.get(bucket.id) ?? 0) + holding.quantity * stock.currentPrice,
     );
+  }
+  // 유저 ETF는 일반 종목 맵에 없으므로 현재 NAV를 구성 비중대로 나눈 뒤
+  // 각 기초 상품이 일치하는 전략 버킷에 배분한다. 한 ETF 안의 인컴·레버리지
+  // 혼합도 실제 목표 비중만큼 각각 집계된다.
+  for (const position of getAmcPortfolioPositions(
+    holdings,
+    userEtfFunds,
+    stocks,
+  )) {
+    const totalWeight = position.fund.holdings.reduce(
+      (sum, holding) => sum + Math.max(0, holding.weight),
+      0,
+    );
+    if (!(totalWeight > 0)) continue;
+    for (const component of position.fund.holdings) {
+      if (!(component.weight > 0)) continue;
+      const stock = byId.get(component.stockId);
+      if (!stock) continue;
+      const bucket = strategy.buckets.find(
+        (candidate) =>
+          candidate.id !== "cash" && candidate.matches?.(stock),
+      );
+      if (!bucket) continue;
+      const componentValue =
+        position.evaluation * (component.weight / totalWeight);
+      values.set(bucket.id, (values.get(bucket.id) ?? 0) + componentValue);
+    }
   }
   values.set("cash", Math.max(0, cash));
   const denominator = Math.max(1, equity);

@@ -37,12 +37,106 @@ export const AMC_INITIAL_NAV_PER_SHARE = 10_000;
 
 export type AmcFundStyle = "active" | "passive";
 export type AmcFundStatus = "active" | "grace" | "delisted";
+export type AmcFundProfile = "general" | "income" | "leveraged" | "mixed";
 
 export interface AmcHoldingWeight {
   stockId: string;
   weight: number;
   /** 마지막 설정·리밸런싱 시점의 액면분할 전 경제가. */
   basePrice?: number;
+}
+
+export interface AmcFundExposureProfile {
+  profile: AmcFundProfile;
+  label: "일반형" | "인컴형" | "레버리지형" | "파생 혼합형";
+  incomeWeight: number;
+  leverageWeight: number;
+  directWeight: number;
+}
+
+type AmcExposureStock = {
+  leverage?: number;
+  coveredCallUnderlyingId?: string;
+  coveredCallAnnualYield?: number;
+};
+
+/**
+ * 유저 ETF의 현재 구성 비중에서 운용 성향을 파생한다.
+ * 커버드콜은 인컴, 레버리지·인버스·곱버스는 레버리지 노출로 분류하며
+ * 리밸런싱 직후에도 저장 마이그레이션 없이 즉시 새 상태가 반영된다.
+ */
+export function classifyAmcFundExposure(
+  fund: Pick<AmcFundState, "holdings">,
+  stockOf: (stockId: string) => AmcExposureStock | undefined,
+): AmcFundExposureProfile {
+  const totalWeight = fund.holdings.reduce(
+    (sum, holding) =>
+      sum + (Number.isFinite(holding.weight) && holding.weight > 0
+        ? holding.weight
+        : 0),
+    0,
+  );
+  if (!(totalWeight > 0)) {
+    return {
+      profile: "general",
+      label: "일반형",
+      incomeWeight: 0,
+      leverageWeight: 0,
+      directWeight: 1,
+    };
+  }
+
+  let incomeWeight = 0;
+  let leverageWeight = 0;
+  for (const holding of fund.holdings) {
+    if (!(holding.weight > 0)) continue;
+    const stock = stockOf(holding.stockId);
+    if (
+      stock?.coveredCallUnderlyingId ||
+      (stock?.coveredCallAnnualYield ?? 0) > 0
+    ) {
+      incomeWeight += holding.weight / totalWeight;
+    } else if (stock?.leverage !== undefined) {
+      leverageWeight += holding.weight / totalWeight;
+    }
+  }
+  incomeWeight = Math.max(0, Math.min(1, incomeWeight));
+  leverageWeight = Math.max(0, Math.min(1, leverageWeight));
+  const directWeight = Math.max(0, 1 - incomeWeight - leverageWeight);
+
+  if (incomeWeight <= 1e-9 && leverageWeight <= 1e-9) {
+    return {
+      profile: "general",
+      label: "일반형",
+      incomeWeight,
+      leverageWeight,
+      directWeight,
+    };
+  }
+  if (Math.abs(incomeWeight - leverageWeight) <= 1e-9) {
+    return {
+      profile: "mixed",
+      label: "파생 혼합형",
+      incomeWeight,
+      leverageWeight,
+      directWeight,
+    };
+  }
+  return incomeWeight > leverageWeight
+    ? {
+        profile: "income",
+        label: "인컴형",
+        incomeWeight,
+        leverageWeight,
+        directWeight,
+      }
+    : {
+        profile: "leveraged",
+        label: "레버리지형",
+        incomeWeight,
+        leverageWeight,
+        directWeight,
+      };
 }
 
 export interface AmcNavPoint {

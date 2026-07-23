@@ -149,6 +149,7 @@ import type { Character, EventTemplate, OptionPosition, StockState, Trade } from
 import {
   PORTFOLIO_STRATEGIES,
   backtestPortfolioStrategy,
+  calculateStrategyAllocation,
 } from "../src/lib/market/portfolioStrategies";
 import { runCrisisStressTest } from "../src/lib/market/stressTest";
 import {
@@ -1582,6 +1583,80 @@ for (const strategy of PORTFOLIO_STRATEGIES) {
     Math.abs(strategy.buckets.reduce((sum, bucket) => sum + bucket.targetWeight, 0) - 1) < 1e-9,
   );
 }
+const strategyCoveredCall = {
+  ...relationshipStock,
+  id: `${relationshipStock.id}-covered-strategy`,
+  ticker: "RELCC",
+  ceoId: undefined,
+  coveredCallUnderlyingId: relationshipStock.id,
+  coveredCallAnnualYield: 18,
+};
+const strategyUserEtfFund = {
+  id: "strategy-user-etf",
+  name: "전략 혼합 ETF",
+  ticker: "SMIX",
+  style: "passive",
+  status: "active",
+  holdings: [
+    {
+      stockId: singleCharacterDerivative.id,
+      weight: 0.6,
+      basePrice: singleCharacterDerivative.initialPrice,
+    },
+    {
+      stockId: strategyCoveredCall.id,
+      weight: 0.4,
+      basePrice: strategyCoveredCall.initialPrice,
+    },
+  ],
+  totalShares: 1,
+  seedNavValue: 10_000,
+  basketPriceFactor: 1,
+  shareMultiplier: 1,
+} as never;
+const strategyUserEtfHolding = [{
+  stockId: "amc:strategy-user-etf",
+  quantity: 1,
+  averagePrice: 10_000,
+}];
+const leveragedAllocation = calculateStrategyAllocation(
+  PORTFOLIO_STRATEGIES.find((strategy) => strategy.id === "leveraged_attack")!,
+  strategyUserEtfHolding,
+  [
+    relationshipStock,
+    singleCharacterDerivative,
+    strategyCoveredCall,
+  ],
+  0,
+  10_000,
+  [strategyUserEtfFund],
+);
+assert.ok(
+  Math.abs(
+    leveragedAllocation.rows.find((row) => row.id === "leverage")!.actualWeight -
+      0.6,
+  ) < 1e-9,
+  "user ETF leverage components must count toward strategy allocation",
+);
+const incomeAllocation = calculateStrategyAllocation(
+  PORTFOLIO_STRATEGIES.find((strategy) => strategy.id === "income_builder")!,
+  strategyUserEtfHolding,
+  [
+    relationshipStock,
+    singleCharacterDerivative,
+    strategyCoveredCall,
+  ],
+  0,
+  10_000,
+  [strategyUserEtfFund],
+);
+assert.ok(
+  Math.abs(
+    incomeAllocation.rows.find((row) => row.id === "covered-call")!
+      .actualWeight - 0.4,
+  ) < 1e-9,
+  "user ETF covered-call components must count toward income strategy allocation",
+);
 const strategyBacktest = backtestPortfolioStrategy(
   PORTFOLIO_STRATEGIES[0],
   createGenesisStocks(),

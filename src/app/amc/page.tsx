@@ -25,6 +25,7 @@ import {
   AMC_REBALANCE_WINDOW_DAYS,
   AMC_SHARE_ADJUSTMENT_RATIOS,
   amcFundStockId,
+  classifyAmcFundExposure,
   collectHoldingDividendCadences,
   computeAmcFundNavPerShare,
   computePassiveAmcAnnualDividendYield,
@@ -686,6 +687,7 @@ export default function AssetManagerPage() {
               priceOf={priceOf}
               initialPriceOf={initialPriceOf}
               valuationPriceOf={valuationPriceOf}
+              stockOf={stockOfSelected}
               qty={tradeQty[fund.id] ?? "1"}
               onQty={(value) =>
                 setTradeQty((prev) => ({
@@ -981,6 +983,10 @@ export default function AssetManagerPage() {
               holdings.find((item) => item.stockId === amcFundStockId(fund.id))
                 ?.quantity ?? 0;
             const aum = Math.round(nav * fund.totalShares);
+            const exposureProfile = classifyAmcFundExposure(
+              fund,
+              stockOfSelected,
+            );
             const sessionsLeft = Math.max(
               0,
               AMC_REBALANCE_WINDOW_DAYS -
@@ -1100,6 +1106,12 @@ export default function AssetManagerPage() {
                         ? " · 금액 비중 목표"
                         : ""}
                       {graceLeft != null ? ` · 유예 ${graceLeft}거래일` : ""}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-violet-200">
+                      운용 성향 {exposureProfile.label} · 인컴{" "}
+                      {(exposureProfile.incomeWeight * 100).toFixed(0)}% ·
+                      레버리지{" "}
+                      {(exposureProfile.leverageWeight * 100).toFixed(0)}%
                     </p>
                     <p className="mt-1 text-xs font-semibold text-cyan-200">
                       {onMarket
@@ -2176,6 +2188,7 @@ function ListedFundCard({
   priceOf,
   initialPriceOf,
   valuationPriceOf,
+  stockOf,
   qty,
   onQty,
   busy,
@@ -2187,6 +2200,13 @@ function ListedFundCard({
   priceOf: (stockId: string) => number;
   initialPriceOf: (stockId: string) => number;
   valuationPriceOf: (stockId: string) => number;
+  stockOf: (stockId: string) =>
+    | {
+        leverage?: number;
+        coveredCallUnderlyingId?: string;
+        coveredCallAnnualYield?: number;
+      }
+    | undefined;
   qty: string;
   onQty: (value: string) => void;
   busy: boolean;
@@ -2201,6 +2221,7 @@ function ListedFundCard({
     valuationPriceOf,
   );
   const aum = Math.round(nav * fund.totalShares);
+  const exposureProfile = classifyAmcFundExposure(state, stockOf);
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2217,6 +2238,11 @@ function ListedFundCard({
             </span>
           </h3>
           <p className="mt-1 text-xs text-[var(--muted)]">{fund.managerTagline}</p>
+          <p className="mt-1 text-[11px] font-semibold text-violet-200">
+            {exposureProfile.label} · 인컴{" "}
+            {(exposureProfile.incomeWeight * 100).toFixed(0)}% · 레버리지{" "}
+            {(exposureProfile.leverageWeight * 100).toFixed(0)}%
+          </p>
           <ShareAdjustmentLabel fund={fund} />
         </div>
         <div className="text-right">

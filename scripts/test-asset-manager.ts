@@ -5,6 +5,7 @@ import {
   amcDividendHistoryAfter,
   amcFundStockId,
   applyAmcShareCreationRedemption,
+  classifyAmcFundExposure,
   collectHoldingDividendCadences,
   computeAmcFundBasketPriceFactor,
   computeAmcFundNavPerShare,
@@ -102,6 +103,63 @@ const prices: Record<string, number> = {
 const initials = { ...prices };
 const priceOf = (id: string) => prices[id] ?? 0;
 const initialOf = (id: string) => initials[id] ?? 0;
+
+const incomeProfile = classifyAmcFundExposure(
+  {
+    holdings: [
+      { stockId: "covered", weight: 0.45 },
+      { stockId: "leveraged", weight: 0.2 },
+      { stockId: "a", weight: 0.35 },
+    ],
+  },
+  (id) =>
+    id === "covered"
+      ? { coveredCallUnderlyingId: "a", coveredCallAnnualYield: 18 }
+      : id === "leveraged"
+        ? { leverage: 2 }
+        : {},
+);
+assert.equal(incomeProfile.profile, "income");
+assert.equal(incomeProfile.label, "인컴형");
+assert.ok(Math.abs(incomeProfile.incomeWeight - 0.45) < 1e-12);
+assert.ok(Math.abs(incomeProfile.leverageWeight - 0.2) < 1e-12);
+
+const leveragedProfile = classifyAmcFundExposure(
+  {
+    holdings: [
+      { stockId: "covered", weight: 0.15 },
+      { stockId: "inverse", weight: 0.5 },
+      { stockId: "a", weight: 0.35 },
+    ],
+  },
+  (id) =>
+    id === "covered"
+      ? { coveredCallUnderlyingId: "a" }
+      : id === "inverse"
+        ? { leverage: -1 }
+        : {},
+);
+assert.equal(leveragedProfile.profile, "leveraged");
+assert.equal(leveragedProfile.label, "레버리지형");
+assert.ok(Math.abs(leveragedProfile.leverageWeight - 0.5) < 1e-12);
+
+const mixedProfile = classifyAmcFundExposure(
+  {
+    holdings: [
+      { stockId: "covered", weight: 0.3 },
+      { stockId: "leveraged", weight: 0.3 },
+      { stockId: "a", weight: 0.4 },
+    ],
+  },
+  (id) =>
+    id === "covered"
+      ? { coveredCallUnderlyingId: "a" }
+      : id === "leveraged"
+        ? { leverage: 2 }
+        : {},
+);
+assert.equal(mixedProfile.profile, "mixed");
+assert.equal(mixedProfile.label, "파생 혼합형");
 
 assert.deepEqual(validateAmcHoldingWeights([
   { stockId: "a", weight: 0.5 },

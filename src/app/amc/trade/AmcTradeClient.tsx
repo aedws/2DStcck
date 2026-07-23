@@ -17,6 +17,7 @@ import { MARGIN_LEVERAGE_OPTIONS } from "@/lib/market/margin";
 import {
   AMC_TRADING_SESSIONS_PER_YEAR,
   amcFundStockId,
+  classifyAmcFundExposure,
   computePassiveAmcAnnualDividendYield,
   computeAmcFundNavPerShare,
   resolveAmcDividendPeriodRate,
@@ -77,6 +78,7 @@ function AmcFundHeader({
   history,
   managerName,
   annualDividendRate,
+  profileLabel,
 }: {
   fund: AmcFundState;
   nav: number;
@@ -84,6 +86,7 @@ function AmcFundHeader({
   history: PricePoint[];
   managerName: string;
   annualDividendRate: number;
+  profileLabel: string;
 }) {
   const diff = nav - previousPrice;
   const change = previousPrice > 0 ? (diff / previousPrice) * 100 : 0;
@@ -138,6 +141,7 @@ function AmcFundHeader({
           label="운용 보수"
           value={`${(fund.feeRate * 100).toFixed(2)}%`}
         />
+        <HeaderStat label="운용 성향" value={profileLabel} />
         <HeaderStat label="운용사" value={managerName} />
       </div>
     </div>
@@ -220,6 +224,9 @@ export function AmcTradeClient() {
       )
     : 0;
   const stockOf = (stockId: string) => stockById.get(stockId);
+  const exposureProfile = fund
+    ? classifyAmcFundExposure(fund, stockOf)
+    : null;
   const periodDividendRate = fund
     ? resolveAmcDividendPeriodRate(fund, priceOf, stockOf)
     : 0;
@@ -349,6 +356,7 @@ export function AmcTradeClient() {
         history={history}
         managerName={listed?.managerName ?? assetManager?.name ?? "유저 운용사"}
         annualDividendRate={annualDividendRate}
+        profileLabel={exposureProfile?.label ?? "일반형"}
       />
 
       <nav className="flex shrink-0 items-center gap-4 border-b border-[var(--border)] px-3 md:gap-5 md:px-5">
@@ -483,6 +491,14 @@ export function AmcTradeClient() {
                 <h3 className="mb-3 text-sm font-semibold">펀드 개요</h3>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
                   <FundMetric label="운용 방식" value={fund.style === "active" ? "액티브" : "패시브"} />
+                  <FundMetric
+                    label="운용 성향"
+                    value={
+                      exposureProfile
+                        ? `${exposureProfile.label} · 인컴 ${(exposureProfile.incomeWeight * 100).toFixed(0)}% · 레버리지 ${(exposureProfile.leverageWeight * 100).toFixed(0)}%`
+                        : "일반형"
+                    }
+                  />
                   <FundMetric label="상태" value={fund.status === "active" ? "정상 거래" : fund.status === "grace" ? "유예 기간" : "상장폐지"} />
                   <FundMetric label="운용사" value={listed?.managerName ?? assetManager?.name ?? "유저 운용사"} />
                   <FundMetric label="운용 보수" value={`20거래일당 ${(fund.feeRate * 100).toFixed(2)}%`} />
