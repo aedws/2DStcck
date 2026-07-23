@@ -12,6 +12,8 @@ import {
 } from "@/lib/player/assetManager";
 import {
   computeLeveragedRawPrice,
+  leverageAdjustedCandles,
+  leverageAdjustedHistory,
   leverageSplitMultiplier,
 } from "@/lib/market/engine";
 
@@ -112,11 +114,95 @@ function economicSeriesMultiplier(
   if (stock.leverage == null || !stock.leverageUnderlyingId) {
     return Math.max(stock.shareMultiplier ?? 1, 1e-12);
   }
+  if (
+    Number.isFinite(stock.shareMultiplier) &&
+    (stock.shareMultiplier ?? 0) > 0
+  ) {
+    return Math.max(stock.shareMultiplier!, 1e-12);
+  }
   const stockById = new Map(
     (stocks as readonly AmcPriceStock[]).map((item) => [item.id, item]),
   );
   const rawPrice = economicPriceFromMap(stock.id, stockById);
   return rawPrice > 0 ? leverageSplitMultiplier(rawPrice) : 1;
+}
+
+function economicHistoryForHolding(
+  stock: AmcHistoryStock,
+  stocks: readonly AmcHistoryStock[],
+): PricePoint[] {
+  const multiplier = economicSeriesMultiplier(stock, stocks);
+  if (stock.leverage == null || !stock.leverageUnderlyingId) {
+    return stock.priceHistory.map((point) => ({
+      ...point,
+      price: point.price * multiplier,
+    }));
+  }
+  const underlying = stocks.find(
+    (item) => item.id === stock.leverageUnderlyingId,
+  );
+  if (!underlying) {
+    return stock.priceHistory.map((point) => ({
+      ...point,
+      price: point.price * multiplier,
+    }));
+  }
+  return leverageAdjustedHistory(
+    stock as StockState,
+    underlying as StockState,
+    underlying.priceHistory,
+  ).map((point) => ({
+    ...point,
+    price: point.price * multiplier,
+  }));
+}
+
+function economicCandlesForHolding(
+  stock: AmcChartStock,
+  stocks: readonly AmcChartStock[],
+  source: "candles" | "dailyCandles",
+): Candle[] {
+  const multiplier = economicSeriesMultiplier(stock, stocks);
+  if (stock.leverage == null || !stock.leverageUnderlyingId) {
+    return stock[source].map((candle) =>
+      multiplier === 1
+        ? candle
+        : {
+            ...candle,
+            open: candle.open * multiplier,
+            high: candle.high * multiplier,
+            low: candle.low * multiplier,
+            close: candle.close * multiplier,
+          },
+    );
+  }
+  const underlying = stocks.find(
+    (item) => item.id === stock.leverageUnderlyingId,
+  );
+  if (!underlying) {
+    return stock[source].map((candle) =>
+      multiplier === 1
+        ? candle
+        : {
+            ...candle,
+            open: candle.open * multiplier,
+            high: candle.high * multiplier,
+            low: candle.low * multiplier,
+            close: candle.close * multiplier,
+          },
+    );
+  }
+  return leverageAdjustedCandles(
+    stock as StockState,
+    underlying as StockState,
+    underlying[source],
+  ).map((candle) => ({
+    ...candle,
+    open: candle.open * multiplier,
+    high: candle.high * multiplier,
+    low: candle.low * multiplier,
+    close: candle.close * multiplier,
+  }));
 }
 
 export interface AmcFundChartSeries {
@@ -234,16 +320,15 @@ export function getAmcFundPriceHistory(
 
   const changes = new Map<number, Array<{ stockId: string; price: number }>>();
   for (const { holding, stock } of rows) {
-    for (const point of stock.priceHistory) {
+    const series = holding.basePrice
+      ? economicHistoryForHolding(stock, stocks)
+      : stock.priceHistory;
+    for (const point of series) {
       if (!(point.price > 0) || !Number.isFinite(point.timestamp)) continue;
       const updates = changes.get(point.timestamp) ?? [];
       updates.push({
         stockId: stock.id,
-        price:
-          point.price *
-          (holding.basePrice
-            ? economicSeriesMultiplier(stock, stocks)
-            : 1),
+        price: point.price,
       });
       changes.set(point.timestamp, updates);
     }
@@ -313,10 +398,10 @@ function synthesizeAmcFundCandles(
 
   const changes = new Map<number, Array<{ stockId: string; candle: Candle }>>();
   for (const { holding, stock } of rows) {
-    const seriesMultiplier = holding.basePrice
-      ? economicSeriesMultiplier(stock, stocks)
-      : 1;
-    for (const candle of stock[source]) {
+    const series = holding.basePrice
+      ? economicCandlesForHolding(stock, stocks, source)
+      : stock[source];
+    for (const candle of series) {
       if (
         !Number.isFinite(candle.timestamp) ||
         !Number.isFinite(candle.open) ||
@@ -329,15 +414,7 @@ function synthesizeAmcFundCandles(
       const updates = changes.get(candle.timestamp) ?? [];
       updates.push({
         stockId: stock.id,
-        candle: seriesMultiplier === 1
-          ? candle
-          : {
-              timestamp: candle.timestamp,
-              open: candle.open * seriesMultiplier,
-              high: candle.high * seriesMultiplier,
-              low: candle.low * seriesMultiplier,
-              close: candle.close * seriesMultiplier,
-            },
+        candle,
       });
       changes.set(candle.timestamp, updates);
     }

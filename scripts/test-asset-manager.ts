@@ -46,6 +46,7 @@ import {
 } from "../src/lib/supabase/amcEtfListingRequests";
 import { reconcileAmcLedgerCash } from "../src/lib/player/amcLedger";
 import {
+  createAmcValuationPriceResolver,
   getAmcCharacterLinkedHoldings,
   getAmcFundChartSeries,
   getAmcFundPerformanceComparison,
@@ -55,6 +56,9 @@ import {
   getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
 } from "../src/lib/player/amcPortfolio";
+import { createGenesisStocks } from "../src/lib/market/localSim";
+import { computeLeveragedSnapshot } from "../src/lib/market/engine";
+import { SESSION_DURATION_MS } from "../src/lib/market/constants";
 
 assert.deepEqual(splitAmcSeed(100_000), { burned: 10_000, navValue: 90_000 });
 const verifiedSbndPrice = 11_894;
@@ -69,6 +73,7 @@ assert.ok(
   ) < 1e-12,
   "SBND in a user ETF must use its actual inclusion price, not listing price",
 );
+
 assert.ok(
   Math.abs(
     computePassiveAmcAnnualDividendYield(
@@ -334,6 +339,143 @@ assert.equal(created.fund!.reverseSplitTriggerPrice, 5);
 assert.equal(created.fund!.reverseSplitRatio, 2);
 assert.equal(created.fund!.shareMultiplier, 1);
 assert.ok(created.fund!.navHistory[0]!.nav < created.fund!.splitTriggerPrice!);
+
+// A leveraged constituent keeps an economic raw price across its own split.
+// User-ETF NAV and charts must therefore follow the derivative return, not the
+// derivative's discontinuous display-price history.
+{
+  const genesis = createGenesisStocks();
+  const baseLeverage = genesis.find((stock) => stock.id === "vnsl2")!;
+  const baseUnderlying = genesis.find((stock) => stock.id === "vnasdaq")!;
+  const session = 50_000;
+  const start = session * SESSION_DURATION_MS;
+  const underlying = {
+    ...baseUnderlying,
+    initialPrice: 100,
+    currentPrice: 102,
+    dayOpen: 100,
+    prevDayClose: 100,
+    daySessionId: session,
+    leveragePathSessionId: session,
+    leveragePathSessionBase: 100,
+    leveragePathFactors: { "-2": 1, "-1": 1, "2": 1 },
+    priceHistory: [
+      { timestamp: start, price: 100 },
+      { timestamp: start + 30_000, price: 102 },
+    ],
+    candles: [
+      {
+        timestamp: start,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+      },
+      {
+        timestamp: start + 30_000,
+        open: 100,
+        high: 102,
+        low: 100,
+        close: 102,
+      },
+    ],
+    dailyCandles: [
+      {
+        timestamp: start,
+        open: 100,
+        high: 102,
+        low: 100,
+        close: 102,
+      },
+    ],
+  };
+  const leverageBefore = {
+    ...baseLeverage,
+    initialPrice: 99_000,
+    currentPrice: 99_000,
+    dayOpen: 99_000,
+    prevDayClose: 99_000,
+    daySessionId: session,
+    shareMultiplier: 1,
+    listingEpochMs: start,
+  };
+  const snapshot = computeLeveragedSnapshot(leverageBefore, underlying);
+  assert.equal(snapshot.splitMultiplier, 5);
+  const leverageAfter = {
+    ...leverageBefore,
+    currentPrice: snapshot.currentPrice,
+    dayOpen: snapshot.dayOpen,
+    prevDayClose: snapshot.prevDayClose,
+    shareMultiplier: snapshot.splitMultiplier,
+    lastShareAdjustmentSession: snapshot.lastShareAdjustmentSession,
+    // Live derivative series at the boundary contains both display multipliers.
+    priceHistory: [
+      { timestamp: start, price: 99_000 },
+      { timestamp: start + 30_000, price: snapshot.currentPrice },
+    ],
+    candles: [
+      {
+        timestamp: start,
+        open: 99_000,
+        high: 99_000,
+        low: 99_000,
+        close: 99_000,
+      },
+      {
+        timestamp: start + 30_000,
+        open: 99_000,
+        high: snapshot.currentPrice,
+        low: snapshot.currentPrice,
+        close: snapshot.currentPrice,
+      },
+    ],
+    dailyCandles: [
+      {
+        timestamp: start,
+        open: 99_000,
+        high: 99_000,
+        low: snapshot.currentPrice,
+        close: snapshot.currentPrice,
+      },
+    ],
+  };
+  const fund = {
+    ...created.fund!,
+    createdAt: start,
+    createdSession: session,
+    holdings: [
+      { stockId: leverageAfter.id, weight: 1, basePrice: 99_000 },
+    ],
+    seedNavValue: 90_000,
+    totalShares: 90,
+    basketPriceFactor: 1,
+    navHistory: [],
+    dividendHistory: [],
+  };
+  const stocks = [leverageAfter, underlying];
+  const valuationPriceOf = createAmcValuationPriceResolver(stocks);
+  const nav = computeAmcFundNavPerShare(
+    fund,
+    (stockId) =>
+      stocks.find((stock) => stock.id === stockId)?.currentPrice ?? 0,
+    (stockId) =>
+      stocks.find((stock) => stock.id === stockId)?.initialPrice ?? 0,
+    valuationPriceOf,
+  );
+  assert.equal(nav, 1_040);
+  const history = getAmcFundPriceHistory(fund, stocks);
+  assert.deepEqual(
+    history.map((point) => point.price),
+    [1_000, 1_040],
+    "a derivative split inside a user ETF must not create a fake NAV crash",
+  );
+  const chart = getAmcFundChartSeries(fund, stocks);
+  assert.equal(chart.candles.at(-1)?.close, 1_040);
+  assert.ok(
+    (chart.candles.at(-1)?.low ?? 0) >= 1_000,
+    "user ETF OHLC must be synthesized from split-adjusted derivative history",
+  );
+}
 
 const updatedAdjustment = updateAmcShareAdjustmentSettings(
   created.manager!,
