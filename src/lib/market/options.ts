@@ -136,8 +136,8 @@ export function listStrikes(price: number): number[] {
 }
 
 /**
- * 기초자산의 현재 액면분할 배수(레버리지·인버스 ETF만 ≠1). stocks 미제공이거나
- * 일반 종목이면 1. 옵션 손익을 분할에 맞춰 보정할 때 쓴다.
+ * 기초자산의 현재 누적 액면분할 배수. 일반 종목·ETF는 저장된 배수를,
+ * 레버리지·인버스는 파생 가격 상태에 저장된 배수를 사용한다.
  */
 export function underlyingSplitMultiplier(
   stock: StockState,
@@ -145,6 +145,9 @@ export function underlyingSplitMultiplier(
 ): number {
   if (!stocks || stock.leverage == null || !stock.leverageUnderlyingId) {
     return stock.shareMultiplier ?? 1;
+  }
+  if (stock.shareMultiplier !== undefined) {
+    return Math.max(stock.shareMultiplier, 1e-12);
   }
   const underlying = stocks.find((s) => s.id === stock.leverageUnderlyingId);
   return underlying ? leverageMultiplierFor(stock, underlying) : 1;
@@ -185,22 +188,31 @@ export function positionMark(
   );
 }
 
-/** 발행(short) 계약당 증거금: 콜=기초자산가, 풋=행사가 (최대손실 근사) */
+/** 발행(short) 계약당 증거금: 콜=분할조정 기초자산가, 풋=행사가 (최대손실 근사) */
 export function shortMarginPerContract(
   pos: OptionPosition,
   stock: StockState,
+  stocks?: StockState[],
 ): number {
-  return pos.kind === "call" ? stock.currentPrice : pos.strike;
+  return pos.kind === "call"
+    ? effectiveOptionUnderlyingPrice(pos, stock, stocks)
+    : pos.strike;
 }
 
 /** 매수·발행 공통 옵션 위험 명목가. */
 export function optionRiskNotionalPerContract(
-  pos: Pick<OptionPosition, "kind" | "strike">,
+  pos: Pick<OptionPosition, "kind" | "strike"> &
+    Partial<Pick<OptionPosition, "openSplitMultiplier">>,
   stock: StockState,
+  stocks?: StockState[],
 ): number {
+  const underlyingPrice =
+    pos.openSplitMultiplier !== undefined
+      ? effectiveOptionUnderlyingPrice(pos, stock, stocks)
+      : stock.currentPrice;
   return Math.max(
     OPTION_CONTRACT_MULTIPLIER,
-    pos.kind === "call" ? stock.currentPrice : pos.strike,
+    pos.kind === "call" ? underlyingPrice : pos.strike,
   ) * OPTION_NOTIONAL_MULTIPLIER;
 }
 
@@ -231,7 +243,7 @@ export function optionsMarginReserve(
     if (pos.side !== "short") continue;
     const stock = stocks.find((s) => s.id === pos.stockId);
     if (!stock) continue;
-    reserve += shortMarginPerContract(pos, stock) * pos.quantity;
+    reserve += shortMarginPerContract(pos, stock, stocks) * pos.quantity;
   }
   return reserve;
 }
@@ -253,7 +265,7 @@ export function optionsGrossExposure(
   for (const pos of options) {
     const stock = stocks.find((candidate) => candidate.id === pos.stockId);
     if (!stock) continue;
-    const perContract = optionRiskNotionalPerContract(pos, stock);
+    const perContract = optionRiskNotionalPerContract(pos, stock, stocks);
     exposure += perContract * pos.quantity;
   }
   return exposure;

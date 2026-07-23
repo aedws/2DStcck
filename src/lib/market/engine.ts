@@ -125,6 +125,7 @@ export function createInitialStockState(
   const now = at ?? Date.now();
   return {
     ...def,
+    shareMultiplier: 1,
     currentPrice: def.initialPrice,
     prevDayClose: def.initialPrice,
     dayOpen: def.initialPrice,
@@ -621,6 +622,7 @@ export interface LeveragedPriceSnapshot {
   currentPrice: number;
   prevDayClose: number;
   dayOpen: number;
+  lastShareAdjustmentSession?: number;
 }
 
 /** 완료 거래일 누적계수 + 현재 거래일 수익률로 파생상품 가격 상태를 계산한다. */
@@ -640,7 +642,24 @@ export function computeLeveragedSnapshot(
     underlyingSessionBase,
     leverage,
   );
-  const splitMultiplier = leverageSplitMultiplier(rawPrice);
+  const requestedSplitMultiplier = leverageSplitMultiplier(rawPrice);
+  const currentSession =
+    underlying.daySessionId ?? etf.daySessionId ??
+    Math.floor(Date.now() / SESSION_DURATION_MS);
+  const appliedSplitMultiplier = Math.max(etf.shareMultiplier ?? 1, 1e-12);
+  const lastAdjustment = etf.lastShareAdjustmentSession;
+  const coolingDown =
+    lastAdjustment !== undefined &&
+    currentSession - lastAdjustment <
+      SHARE_ADJUSTMENT_COOLDOWN_SESSIONS;
+  const splitMultiplier =
+    requestedSplitMultiplier !== appliedSplitMultiplier && coolingDown
+      ? appliedSplitMultiplier
+      : requestedSplitMultiplier;
+  const lastShareAdjustmentSession =
+    splitMultiplier !== appliedSplitMultiplier
+      ? currentSession
+      : lastAdjustment;
   const display = (raw: number) =>
     Math.max(Math.round(raw / splitMultiplier), 1);
   const dayOpenRaw = computeLeveragedRawPrice(
@@ -657,6 +676,7 @@ export function computeLeveragedSnapshot(
     currentPrice: display(rawPrice),
     prevDayClose: display(sessionStartRawPrice),
     dayOpen: display(dayOpenRaw),
+    lastShareAdjustmentSession,
   };
 }
 
@@ -978,6 +998,9 @@ export function tickAllStocks(
       const snapshot = computeLeveragedSnapshot(stock, after);
       return {
         ...applyTickPrice(stock, snapshot.currentPrice, now),
+        shareMultiplier: snapshot.splitMultiplier,
+        lastShareAdjustmentSession:
+          snapshot.lastShareAdjustmentSession,
         prevDayClose: snapshot.prevDayClose,
         dayOpen: snapshot.dayOpen,
       };
@@ -1012,7 +1035,8 @@ export function tickAllStocks(
 const STOCK_SPLIT_TRIGGER = 100_000; // $1,000
 const STOCK_REVERSE_SPLIT_TRIGGER = 100; // $1
 const STOCK_SHARE_ADJUSTMENT_RATIO = 10;
-const STOCK_SHARE_ADJUSTMENT_COOLDOWN = 5;
+/** 일반·파생 액면조정 뒤 반대 방향 재조정을 막는 거래일 수. */
+export const SHARE_ADJUSTMENT_COOLDOWN_SESSIONS = 5;
 
 function scaleCandle(candle: Candle, factor: number): Candle {
   return {
@@ -1045,7 +1069,7 @@ export function normalizeStockSharePrice(
   if (
     stock.lastShareAdjustmentSession !== undefined &&
     session - stock.lastShareAdjustmentSession <
-      STOCK_SHARE_ADJUSTMENT_COOLDOWN
+      SHARE_ADJUSTMENT_COOLDOWN_SESSIONS
   ) {
     return stock;
   }

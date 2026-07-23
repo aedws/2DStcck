@@ -43,10 +43,13 @@ export interface MarketCheckpoint {
   marketEpochMs: number;
   tick: number;
   stocks: CompactStockCheckpoint[];
+  /** 시계열을 생략하는 자동 생성 파생의 [액면배수, 마지막 조정 거래일]. */
+  shareAdjustments?: Record<string, [number, number | null]>;
   events: MarketEvent[];
 }
 
-const BUNDLED_MARKET_CHECKPOINT = bundledCheckpoint as MarketCheckpoint;
+const BUNDLED_MARKET_CHECKPOINT =
+  bundledCheckpoint as unknown as MarketCheckpoint;
 
 export function isCompatibleMarketCheckpoint(
   checkpoint: MarketCheckpoint,
@@ -84,6 +87,9 @@ export function reconstructDerivativeSeries(
   if (underlyingCandles.length === 0) {
     return {
       ...etf,
+      shareMultiplier: snapshot.splitMultiplier,
+      lastShareAdjustmentSession:
+        snapshot.lastShareAdjustmentSession,
       currentPrice: snapshot.currentPrice,
       prevDayClose: snapshot.prevDayClose,
       dayOpen: snapshot.dayOpen,
@@ -109,6 +115,9 @@ export function reconstructDerivativeSeries(
 
   return {
     ...etf,
+    shareMultiplier: snapshot.splitMultiplier,
+    lastShareAdjustmentSession:
+      snapshot.lastShareAdjustmentSession,
     currentPrice: snapshot.currentPrice,
     prevDayClose: snapshot.prevDayClose,
     dayOpen: snapshot.dayOpen,
@@ -133,7 +142,17 @@ export function hydrateMarketCheckpoint(checkpoint: MarketCheckpoint): {
   const genesis = createGenesisStocks();
   const restored = genesis.map((stock) => {
     const saved = savedById.get(stock.id);
-    if (!saved) return stock;
+    const shareAdjustment = source.shareAdjustments?.[stock.id];
+    if (!saved) {
+      return shareAdjustment
+        ? {
+            ...stock,
+            shareMultiplier: shareAdjustment[0],
+            lastShareAdjustmentSession:
+              shareAdjustment[1] ?? undefined,
+          }
+        : stock;
+    }
     const firstSavedDaily =
       saved.dailyCandles[0]?.timestamp ?? Number.POSITIVE_INFINITY;
     const syntheticDaily = stock.dailyCandles.filter(
@@ -175,6 +194,23 @@ export function compactMarketCheckpoint(
   tick: number,
   dailyCandleLimit = PERSISTED_DAILY_CANDLES,
 ): MarketCheckpoint {
+  const shareAdjustments = Object.fromEntries(
+    stocks
+      .filter(
+        (stock) =>
+          stock.universalDerivative &&
+          !stock.coveredCallUnderlyingId &&
+          ((stock.shareMultiplier ?? 1) !== 1 ||
+            stock.lastShareAdjustmentSession !== undefined),
+      )
+      .map((stock) => [
+        stock.id,
+        [
+          stock.shareMultiplier ?? 1,
+          stock.lastShareAdjustmentSession ?? null,
+        ],
+      ]),
+  ) as Record<string, [number, number | null]>;
   return {
     marketVersion: MARKET_SIM_VERSION,
     marketEpochMs: MARKET_EPOCH_MS,
@@ -205,6 +241,10 @@ export function compactMarketCheckpoint(
         shareMultiplier: stock.shareMultiplier,
         lastShareAdjustmentSession: stock.lastShareAdjustmentSession,
       })),
+    shareAdjustments:
+      Object.keys(shareAdjustments).length > 0
+        ? shareAdjustments
+        : undefined,
     events: events.slice(-50),
   };
 }

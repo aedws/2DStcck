@@ -23,6 +23,9 @@ export function currentPositionSplitMultiplier(
   stocks: StockState[],
 ): number {
   if (stock.leverage !== undefined && stock.leverageUnderlyingId) {
+    if (stock.shareMultiplier !== undefined) {
+      return Math.max(stock.shareMultiplier, 1e-12);
+    }
     const underlying = stocks.find(
       (item) => item.id === stock.leverageUnderlyingId,
     );

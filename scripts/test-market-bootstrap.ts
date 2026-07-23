@@ -2,6 +2,7 @@ import assert from "node:assert";
 import { statSync } from "node:fs";
 import { STOCK_DEFINITIONS } from "../src/data/stocks";
 import {
+  compactMarketCheckpoint,
   getBundledMarketCheckpoint,
   hydrateMarketCheckpoint,
   isCompatibleMarketCheckpoint,
@@ -55,6 +56,29 @@ const replayed = replayMarket(
 );
 assert.equal(replayed.stocks.length, STOCK_DEFINITIONS.length);
 assertLeveragedPricesMatchUnderlying(replayed.stocks);
+const replayedCheckpoint = compactMarketCheckpoint(
+  replayed.stocks,
+  replayed.events,
+  shortTarget,
+);
+for (const stock of replayed.stocks) {
+  if (
+    !stock.universalDerivative ||
+    stock.coveredCallUnderlyingId ||
+    ((stock.shareMultiplier ?? 1) === 1 &&
+      stock.lastShareAdjustmentSession === undefined)
+  ) {
+    continue;
+  }
+  assert.deepEqual(
+    replayedCheckpoint.shareAdjustments?.[stock.id],
+    [
+      stock.shareMultiplier ?? 1,
+      stock.lastShareAdjustmentSession ?? null,
+    ],
+    `${stock.id} 자동 생성 파생 액면 쿨타임이 체크포인트에 보존되지 않음`,
+  );
+}
 assert.equal(
   replayed.stocks.some((stock) => stock.candles.length > 1),
   true,

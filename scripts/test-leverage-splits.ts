@@ -179,7 +179,11 @@ const shortUnderlying = {
   currentPrice: uLater,
   dayOpen: u0,
 };
-const shortEtf = { ...plus2, currentPrice: dispLater };
+const shortEtf = {
+  ...plus2,
+  currentPrice: dispLater,
+  shareMultiplier: mLater,
+};
 const freshShorts: ShortPosition[] = [
   { stockId: shortEtf.id, quantity: dispQty, averagePrice: dispLater },
 ];
@@ -209,6 +213,70 @@ assertClose(
   reconciledShort.quantity * reconciledShort.averagePrice,
   oldFaceShort.quantity * oldFaceShort.averagePrice,
   "공매 진입 원금 가치 보존",
+);
+
+// 7) 레버리지·인버스도 액면조정 뒤 5거래일 동안 반대 조정을 막는다.
+const splitSession = 700;
+const cooldownUnderlying = {
+  ...createInitialStockState(
+    underlyingDefinition,
+    splitSession * SESSION_DURATION_MS,
+  ),
+  currentPrice: 55_000,
+  dayOpen: 10_000,
+  daySessionId: splitSession,
+  leveragePathSessionBase: 10_000,
+};
+const cooldownEtf = createInitialStockState(
+  derivativeDefinition(2),
+  splitSession * SESSION_DURATION_MS,
+);
+const splitSnapshot = computeLeveragedSnapshot(
+  cooldownEtf,
+  cooldownUnderlying,
+);
+assert.equal(splitSnapshot.rawPrice, 100_000);
+assert.equal(splitSnapshot.splitMultiplier, 5);
+assert.equal(splitSnapshot.lastShareAdjustmentSession, splitSession);
+
+const adjustedEtf = {
+  ...cooldownEtf,
+  currentPrice: splitSnapshot.currentPrice,
+  shareMultiplier: splitSnapshot.splitMultiplier,
+  lastShareAdjustmentSession: splitSnapshot.lastShareAdjustmentSession,
+};
+const crashedUnderlying = {
+  ...cooldownUnderlying,
+  currentPrice: 1,
+  daySessionId: splitSession + 1,
+};
+const heldSnapshot = computeLeveragedSnapshot(
+  adjustedEtf,
+  crashedUnderlying,
+);
+assert.equal(
+  heldSnapshot.splitMultiplier,
+  splitSnapshot.splitMultiplier,
+  "쿨타임 중 파생상품 역병합을 막아야",
+);
+assert.equal(
+  heldSnapshot.lastShareAdjustmentSession,
+  splitSession,
+  "차단된 조정은 쿨타임을 다시 시작하면 안 됨",
+);
+
+const releasedSnapshot = computeLeveragedSnapshot(
+  adjustedEtf,
+  { ...crashedUnderlying, daySessionId: splitSession + 5 },
+);
+assert.notEqual(
+  releasedSnapshot.splitMultiplier,
+  splitSnapshot.splitMultiplier,
+  "5거래일 뒤에는 필요한 파생상품 액면조정을 허용해야",
+);
+assert.equal(
+  releasedSnapshot.lastShareAdjustmentSession,
+  splitSession + 5,
 );
 
 console.log("leverage daily-reset · split/merge scenarios passed");

@@ -7,15 +7,21 @@
 import assert from "node:assert";
 import { createGenesisStocks } from "../src/lib/market/localSim";
 import {
-  computeLeveragedPrice,
-  leverageMultiplierFor,
+  computeLeveragedSnapshot,
+  normalizeStockSharePrice,
 } from "../src/lib/market/engine";
 import {
   effectiveOptionUnderlyingPrice,
   underlyingSplitMultiplier,
   intrinsic,
+  optionsGrossExposure,
+  positionMark,
+  shortMarginPerContract,
 } from "../src/lib/market/options";
-import { LEVERAGE_SPLIT_AT } from "../src/lib/market/constants";
+import {
+  LEVERAGE_SPLIT_AT,
+  SESSION_DURATION_MS,
+} from "../src/lib/market/constants";
 import type { OptionPosition, StockState } from "../src/lib/types/market";
 
 const base = createGenesisStocks();
@@ -31,10 +37,22 @@ const underlyingForRaw = (rawTarget: number) =>
 
 function scenario(underlyingPrice: number) {
   const underlying: StockState = { ...underDef, currentPrice: underlyingPrice };
-  const etfDisplay = computeLeveragedPrice({ ...etfDef }, underlying);
-  const etf: StockState = { ...etfDef, currentPrice: etfDisplay };
+  const snapshot = computeLeveragedSnapshot({ ...etfDef }, underlying);
+  const etfDisplay = snapshot.currentPrice;
+  const etf: StockState = {
+    ...etfDef,
+    currentPrice: etfDisplay,
+    shareMultiplier: snapshot.splitMultiplier,
+    lastShareAdjustmentSession: snapshot.lastShareAdjustmentSession,
+  };
   const stocks = [etf, underlying];
-  return { etf, underlying, stocks, m: leverageMultiplierFor(etf, underlying), etfDisplay };
+  return {
+    etf,
+    underlying,
+    stocks,
+    m: snapshot.splitMultiplier,
+    etfDisplay,
+  };
 }
 
 // 개시: 표시가 밴드 상단 근처(분할 직전), 배수 1
@@ -89,12 +107,73 @@ assert.ok(
 );
 
 // 일반 종목(레버리지 아님)은 배수 1 — 아무 영향 없어야
-const plain = base.find((s) => s.sector !== "ETF" && s.leverage == null)!;
+const plain = base.find(
+  (s) =>
+    s.sector !== "ETF" &&
+    s.sector !== "지수" &&
+    s.sector !== "선물" &&
+    s.sector !== "급등주" &&
+    s.leverage == null,
+)!;
 assert.equal(underlyingSplitMultiplier(plain, base), 1, "일반 종목 배수는 1");
 assert.equal(
   effectiveOptionUnderlyingPrice({ openSplitMultiplier: 1 }, plain, base),
   plain.currentPrice,
   "일반 종목은 유효가 = 표시가",
+);
+
+// 일반 종목 10:1 분할도 기존 옵션의 평가·노출·발행 증거금을 바꾸지 않는다.
+const plainSession = 500;
+const plainBefore: StockState = {
+  ...plain,
+  currentPrice: 120_000,
+  prevDayClose: 120_000,
+  dayOpen: 120_000,
+  daySessionId: plainSession,
+  shareMultiplier: 1,
+};
+const plainCall: OptionPosition = {
+  id: "plain-call",
+  stockId: plainBefore.id,
+  kind: "call",
+  side: "short",
+  strike: 100_000,
+  expirySession: plainSession + 10,
+  quantity: 2,
+  openPremium: 1_000,
+  openedAt: plainSession * SESSION_DURATION_MS,
+  openSplitMultiplier: 1,
+};
+const plainAfter = normalizeStockSharePrice(
+  plainBefore,
+  plainSession * SESSION_DURATION_MS,
+);
+assert.equal(plainAfter.currentPrice, 12_000);
+assert.equal(plainAfter.shareMultiplier, 10);
+assert.equal(
+  effectiveOptionUnderlyingPrice(plainCall, plainAfter, [plainAfter]),
+  plainBefore.currentPrice,
+  "일반 종목 분할 뒤 옵션 유효 기초가는 분할 전과 같아야",
+);
+assert.equal(
+  positionMark(plainCall, plainAfter, plainSession, 0.03, [plainAfter]),
+  positionMark(plainCall, plainBefore, plainSession, 0.03, [plainBefore]),
+  "일반 종목 분할 전후 옵션 마크가 같아야",
+);
+assert.equal(
+  optionsGrossExposure(
+    [plainCall],
+    [plainAfter],
+    plainSession,
+    0.03,
+  ),
+  plainBefore.currentPrice * plainCall.quantity,
+  "분할 전 옵션 콜 명목노출을 유지해야",
+);
+assert.equal(
+  shortMarginPerContract(plainCall, plainAfter, [plainAfter]),
+  plainBefore.currentPrice,
+  "분할 전 발행 콜 유지증거금을 유지해야",
 );
 
 // 레버리지·인버스 ETF 옵션 변동성 = |배수| × 기초 (0DTE 스트래들 저평가 차단).

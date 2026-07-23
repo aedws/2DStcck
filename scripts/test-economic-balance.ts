@@ -40,6 +40,12 @@ const cooled = normalizeStockSharePrice(
   now + 3_600_000,
 );
 assert.equal(cooled.currentPrice, 100, "5-session cooldown must prevent split oscillation");
+const released = normalizeStockSharePrice(
+  { ...split, currentPrice: 100 },
+  now + 5 * 3_600_000,
+);
+assert.equal(released.currentPrice, 1_000, "split adjustment must resume after 5 sessions");
+assert.equal(released.shareMultiplier, 1);
 
 assert.equal(normalizeMarginLeverage(5), 2);
 const longOptionExposure = optionsGrossExposure(

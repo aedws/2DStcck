@@ -4389,7 +4389,15 @@ export const useMarketStore = create<MarketStore>()(
             message: "옵션 기초자산 명목 노출이 계좌 한도를 초과합니다.",
           };
         }
-        const id = `opt-${stockId}-${kind}-long-${strike}-${expirySession}`;
+        const currentSplitMultiplier = underlyingSplitMultiplier(
+          stock,
+          state.stocks,
+        );
+        // 같은 숫자 행사가라도 액면조정 전후 계약은 경제적 기준가가 다르다.
+        // 배수를 ID에 포함해 서로 다른 계약이 한 포지션으로 합쳐지지 않게 한다.
+        const id =
+          `opt-${stockId}-${kind}-long-${strike}-${expirySession}` +
+          `-m${currentSplitMultiplier}`;
         const existing = state.options.find((o) => o.id === id);
         const options = existing
           ? state.options.map((o) =>
@@ -4416,7 +4424,7 @@ export const useMarketStore = create<MarketStore>()(
                 quantity,
                 openPremium: premium,
                 openedAt: now,
-                openSplitMultiplier: underlyingSplitMultiplier(stock, state.stocks),
+                openSplitMultiplier: currentSplitMultiplier,
               },
             ];
         const trade: Trade = {
@@ -4481,7 +4489,13 @@ export const useMarketStore = create<MarketStore>()(
           now / SESSION_DURATION_MS,
           rate,
         );
-        const id = `opt-${stockId}-${kind}-short-${strike}-${expirySession}`;
+        const currentSplitMultiplier = underlyingSplitMultiplier(
+          stock,
+          state.stocks,
+        );
+        const id =
+          `opt-${stockId}-${kind}-short-${strike}-${expirySession}` +
+          `-m${currentSplitMultiplier}`;
         const draft: OptionPosition = {
           id,
           stockId,
@@ -4492,9 +4506,10 @@ export const useMarketStore = create<MarketStore>()(
           quantity,
           openPremium: premium,
           openedAt: now,
-          openSplitMultiplier: underlyingSplitMultiplier(stock, state.stocks),
+          openSplitMultiplier: currentSplitMultiplier,
         };
-        const margin = optionRiskNotionalPerContract(draft, stock) * quantity;
+        const margin =
+          optionRiskNotionalPerContract(draft, stock, state.stocks) * quantity;
         if (margin > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }

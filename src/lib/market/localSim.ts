@@ -17,6 +17,7 @@ import {
   createInitialStockState,
   leverageAdjustedCandles,
   maybeGenerateEvent,
+  normalizeStockSharePrice,
   randomNormal,
   seededRand,
   smoothedNormalAtTick,
@@ -39,6 +40,13 @@ import type {
   StockDefinition,
   StockState,
 } from "@/lib/types/market";
+
+function rescaleReplayCandle(candle: Candle, factor: number): void {
+  candle.open *= factor;
+  candle.high *= factor;
+  candle.low *= factor;
+  candle.close *= factor;
+}
 
 /**
  * 로컬 공통 시장: 고정 기원점(MARKET_EPOCH_MS)부터 시드 고정 결정론 시뮬레이션.
@@ -277,10 +285,32 @@ export function replayMarket(
       const underlying = byId.get(underlyingId);
       if (!underlying) continue;
       const snapshot = computeLeveragedSnapshot(s, underlying);
+      s.shareMultiplier = snapshot.splitMultiplier;
+      s.lastShareAdjustmentSession =
+        snapshot.lastShareAdjustmentSession;
       s.prevDayClose = snapshot.prevDayClose;
       s.dayOpen = snapshot.dayOpen;
       s.daySessionId = session;
       s.currentPrice = snapshot.currentPrice;
+    }
+
+    // 자동 생성 파생은 매 틱 재계산하지 않지만, 액면 쿨타임 상태는 거래일
+    // 경계마다 갱신해야 장기 리플레이와 실시간 접속의 배수가 같아진다.
+    if (session !== prevSession) {
+      for (const s of universalDerivatives) {
+        const underlying = byId.get(
+          s.leverageUnderlyingId ?? "vnasdaq",
+        );
+        if (!underlying) continue;
+        const snapshot = computeLeveragedSnapshot(s, underlying);
+        s.shareMultiplier = snapshot.splitMultiplier;
+        s.lastShareAdjustmentSession =
+          snapshot.lastShareAdjustmentSession;
+        s.currentPrice = snapshot.currentPrice;
+        s.prevDayClose = snapshot.prevDayClose;
+        s.dayOpen = snapshot.dayOpen;
+        s.daySessionId = session;
+      }
     }
 
     // 4차: 커버드콜 상품 갱신.
@@ -365,6 +395,30 @@ export function replayMarket(
       prevSession = session;
     }
 
+    // 일반 주식·비레버리지 ETF도 액면 밴드를 적용한다. 리플레이 중 누적한
+    // 차트 원본까지 같은 비율로 소급 조정해 분할·병합 자체가 수익률이 되지 않는다.
+    for (const stock of replayedStocks) {
+      if (tick < listingTickOf(stock)) continue;
+      const beforeMultiplier = Math.max(stock.shareMultiplier ?? 1, 1e-12);
+      const normalized = normalizeStockSharePrice(stock, now);
+      const afterMultiplier = Math.max(
+        normalized.shareMultiplier ?? 1,
+        1e-12,
+      );
+      if (afterMultiplier === beforeMultiplier) continue;
+      const factor = beforeMultiplier / afterMultiplier;
+      for (const point of historyMap.get(stock.id) ?? []) {
+        point.price *= factor;
+      }
+      for (const candle of candleMap.get(stock.id) ?? []) {
+        rescaleReplayCandle(candle, factor);
+      }
+      for (const candle of dailyMap.get(stock.id) ?? []) {
+        rescaleReplayCandle(candle, factor);
+      }
+      Object.assign(stock, normalized);
+    }
+
     // 일봉은 전체 리플레이 구간을 보존해 주봉·월봉의 원본으로 사용한다.
     for (const stock of replayedStocks) {
       const dailyCandles = dailyMap.get(stock.id) ?? [];
@@ -402,6 +456,9 @@ export function replayMarket(
         const underlying = byId.get(s.leverageUnderlyingId ?? "vnasdaq");
         if (underlying) {
           const snapshot = computeLeveragedSnapshot(s, underlying);
+          s.shareMultiplier = snapshot.splitMultiplier;
+          s.lastShareAdjustmentSession =
+            snapshot.lastShareAdjustmentSession;
           s.currentPrice = snapshot.currentPrice;
           s.prevDayClose = snapshot.prevDayClose;
           s.dayOpen = snapshot.dayOpen;
@@ -450,6 +507,9 @@ export function replayMarket(
     const underlying = underlyingId ? byId.get(underlyingId) : undefined;
     if (!underlying || !underlyingId) continue;
     const snapshot = computeLeveragedSnapshot(stock, underlying);
+    stock.shareMultiplier = snapshot.splitMultiplier;
+    stock.lastShareAdjustmentSession =
+      snapshot.lastShareAdjustmentSession;
     stock.currentPrice = snapshot.currentPrice;
     stock.prevDayClose = snapshot.prevDayClose;
     stock.dayOpen = snapshot.dayOpen;
