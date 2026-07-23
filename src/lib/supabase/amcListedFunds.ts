@@ -987,6 +987,34 @@ export function mergeListedAumIntoManager(
   const funds = manager.funds.map((fund) => {
     const remote = byId.get(fund.id);
     if (!remote) return fund;
+    const localMultiplier = Math.max(0.000001, fund.shareMultiplier ?? 1);
+    const remoteMultiplier = Math.max(0.000001, remote.shareMultiplier ?? 1);
+    const navHistory = fund.navHistory.map((point) => {
+      const pointMultiplier = Math.max(
+        0.000001,
+        point.shareMultiplier ?? localMultiplier,
+      );
+      const scale = pointMultiplier / remoteMultiplier;
+      return {
+        ...point,
+        nav: Math.max(1, Math.round(point.nav * scale)),
+        ...(point.benchmarkNav != null
+          ? {
+              benchmarkNav: Math.max(
+                1,
+                Math.round(point.benchmarkNav * scale),
+              ),
+            }
+          : {}),
+        shareMultiplier: remoteMultiplier,
+      };
+    });
+    const navHistoryChanged = navHistory.some(
+      (point, index) =>
+        point.nav !== fund.navHistory[index]?.nav ||
+        point.benchmarkNav !== fund.navHistory[index]?.benchmarkNav ||
+        point.shareMultiplier !== fund.navHistory[index]?.shareMultiplier,
+    );
     const holdingsChanged =
       remote.holdings.length !== fund.holdings.length ||
       remote.holdings.some(
@@ -1029,6 +1057,15 @@ export function mergeListedAumIntoManager(
         (remote.dividendHistory?.length ?? 0) >= fund.dividendHistory.length
           ? remote.dividendHistory ?? fund.dividendHistory
           : fund.dividendHistory,
+      navHistory: navHistoryChanged ? navHistory : fund.navHistory,
+      splitTriggerPrice: remote.splitTriggerPrice,
+      splitRatio: normalizeAmcShareAdjustmentRatio(remote.splitRatio),
+      reverseSplitTriggerPrice: remote.reverseSplitTriggerPrice,
+      reverseSplitRatio: normalizeAmcShareAdjustmentRatio(
+        remote.reverseSplitRatio,
+      ),
+      shareMultiplier: remoteMultiplier,
+      lastShareAdjustmentSession: remote.lastShareAdjustmentSession,
       status:
         remote.status === "delisted"
           ? ("delisted" as const)
@@ -1054,7 +1091,14 @@ export function mergeListedAumIntoManager(
       next.dividendIntervalDays !== fund.dividendIntervalDays ||
       next.dividendRate !== fund.dividendRate ||
       next.comparisonStockId !== fund.comparisonStockId ||
-      next.dividendHistory.length !== fund.dividendHistory.length
+      next.dividendHistory.length !== fund.dividendHistory.length ||
+      navHistoryChanged ||
+      next.splitTriggerPrice !== fund.splitTriggerPrice ||
+      next.splitRatio !== fund.splitRatio ||
+      next.reverseSplitTriggerPrice !== fund.reverseSplitTriggerPrice ||
+      next.reverseSplitRatio !== fund.reverseSplitRatio ||
+      next.shareMultiplier !== fund.shareMultiplier ||
+      next.lastShareAdjustmentSession !== fund.lastShareAdjustmentSession
     ) {
       changed = true;
     }

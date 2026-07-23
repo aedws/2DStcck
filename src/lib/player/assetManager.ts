@@ -51,6 +51,8 @@ export interface AmcNavPoint {
   nav: number;
   /** 벤치마크 좌당 환산(액티브, 센트). 패시브는 생략 가능 */
   benchmarkNav?: number;
+  /** 기록 당시 누적 좌수 배수. 분할·병합 뒤 과거 NAV를 현재 액면으로 환산한다. */
+  shareMultiplier?: number;
 }
 
 export interface AmcDividendPoint {
@@ -831,7 +833,7 @@ export function createAmcFund(
     cumulativeDividendsPaid: 0,
     dividendHistory: [],
     graceStartedSession: null,
-    navHistory: [{ t: now, nav: navPerShare }],
+    navHistory: [{ t: now, nav: navPerShare, shareMultiplier: 1 }],
     cumulativeFeesPaid: 0,
     ...(splitTriggerPrice > 0
       ? {
@@ -1305,6 +1307,7 @@ export function settleAmcManagementFees(
             initialPriceOf,
             valuationPriceOf,
           ),
+          shareMultiplier: Math.max(0.000001, next.shareMultiplier ?? 1),
         },
       ].slice(-120),
     };
@@ -1422,6 +1425,7 @@ export function settleAmcDividends(
             initialPriceOf,
             valuationPriceOf,
           ),
+          shareMultiplier: Math.max(0.000001, next.shareMultiplier ?? 1),
         },
       ].slice(-120),
     };
@@ -1616,6 +1620,14 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
               nav,
               ...(row.benchmarkNav != null
                 ? { benchmarkNav: finiteNonNegative(row.benchmarkNav) }
+                : {}),
+              ...(row.shareMultiplier != null
+                ? {
+                    shareMultiplier: Math.max(
+                      0.000001,
+                      finiteNonNegative(row.shareMultiplier, 1),
+                    ),
+                  }
                 : {}),
             };
           })

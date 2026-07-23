@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-23": {
     highlights: [
+      "투자 성과 경제가 통일 — 유저 ETF 상세·운용사 실적에서 액면분할·병합, 좌수 증감, 오래된 절대 NAV 기록을 수익으로 계산하지 않고 구성종목의 실제 가격 변화와 실제 지급 인컴만 반영합니다. 서버의 최신 분할 배수와 과거 NAV 액면도 함께 동기화해 JBPB처럼 비정상 급등으로 보이던 표시를 차단했습니다.",
       "시즌 2 기준값 초기화 — 시즌 1 전 계정 마스터 지급 기록과 실제 경쟁 성과를 분리하고, 오염된 시즌 1 기준자산을 버린 뒤 현재 순자산·지수에서 시즌 2 측정을 새로 시작합니다.",
       "유저 ETF 미수 선택 — 일반 종목 차트와 같은 미수 ON/OFF·200~500% 한도를 전용 주문창에 추가하고 기본값을 OFF로 유지합니다. OFF에서는 서버도 보유 현금을 넘는 주문을 거부합니다.",
       "거액 유저 ETF 액면가 정상화 — 단기채 혼합 ETF의 과대 가격 원인은 SBND 수익률이 아니라 거액 시드를 1만 좌로 제한한 최초 액면가와 분할 냉각이었습니다. 신규 ETF는 $100 NAV로 시작하고, 임계가 밖 기존 ETF는 AUM 보존 상태로 일괄 분할합니다.",
@@ -210,6 +211,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-23",
+    tag: "수정",
+    title: "유저 ETF 실제 투자 성과 기준 통일",
+    detail:
+      "유저 ETF 상세 차트와 운용사 실적은 구성종목의 실제 경제가 변화와 실제 지급된 배당·커버드콜 인컴만 총수익률에 반영합니다. 액면분할·병합, 외부 매수·환매에 따른 좌수 증감, 과거 절대 NAV 스냅샷은 성과에서 제외합니다. 서버 분할 배수와 과거 NAV 액면을 함께 동기화해 JBPB처럼 실제 바스켓 성과와 무관한 급등률이 표시되지 않도록 수정했습니다.",
+  },
   {
     date: "2026-07-23",
     tag: "수정",

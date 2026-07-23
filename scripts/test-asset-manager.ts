@@ -46,6 +46,7 @@ import {
   getAmcFundChartSeries,
   getAmcFundPerformanceComparison,
   getAmcFundPriceHistory,
+  getAmcFundTotalReturnSeries,
   getAmcPortfolioPositions,
   getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
@@ -566,6 +567,36 @@ assert.equal(
   Math.round((created.fund!.seedNavValue / created.fund!.totalShares) * 2),
   "user ETF chart should synthesize NAV from constituent histories",
 );
+assert.deepEqual(
+  getAmcFundPriceHistory(
+    {
+      ...created.fund!,
+      navHistory: [
+        { t: created.fund!.createdAt, nav: 1 },
+        { t: created.fund!.createdAt + 30_000, nav: 1_000_000 },
+      ],
+    },
+    chartStocks,
+  ),
+  fundChart,
+  "nominal NAV snapshots must not overwrite actual constituent performance",
+);
+assert.deepEqual(
+  getAmcFundPriceHistory(
+    {
+      ...created.fund!,
+      holdings: [],
+      shareMultiplier: 10,
+      navHistory: [
+        { t: 1, nav: 1_000, shareMultiplier: 1 },
+        { t: 2, nav: 100, shareMultiplier: 10 },
+      ],
+    },
+    [],
+  ).map((point) => point.price),
+  [100, 100],
+  "legacy NAV fallback must preserve economic value across a split",
+);
 
 // 일반 종목과 같은 고정 OHLC를 사용 — 최근 틱 배열이 밀려도 완성 캔들과 전일선은 불변.
 {
@@ -659,9 +690,51 @@ assert.equal(
     comparison!.fundTotalReturn > comparison!.fundPriceReturn,
     "covered-call distributions must be included in user ETF total return",
   );
+  const totalReturn = getAmcFundTotalReturnSeries(
+    {
+      ...fund,
+      dividendHistory: [
+        {
+          session: dividendSession,
+          perShare: 10,
+          total: 10 * fund.totalShares,
+          shareMultiplier: 1,
+        },
+      ],
+    },
+    fixedChartStocks,
+  );
+  assert.equal(totalReturn[0]!.fundTotalReturn, 0);
+  assert.ok(
+    totalReturn.at(-1)!.fundTotalReturn >
+      totalReturn.at(-1)!.fundPriceReturn,
+    "manager-wide performance must use the same actual-income total return",
+  );
 }
 const merged = mergeListedAumIntoManager(created.manager!, [listed]);
 assert.equal(merged.funds[0]!.totalShares, created.fund!.totalShares + 5_000);
+const splitMerged = mergeListedAumIntoManager(created.manager!, [
+  {
+    ...listed,
+    totalShares: created.fund!.totalShares * 10,
+    shareMultiplier: 10,
+    lastShareAdjustmentSession: created.fund!.createdSession + 5,
+    splitTriggerPrice: 100_000,
+    splitRatio: 5,
+    reverseSplitTriggerPrice: 1_000,
+    reverseSplitRatio: 2,
+  },
+]);
+assert.equal(splitMerged.funds[0]!.shareMultiplier, 10);
+assert.equal(
+  splitMerged.funds[0]!.navHistory[0]!.nav,
+  Math.round(created.fund!.navHistory[0]!.nav / 10),
+);
+assert.equal(splitMerged.funds[0]!.navHistory[0]!.shareMultiplier, 10);
+assert.equal(
+  splitMerged.funds[0]!.lastShareAdjustmentSession,
+  created.fund!.createdSession + 5,
+);
 const asState = listedFundToAmcState(listed);
 assert.equal(asState.totalShares, listed.totalShares);
 const feesOnSharedAum = settleAmcManagementFees(

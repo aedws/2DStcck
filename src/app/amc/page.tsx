@@ -56,7 +56,10 @@ import { isListed } from "@/lib/market/ipo";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
-import { createAmcValuationPriceResolver } from "@/lib/player/amcPortfolio";
+import {
+  createAmcValuationPriceResolver,
+  getAmcFundTotalReturnSeries,
+} from "@/lib/player/amcPortfolio";
 
 const fieldClass =
   "w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] disabled:opacity-70";
@@ -422,25 +425,49 @@ export default function AssetManagerPage() {
 
   const chartPoints = useMemo(() => {
     if (!managedFunds.length) return [];
-    const merged = new Map<number, { nav: number; count: number }>();
+    const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+    const series: Array<{
+      weight: number;
+      points: ReturnType<typeof getAmcFundTotalReturnSeries>;
+    }> = [];
+    const timestamps = new Set<number>();
     for (const fund of managedFunds) {
-      for (const point of fund.navHistory) {
-        const bucket = Math.floor(point.t / 60_000) * 60_000;
-        const prev = merged.get(bucket) ?? { nav: 0, count: 0 };
-        merged.set(bucket, {
-          nav: prev.nav + point.nav,
-          count: prev.count + 1,
-        });
-      }
+      const currentNav = computeAmcFundNavPerShare(
+        fund,
+        (stockId) => stockById.get(stockId)?.currentPrice ?? 0,
+        (stockId) => stockById.get(stockId)?.initialPrice ?? 0,
+        valuationPriceOf,
+      );
+      const weight = Math.max(1, currentNav * fund.totalShares);
+      const points = getAmcFundTotalReturnSeries(fund, stocks);
+      if (!points.length) continue;
+      for (const point of points) timestamps.add(point.timestamp);
+      series.push({ weight, points });
     }
-    return [...merged.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([t, value]) => ({
-        t,
-        nav: Math.round(value.nav / Math.max(1, value.count)),
-      }))
-      .slice(-48);
-  }, [managedFunds]);
+    const cursors = series.map(() => -1);
+    const totalWeight = series.reduce((sum, row) => sum + row.weight, 0);
+    return [...timestamps]
+      .sort((a, b) => a - b)
+      .map((t) => {
+        let weightedReturn = 0;
+        for (let index = 0; index < series.length; index += 1) {
+          const row = series[index]!;
+          while (
+            cursors[index]! + 1 < row.points.length &&
+            row.points[cursors[index]! + 1]!.timestamp <= t
+          ) {
+            cursors[index] = cursors[index]! + 1;
+          }
+          const point = row.points[cursors[index]!];
+          weightedReturn += (point?.fundTotalReturn ?? 0) * row.weight;
+        }
+        return {
+          t,
+          returnRate: weightedReturn / Math.max(1, totalWeight),
+        };
+      })
+      .slice(-240);
+  }, [managedFunds, stocks, valuationPriceOf]);
 
   const marketplaceFunds = useMemo(() => {
     const ownIds = new Set(managedFunds.map((fund) => fund.id));
@@ -862,10 +889,10 @@ export default function AssetManagerPage() {
       <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-bold">운용사 실적</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          운용 중 펀드의 좌당 NAV 평균 추이입니다. 유저 ETF는 이 탭에서만 확인할 수
-          있습니다.
+          운용 중 펀드의 실제 구성종목 가격 성과와 지급 인컴만 AUM 가중해 표시합니다.
+          분할·병합과 좌수 증감은 수익으로 계산하지 않습니다.
         </p>
-        <NavSparkline points={chartPoints} />
+        <ReturnSparkline points={chartPoints} />
       </section>
 
       <section className="mb-5 space-y-3">
@@ -2236,10 +2263,10 @@ function Summary({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NavSparkline({
+function ReturnSparkline({
   points,
 }: {
-  points: { t: number; nav: number }[];
+  points: { t: number; returnRate: number }[];
 }) {
   if (points.length < 2) {
     return (
@@ -2248,26 +2275,36 @@ function NavSparkline({
       </div>
     );
   }
-  const min = Math.min(...points.map((point) => point.nav));
-  const max = Math.max(...points.map((point) => point.nav));
-  const span = Math.max(1, max - min);
+  const min = Math.min(...points.map((point) => point.returnRate));
+  const max = Math.max(...points.map((point) => point.returnRate));
+  const span = Math.max(0.000001, max - min);
   const width = 320;
   const height = 120;
   const d = points
     .map((point, index) => {
       const x = (index / (points.length - 1)) * width;
-      const y = height - ((point.nav - min) / span) * (height - 8) - 4;
+      const y =
+        height - ((point.returnRate - min) / span) * (height - 8) - 4;
       return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] p-3">
       <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full">
-        <path d={d} fill="none" stroke="rgb(52 211 153)" strokeWidth="2.5" />
+        <path
+          d={d}
+          fill="none"
+          stroke={
+            points[points.length - 1]!.returnRate >= 0
+              ? "rgb(52 211 153)"
+              : "rgb(248 113 113)"
+          }
+          strokeWidth="2.5"
+        />
       </svg>
       <div className="mt-1 flex justify-between text-[10px] text-[var(--muted)]">
-        <span>{formatPrice(points[0]!.nav)}</span>
-        <span>{formatPrice(points[points.length - 1]!.nav)}</span>
+        <span>{`${points[0]!.returnRate >= 0 ? "+" : ""}${points[0]!.returnRate.toFixed(2)}%`}</span>
+        <span>{`${points[points.length - 1]!.returnRate >= 0 ? "+" : ""}${points[points.length - 1]!.returnRate.toFixed(2)}%`}</span>
       </div>
     </div>
   );

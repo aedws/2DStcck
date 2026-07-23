@@ -39,6 +39,11 @@ export interface AmcPerformancePoint {
   comparisonReturn: number;
 }
 
+export type AmcFundReturnPoint = Omit<
+  AmcPerformancePoint,
+  "comparisonReturn"
+>;
+
 export interface AmcPerformanceComparison {
   points: AmcPerformancePoint[];
   fundPriceReturn: number;
@@ -202,7 +207,26 @@ export function getAmcFundPriceHistory(
     return stock ? [{ holding, stock }] : [];
   });
   if (!rows.length) {
-    return fund.navHistory.map((point) => ({ timestamp: point.t, price: point.nav }));
+    const currentMultiplier = Math.max(0.000001, fund.shareMultiplier ?? 1);
+    return fund.navHistory
+      .map((point) => {
+        const pointMultiplier = Math.max(
+          0.000001,
+          point.shareMultiplier ?? currentMultiplier,
+        );
+        return {
+          timestamp: point.t,
+          price: Math.max(
+            1,
+            Math.round(point.nav * (pointMultiplier / currentMultiplier)),
+          ),
+        };
+      })
+      .filter(
+        (point) => point.price > 0 && Number.isFinite(point.timestamp),
+      )
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(-2880);
   }
 
   const changes = new Map<number, Array<{ stockId: string; price: number }>>();
@@ -252,17 +276,10 @@ export function getAmcFundPriceHistory(
     });
   }
 
-  const recorded = fund.navHistory.map((point) => ({
-    timestamp: point.t,
-    price: point.nav,
-  }));
-  const merged = new Map<number, PricePoint>();
-  for (const point of [...history, ...recorded]) {
-    if (point.price > 0 && Number.isFinite(point.timestamp)) {
-      merged.set(point.timestamp, point);
-    }
-  }
-  return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-2880);
+  // 구성종목 시계열은 액면조정과 외부 자금 유입에 흔들리지 않는 경제가다.
+  // 절대 NAV 스냅샷을 여기에 섞으면 분할·병합 시점이 수익으로 오인되므로
+  // 구성종목이 없는 레거시 펀드에서만 위의 보정된 기록을 폴백으로 사용한다.
+  return history.slice(-2880);
 }
 
 function amcFactorToNav(fund: AmcFundState, factor: number): number {
@@ -399,57 +416,33 @@ export function getAmcFundChartSeries(
   return { candles, dailyCandles, history, previousSessionClose };
 }
 
-/**
- * 유저 ETF와 목표 주식을 같은 시작점을 0%로 맞춘다.
- * ETF는 배당락 후 NAV 가격수익률에 실제 지급된 좌당 인컴을 더한 총수익률을 쓴다.
- */
-export function getAmcFundPerformanceComparison(
+/** 액면조정은 제외하고 실제 구성종목 가격 변화와 실제 지급 인컴만 합산한다. */
+export function getAmcFundTotalReturnSeries(
   fund: AmcFundState,
   stocks: readonly AmcChartStock[],
-): AmcPerformanceComparison | null {
-  if (!fund.comparisonStockId) return null;
-  const target = stocks.find((stock) => stock.id === fund.comparisonStockId);
-  if (!target) return null;
-  const fundDaily = synthesizeAmcFundCandles(fund, stocks, "dailyCandles");
-  const targetDaily = [...target.dailyCandles]
+): AmcFundReturnPoint[] {
+  const fundDaily = synthesizeAmcFundCandles(fund, stocks, "dailyCandles")
     .filter(
       (candle) =>
-        Number.isFinite(candle.timestamp) &&
+        candle.timestamp >= fund.createdSession * SESSION_DURATION_MS &&
         Number.isFinite(candle.close) &&
         candle.close > 0,
     )
     .sort((a, b) => a.timestamp - b.timestamp);
-  if (!fundDaily.length || !targetDaily.length) return null;
+  if (!fundDaily.length) return [];
 
-  let targetIndex = 0;
-  const aligned: Array<{ fund: Candle; targetClose: number }> = [];
-  const comparisonStart = fund.createdSession * SESSION_DURATION_MS;
-  for (const candle of fundDaily) {
-    if (candle.timestamp < comparisonStart) continue;
-    while (
-      targetIndex + 1 < targetDaily.length &&
-      targetDaily[targetIndex + 1]!.timestamp <= candle.timestamp
-    ) {
-      targetIndex += 1;
-    }
-    const targetCandle = targetDaily[targetIndex];
-    if (!targetCandle || targetCandle.timestamp > candle.timestamp) continue;
-    aligned.push({ fund: candle, targetClose: targetCandle.close });
-  }
-  if (!aligned.length) return null;
-
-  const first = aligned[0]!;
-  const fundBase = first.fund.close;
-  const targetBase = first.targetClose;
-  if (!(fundBase > 0) || !(targetBase > 0)) return null;
-  const startSession = Math.floor(first.fund.timestamp / SESSION_DURATION_MS);
+  const fundBase = fundDaily[0]!.close;
+  const startSession = Math.floor(
+    fundDaily[0]!.timestamp / SESSION_DURATION_MS,
+  );
   const currentMultiplier = Math.max(0.000001, fund.shareMultiplier ?? 1);
   const dividends = [...fund.dividendHistory]
     .filter((point) => point.session > startSession)
     .sort((a, b) => a.session - b.session);
   let dividendIndex = 0;
   let incomePerCurrentShare = 0;
-  const points = aligned.map(({ fund: candle, targetClose }) => {
+
+  return fundDaily.map((candle) => {
     const session = Math.floor(candle.timestamp / SESSION_DURATION_MS);
     while (
       dividendIndex < dividends.length &&
@@ -471,6 +464,56 @@ export function getAmcFundPerformanceComparison(
       fundPriceReturn,
       fundIncomeReturn,
       fundTotalReturn: fundPriceReturn + fundIncomeReturn,
+    };
+  });
+}
+
+/**
+ * 유저 ETF와 목표 주식을 같은 시작점을 0%로 맞춘다.
+ * ETF는 배당락 후 NAV 가격수익률에 실제 지급된 좌당 인컴을 더한 총수익률을 쓴다.
+ */
+export function getAmcFundPerformanceComparison(
+  fund: AmcFundState,
+  stocks: readonly AmcChartStock[],
+): AmcPerformanceComparison | null {
+  if (!fund.comparisonStockId) return null;
+  const target = stocks.find((stock) => stock.id === fund.comparisonStockId);
+  if (!target) return null;
+  const fundReturns = getAmcFundTotalReturnSeries(fund, stocks);
+  const targetDaily = [...target.dailyCandles]
+    .filter(
+      (candle) =>
+        Number.isFinite(candle.timestamp) &&
+        Number.isFinite(candle.close) &&
+        candle.close > 0,
+    )
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (!fundReturns.length || !targetDaily.length) return null;
+
+  let targetIndex = 0;
+  const aligned: Array<{
+    fund: AmcFundReturnPoint;
+    targetClose: number;
+  }> = [];
+  for (const point of fundReturns) {
+    while (
+      targetIndex + 1 < targetDaily.length &&
+      targetDaily[targetIndex + 1]!.timestamp <= point.timestamp
+    ) {
+      targetIndex += 1;
+    }
+    const targetCandle = targetDaily[targetIndex];
+    if (!targetCandle || targetCandle.timestamp > point.timestamp) continue;
+    aligned.push({ fund: point, targetClose: targetCandle.close });
+  }
+  if (!aligned.length) return null;
+
+  const first = aligned[0]!;
+  const targetBase = first.targetClose;
+  if (!(targetBase > 0)) return null;
+  const points = aligned.map(({ fund: point, targetClose }) => {
+    return {
+      ...point,
       comparisonReturn: ((targetClose / targetBase) - 1) * 100,
     };
   });
