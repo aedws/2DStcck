@@ -171,6 +171,7 @@ export function compactMarketCheckpoint(
   stocks: StockState[],
   events: MarketEvent[],
   tick: number,
+  dailyCandleLimit = PERSISTED_DAILY_CANDLES,
 ): MarketCheckpoint {
   return {
     marketVersion: MARKET_SIM_VERSION,
@@ -196,7 +197,7 @@ export function compactMarketCheckpoint(
         candles: stock.candles.slice(-30),
         dailyCandles: stock.dailyCandles
           .filter((candle) => candle.timestamp >= MARKET_EPOCH_MS)
-          .slice(-PERSISTED_DAILY_CANDLES),
+          .slice(-dailyCandleLimit),
         coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
         navDistributionAdjustment: stock.navDistributionAdjustment,
       })),

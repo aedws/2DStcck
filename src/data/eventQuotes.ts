@@ -359,6 +359,58 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "그 자산이 너무 눈에 밟혀서 그만… 다음 배당은 꼭 지키겠습니다.",
     ],
   },
+  {
+    characterId: "chr_hifumi",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "페로로 님의 매력이 모모톡에서도 통했어요! 모두 고마워요.",
+      "아즈사와 준비한 굿즈가 전부 팔렸다니, 정말 기뻐요!",
+    ],
+  },
+  {
+    characterId: "chr_hifumi",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "평범하게 준비한다고 했는데 비용이 너무 커졌네요… 다시 계산해 볼게요.",
+      "모모톡이 멈추면 안 되죠. 복구부터 차근차근 진행할게요.",
+    ],
+  },
+  {
+    characterId: "chr_hifumi",
+    tag: "페로로 페스티벌",
+    direction: "positive",
+    quotes: [
+      "크루세이더 전차까지 준비한 보람이 있었어요. 페로로 페스티벌 대성공이에요!",
+    ],
+  },
+  {
+    characterId: "chr_ifrit",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "연료비? 내가 직접 불을 붙이면 끝이지!",
+      "오늘은 화력이 딱 좋았어. 발전량도 이익도 활활 타오른다고!",
+    ],
+  },
+  {
+    characterId: "chr_ifrit",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "조금 세게 뿜었을 뿐인데 부품이 왜 전부 녹은 거야?",
+      "수리비가 또 나왔다고? 다음번에는 진짜로 약하게 할게!",
+    ],
+  },
+  {
+    characterId: "chr_ifrit",
+    tag: "화력조절 실패",
+    direction: "negative",
+    quotes: [
+      "이번 불은… 조금 많이 뜨거웠나 봐. 수리팀, 미안!",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

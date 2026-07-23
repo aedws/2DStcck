@@ -85,7 +85,7 @@ const scheduledIpos = getCompanyDefinitions().filter(
 );
 assert.deepEqual(
   scheduledIpos.map((stock) => stock.id).sort(),
-  ["asuna", "carrot", "dante", "faust", "gsck", "hinafg", "miku", "minori", "nagusa", "udnge", "wakamo", "yakumo", "yisang"],
+  ["asuna", "carrot", "dante", "faust", "gsck", "hifumi", "hinafg", "ifrit", "miku", "minori", "nagusa", "udnge", "wakamo", "yakumo", "yisang"],
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);
@@ -273,6 +273,60 @@ const wakamoLoss = EVENT_TEMPLATES.find(
 );
 assert.ok(wakamoGain && wakamoGain.impact > 1, "역행 투자 급등 사건이 없음");
 assert.ok(wakamoLoss && wakamoLoss.impact < -1, "엉뚱한 투자 급락 사건이 없음");
+
+// 모모톡프렌즈: 7/26 12:00 KST 개장, 메신저·페로로 페스티벌 전용 사건
+const hifumi = getCompanyDefinitions().find((stock) => stock.id === "hifumi");
+assert.ok(hifumi, "모모톡프렌즈 정의가 없음");
+const hifumiListing = Date.UTC(2026, 6, 26, 3, 0);
+assert.equal(hifumi.ticker, "AHMF");
+assert.equal(hifumi.sector, "미디어·콘텐츠");
+assert.deepEqual(hifumi.marketTags, ["미디어", "콘텐츠", "기술"]);
+assert.equal(hifumi.listingEpochMs, hifumiListing);
+assert.equal(isListed(hifumi, hifumiListing - 1), false);
+assert.equal(isListed(hifumi, hifumiListing), true);
+
+const hifumiFestival = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "hifumi" && template.tag === "페로로 페스티벌",
+);
+const hifumiOutage = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "hifumi" && template.tag === "서비스 장애",
+);
+assert.ok(hifumiFestival && hifumiFestival.impact > 1, "페로로 페스티벌 급등 사건이 없음");
+assert.ok(hifumiOutage && hifumiOutage.impact < -1, "모모톡 서비스 장애 급락 사건이 없음");
+assert.equal(
+  resolveEventTemplate(hifumiFestival, hifumiListing - 1, () => 0.5),
+  null,
+  "상장 전 모모톡프렌즈 전용 사건이 발생함",
+);
+
+// 이프리트 화력발전: 7/26 15:00 KST 개장, 연료비 절감·화력조절 실패 사건
+const ifrit = getCompanyDefinitions().find((stock) => stock.id === "ifrit");
+assert.ok(ifrit, "이프리트 화력발전 정의가 없음");
+const ifritListing = Date.UTC(2026, 6, 26, 6, 0);
+assert.equal(ifrit.ticker, "IFRT");
+assert.equal(ifrit.sector, "에너지·인프라");
+assert.deepEqual(ifrit.marketTags, ["에너지", "유틸리티"]);
+assert.equal(ifrit.listingEpochMs, ifritListing);
+assert.equal(isListed(ifrit, ifritListing - 1), false);
+assert.equal(isListed(ifrit, ifritListing), true);
+
+const ifritSavings = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ifrit" && template.tag === "연료비 절감",
+);
+const ifritRepair = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ifrit" && template.tag === "화력조절 실패",
+);
+assert.ok(ifritSavings && ifritSavings.impact > 1, "이프리트 연료비 절감 급등 사건이 없음");
+assert.ok(ifritRepair && ifritRepair.impact < -1, "이프리트 화력조절 실패 급락 사건이 없음");
+assert.equal(
+  resolveEventTemplate(ifritSavings, ifritListing - 1, () => 0.5),
+  null,
+  "상장 전 이프리트 화력발전 전용 사건이 발생함",
+);
 
 // 나구사 야키토리&닭꼬치: 7/23 15:00 KST 개장과 AI 급등·조류독감 급락 사건
 const nagusa = getCompanyDefinitions().find((stock) => stock.id === "nagusa");

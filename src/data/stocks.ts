@@ -552,6 +552,51 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_wakamo",
   },
+  {
+    id: "hifumi",
+    ticker: "AHMF",
+    name: "모모톡프렌즈",
+    instrumentType: "company",
+    sector: "미디어·콘텐츠",
+    subsector: "메신저 플랫폼·캐릭터 머천다이징",
+    marketTags: ["미디어", "콘텐츠", "기술"],
+    initialPrice: 44000,
+    volatility: 0.052,
+    drift: 0.0008,
+    beta: 1.08,
+    description:
+      "아지타니 히후미가 운영하는 메신저·캐릭터 머천다이징 기업. 대표 캐릭터 페로로를 앞세운 모모톡 트래픽과 굿즈 매출이 핵심이며, 여름 페로로 페스티벌에는 트리니티의 낡은 크루세이더 전차까지 경품으로 거는 고비용 올인 프로모션을 벌인다. 스컬맨을 좋아하는 시라스 아즈사가 CDO를 맡는다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "페로로 페스티벌": 4,
+      "메신저 트래픽": 3,
+      "서비스 장애": 2,
+      신제품: 2,
+      실적: 2,
+    },
+    ceoId: "chr_hifumi",
+  },
+  {
+    id: "ifrit",
+    ticker: "IFRT",
+    name: "이프리트 화력발전",
+    instrumentType: "company",
+    sector: "에너지·인프라",
+    subsector: "화력발전",
+    marketTags: ["에너지", "유틸리티"],
+    initialPrice: 52000,
+    volatility: 0.055,
+    drift: 0.0009,
+    beta: 1.18,
+    description:
+      "불의 정령 이프리트가 운영하는 화력발전 기업. 대표가 보일러에 직접 불을 공급해 연료비를 절감하므로 동종 발전사보다 높은 수익성을 내지만, 화력 조절에 실패하면 발전 설비와 부품 수리비가 한꺼번에 발생한다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "연료비 절감": 4,
+      "화력조절 실패": 3,
+      전력수요: 2,
+      실적: 2,
+    },
+    ceoId: "chr_ifrit",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -1116,5 +1161,50 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "시장에 알려지기 전 포착한 기업 동향을 바탕으로 구축한 포지션이 적중했습니다. 수익은 급증했지만 정보 출처를 둘러싼 감시 위험도 함께 커집니다.",
     impact: 1.05,
+  },
+  {
+    category: "company",
+    companyId: "hifumi",
+    tag: "페로로 페스티벌",
+    title: "모모톡프렌즈, 크루세이더 전차 경품으로 페로로 페스티벌 흥행",
+    description:
+      "트리니티의 낡은 크루세이더 전차를 건 여름 한정 이벤트가 폭발적인 화제를 모았습니다. 메신저 신규 가입과 페로로 굿즈 판매가 동시에 급증합니다.",
+    impact: 1.3,
+  },
+  {
+    category: "company",
+    companyId: "hifumi",
+    tag: "메신저 트래픽",
+    title: "모모톡프렌즈, 모모톡 트래픽·페로로 굿즈 판매 동반 신기록",
+    description:
+      "메신저 일간 이용자와 캐릭터 머천다이징 주문이 나란히 최고치를 경신했습니다. 스컬맨 협업을 지휘한 CDO 시라스 아즈사의 신제품도 완판됐습니다.",
+    impact: 1.05,
+  },
+  {
+    category: "company",
+    companyId: "hifumi",
+    tag: "서비스 장애",
+    title: "모모톡프렌즈, 페스티벌 트래픽 폭주로 메신저 장시간 장애",
+    description:
+      "이벤트 응모와 대화량이 한꺼번에 몰리며 모모톡 서비스가 멈췄습니다. 크루세이더 전차 복원·배송 비용까지 겹쳐 프로모션 수익성 우려가 커집니다.",
+    impact: -1.15,
+  },
+  {
+    category: "company",
+    companyId: "ifrit",
+    tag: "연료비 절감",
+    title: "이프리트 화력발전, 대표 직접 화력 공급으로 연료비 급감",
+    description:
+      "이프리트가 발전 보일러에 안정적으로 직접 불을 공급해 연료 투입량을 크게 줄였습니다. 전력 판매 마진과 분기 실적 기대가 함께 높아집니다.",
+    impact: 1.2,
+  },
+  {
+    category: "company",
+    companyId: "ifrit",
+    tag: "화력조절 실패",
+    title: "이프리트 화력발전, 화력조절 실패로 발전 부품 긴급 교체",
+    description:
+      "보일러 온도가 설계 범위를 넘어서며 핵심 부품 일부가 손상됐습니다. 절감한 연료비를 넘어설 수 있는 수리비와 가동률 저하 우려가 반영됩니다.",
+    impact: -1.1,
   },
 ];

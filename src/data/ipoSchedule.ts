@@ -38,4 +38,8 @@ export const IPO_SCHEDULE: Record<string, number> = {
   asuna: Date.UTC(2026, 6, 25, 6, 0),
   // 까모투자증권(KAMO) — 2026-07-25 18:00 KST 개장 (= 09:00 UTC)
   wakamo: Date.UTC(2026, 6, 25, 9, 0),
+  // 모모톡프렌즈(AHMF) — 2026-07-26 12:00 KST 개장 (= 03:00 UTC)
+  hifumi: Date.UTC(2026, 6, 26, 3, 0),
+  // 이프리트 화력발전(IFRT) — 2026-07-26 15:00 KST 개장 (= 06:00 UTC)
+  ifrit: Date.UTC(2026, 6, 26, 6, 0),
 };
