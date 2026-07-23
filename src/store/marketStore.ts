@@ -301,6 +301,7 @@ import { reconcileAmcLedgerCash } from "@/lib/player/amcLedger";
 import {
   createAmcValuationPriceResolver,
   getAmcCharacterLinkedHoldings,
+  getAmcPortfolioLookThroughPositions,
   getAmcPortfolioPositions,
   getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
@@ -3453,6 +3454,16 @@ export const useMarketStore = create<MarketStore>()(
             listedAmcFunds,
           }),
         );
+        const gameplayAmcFunds = mergeAmcPortfolioFunds(
+          assetManager?.funds ?? [],
+          listedAmcFunds.map(listedFundToAmcState),
+        );
+        const userEtfLookThroughPositions =
+          getAmcPortfolioLookThroughPositions(
+            holdings,
+            gameplayAmcFunds,
+            combinedStocks,
+          );
         let reputation = state.reputation;
         let dailyOperation = state.dailyOperation;
         let dailyOperationHistory = state.dailyOperationHistory;
@@ -3464,6 +3475,7 @@ export const useMarketStore = create<MarketStore>()(
             cash,
             holdings,
             stocks: combinedStocks,
+            userEtfPositions: userEtfLookThroughPositions,
             trades,
             marginCallAt,
           });
@@ -3611,6 +3623,7 @@ export const useMarketStore = create<MarketStore>()(
             missionHistory,
             holdings,
             stocks: combinedStocks,
+            userEtfPositions: userEtfLookThroughPositions,
             equity: netWorth,
             initialCash: state.initialCash,
             marginCallAt,
@@ -3629,6 +3642,7 @@ export const useMarketStore = create<MarketStore>()(
               holdings,
               combinedStocks,
               netWorth,
+              userEtfLookThroughPositions,
             ),
             now,
           },

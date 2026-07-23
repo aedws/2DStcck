@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SeasonCeremonyModal } from "@/components/season/SeasonCeremonyModal";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
@@ -31,6 +31,11 @@ import type {
   SeasonGoalId,
   SeasonTraitId,
 } from "@/lib/market/investmentSeasons";
+import {
+  getAmcPortfolioLookThroughPositions,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -63,6 +68,8 @@ export default function InvestmentSeasonPage() {
   const seasonState = useMarketStore((state) => state.investmentSeason);
   const stocks = useMarketStore((state) => state.stocks);
   const holdings = useMarketStore((state) => state.holdings);
+  const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const equity = useMarketStore((state) => state.getTotalAssets());
   const cashPayments = useMarketStore((state) => state.cashPayments);
   const selectGoal = useMarketStore((state) => state.selectInvestmentSeasonGoal);
@@ -70,6 +77,18 @@ export default function InvestmentSeasonPage() {
   const markCeremonySeen = useMarketStore((state) => state.markSeasonCeremonySeen);
   const benchmarkPrice = getBenchmark(stocks)?.currentPrice ?? 0;
   const current = seasonState.current;
+  const userEtfPositions = useMemo(
+    () =>
+      getAmcPortfolioLookThroughPositions(
+        holdings,
+        mergeAmcPortfolioFunds(
+          assetManager?.funds ?? [],
+          listedAmcFunds.map(listedFundToAmcState),
+        ),
+        stocks,
+      ),
+    [holdings, assetManager, listedAmcFunds, stocks],
+  );
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
   const pendingCeremony = seasonState.history.find(
     (result) => !seasonState.seenCeremonyIds.includes(result.id),
@@ -112,7 +131,13 @@ export default function InvestmentSeasonPage() {
   const rival = getSeasonRivalPerformance(current, currentSession, score.totalScore);
   const goal = getSeasonGoal(current.goalId);
   const trait = getSeasonTrait(current.traitId);
-  const goalAllocation = calculateSeasonGoalAllocation(current.goalId, holdings, stocks, equity);
+  const goalAllocation = calculateSeasonGoalAllocation(
+    current.goalId,
+    holdings,
+    stocks,
+    equity,
+    userEtfPositions,
+  );
   const progress = (elapsed / seasonLength) * 100;
   const nextTier = INVESTMENT_SEASON_TIERS[
     INVESTMENT_SEASON_TIERS.findIndex((tier) => tier.id === projectedTier.id) + 1

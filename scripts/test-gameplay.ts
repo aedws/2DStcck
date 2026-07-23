@@ -12,6 +12,7 @@ import { computeCharacterConcentration } from "../src/lib/market/characterConcen
 import {
   createDailyOperation,
   getDailyOperationOffers,
+  getDailyOperationProgress,
   updateDailyOperation,
 } from "../src/lib/market/dailyOperations";
 import {
@@ -163,6 +164,7 @@ import {
   mergeSeasonRewards,
   normalizeSelectedSeasonFrame,
 } from "../src/lib/player/seasonRewards";
+import { getAmcPortfolioLookThroughPositions } from "../src/lib/player/amcPortfolio";
 
 // 시즌은 국면 그리드 경계에서 시작해야 정식(무순위 아님) 시즌이 된다.
 // 시나리오가 정식 시즌 완료를 검증하므로 세션을 그리드 경계로 정렬한다.
@@ -1800,6 +1802,94 @@ assert.ok(
       .actualWeight - 0.4,
   ) < 1e-9,
   "user ETF covered-call components must count toward income strategy allocation",
+);
+const incomeUserEtfFund = {
+  ...(strategyUserEtfFund as unknown as Record<string, unknown>),
+  id: "income-user-etf",
+  ticker: "INCM",
+  holdings: [
+    {
+      stockId: strategyCoveredCall.id,
+      weight: 0.7,
+      basePrice: strategyCoveredCall.initialPrice,
+    },
+    {
+      stockId: relationshipStock.id,
+      weight: 0.3,
+      basePrice: relationshipStock.initialPrice,
+    },
+  ],
+} as never;
+const incomeUserEtfHolding = [{
+  stockId: "amc:income-user-etf",
+  quantity: 1,
+  averagePrice: 10_000,
+}];
+const incomeUserEtfStocks = [relationshipStock, strategyCoveredCall];
+const incomeUserEtfPositions = getAmcPortfolioLookThroughPositions(
+  incomeUserEtfHolding,
+  [incomeUserEtfFund],
+  incomeUserEtfStocks,
+);
+assert.equal(incomeUserEtfPositions[0]?.exposure.profile, "income");
+const incomeOperation = createDailyOperation(
+  "income_setup",
+  session,
+  10_000,
+  10_000,
+  session * SESSION_DURATION_MS,
+);
+assert.equal(
+  getDailyOperationProgress(incomeOperation, {
+    now: incomeOperation.acceptedAt,
+    equity: 10_000,
+    benchmarkPrice: 10_000,
+    cash: 0,
+    holdings: incomeUserEtfHolding,
+    stocks: incomeUserEtfStocks,
+    userEtfPositions: incomeUserEtfPositions,
+    trades: [],
+    marginCallAt: null,
+  }).passing,
+  true,
+  "an income-classified user ETF must satisfy the daily income allocation",
+);
+assert.equal(
+  calculateSeasonGoalAllocation(
+    "income",
+    incomeUserEtfHolding,
+    incomeUserEtfStocks,
+    10_000,
+    incomeUserEtfPositions,
+  ),
+  1,
+  "an income-classified user ETF must count toward the season income goal",
+);
+const incomeEtfMastery = updateInvestmentMastery(createInitialMastery(), {
+  trades: [{
+    id: "income-user-etf-buy",
+    stockId: "amc:income-user-etf",
+    ticker: "INCM",
+    type: "buy",
+    quantity: 10,
+    price: 10_000,
+    total: 100_000,
+    timestamp: session * SESSION_DURATION_MS,
+  }],
+  cashPayments: [],
+  missionHistory: [],
+  holdings: incomeUserEtfHolding,
+  stocks: incomeUserEtfStocks,
+  userEtfPositions: incomeUserEtfPositions,
+  equity: 10_000_000,
+  initialCash: 10_000_000,
+  marginCallAt: null,
+  currentSession: session,
+});
+assert.equal(
+  incomeEtfMastery.xp.income,
+  10,
+  "buying an income-classified user ETF must award income mastery",
 );
 const strategyBacktest = backtestPortfolioStrategy(
   PORTFOLIO_STRATEGIES[0],

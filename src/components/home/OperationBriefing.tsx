@@ -21,6 +21,11 @@ import {
 import { getBenchmark } from "@/lib/market/interestRate";
 import { getMarketRegimeAtSession } from "@/lib/market/marketRegimes";
 import {
+  getAmcPortfolioLookThroughPositions,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
+import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
+import {
   getStoryArcAtSession,
   getStoryDecisionOffer,
   storyStageAtSession,
@@ -61,6 +66,8 @@ export function OperationBriefing() {
   const cashPayments = useMarketStore((state) => state.cashPayments);
   const initialCash = useMarketStore((state) => state.initialCash);
   const marginCallAt = useMarketStore((state) => state.marginCallAt);
+  const assetManager = useMarketStore((state) => state.assetManager);
+  const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
   const mission = useMarketStore((state) => state.investmentMission);
   const storyDecision = useMarketStore((state) => state.storyDecision);
   const seasonState = useMarketStore((state) => state.investmentSeason);
@@ -69,6 +76,18 @@ export function OperationBriefing() {
   const acceptDailyOperation = useMarketStore((state) => state.acceptDailyOperation);
   const markSeasonCeremonySeen = useMarketStore((state) => state.markSeasonCeremonySeen);
   const equity = useMarketStore((state) => state.getTotalAssets());
+  const userEtfPositions = useMemo(
+    () =>
+      getAmcPortfolioLookThroughPositions(
+        holdings,
+        mergeAmcPortfolioFunds(
+          assetManager?.funds ?? [],
+          listedAmcFunds.map(listedFundToAmcState),
+        ),
+        stocks,
+      ),
+    [holdings, assetManager, listedAmcFunds, stocks],
+  );
   const now = Date.now();
   const session = Math.floor(now / SESSION_DURATION_MS);
   const benchmark = getBenchmark(stocks);
@@ -108,6 +127,7 @@ export function OperationBriefing() {
         cash,
         holdings,
         stocks,
+        userEtfPositions,
         trades,
         marginCallAt,
       })

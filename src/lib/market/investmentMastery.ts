@@ -1,6 +1,8 @@
 import { buildDailyScorecard } from "@/lib/market/dailyScorecard";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { economicSectorsForStock } from "@/lib/market/taxonomy";
+import { parseAmcFundId } from "@/lib/player/assetManager";
+import type { AmcPortfolioLookThroughPosition } from "@/lib/player/amcPortfolio";
 import type {
   CashPayment,
   Holding,
@@ -97,6 +99,7 @@ export function updateInvestmentMastery(
     missionHistory: InvestmentMissionHistory[];
     holdings: Holding[];
     stocks: StockState[];
+    userEtfPositions?: readonly AmcPortfolioLookThroughPosition[];
     equity: number;
     initialCash: number;
     marginCallAt: number | null;
@@ -132,6 +135,12 @@ export function updateInvestmentMastery(
     "미디어·콘텐츠",
   ]);
   const stockById = new Map(input.stocks.map((stock) => [stock.id, stock]));
+  const userEtfByFundId = new Map(
+    (input.userEtfPositions ?? []).map((position) => [
+      position.fundId,
+      position,
+    ]),
+  );
   for (const trade of input.trades) {
     if (Math.abs(trade.total) < minimumNotional) continue;
     const tradeSession = Math.floor(trade.timestamp / SESSION_DURATION_MS);
@@ -142,6 +151,10 @@ export function updateInvestmentMastery(
       changed = award(next, awarded, `mastery-short:${tradeSession}`, "short", 12) || changed;
     }
     const stock = stockById.get(trade.stockId);
+    const userEtf = (() => {
+      const fundId = parseAmcFundId(trade.stockId);
+      return fundId ? userEtfByFundId.get(fundId) : undefined;
+    })();
     const isGrowthStock =
       stock &&
       [...economicSectorsForStock(stock, stockById)].some((sector) =>
@@ -149,6 +162,21 @@ export function updateInvestmentMastery(
       );
     if (trade.type === "buy" && isGrowthStock) {
       changed = award(next, awarded, `mastery-growth:${tradeSession}`, "growth", 10) || changed;
+    }
+    const isIncomeAsset =
+      (stock &&
+        ((stock.coveredCallAnnualYield ?? 0) > 0 ||
+          (stock.quarterlyDividend ?? 0) > 0)) ||
+      userEtf?.exposure.profile === "income";
+    if (trade.type === "buy" && isIncomeAsset) {
+      changed =
+        award(
+          next,
+          awarded,
+          `mastery-income-trade:${tradeSession}`,
+          "income",
+          10,
+        ) || changed;
     }
   }
 
@@ -169,6 +197,15 @@ export function updateInvestmentMastery(
       const stock = stockById.get(holding.stockId);
       if (!stock) continue;
       if ((holding.quantity * stock.currentPrice) / input.equity >= 0.02) {
+        for (const sector of economicSectorsForStock(stock, stockById)) {
+          qualifyingSectors.add(sector);
+        }
+      }
+    }
+    for (const position of input.userEtfPositions ?? []) {
+      for (const constituent of position.constituents) {
+        const stock = stockById.get(constituent.stockId);
+        if (!stock || constituent.value / input.equity < 0.02) continue;
         for (const sector of economicSectorsForStock(stock, stockById)) {
           qualifyingSectors.add(sector);
         }

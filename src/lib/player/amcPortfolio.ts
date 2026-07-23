@@ -9,8 +9,10 @@ import type {
   StockState,
 } from "@/lib/types/market";
 import {
+  classifyAmcFundExposure,
   computeAmcFundNavPerShare,
   parseAmcFundId,
+  type AmcFundExposureProfile,
   type AmcFundState,
 } from "@/lib/player/assetManager";
 import {
@@ -25,6 +27,17 @@ export interface AmcPortfolioPosition {
   fund: AmcFundState;
   navPerShare: number;
   evaluation: number;
+}
+
+export interface AmcPortfolioLookThroughPosition {
+  fundId: string;
+  evaluation: number;
+  exposure: AmcFundExposureProfile;
+  constituents: {
+    stockId: string;
+    weight: number;
+    value: number;
+  }[];
 }
 
 export interface AmcCharacterLinkedHolding {
@@ -276,6 +289,49 @@ export function getAmcPortfolioValue(
     (sum, position) => sum + position.evaluation,
     0,
   );
+}
+
+/**
+ * 숙련도·오늘의 작전·시즌 목표가 유저 ETF를 일반 종목과 같은 기준으로
+ * 판정할 수 있도록 현재 NAV를 구성종목 비중으로 관통 배분한다.
+ */
+export function getAmcPortfolioLookThroughPositions(
+  holdings: readonly Holding[],
+  funds: readonly AmcFundState[],
+  stocks: readonly AmcPriceStock[],
+): AmcPortfolioLookThroughPosition[] {
+  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+  return getAmcPortfolioPositions(holdings, funds, stocks).map((position) => {
+    const totalWeight = position.fund.holdings.reduce(
+      (sum, holding) =>
+        sum +
+        (Number.isFinite(holding.weight) && holding.weight > 0
+          ? holding.weight
+          : 0),
+      0,
+    );
+    const constituents =
+      totalWeight > 0
+        ? position.fund.holdings.flatMap((holding) => {
+            if (!(holding.weight > 0)) return [];
+            const weight = holding.weight / totalWeight;
+            return [{
+              stockId: holding.stockId,
+              weight,
+              value: position.evaluation * weight,
+            }];
+          })
+        : [];
+    return {
+      fundId: position.fund.id,
+      evaluation: position.evaluation,
+      exposure: classifyAmcFundExposure(
+        position.fund,
+        (stockId) => stockById.get(stockId),
+      ),
+      constituents,
+    };
+  });
 }
 
 /** 캐릭터 관계·의뢰 계산에서 사용할 유저 ETF NAV와 구성 비중. */

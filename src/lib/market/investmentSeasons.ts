@@ -5,6 +5,7 @@ import type {
 } from "@/lib/types/market";
 import { MARKET_ERA_START_SESSION } from "@/lib/market/marketEras";
 import { instrumentTypeOf } from "@/lib/market/taxonomy";
+import type { AmcPortfolioLookThroughPosition } from "@/lib/player/amcPortfolio";
 
 export const INVESTMENT_SEASON_SESSIONS = 20;
 export const MAX_SEASON_HISTORY = 20;
@@ -553,14 +554,31 @@ export function calculateSeasonGoalAllocation(
   holdings: Holding[],
   stocks: StockState[],
   equity: number,
+  userEtfPositions: readonly AmcPortfolioLookThroughPosition[] = [],
 ): number {
   if (!goalId || equity <= 0) return 0;
   const byId = new Map(stocks.map((stock) => [stock.id, stock]));
-  const value = holdings.reduce((sum, holding) => {
+  let value = holdings.reduce((sum, holding) => {
     const stock = byId.get(holding.stockId);
     if (!stock || !stockMatchesGoal(goalId, stock)) return sum;
     return sum + holding.quantity * stock.currentPrice;
   }, 0);
+  for (const position of userEtfPositions) {
+    if (goalId === "direct") continue;
+    if (
+      goalId === "income" &&
+      position.exposure.profile === "income"
+    ) {
+      value += Math.max(0, position.evaluation);
+      continue;
+    }
+    value += position.constituents.reduce((sum, constituent) => {
+      const stock = byId.get(constituent.stockId);
+      return stock && stockMatchesGoal(goalId, stock)
+        ? sum + Math.max(0, constituent.value)
+        : sum;
+    }, 0);
+  }
   return Math.max(0, value / equity);
 }
 

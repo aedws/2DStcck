@@ -3,6 +3,7 @@ import {
   economicSectorsForStock,
   instrumentTypeOf,
 } from "@/lib/market/taxonomy";
+import type { AmcPortfolioLookThroughPosition } from "@/lib/player/amcPortfolio";
 import type { Holding, StockState, Trade } from "@/lib/types/market";
 
 export type DailyOperationId =
@@ -53,6 +54,7 @@ export interface DailyOperationContext {
   cash: number;
   holdings: Holding[];
   stocks: StockState[];
+  userEtfPositions?: readonly AmcPortfolioLookThroughPosition[];
   trades: Trade[];
   marginCallAt: number | null;
 }
@@ -199,6 +201,35 @@ function allocationMetrics(context: DailyOperationContext) {
     }
     if (economicSectors.has("채권") || (stock.leverage ?? 0) < 0) hedge += value;
     if (stock.ceoId && instrumentTypeOf(stock) === "company") direct += value;
+  }
+
+  for (const position of context.userEtfPositions ?? []) {
+    const value = Math.max(0, position.evaluation);
+    if (!(value > 0)) continue;
+    invested += value;
+    let constituentIncome = 0;
+    for (const constituent of position.constituents) {
+      const stock = byId.get(constituent.stockId);
+      if (!stock) continue;
+      const constituentValue = Math.max(0, constituent.value);
+      const economicSectors = economicSectorsForStock(stock, byId);
+      for (const sector of economicSectors) sectors.add(sector);
+      if (
+        (stock.coveredCallAnnualYield ?? 0) > 0 ||
+        (stock.quarterlyDividend ?? 0) > 0
+      ) {
+        constituentIncome += constituentValue;
+      }
+      if (economicSectors.has("채권") || (stock.leverage ?? 0) < 0) {
+        hedge += constituentValue;
+      }
+    }
+    // 인컴형으로 판정된 ETF는 상품 전체를 인컴 자산으로 인정한다.
+    // 혼합형·일반형은 실제 인컴 구성 비중만 반영한다.
+    income +=
+      position.exposure.profile === "income"
+        ? value
+        : Math.min(value, constituentIncome);
   }
 
   const denominator = Math.max(1, context.equity);
