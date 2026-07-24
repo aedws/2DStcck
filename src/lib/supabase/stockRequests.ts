@@ -11,8 +11,8 @@ export const ADMIN_GAME_IDS = ["dorothy"] as const;
 
 /** 요청 1건 비용 (센트) — $50,000 */
 export const STOCK_REQUEST_COST = 5_000_000;
-/** 요청 쿨다운 (거래일) — 계정당 이 기간에 1건 */
-export const STOCK_REQUEST_COOLDOWN_DAYS = 5;
+/** 종목 요청 쿨다운 (거래일 = 실시간 시간) — 계정당 이 기간에 1건. 서버 트리거도 3시간. */
+export const STOCK_REQUEST_COOLDOWN_DAYS = 3;
 
 export type StockRequestStatus =
   | "pending"

@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-24",
+    tag: "개선",
+    title: "요청 쿨다운 완화 — 유저 ETF 상장 30분·종목 요청 3시간",
+    detail:
+      "유저 ETF 상장 허가 신청 쿨다운을 5시간에서 30분으로, IPO 종목 요청 쿨다운을 5시간에서 3시간으로 줄였습니다. 회사·자산운용사 설립 신청은 기존과 같이 쿨다운이 없습니다. 서버·클라이언트 양쪽에 동일하게 반영했습니다.",
+  },
+  {
+    date: "2026-07-24",
     tag: "수정",
     title: "유저 ETF 구성 종목 도넛 라벨 겹침 수정",
     detail:
