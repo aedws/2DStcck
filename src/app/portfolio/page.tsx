@@ -47,6 +47,7 @@ import {
   isZeroDteExpiry,
 } from "@/lib/market/options";
 import {
+  getAmcPortfolioDistribution,
   getAmcPortfolioPositions,
   mergeAmcPortfolioFunds,
 } from "@/lib/player/amcPortfolio";
@@ -102,23 +103,6 @@ export default function PortfolioPage() {
   const total = getTotalAssets();
   const totalExact = getTotalAssetsExact();
   const luxuryValue = getLuxuryValue(ownedLuxuries);
-  // 우선주는 집중 유지 중인 활성분만 자산 반영 — 총자산과 일치시킨다.
-  const preferredConcentration = computeCharacterConcentration(
-    holdings,
-    stocks,
-    getEquity(),
-  );
-  const activePreferredShares = getActivePreferredShares(
-    preferredShares,
-    preferredConcentration,
-  );
-  const activePreferredIds = new Set(
-    activePreferredShares.map((share) => share.characterId),
-  );
-  const preferredValue = getPreferredShareValue(activePreferredShares);
-  const priceById = Object.fromEntries(
-    stocks.map((s) => [s.id, s.currentPrice]),
-  );
   const amcFunds = useMemo(
     () =>
       mergeAmcPortfolioFunds(
@@ -134,6 +118,27 @@ export default function PortfolioPage() {
   const amcValue = amcPositions.reduce(
     (sum, position) => sum + position.evaluation,
     0,
+  );
+  // 우선주는 집중 유지 중인 활성분만 자산 반영 — 총자산과 일치시킨다.
+  const preferredConcentration = computeCharacterConcentration(
+    holdings,
+    stocks,
+    getEquity(),
+    amcPositions.map((position) => ({
+      value: position.evaluation,
+      holdings: position.fund.holdings,
+    })),
+  );
+  const activePreferredShares = getActivePreferredShares(
+    preferredShares,
+    preferredConcentration,
+  );
+  const activePreferredIds = new Set(
+    activePreferredShares.map((share) => share.characterId),
+  );
+  const preferredValue = getPreferredShareValue(activePreferredShares);
+  const priceById = Object.fromEntries(
+    stocks.map((s) => [s.id, s.currentPrice]),
   );
   const longVal = computeLongValue(holdings, priceById) + amcValue;
   const shortLiab = shortLiability(shorts, priceById);
@@ -232,26 +237,33 @@ export default function PortfolioPage() {
         },
       ];
     });
-    const userEtfRows = amcPositions.map((position) => ({
-      holding: position.holding,
-      stock: {
-        id: position.holding.stockId,
-        name: position.fund.name,
-        ticker: position.fund.ticker,
-        currentPrice: position.navPerShare,
-      },
-      evaluation: position.evaluation,
-      returnRate:
-        position.holding.averagePrice > 0
-          ? ((position.navPerShare - position.holding.averagePrice) /
-              position.holding.averagePrice) *
-            100
-          : 0,
-      payoutAmount: 0,
-      payoutDays: null,
-      href: `/amc/trade?id=${encodeURIComponent(position.fund.id)}`,
-      userEtf: true,
-    }));
+    const userEtfRows = amcPositions.map((position) => {
+      const distribution = getAmcPortfolioDistribution(
+        position,
+        stocks,
+        currentSession,
+      );
+      return {
+        holding: position.holding,
+        stock: {
+          id: position.holding.stockId,
+          name: position.fund.name,
+          ticker: position.fund.ticker,
+          currentPrice: position.navPerShare,
+        },
+        evaluation: position.evaluation,
+        returnRate:
+          position.holding.averagePrice > 0
+            ? ((position.navPerShare - position.holding.averagePrice) /
+                position.holding.averagePrice) *
+              100
+            : 0,
+        payoutAmount: distribution?.amount ?? 0,
+        payoutDays: distribution?.daysRemaining ?? null,
+        href: `/amc/trade?id=${encodeURIComponent(position.fund.id)}`,
+        userEtf: true,
+      };
+    });
     const rows = [...regularRows, ...userEtfRows];
     if (!holdingSort.key) return rows;
 

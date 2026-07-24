@@ -17,7 +17,10 @@ import {
 } from "@/lib/market/characterProgress";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import { getActivePreferredShares } from "@/lib/player/preferredShares";
-import { mergeAmcPortfolioFunds } from "@/lib/player/amcPortfolio";
+import {
+  getAmcCharacterLinkedHoldings,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 
 const CARD_STYLE: Record<CharacterRelationStatus, string> = {
@@ -46,6 +49,18 @@ export default function CharactersPage() {
   const preferredShares = useMarketStore((state) => state.preferredShares);
   const assetManager = useMarketStore((state) => state.assetManager);
   const listedAmcFunds = useMarketStore((state) => state.listedAmcFunds);
+  const userEtfFunds = useMemo(
+    () =>
+      mergeAmcPortfolioFunds(
+        assetManager?.funds ?? [],
+        listedAmcFunds.map(listedFundToAmcState),
+      ),
+    [assetManager, listedAmcFunds],
+  );
+  const userEtfHoldings = useMemo(
+    () => getAmcCharacterLinkedHoldings(holdings, userEtfFunds, stocks),
+    [holdings, userEtfFunds, stocks],
+  );
   const preferredByCharacter = useMemo(
     () => new Set(preferredShares.map((share) => share.characterId)),
     [preferredShares],
@@ -54,9 +69,14 @@ export default function CharactersPage() {
     () =>
       getActivePreferredShares(
         preferredShares,
-        computeCharacterConcentration(holdings, stocks, getEquity()),
+        computeCharacterConcentration(
+          holdings,
+          stocks,
+          getEquity(),
+          userEtfHoldings,
+        ),
       ),
-    [preferredShares, holdings, stocks, getEquity],
+    [preferredShares, holdings, stocks, getEquity, userEtfHoldings],
   );
   const entries = useMemo(
     () =>
@@ -64,14 +84,6 @@ export default function CharactersPage() {
         .map((company) => ({ company, ceo: getCharacterById(company.ceoId) }))
         .filter((entry): entry is { company: StockDefinition; ceo: Character } => Boolean(entry.ceo)),
     [],
-  );
-  const userEtfFunds = useMemo(
-    () =>
-      mergeAmcPortfolioFunds(
-        assetManager?.funds ?? [],
-        listedAmcFunds.map(listedFundToAmcState),
-      ),
-    [assetManager, listedAmcFunds],
   );
   const relations = useMemo(
     () =>

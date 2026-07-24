@@ -165,6 +165,7 @@ import {
   normalizeSelectedSeasonFrame,
 } from "../src/lib/player/seasonRewards";
 import { getAmcPortfolioLookThroughPositions } from "../src/lib/player/amcPortfolio";
+import { deriveLearningSignals } from "../src/lib/player/learningProgress";
 
 // 시즌은 국면 그리드 경계에서 시작해야 정식(무순위 아님) 시즌이 된다.
 // 시나리오가 정식 시즌 완료를 검증하므로 세션을 그리드 경계로 정렬한다.
@@ -1160,6 +1161,14 @@ const singleCharacterInverse = {
   leverage: -1,
   leverageUnderlyingId: relationshipStock.id,
 };
+const singleCharacterCoveredCall = {
+  ...relationshipStock,
+  id: `${relationshipStock.id}-covered-call-test`,
+  ticker: "RELCC",
+  ceoId: undefined,
+  coveredCallUnderlyingId: relationshipStock.id,
+  coveredCallAnnualYield: 30,
+};
 const neutralGoldEtf = {
   ...relationshipStock,
   id: "gldx",
@@ -1311,6 +1320,40 @@ assert.equal(
   "bonded",
   "a character that reached 100 affinity should stay unlocked without assets",
 );
+const userEtfLearningSignals = deriveLearningSignals({
+  trades: [],
+  holdings: relationEtfHolding,
+  stocks: [relationshipStock, singleCharacterDerivative],
+  userEtfHoldings: [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterDerivative.id, weight: 1 }],
+  }],
+  options: [],
+  shorts: [],
+  cash: 0,
+  marginEnabled: false,
+  characterProgress: {},
+  missionHistory: [],
+  investmentSeason: { history: [] },
+  reputation: 0,
+  netWorthHistory: [],
+  initialCash: relationshipStock.currentPrice,
+});
+assert.equal(
+  userEtfLearningSignals.hasEtfHolding,
+  true,
+  "a user ETF should satisfy the same ETF learning condition as a regular ETF",
+);
+assert.equal(
+  userEtfLearningSignals.hasCharacterHolding,
+  true,
+  "a friendly single-character user ETF should satisfy character ownership learning",
+);
+assert.equal(
+  userEtfLearningSignals.usedAdvanced,
+  true,
+  "a derivative constituent inside a user ETF should count as advanced investing",
+);
 
 let diversifiedEtfProgress = accrueLongHoldingAffinity(
   {},
@@ -1384,13 +1427,77 @@ singleCharacterEtfProgress = accrueLongHoldingAffinity(
 );
 assert.equal(
   getCharacterProgress(singleCharacterEtfProgress, relationshipCharacter.id).affinity,
-  5,
-  "single-character ETF holdings should gain substantially more affinity",
+  7,
+  "a single-character leveraged ETF should keep leverage affinity and add the theme bonus",
 );
 assert.equal(
   getCharacterProgress(singleCharacterEtfProgress, relationshipCharacter.id).trust,
   2,
   "single-character ETF holdings should also gain trust",
+);
+
+let directCharacterEtfProgress = accrueLongHoldingAffinity(
+  {},
+  [],
+  [relationshipStock],
+  relationshipStock.currentPrice * 10,
+  windowStart,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: relationshipStock.id, weight: 1 }],
+  }],
+);
+directCharacterEtfProgress = accrueLongHoldingAffinity(
+  directCharacterEtfProgress,
+  [],
+  [relationshipStock],
+  relationshipStock.currentPrice * 10,
+  windowStart + 5,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: relationshipStock.id, weight: 1 }],
+  }],
+);
+assert.equal(
+  getCharacterProgress(directCharacterEtfProgress, relationshipCharacter.id)
+    .affinity,
+  5,
+  "a direct single-character ETF should keep the existing +5 reward",
+);
+
+let coveredCallCharacterEtfProgress = accrueLongHoldingAffinity(
+  {},
+  [],
+  [relationshipStock, singleCharacterCoveredCall],
+  relationshipStock.currentPrice * 10,
+  windowStart,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterCoveredCall.id, weight: 1 }],
+  }],
+);
+coveredCallCharacterEtfProgress = accrueLongHoldingAffinity(
+  coveredCallCharacterEtfProgress,
+  [],
+  [relationshipStock, singleCharacterCoveredCall],
+  relationshipStock.currentPrice * 10,
+  windowStart + 5,
+  [],
+  [{
+    value: relationshipStock.currentPrice,
+    holdings: [{ stockId: singleCharacterCoveredCall.id, weight: 1 }],
+  }],
+);
+assert.equal(
+  getCharacterProgress(
+    coveredCallCharacterEtfProgress,
+    relationshipCharacter.id,
+  ).affinity,
+  4,
+  "a single-character covered-call ETF should keep covered-call affinity and add the theme bonus",
 );
 
 let inverseEtfProgress = accrueLongHoldingAffinity(

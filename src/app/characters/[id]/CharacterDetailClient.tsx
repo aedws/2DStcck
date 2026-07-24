@@ -16,7 +16,10 @@ import {
 } from "@/lib/market/characterProgress";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import { isPreferredActive } from "@/lib/player/preferredShares";
-import { mergeAmcPortfolioFunds } from "@/lib/player/amcPortfolio";
+import {
+  getAmcCharacterLinkedHoldings,
+  mergeAmcPortfolioFunds,
+} from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { useMarketStore } from "@/store/marketStore";
 
@@ -73,6 +76,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
     holdings,
     allStocks,
     getEquity(),
+    getAmcCharacterLinkedHoldings(holdings, userEtfFunds, allStocks),
   );
   const preferredActive = preferredShare
     ? isPreferredActive(preferredShare, concentration)

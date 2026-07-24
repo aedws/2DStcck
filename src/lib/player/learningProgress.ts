@@ -6,7 +6,11 @@ import type {
   ShortPosition,
   StockState,
 } from "@/lib/types/market";
-import { getRelationshipTier } from "@/lib/market/characterProgress";
+import {
+  getRelationshipTier,
+  resolveEtfCharacterExposures,
+  type CharacterLinkedEtfHolding,
+} from "@/lib/market/characterProgress";
 import {
   economicSectorsForStock,
   instrumentTypeOf,
@@ -30,6 +34,7 @@ interface LearningStateSlice {
   trades: readonly unknown[];
   holdings: Holding[];
   stocks: StockState[];
+  userEtfHoldings?: readonly CharacterLinkedEtfHolding[];
   options: OptionPosition[];
   shorts: ShortPosition[];
   cash: number;
@@ -57,19 +62,47 @@ export function deriveLearningSignals(
       economicSectors.add(sector);
     }
   }
+  const userEtfHoldings = (s.userEtfHoldings ?? []).filter(
+    (position) => position.value > 0,
+  );
+  for (const position of userEtfHoldings) {
+    for (const holding of position.holdings) {
+      const stock = byId.get(holding.stockId);
+      if (!stock) continue;
+      for (const sector of economicSectorsForStock(stock, byId)) {
+        economicSectors.add(sector);
+      }
+    }
+  }
   const distinctSectors = economicSectors.size;
   const hasEtfHolding = heldStocks.some(
     (stock) => instrumentTypeOf(stock) === "etf",
-  );
-  const hasCharacterHolding = heldStocks.some(
-    (stock) =>
-      Boolean(stock.ceoId) && instrumentTypeOf(stock) === "company",
-  );
+  ) || userEtfHoldings.length > 0;
+  const hasCharacterHolding =
+    heldStocks.some(
+      (stock) =>
+        Boolean(stock.ceoId) && instrumentTypeOf(stock) === "company",
+    ) ||
+    userEtfHoldings.some((position) =>
+      resolveEtfCharacterExposures(position.holdings, s.stocks).some(
+        (exposure) => exposure.kind !== "hostile",
+      ),
+    );
   const usedAdvanced =
     heldStocks.some(
       (stock) =>
         stock.leverage !== undefined ||
         Boolean(stock.coveredCallUnderlyingId),
+    ) ||
+    userEtfHoldings.some((position) =>
+      position.holdings.some((holding) => {
+        const stock = byId.get(holding.stockId);
+        return Boolean(
+          stock &&
+            (stock.leverage !== undefined ||
+              stock.coveredCallUnderlyingId),
+        );
+      }),
     ) ||
     s.options.length > 0 ||
     s.shorts.length > 0 ||

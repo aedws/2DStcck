@@ -52,6 +52,7 @@ import {
   getAmcFundPerformanceComparison,
   getAmcFundPriceHistory,
   getAmcFundTotalReturnSeries,
+  getAmcPortfolioDistribution,
   getAmcPortfolioPositions,
   getAmcPortfolioValue,
   mergeAmcPortfolioFunds,
@@ -794,6 +795,32 @@ assert.equal(portfolioPositions[0]!.fund.ticker, listed.ticker);
 assert.equal(
   getAmcPortfolioValue([founderHolding], portfolioFunds, portfolioStocks),
   portfolioPositions[0]!.evaluation,
+);
+const accountDistribution = getAmcPortfolioDistribution(
+  {
+    ...portfolioPositions[0]!,
+    fund: {
+      ...portfolioPositions[0]!.fund,
+      style: "active",
+      dividendRate: 0.02,
+      dividendIntervalDays: 20,
+      lastDividendSession: 100,
+    },
+  },
+  portfolioStocks,
+  105,
+);
+assert.deepEqual(
+  accountDistribution,
+  {
+    periodRate: 0.02,
+    perShare: Math.floor(portfolioPositions[0]!.navPerShare * 0.02),
+    amount:
+      Math.floor(portfolioPositions[0]!.navPerShare * 0.02) *
+      founderHolding.quantity,
+    daysRemaining: 15,
+  },
+  "the account must show a user ETF distribution like a regular ETF payout",
 );
 assert.deepEqual(
   getAmcCharacterLinkedHoldings(

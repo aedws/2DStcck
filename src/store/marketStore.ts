@@ -1331,6 +1331,7 @@ function totalAssetsExactOf(state: MarketStore): string {
       state.holdings,
       state.stocks,
       approximateEquity,
+      userEtfRelationshipHoldingsOf(state),
     ),
   );
   return exactAdd(
@@ -3851,13 +3852,15 @@ export const useMarketStore = create<MarketStore>()(
         const state = get();
         const now = Date.now();
         const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const relationshipEquity = relationshipEquityOf(state);
         // 우선주 배당은 집중 유지 중인 활성분에만 지급한다.
         const activePreferred = getActivePreferredShares(
           state.preferredShares,
           computeCharacterConcentration(
             state.holdings,
             state.stocks,
-            fullEquityOf(state),
+            relationshipEquity.equity,
+            relationshipEquity.userEtfHoldings,
           ),
         );
         const settled = settleLocalCashflows(
@@ -4745,7 +4748,11 @@ export const useMarketStore = create<MarketStore>()(
 
       getBuyingPower: () => longBuyingPower(get()),
 
-      getEquity: () => fullEquityOf(get()),
+      // 일반 ETF와 동일하게 유저 ETF NAV도 공개 계좌 자기자본에 포함한다.
+      getEquity: () => {
+        const state = get();
+        return fullEquityOf(state) + userEtfPortfolioValueOf(state);
+      },
 
       getRateLevel: () => getRateLevel(getBenchmark(get().stocks)),
 
@@ -6417,6 +6424,7 @@ export const useMarketStore = create<MarketStore>()(
             ...state.trades,
           ].slice(0, 500) as Trade[],
         });
+        get().checkAchievements();
         playSound("buy");
         return {
           success: true,
@@ -6557,12 +6565,36 @@ export const useMarketStore = create<MarketStore>()(
         if (!ledgerCash) {
           return { success: false, message: "ETF 현금원장 값이 올바르지 않습니다." };
         }
+        const tradeId = `amc-ledger-trade-${orderId}`;
+        const taxExact = combinedSecuritiesSaleTaxExact({
+          proceedsExact: traded.totalExact ?? traded.total,
+          realizedGainExact: taxableGainExact(
+            traded.navPerShare,
+            latestExisting.averagePrice,
+            normalizeExactQuantity(qty),
+          ),
+          netWorthExact: fullNetWorthExactOf(state),
+        });
+        const taxPayment = makeTaxPayment({
+          id: `tax-amc-sale-${tradeId}`,
+          kind: "capital_gains_tax",
+          amountExact: taxExact,
+          sourceId: stockId,
+          ticker: fund.ticker,
+          dueSession: currentSession,
+          timestamp: now,
+        });
+        const cashExact = exactSubtract(ledgerCash.cashExact, taxExact);
+        const taxEventId = `amc-sale:${tradeId}`;
         set({
-          cash: ledgerCash.cash,
-          cashExact: ledgerCash.cashExact,
+          cash: exactToNumber(cashExact),
+          cashExact,
           amcLedgerBalance: ledgerCash.appliedBalance,
           amcLedgerBalanceExact: ledgerCash.appliedBalanceExact,
           amcLedgerRevision: traded.ledgerRevision,
+          appliedTaxEventIds: taxPayment
+            ? [...state.appliedTaxEventIds, taxEventId].slice(-2_000)
+            : state.appliedTaxEventIds,
           assetManager: nextManager,
           listedAmcFunds: nextListed,
           holdings:
@@ -6580,7 +6612,7 @@ export const useMarketStore = create<MarketStore>()(
               : state.holdings.filter((item) => item.stockId !== stockId),
           trades: [
             {
-              id: `amc-ledger-trade-${orderId}`,
+              id: tradeId,
               stockId,
               ticker: fund.ticker,
               type: "sell",
@@ -6593,7 +6625,11 @@ export const useMarketStore = create<MarketStore>()(
             },
             ...state.trades,
           ].slice(0, 500) as Trade[],
+          cashPayments: taxPayment
+            ? [taxPayment, ...state.cashPayments].slice(0, 200)
+            : state.cashPayments,
         });
+        get().checkAchievements();
         playSound("sell");
         return { success: true, message: `${fund.ticker} ${qty}좌 매도` };
       },

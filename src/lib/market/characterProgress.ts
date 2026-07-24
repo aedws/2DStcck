@@ -149,14 +149,25 @@ export const AFFINITY_WEIGHT_COMMON = 1;
 export const AFFINITY_WEIGHT_COVERED_CALL = 0.5;
 /** 여러 캐릭터를 담은 유저 ETF는 보통주와 같은 속도로 구성원 전원의 호감도가 오른다. */
 export const AFFINITY_WEIGHT_USER_ETF = 1;
-/** 단일 캐릭터 테마 ETF 보유는 5거래일마다 호감도 +5를 받는다. */
-export const AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF = 2.5;
+/**
+ * 단일 캐릭터 테마 ETF는 편입 상품의 기본 증감량(보통주 +2, 레버리지 +4,
+ * 커버드콜 +1)을 그대로 적용한 뒤 장기 테마 보너스 +3을 더한다.
+ */
+export const AFFINITY_BONUS_SINGLE_CHARACTER_ETF = 3;
 /** 단일 캐릭터 테마 ETF 장기 보유 시 5거래일마다 받는 신뢰도. */
 export const TRUST_REWARD_SINGLE_CHARACTER_ETF = 2;
 /** 단일 캐릭터 테마 ETF를 처음 설정할 때 즉시 주는 호감도. */
 export const SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY = 20;
 /** 가중치를 정수 상승폭으로 바꾸는 단위(×2). 보통주=+2로 기존과 동일. */
 const AFFINITY_RATE_UNIT = 2;
+
+function positiveExposureAffinityWeight(
+  kind: Exclude<EtfCharacterExposureKind, "hostile">,
+): number {
+  if (kind === "leverage") return AFFINITY_WEIGHT_LEVERAGE;
+  if (kind === "covered-call") return AFFINITY_WEIGHT_COVERED_CALL;
+  return AFFINITY_WEIGHT_COMMON;
+}
 
 export interface CharacterLinkedEtfHolding {
   /** 현재 보유 ETF 평가액(센트). */
@@ -322,12 +333,31 @@ export function accrueLongHoldingAffinity(
         .map((exposure) => exposure.characterId),
     );
     for (const characterId of positiveIds) {
+      const baseWeight =
+        characterId === singleCharacterId
+          ? Math.max(
+              ...exposures
+                .filter(
+                  (
+                    exposure,
+                  ): exposure is EtfCharacterExposure & {
+                    kind: Exclude<EtfCharacterExposureKind, "hostile">;
+                  } =>
+                    exposure.characterId === characterId &&
+                    exposure.kind !== "hostile",
+                )
+                .map((exposure) =>
+                  positiveExposureAffinityWeight(exposure.kind),
+                ),
+            )
+          : AFFINITY_WEIGHT_USER_ETF;
       // ETF 자체가 계좌의 3% 이상이면 구성 캐릭터 전원을 보유한 것으로 본다.
       raiseWeight(
         characterId,
         characterId === singleCharacterId
-          ? AFFINITY_WEIGHT_SINGLE_CHARACTER_ETF
-          : AFFINITY_WEIGHT_USER_ETF,
+          ? baseWeight +
+              AFFINITY_BONUS_SINGLE_CHARACTER_ETF / AFFINITY_RATE_UNIT
+          : baseWeight,
       );
       bump(posValue, characterId, etf.value);
       if (characterId === singleCharacterId) {

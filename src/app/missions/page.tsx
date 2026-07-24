@@ -80,8 +80,8 @@ export default function MissionsPage() {
     ),
     stocks,
   );
-  const missionEquity =
-    equity + userEtfHoldings.reduce((sum, holding) => sum + holding.value, 0);
+  // 공개 계좌 자기자본은 일반 ETF와 마찬가지로 유저 ETF NAV까지 포함한다.
+  const missionEquity = equity;
   const benchmarkPrice = benchmark?.currentPrice ?? 0;
   const relationship = getCharacterProgress(characterProgressMap, arc.character?.id);
   const bondChoiceAvailable = canUseBondChoice(relationship, arc.windowStart);

@@ -12,6 +12,7 @@ import {
   classifyAmcFundExposure,
   computeAmcFundNavPerShare,
   parseAmcFundId,
+  resolveAmcDividendPeriodRate,
   type AmcFundExposureProfile,
   type AmcFundState,
 } from "@/lib/player/assetManager";
@@ -27,6 +28,13 @@ export interface AmcPortfolioPosition {
   fund: AmcFundState;
   navPerShare: number;
   evaluation: number;
+}
+
+export interface AmcPortfolioDistribution {
+  periodRate: number;
+  perShare: number;
+  amount: number;
+  daysRemaining: number;
 }
 
 export interface AmcPortfolioLookThroughPosition {
@@ -80,6 +88,8 @@ type AmcPriceStock = Pick<
   | "leveragePathSessionBase"
   | "leveragePathFactors"
   | "shareMultiplier"
+  | "quarterlyDividend"
+  | "coveredCallAnnualYield"
 >>;
 
 type AmcHistoryStock = Pick<
@@ -289,6 +299,47 @@ export function getAmcPortfolioValue(
     (sum, position) => sum + position.evaluation,
     0,
   );
+}
+
+/** 일반 ETF 계좌 행과 같은 방식으로 다음 유저 ETF 분배금과 지급일까지 계산한다. */
+export function getAmcPortfolioDistribution(
+  position: AmcPortfolioPosition,
+  stocks: readonly AmcPriceStock[],
+  currentSession: number,
+): AmcPortfolioDistribution | null {
+  if (position.fund.status !== "active") return null;
+  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+  const priceOf = (stockId: string) =>
+    stockById.get(stockId)?.currentPrice ?? 0;
+  const periodRate = resolveAmcDividendPeriodRate(
+    position.fund,
+    priceOf,
+    (stockId) => stockById.get(stockId),
+  );
+  if (!(periodRate > 0)) return null;
+  // 실제 정산도 총 AUM에서 좌당 금액을 내림하므로 같은 센트 단위를 쓴다.
+  const totalDistribution = Math.max(
+    0,
+    Math.round(
+      position.navPerShare * position.fund.totalShares * periodRate,
+    ),
+  );
+  const perShare =
+    position.fund.totalShares > 0
+      ? Math.max(0, Math.floor(totalDistribution / position.fund.totalShares))
+      : 0;
+  if (!(perShare > 0)) return null;
+  return {
+    periodRate,
+    perShare,
+    amount: perShare * position.holding.quantity,
+    daysRemaining: Math.max(
+      0,
+      position.fund.lastDividendSession +
+        position.fund.dividendIntervalDays -
+        currentSession,
+    ),
+  };
 }
 
 /**
