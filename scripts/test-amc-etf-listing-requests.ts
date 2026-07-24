@@ -7,6 +7,7 @@ import {
 } from "../src/lib/player/assetManager";
 import {
   parseAmcEtfListingRequest,
+  reconcileOwnedListingRequestsIntoManager,
   serializeAmcEtfListingRequest,
   AMC_ETF_LISTING_DESCRIPTION_MAX_LENGTH,
   AMC_ETF_LISTING_REQUEST_MARKER,
@@ -156,5 +157,26 @@ assert.equal(recoveredManager.entity.funds[0]!.ticker, "APRV");
 assert.equal(recoveredManager.entity.funds[0]!.splitTriggerPrice, 500);
 assert.equal(recoveredManager.entity.funds[0]!.reverseSplitTriggerPrice, 5);
 assert.equal(recoveredManager.shouldMarkShipped, true);
+
+// 상장 신청 취소·삭제 불변식: 신청이 남아 있으면 재조정이 펀드를 복원하지만,
+// 신청을 삭제하면(취소·상폐 후 삭제) 재접속해도 펀드가 다시 나타나지 않는다.
+const emptyManager = { ...founded.manager!, funds: [] };
+const restoredFromRequest = reconcileOwnedListingRequestsIntoManager(
+  emptyManager,
+  [parsed!],
+);
+assert.equal(
+  restoredFromRequest.funds.length,
+  1,
+  "상장 신청이 남아 있으면 재조정이 펀드를 복원해야 함",
+);
+const notRestored = reconcileOwnedListingRequestsIntoManager(emptyManager, []);
+assert.equal(
+  notRestored.funds.length,
+  0,
+  "상장 신청을 삭제하면 재조정이 펀드를 되살리지 않아야 함",
+);
+
+console.log("amc etf listing cancel/delete reconcile invariant passed");
 
 console.log("amc etf listing request serialize/parse passed");

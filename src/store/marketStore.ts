@@ -365,6 +365,7 @@ import {
   verifyAmcFoundationApproval,
 } from "@/lib/supabase/amcFoundationRequests";
 import {
+  cancelOwnAmcListingRequest,
   listMyAmcEtfListingRequests,
   markAmcEtfListingShipped,
   reconcileOwnedListingRequestsIntoManager,
@@ -644,6 +645,10 @@ interface MarketStore extends MarketSnapshot {
     holdings: AmcHoldingWeight[],
   ) => Promise<OrderResult>;
   voluntarilyDelistAmcFund: (fundId: string) => Promise<OrderResult>;
+  /** 승인 전 상장 허가 신청을 취소하고 소각분을 제외한 시드를 환급합니다. */
+  cancelAmcFundListingRequest: (fundId: string) => Promise<OrderResult>;
+  /** 자진 상장폐지된 ETF를 화면·기록에서 삭제합니다(환급 없음). */
+  removeDelistedAmcFund: (fundId: string) => Promise<OrderResult>;
   updateAmcFundShareAdjustment: (
     fundId: string,
     input: UpdateAmcShareAdjustmentInput,
@@ -6085,6 +6090,133 @@ export const useMarketStore = create<MarketStore>()(
           .getState()
           .push(`${fund.ticker} 자진 상장폐지 · 전 보유자 NAV 환급 완료`, "info");
         return { success: true, message: response.message };
+      },
+
+      cancelAmcFundListingRequest: async (fundId) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady || !state.assetManager) {
+          return {
+            success: false,
+            message: "로그인한 운용사 계정에서만 취소할 수 있습니다.",
+          };
+        }
+        const fund = state.assetManager.funds.find((item) => item.id === fundId);
+        if (!fund) {
+          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        }
+        if (
+          state.listedAmcFunds.some(
+            (item) => item.id === fundId && item.status !== "delisted",
+          )
+        ) {
+          return {
+            success: false,
+            message: "이미 상장된 ETF는 자진 상장폐지로만 정리할 수 있습니다.",
+          };
+        }
+        // 서버 최신 지갑을 먼저 반영해 취소 환급이 과거 상태를 덮지 않게 한다.
+        if (!(await state.saveCloud())) {
+          return {
+            success: false,
+            message: "최신 지갑을 서버에 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          };
+        }
+        let requestId = fund.listingRequestId;
+        if (!requestId) {
+          const requests = await listMyAmcEtfListingRequests().catch(() => []);
+          requestId = requests.find(
+            (request) =>
+              request.payload.fundId === fundId &&
+              ["pending", "reviewing"].includes(request.status),
+          )?.id;
+        }
+        if (!requestId) {
+          return {
+            success: false,
+            message: "취소할 상장 허가 신청을 찾을 수 없습니다.",
+          };
+        }
+        const result = await cancelOwnAmcListingRequest(requestId);
+        if (!result.success) {
+          return { success: false, message: result.message };
+        }
+        // RPC가 환급·펀드·보유 좌 정리를 원자적으로 끝낸 서버 지갑을 다시 읽는다.
+        await get().loadCloudSave();
+        const amount =
+          result.refunded && result.refundCents > 0
+            ? ` ${formatPrice(result.refundCents)}`
+            : "";
+        const message = result.refunded
+          ? `상장 허가 신청을 취소하고 소각분을 제외한 시드${amount}를 환급했습니다.`
+          : "상장 허가 신청을 취소했습니다.";
+        useToastStore.getState().push(message, "success");
+        playSound("cash");
+        return { success: true, message };
+      },
+
+      removeDelistedAmcFund: async (fundId) => {
+        const state = get();
+        if (!state.userId || !state.cloudSyncReady || !state.assetManager) {
+          return {
+            success: false,
+            message: "로그인한 운용사 계정에서만 삭제할 수 있습니다.",
+          };
+        }
+        const fund = state.assetManager.funds.find((item) => item.id === fundId);
+        if (!fund) {
+          return { success: false, message: "펀드를 찾을 수 없습니다." };
+        }
+        if (fund.status !== "delisted") {
+          return {
+            success: false,
+            message: "자진 상장폐지된 ETF만 목록에서 삭제할 수 있습니다.",
+          };
+        }
+        // 신청 기록을 삭제해 상장 신청 재조정이 상폐 펀드를 되살리지 못하게 한다.
+        let requestId = fund.listingRequestId;
+        if (!requestId) {
+          const requests = await listMyAmcEtfListingRequests().catch(() => []);
+          requestId = requests.find(
+            (request) => request.payload.fundId === fundId,
+          )?.id;
+        }
+        if (requestId) {
+          const result = await cancelOwnAmcListingRequest(requestId);
+          if (!result.success) {
+            return {
+              success: false,
+              message: "신청 기록 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+            };
+          }
+        }
+        const seedStockId = amcFundStockId(fundId);
+        const latest = get();
+        const manager = latest.assetManager;
+        set({
+          ...(manager
+            ? {
+                assetManager: {
+                  ...manager,
+                  funds: manager.funds.filter((item) => item.id !== fundId),
+                  lastActionAt: Date.now(),
+                },
+              }
+            : {}),
+          holdings: latest.holdings.filter(
+            (item) => item.stockId !== seedStockId,
+          ),
+          listedAmcFunds: latest.listedAmcFunds.filter(
+            (item) => item.id !== fundId,
+          ),
+        });
+        if (!(await get().saveCloud())) {
+          useToastStore
+            .getState()
+            .push("삭제는 반영했지만 서버 저장이 지연되고 있습니다.", "info");
+        }
+        const message = `${fund.ticker}를 운용 목록에서 삭제했습니다.`;
+        useToastStore.getState().push(message, "success");
+        return { success: true, message };
       },
 
       updateAmcFundShareAdjustment: async (fundId, input) => {

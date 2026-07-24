@@ -175,6 +175,12 @@ export default function AssetManagerPage() {
   const voluntarilyDelistAmcFund = useMarketStore(
     (state) => state.voluntarilyDelistAmcFund,
   );
+  const cancelAmcFundListingRequest = useMarketStore(
+    (state) => state.cancelAmcFundListingRequest,
+  );
+  const removeDelistedAmcFund = useMarketStore(
+    (state) => state.removeDelistedAmcFund,
+  );
   const updateAmcFundShareAdjustment = useMarketStore(
     (state) => state.updateAmcFundShareAdjustment,
   );
@@ -276,6 +282,8 @@ export default function AssetManagerPage() {
     "all" | AmcHoldingKind
   >("all");
   const [delistingId, setDelistingId] = useState<string | null>(null);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [shareAdjustmentEditorId, setShareAdjustmentEditorId] = useState<
     string | null
   >(null);
@@ -1244,6 +1252,39 @@ export default function AssetManagerPage() {
                     })
                     .join(" · ")}
                 </p>
+                {fund.status === "delisted" && (
+                  <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--background)]/60 p-3">
+                    <p className="text-xs font-bold text-[var(--muted)]">
+                      상장폐지된 ETF
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--muted)]">
+                      전 보유자 환급이 끝난 펀드입니다. 화면과 운용 기록에서
+                      영구 삭제합니다.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={removingId === fund.id}
+                      onClick={() => {
+                        const confirmed = window.confirm(
+                          `${fund.ticker}를 운용 목록에서 삭제할까요?\n\n화면과 기존 상장 신청 기록에서 제거합니다. 이 작업은 되돌릴 수 없습니다.`,
+                        );
+                        if (!confirmed) return;
+                        setRemovingId(fund.id);
+                        void removeDelistedAmcFund(fund.id).then((result) => {
+                          setMessage(result.message);
+                          setRemovingId(null);
+                          if (result.success) {
+                            void refreshListingRequests();
+                            void refreshListedAmcFunds();
+                          }
+                        });
+                      }}
+                      className="mt-2 rounded-xl border border-rose-400/50 px-4 py-2 text-sm font-bold text-rose-200 disabled:opacity-50"
+                    >
+                      {removingId === fund.id ? "삭제 중…" : "목록에서 삭제"}
+                    </button>
+                  </div>
+                )}
                 {fund.status !== "delisted" && (
                   <div className="mt-3 rounded-2xl border border-violet-400/25 bg-violet-400/5 p-3">
                     <button
@@ -1462,9 +1503,35 @@ export default function AssetManagerPage() {
                       </button>
                     ) : listing &&
                       ["pending", "reviewing"].includes(listing.status) ? (
-                      <p className="text-xs text-[var(--muted)]">
-                        관리자 상장 허가를 기다리는 중입니다.
-                      </p>
+                      <div className="flex w-full flex-wrap items-center gap-2">
+                        <p className="text-xs text-[var(--muted)]">
+                          관리자 상장 허가를 기다리는 중입니다.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={cancelingId === fund.id}
+                          onClick={() => {
+                            const confirmed = window.confirm(
+                              `${fund.ticker} 상장 허가 신청을 취소할까요?\n\n소각분 10%를 제외한 시드 편입액을 환급하고 이 펀드를 운용 목록에서 삭제합니다.`,
+                            );
+                            if (!confirmed) return;
+                            setCancelingId(fund.id);
+                            void cancelAmcFundListingRequest(fund.id).then(
+                              (result) => {
+                                setMessage(result.message);
+                                setCancelingId(null);
+                                if (result.success) {
+                                  void refreshListingRequests();
+                                  void refreshListedAmcFunds();
+                                }
+                              },
+                            );
+                          }}
+                          className="rounded-xl border border-rose-400/50 px-3 py-1.5 text-xs font-bold text-rose-200 disabled:opacity-50"
+                        >
+                          {cancelingId === fund.id ? "취소 중…" : "신청 취소·삭제"}
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"

@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-24",
+    tag: "개선",
+    title: "유저 ETF 상장 신청 취소·상폐 후 삭제",
+    detail:
+      "자산운용사에서 유저 ETF를 정리하는 흐름을 보강했습니다. 관리자 상장 허가를 기다리는 신청은 '신청 취소·삭제' 버튼으로 직접 취소할 수 있고, 소각분 10%를 제외한 시드 편입액을 환급하며 해당 펀드를 운용 목록에서 삭제합니다. 자진 상장폐지되어 환급이 끝난 ETF에는 '목록에서 삭제' 버튼을 추가해 화면과 기존 상장 신청 기록에서 영구히 제거할 수 있습니다. 삭제 시 상장 신청 기록도 함께 정리해 재접속 후 상폐 펀드가 다시 나타나지 않습니다.",
+  },
+  {
+    date: "2026-07-24",
     tag: "신규",
     title: "예약 상장 — 이오리 소프트웨어(IORI), 7/27 15:30 KST 개장",
     detail:

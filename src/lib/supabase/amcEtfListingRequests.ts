@@ -463,6 +463,48 @@ export async function recoverRejectedAmcFundSeed(
   };
 }
 
+export interface CancelAmcListingRequestResult {
+  success: boolean;
+  message: string;
+  /** 승인 전 신청 취소로 시드 편입액을 환급했는지 여부. */
+  refunded: boolean;
+  refundCents: number;
+}
+
+/**
+ * 운용사가 자기 유저 ETF의 상장 허가 신청을 직접 취소하거나(승인 전: 시드 환급),
+ * 자진 상장폐지 뒤 남은 신청 기록을 삭제한다(상장 뒤: 환급 없이 기록만 삭제).
+ * 신청 삭제로 상장 신청 재조정이 상폐 펀드를 되살리지 않는다.
+ */
+export async function cancelOwnAmcListingRequest(
+  requestId: string,
+): Promise<CancelAmcListingRequestResult> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "cancel_own_amc_listing_request",
+    { p_request_id: requestId },
+  );
+  if (error || !data) {
+    return {
+      success: false,
+      message: "상장 신청 취소·삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      refunded: false,
+      refundCents: 0,
+    };
+  }
+  const result = data as Record<string, unknown>;
+  const refundCents = Number(result.refundCents);
+  return {
+    success: result.success === true,
+    message:
+      result.refunded === true
+        ? "소각분을 제외한 시드 편입액을 환급하고 상장 신청을 취소했습니다."
+        : "상장 신청 기록을 삭제했습니다.",
+    refunded: result.refunded === true,
+    refundCents: Number.isFinite(refundCents) ? refundCents : 0,
+  };
+}
+
 export async function listRecoveredRejectedAmcRequestIds(): Promise<string[]> {
   const auth = await getCurrentAuth();
   if (!auth) return [];
