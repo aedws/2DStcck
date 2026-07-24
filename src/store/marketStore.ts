@@ -96,6 +96,7 @@ import {
   getPumpSpawnEvent,
   delistedPumpFinalPrice,
   isPumpStock,
+  pumpExecutionFillPrice,
   replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
 import { isListed } from "@/lib/market/ipo";
@@ -146,6 +147,7 @@ import {
   corporateIncomeTaxExact,
   derivativeProfitTaxExact,
   makeTaxPayment,
+  pumpSurveillanceTaxExact,
   taxableGainExact,
 } from "@/lib/market/taxes";
 import { generateOrderBook } from "@/lib/market/orderBook";
@@ -1668,6 +1670,17 @@ function applyLocalBuySell(
     };
   }
 
+  // 급등주는 유동성이 얕아 명목가·고가권에 따라 체결가가 더 불리해진다(체결 마찰).
+  if (isPumpStock(stock)) {
+    price = pumpExecutionFillPrice(
+      mode.startsWith("buy") ? "buy" : "sell",
+      price,
+      stock.currentPrice,
+      stock.initialPrice,
+      quantity,
+    );
+  }
+
   if (mode.startsWith("buy")) {
     const buyingPower = longBuyingPower(state);
     const total = shareOrderTotal(price, quantity);
@@ -1734,15 +1747,37 @@ function applyLocalBuySell(
     dueSession: Math.floor(now / SESSION_DURATION_MS),
     timestamp: now,
   });
-  const cashExact = exactSubtract(result.cashExact, taxExact);
+  // 급등주 실현 차익에는 순자산과 무관한 시세조종 감시세를 정액률로 부과한다.
+  const surtaxExact = isPumpStock(stock)
+    ? pumpSurveillanceTaxExact(
+        taxableGainExact(price, soldHolding?.averagePrice ?? price, quantity),
+      )
+    : "0";
+  const surtaxPayment = makeTaxPayment({
+    id: `tax-pump-${result.trade.id}`,
+    kind: "pump_surveillance_tax",
+    amountExact: surtaxExact,
+    sourceId: stockId,
+    ticker: stock.ticker,
+    dueSession: Math.floor(now / SESSION_DURATION_MS),
+    timestamp: now,
+  });
+  const cashExact = exactSubtract(
+    exactSubtract(result.cashExact, taxExact),
+    surtaxExact,
+  );
+  const newPayments = [taxPayment, surtaxPayment].filter(
+    (payment): payment is NonNullable<typeof payment> => payment !== null,
+  );
   set({
     cash: exactToNumber(cashExact),
     cashExact,
     holdings: result.holdings,
     trades: [result.trade, ...state.trades],
-    cashPayments: taxPayment
-      ? [taxPayment, ...state.cashPayments].slice(0, 200)
-      : state.cashPayments,
+    cashPayments:
+      newPayments.length > 0
+        ? [...newPayments, ...state.cashPayments].slice(0, 200)
+        : state.cashPayments,
   });
   get().checkAchievements();
   return {

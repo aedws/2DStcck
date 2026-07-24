@@ -127,9 +127,22 @@ export function taxableGainExact(
   return exactPositionValue(exitPrice - entryPrice, quantity);
 }
 
+/**
+ * 급등주 시세조종 감시세 — 실현 차익에 정액률로 부과되는 벌과금성 세금이다.
+ * 일반 세금과 달리 순자산 $1T 면세와 무관하게 전 구간에 적용해 급등주 전략의
+ * 기대값 자체를 삭감한다.
+ */
+export const PUMP_SURVEILLANCE_TAX_BPS = 3000n; // 30%
+
+export function pumpSurveillanceTaxExact(realizedGainExact: unknown): string {
+  const gain = BigInt(normalizeExactAmount(realizedGainExact));
+  if (gain <= 0n) return "0";
+  return ((gain * PUMP_SURVEILLANCE_TAX_BPS + 5000n) / 10_000n).toString();
+}
+
 export function makeTaxPayment(input: {
   id: string;
-  kind: MarketTaxKind;
+  kind: MarketTaxKind | "pump_surveillance_tax";
   amountExact: unknown;
   sourceId: string;
   ticker?: string;

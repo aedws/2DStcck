@@ -376,6 +376,38 @@ export function pumpPriceAt(spec: PumpSpec, now: number): number {
   return rawPrice;
 }
 
+/**
+ * 급등주 체결 마찰(슬리피지): 실제 펌프 종목의 얕은 유동성을 반영한다.
+ * 주문 명목가가 클수록, 그리고 상장가 대비 고가권일수록 호가 깊이가 얇아져
+ * 체결가가 더 불리해진다. 매수는 더 비싸게, 매도는 더 싸게 체결된다.
+ */
+export const PUMP_BASE_SPREAD = 0.01; // 소량이라도 최소 1% 마찰
+export const PUMP_LIQUIDITY_REF_CENTS = 1_800_000; // 상장가 부근에서 마찰 없이 소화되는 명목가 기준($18k)
+export const PUMP_MAX_FILL_IMPACT = 0.4; // 체결 마찰 상한 40%
+
+export function pumpFillImpact(elevation: number, notionalCents: number): number {
+  const effectiveLiquidity = Math.max(
+    300_000,
+    PUMP_LIQUIDITY_REF_CENTS / Math.max(1, elevation),
+  );
+  const sizeImpact = 0.1 * Math.sqrt(Math.max(0, notionalCents) / effectiveLiquidity);
+  return Math.min(PUMP_MAX_FILL_IMPACT, PUMP_BASE_SPREAD + sizeImpact);
+}
+
+export function pumpExecutionFillPrice(
+  side: "buy" | "sell",
+  fillPrice: number,
+  currentPrice: number,
+  initialPrice: number,
+  quantity: number,
+): number {
+  const elevation = currentPrice / Math.max(1, initialPrice);
+  const impact = pumpFillImpact(elevation, fillPrice * quantity);
+  return side === "buy"
+    ? Math.ceil(fillPrice * (1 + impact))
+    : Math.max(1, Math.floor(fillPrice * (1 - impact)));
+}
+
 /** 상장폐지 시 최종 정산가 (수명 종료 시점 가격) */
 export function pumpFinalPrice(spec: PumpSpec): number {
   const end =

@@ -568,19 +568,44 @@ export default function PortfolioPage() {
             풀리면 휴면(재집중 시 부활)되고, 5캐릭터 이상으로 5거래일 넘게 분산하면
             액면가로 매각·재발행 불가.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {preferredShares.map((share) => {
               const active = activePreferredIds.has(share.characterId);
+              const yieldPct =
+                share.faceValue > 0
+                  ? (share.dividendPerShare / share.faceValue) * 100
+                  : 0;
+              const value = share.faceValue * share.shares;
+              const quarterly = share.dividendPerShare * share.shares;
               return (
                 <Link
                   key={share.characterId}
                   href={`/characters/${share.companyId}`}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs ${active ? "bg-amber-500/15 text-amber-200 hover:bg-amber-500/25" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"}`}
-                  title={`${share.companyName} 우선주 · 분기 배당 ${formatPrice(share.dividendPerShare * share.shares)}${active ? "" : " · 💤 휴면"}`}
+                  className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 ${active ? "bg-amber-500/10 text-amber-100 hover:bg-amber-500/20" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"}`}
                 >
-                  <span className="text-base leading-none">{share.emoji}</span>
-                  {share.companyName}
-                  {!active && <span className="text-[10px]">💤</span>}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="text-lg leading-none">{share.emoji}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold">
+                        {share.companyName}
+                        {!active && (
+                          <span className="ml-1 text-[10px]">💤 휴면</span>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block text-[10px] opacity-80">
+                        {share.shares.toLocaleString("ko-KR")}좌 · 분기 배당률{" "}
+                        {yieldPct.toFixed(1)}%
+                      </span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right tabular-nums">
+                    <span className="block text-xs font-bold">
+                      {formatPrice(value)}
+                    </span>
+                    <span className="block text-[10px] opacity-80">
+                      분기 {formatPrice(quarterly)}
+                    </span>
+                  </span>
                 </Link>
               );
             })}

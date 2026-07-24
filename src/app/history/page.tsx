@@ -87,6 +87,8 @@ export default function HistoryPage() {
                                               ? "금융투자소득세"
                                               : payment.kind === "corporate_tax"
                                                 ? "법인세"
+                                        : payment.kind === "pump_surveillance_tax"
+                                          ? "급등주 감시세"
                                         : payment.kind === "amc_dividend"
                                           ? "유저 ETF 배당"
                                           : payment.kind === "amc_redemption"

@@ -341,6 +341,8 @@ export type CashPaymentKind =
   | "capital_gains_tax"
   | "financial_investment_tax"
   | "corporate_tax"
+  // 급등주 시세조종 감시세 — 순자산과 무관한 정액 벌과금성 세금.
+  | "pump_surveillance_tax"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
   | "minigame"
   // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.
