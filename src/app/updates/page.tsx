@@ -177,7 +177,7 @@ export default function UpdatesPage() {
                   <div className="mt-2.5 space-y-2 rounded-xl border border-sky-500/15 bg-sky-500/[0.06] px-3.5 py-3">
                     <div>
                       <p className="text-xs font-semibold text-sky-400">
-                        핵심 개선
+                        핵심 변화 · {highlightLines.length}개 주제
                       </p>
                       {highlightLines.length > 1 ? (
                         <ul className="mt-1 space-y-1">
