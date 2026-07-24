@@ -207,8 +207,8 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     drift: 0,
     beta: 0,
     coveredCallUnderlyingId: "vnasdaq",
-    coveredCallAnnualYield: 12,
-    coveredCallUpsideCapture: 0.65,
+    coveredCallAnnualYield: 85,
+    coveredCallUpsideCapture: 0.9,
     coveredCallDistributionIntervalDays: 20,
     description:
       "V-NASDAQ을 보유하면서 콜옵션 프리미엄을 수취하는 커버드콜 ETF. 하락은 그대로 반영되고 상승 일부를 포기하는 대신, 변동 가능한 월 분배금을 20거래일마다 지급한다.",
@@ -914,13 +914,8 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
     })),
   );
 
-function deterministicCoveredCallYield(stockId: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < stockId.length; index++) {
-    hash ^= stockId.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return 30 + ((hash >>> 0) % 151) / 10;
+function deterministicCoveredCallYield(_stockId: string): number {
+  return 85;
 }
 
 /** 캐릭터가 있는 실제 기업마다 ±0.7배 단일 종목 커버드콜을 제공한다. */
@@ -941,12 +936,12 @@ const SINGLE_STOCK_COVERED_CALLS: StockDefinition[] =
     beta: 0,
     coveredCallUnderlyingId: underlying.id,
     coveredCallAnnualYield: deterministicCoveredCallYield(underlying.id),
-    coveredCallUpsideCapture: 0.7,
+    coveredCallUpsideCapture: 0.9,
     coveredCallDistributionIntervalDays: 5,
     universalDerivative: true,
     // 기초자산이 IPO 예정이면 커버드콜도 같은 시각까지 비상장으로 묶는다.
     listingEpochMs: underlying.listingEpochMs,
-    description: `${underlying.name}의 상승·하락을 0.7배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.`,
+    description: `${underlying.name}의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.`,
   }));
 
 export const STOCK_DEFINITIONS: StockDefinition[] = [

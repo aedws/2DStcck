@@ -3087,8 +3087,34 @@ export const useMarketStore = create<MarketStore>()(
           return false;
         });
 
+        // 우선주 배당은 집중 유지 중인 활성분에만 지급한다.
+        const activePreferredForTick =
+          state.preferredShares.length > 0
+            ? (() => {
+                const rel = relationshipEquityOf({
+                  ...state,
+                  holdings,
+                  stocks: combinedStocks,
+                });
+                return getActivePreferredShares(
+                  state.preferredShares,
+                  computeCharacterConcentration(
+                    holdings,
+                    combinedStocks,
+                    rel.equity,
+                    rel.userEtfHoldings,
+                  ),
+                );
+              })()
+            : [];
         const settled = settleLocalCashflows(
-          { ...state, stocks: combinedStocks, cash, holdings },
+          {
+            ...state,
+            stocks: combinedStocks,
+            cash,
+            holdings,
+            preferredShares: activePreferredForTick,
+          },
           currentSession,
           now,
         );
@@ -3773,16 +3799,13 @@ export const useMarketStore = create<MarketStore>()(
             );
           }
         }
-        // 유의미 분산(5캐릭터↑) 지속 시각을 추적해 5거래일 유예 후에만 휴면분 매각.
+        // 분산하는 순간(유예 없음) 우선주는 전량 소멸한다 — 가치는 환급되지 않는다.
         const diversified =
           preferredConcentration.heldCount >= PREFERRED_DIVERSIFY_CHARACTERS;
         let preferredDiversifiedSince = diversified
           ? state.preferredDiversifiedSince ?? currentSession
           : null;
-        const sellDormant =
-          diversified &&
-          preferredDiversifiedSince !== null &&
-          currentSession - preferredDiversifiedSince >= PREFERRED_SALE_GRACE_SESSIONS;
+        const sellDormant = diversified;
         const preferredReconcile = reconcilePreferredShares(
           characterProgress,
           state.preferredShares,
@@ -3795,26 +3818,12 @@ export const useMarketStore = create<MarketStore>()(
             sellDormant,
           },
         );
-        // 매각이 확정돼 처분했으면 분산 타이머를 초기화한다.
+        // 분산 소멸이 확정됐으면 분산 타이머를 초기화한다.
         if (sellDormant && preferredReconcile.sold.length > 0) {
           preferredDiversifiedSince = null;
         }
         const preferredShares = preferredReconcile.shares;
         const preferredIssuedCharacterIds = preferredReconcile.issuedCharacterIds;
-        // 집중 해제로 매각된 우선주는 액면가를 현금으로 지급한다.
-        if (preferredReconcile.proceeds > 0) {
-          cashExact = exactAdd(cashExact, preferredReconcile.proceeds);
-          cash = exactToNumber(cashExact);
-          const salePayment: CashPayment = {
-            id: `preferred-sale-${currentSession}-${preferredReconcile.sold[0]?.characterId ?? "x"}`,
-            kind: "preferred_dividend",
-            sourceId: "preferred-sale",
-            dueSession: currentSession,
-            amount: preferredReconcile.proceeds,
-            timestamp: now,
-          };
-          cashPayments = [salePayment, ...cashPayments].slice(0, 200);
-        }
         for (const toast of relationshipToasts.slice(0, 3)) {
           useToastStore.getState().push(toast, "success");
         }
@@ -3826,11 +3835,11 @@ export const useMarketStore = create<MarketStore>()(
         }
         for (const share of preferredReconcile.sold) {
           useToastStore.getState().push(
-            `💸 ${share.emoji} ${share.companyName} 우선주 매각 — 집중 해제 (+${formatPrice(share.faceValue * share.shares)})`,
-            "info",
+            `⚠️ ${share.emoji} ${share.companyName} 우선주 소멸 — 분산으로 0주 초기화(환급 없음)`,
+            "error",
           );
         }
-        if (preferredReconcile.issued.length > 0 || preferredReconcile.proceeds > 0) {
+        if (preferredReconcile.issued.length > 0) {
           playSound("cash");
         }
 

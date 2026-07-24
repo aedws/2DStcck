@@ -400,10 +400,12 @@ export interface PreferredShare {
   emoji: string;
   /** 발행 좌수 (기본 1좌) */
   shares: number;
-  /** 좌당 액면가 (총자산 반영용) */
+  /** 좌당 현재 가치 (본주 등락을 비대칭 추종해 매 정산마다 갱신, 총자산 반영용) */
   faceValue: number;
-  /** 좌당 분기 배당액 */
+  /** 좌당 20거래일 배당액 (= 현재 가치의 50%) */
   dividendPerShare: number;
+  /** 가치 추종 기준가 — 마지막 정산 시점의 본주가. 없으면 발행가로 간주. */
+  lastTrackPrice?: number;
   /** 최초 발행 거래일 */
   issuedSession: number;
   issuedAt: number;

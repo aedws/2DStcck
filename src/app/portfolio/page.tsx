@@ -25,6 +25,7 @@ import {
   getPreferredShareValue,
 } from "@/lib/player/preferredShares";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import { getCharacterById } from "@/data/characters";
 import {
   computeRealizedPnl,
   computeUnrealizedPnl,
@@ -137,6 +138,58 @@ export default function PortfolioPage() {
     activePreferredShares.map((share) => share.characterId),
   );
   const preferredValue = getPreferredShareValue(activePreferredShares);
+
+  // 자산 비중 도넛: 현금·주식·파생·유저 ETF·금·단기채·우선주·명품으로 분류.
+  const assetSlices = useMemo(() => {
+    const byCategory: Record<string, number> = {};
+    const add = (label: string, value: number) => {
+      if (value > 0) byCategory[label] = (byCategory[label] ?? 0) + value;
+    };
+    const stockById = new Map(stocks.map((s) => [s.id, s]));
+    for (const holding of holdings) {
+      if (holding.quantity <= 0) continue;
+      const stock = stockById.get(holding.stockId);
+      if (!stock) continue;
+      const value = holding.quantity * stock.currentPrice;
+      if (stock.id === "gldx") add("금", value);
+      else if (stock.id === "sbnd") add("단기채", value);
+      else if (stock.leverage !== undefined || stock.coveredCallUnderlyingId)
+        add("파생상품", value);
+      else add("주식", value);
+    }
+    add("유저 ETF", amcValue);
+    add("우선주", preferredValue);
+    add("명품", luxuryValue);
+    add("현금", Math.max(0, cash));
+    return Object.entries(byCategory)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [holdings, stocks, amcValue, preferredValue, luxuryValue, cash]);
+
+  // 캐릭터 비중 도넛: 직접 종목·유저 ETF 룩스루·커버드콜·양수 레버리지를 기초
+  // 캐릭터로 합산한 비중(preferredConcentration). 나머지는 '기타·현금'으로 묶는다.
+  const equityForShares = getEquity();
+  const characterSlices = useMemo(() => {
+    const slices: { label: string; value: number }[] = [];
+    let smallSum = 0;
+    let attributed = 0;
+    for (const row of preferredConcentration.ranked) {
+      const value = Math.max(0, row.share) * equityForShares;
+      attributed += Math.max(0, row.share);
+      if (row.share >= 0.01) {
+        slices.push({
+          label: getCharacterById(row.characterId)?.name ?? row.characterId,
+          value,
+        });
+      } else {
+        smallSum += value;
+      }
+    }
+    const rest = Math.max(0, 1 - attributed) * equityForShares + smallSum;
+    if (rest > 0) slices.push({ label: "기타·현금", value: rest });
+    return slices;
+  }, [preferredConcentration, equityForShares]);
+
   const priceById = Object.fromEntries(
     stocks.map((s) => [s.id, s.currentPrice]),
   );
@@ -548,6 +601,13 @@ export default function PortfolioPage() {
         </div>
       )}
 
+      {(assetSlices.length > 0 || characterSlices.length > 0) && (
+        <div className="mb-6 grid gap-3 sm:grid-cols-2">
+          <Donut title="자산 비중" slices={assetSlices} />
+          <Donut title="캐릭터 비중" slices={characterSlices} />
+        </div>
+      )}
+
       {preferredShares.length > 0 && (
         <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
           <div className="mb-3 flex items-baseline justify-between">
@@ -564,9 +624,10 @@ export default function PortfolioPage() {
           </div>
           <p className="mb-2 text-[11px] text-zinc-500">
             집중(원 앤 온리·트윈 스타·트리플 하르모니아) 유지 중인 우선주만 자산·배당에
-            반영되며 호감 100 이상도 유지하면 5거래일마다 1좌가 추가 지급됩니다. 집중이
-            풀리면 휴면(재집중 시 부활)되고, 5캐릭터 이상으로 5거래일 넘게 분산하면
-            액면가로 매각·재발행 불가.
+            반영됩니다. 가치는 본주 등락을 비대칭 추종(상승 200%·하락 20%)하고 20거래일마다
+            가치의 50%를 배당합니다. 호감 100 이상 유지 시 5거래일마다 1좌가 추가 지급되며,
+            집중이 풀리면 휴면(재집중 시 부활)됩니다. 단, 5캐릭터 이상으로 분산하는 순간
+            전량 0주로 소멸하며 가치는 환급되지 않습니다.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {preferredShares.map((share) => {
@@ -593,7 +654,7 @@ export default function PortfolioPage() {
                         )}
                       </span>
                       <span className="mt-0.5 block text-[10px] opacity-80">
-                        {share.shares.toLocaleString("ko-KR")}좌 · 분기 배당률{" "}
+                        {share.shares.toLocaleString("ko-KR")}좌 · 20일 배당률{" "}
                         {yieldPct.toFixed(1)}%
                       </span>
                     </span>
@@ -603,7 +664,7 @@ export default function PortfolioPage() {
                       {formatPrice(value)}
                     </span>
                     <span className="block text-[10px] opacity-80">
-                      분기 {formatPrice(quarterly)}
+                      20일 {formatPrice(quarterly)}
                     </span>
                   </span>
                 </Link>
@@ -832,6 +893,104 @@ function SummaryCard({
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
       <p className="text-xs text-zinc-500">{label}</p>
       <p className={`mt-1 text-xl font-semibold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+const DONUT_COLORS = [
+  "#34d399",
+  "#60a5fa",
+  "#f472b6",
+  "#fbbf24",
+  "#a78bfa",
+  "#22d3ee",
+  "#fb7185",
+  "#84cc16",
+  "#f97316",
+  "#e879f9",
+  "#2dd4bf",
+  "#94a3b8",
+];
+
+/** 라벨 겹침 없이 도넛 + 우측 범례로 비중을 보여준다. */
+function Donut({
+  title,
+  slices,
+}: {
+  title: string;
+  slices: { label: string; value: number }[];
+}) {
+  const total = slices.reduce((sum, slice) => sum + Math.max(0, slice.value), 0);
+  if (total <= 0) {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <h3 className="mb-2 text-xs font-semibold text-zinc-400">{title}</h3>
+        <p className="py-8 text-center text-xs text-zinc-500">
+          표시할 자산이 없습니다.
+        </p>
+      </div>
+    );
+  }
+  let cumulative = 0;
+  const arcs = slices.map((slice, index) => {
+    const pct = (Math.max(0, slice.value) / total) * 100;
+    const arc = {
+      color: DONUT_COLORS[index % DONUT_COLORS.length],
+      dash: `${pct} ${100 - pct}`,
+      offset: -cumulative,
+    };
+    cumulative += pct;
+    return arc;
+  });
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+      <h3 className="mb-3 text-xs font-semibold text-zinc-400">{title}</h3>
+      <div className="flex items-center gap-4">
+        <svg viewBox="0 0 36 36" className="h-24 w-24 shrink-0 -rotate-90">
+          <circle
+            cx="18"
+            cy="18"
+            r="15.915"
+            fill="none"
+            stroke="var(--border)"
+            strokeWidth="4"
+          />
+          {arcs.map((arc, index) => (
+            <circle
+              key={index}
+              cx="18"
+              cy="18"
+              r="15.915"
+              fill="none"
+              stroke={arc.color}
+              strokeWidth="4"
+              strokeDasharray={arc.dash}
+              strokeDashoffset={arc.offset}
+            />
+          ))}
+        </svg>
+        <ul className="min-w-0 flex-1 space-y-1 text-xs">
+          {slices.map((slice, index) => (
+            <li
+              key={slice.label}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{
+                    backgroundColor: DONUT_COLORS[index % DONUT_COLORS.length],
+                  }}
+                />
+                <span className="truncate text-zinc-300">{slice.label}</span>
+              </span>
+              <span className="shrink-0 tabular-nums text-zinc-400">
+                {((Math.max(0, slice.value) / total) * 100).toFixed(1)}%
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

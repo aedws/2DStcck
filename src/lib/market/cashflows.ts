@@ -223,10 +223,10 @@ export function settleLocalCashflows(
     }
   }
 
-  // 관계 보상 우선주 배당 — 분기 배당과 같은 그리드로 지급 (시세와 무관한 고정액).
+  // 관계 보상 우선주 배당 — 20거래일마다 현재 가치의 50%(dividendPerShare)를 지급한다.
   // 인버스·곱버스 보유로 호감이 음수(적대)면 주주권리 계수만큼 배당이 감소한다.
   const preferredShares = input.preferredShares ?? [];
-  for (const dueSession of quarterly.dueSessions) {
+  for (const dueSession of monthly.dueSessions) {
     for (const share of preferredShares) {
       const affinity = getCharacterProgress(
         input.characterProgress ?? {},

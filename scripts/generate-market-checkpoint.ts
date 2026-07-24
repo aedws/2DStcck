@@ -22,9 +22,9 @@ while (tick < targetTick) {
   console.log(`market checkpoint ${tick}/${targetTick}`);
 }
 
-// 앱 번들에는 부팅에 필요한 최근 구간만 싣는다. 런타임 체크포인트는
-// compactMarketCheckpoint의 기본값(240거래일)을 유지해 장기 차트를 보존한다.
-const checkpoint = compactMarketCheckpoint(stocks, events, tick, 43);
+// 앱 번들에는 부팅에 필요한 최근 구간만 싣는다. 일봉 보존 구간은 모바일 번들
+// 1MiB 예산에 맞춰 40거래일로 둔다(런타임은 이후 계속 누적).
+const checkpoint = compactMarketCheckpoint(stocks, events, tick, 40);
 const outputPath = resolve(process.cwd(), "src/data/market-checkpoint.json");
 writeFileSync(outputPath, `${JSON.stringify(checkpoint)}\n`, "utf8");
 console.log(`wrote ${outputPath}`);

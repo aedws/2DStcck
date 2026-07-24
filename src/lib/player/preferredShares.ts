@@ -12,10 +12,29 @@ import type {
   StockState,
 } from "@/lib/types/market";
 
-/** 우선주 액면가 = 발행 시점 본주 가격 × 1.30 (30% 상향, 이후 고정). */
+/** 우선주 발행가 = 발행 시점 본주 가격 × 1.30 (30% 상향). 이후 본주 등락을 추종한다. */
 export const PREFERRED_FACE_PREMIUM = 1.3;
-/** 우선주 분기 배당률 = 본주 분기 배당률 + 5.0%p. */
+/** 우선주 분기 배당률 = 본주 분기 배당률 + 5.0%p. (구 모델 호환용 상수) */
 export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.05;
+/** 가치 추종: 본주 일별 상승은 200%, 하락은 20%만 반영한다(비대칭). */
+export const PREFERRED_UPSIDE_TRACK = 2.0;
+export const PREFERRED_DOWNSIDE_TRACK = 0.2;
+/** 20거래일마다 지급하는 배당 = 현재 가치의 50%. */
+export const PREFERRED_DIVIDEND_RATE = 0.5;
+
+/** 본주 등락을 비대칭 추종해 갱신한 좌당 가치를 돌려준다. */
+export function trackedPreferredFaceValue(
+  previousFace: number,
+  lastTrackPrice: number,
+  currentPrice: number,
+): number {
+  if (!(lastTrackPrice > 0) || !(currentPrice > 0)) return previousFace;
+  const rawReturn = currentPrice / lastTrackPrice - 1;
+  const factor =
+    1 +
+    rawReturn * (rawReturn >= 0 ? PREFERRED_UPSIDE_TRACK : PREFERRED_DOWNSIDE_TRACK);
+  return Math.max(1, Math.round(previousFace * Math.max(0, factor)));
+}
 /** 시세를 못 구할 때 쓰는 액면 하한 (초기 발행 안전장치). */
 const PREFERRED_FACE_FALLBACK = 80_000;
 /** 매각이 발동하는 '유의미한 분산' 기준 — 보유 캐릭터 수. */
@@ -104,48 +123,62 @@ export function reconcilePreferredShares(
   const focused = new Set(context.concentration.focusedCharacterIds);
   const isActive = (characterId: string) => eligible && focused.has(characterId);
 
-  // 1) 휴면(집중 이탈) 우선주 처리: 매각 확정 시에만 액면가로 현금화하고 제거,
-  //    아니면 그대로 보유(재집중 시 부활). 시세 드리프트로 인한 강제 매각을 막는다.
-  const kept: PreferredShare[] = [];
-  const sold: PreferredShare[] = [];
-  const issued: PreferredShare[] = [];
-  let proceeds = 0;
-  for (const share of existing) {
-    if (isActive(share.characterId) || !context.sellDormant) {
-      const affinity =
-        getCharacterProgress(progress, share.characterId).affinity;
-      const lastIssuedSession =
-        share.lastIssuedSession ?? share.issuedSession;
-      if (
-        isActive(share.characterId) &&
-        affinity >= PREFERRED_SHARE_AFFINITY &&
-        session - lastIssuedSession >= PREFERRED_GRANT_INTERVAL_SESSIONS
-      ) {
-        const updated = {
-          ...share,
-          shares: share.shares + 1,
-          lastIssuedSession: session,
-        };
-        kept.push(updated);
-        issued.push({ ...updated, shares: 1 });
-      } else {
-        kept.push(share);
-      }
-    } else {
-      sold.push(share);
-      proceeds += share.faceValue * share.shares;
-    }
-  }
-
-  // 2) 신규 발행 (지정·동맹·과거 미발행)
-  const everIssued = new Set(issuedCharacterIds);
-  const ownedNow = new Set(kept.map((share) => share.characterId));
   const stockByCharacter = new Map<string, StockState>();
   for (const stock of context.stocks) {
     if (stock.ceoId && stock.leverage === undefined && !stock.coveredCallUnderlyingId) {
       stockByCharacter.set(stock.ceoId, stock);
     }
   }
+  // 활성 우선주 가치를 본주 등락에 맞춰 비대칭 추종 갱신하고, 20거래일 배당액을
+  // 현재 가치의 50%로 재산정한다.
+  const trackValue = (share: PreferredShare): PreferredShare => {
+    const price = stockByCharacter.get(share.characterId)?.currentPrice ?? 0;
+    if (!(price > 0)) return share;
+    const base = share.lastTrackPrice ?? price;
+    const faceValue = trackedPreferredFaceValue(share.faceValue, base, price);
+    return {
+      ...share,
+      faceValue,
+      lastTrackPrice: price,
+      dividendPerShare: Math.round(faceValue * PREFERRED_DIVIDEND_RATE),
+    };
+  };
+
+  // 1) 보유 우선주: 집중 유지 중이면 가치를 추종 갱신하고 조건 충족 시 1좌 추가.
+  //    유의미 분산(5캐릭터↑)이 확정되면 전량 소멸한다 — 가치는 환급되지 않는다.
+  const kept: PreferredShare[] = [];
+  const sold: PreferredShare[] = [];
+  const issued: PreferredShare[] = [];
+  const proceeds = 0;
+  for (const share of existing) {
+    if (context.sellDormant && !isActive(share.characterId)) {
+      // 분산 확정 — 0주 초기화, 환급 없음.
+      sold.push(share);
+      continue;
+    }
+    const tracked = isActive(share.characterId) ? trackValue(share) : share;
+    const affinity = getCharacterProgress(progress, share.characterId).affinity;
+    const lastIssuedSession = tracked.lastIssuedSession ?? tracked.issuedSession;
+    if (
+      isActive(share.characterId) &&
+      affinity >= PREFERRED_SHARE_AFFINITY &&
+      session - lastIssuedSession >= PREFERRED_GRANT_INTERVAL_SESSIONS
+    ) {
+      const updated = {
+        ...tracked,
+        shares: tracked.shares + 1,
+        lastIssuedSession: session,
+      };
+      kept.push(updated);
+      issued.push({ ...updated, shares: 1 });
+    } else {
+      kept.push(tracked);
+    }
+  }
+
+  // 2) 신규 발행 (지정·동맹·과거 미발행)
+  const everIssued = new Set(issuedCharacterIds);
+  const ownedNow = new Set(kept.map((share) => share.characterId));
   const newlyIssued: PreferredShare[] = [];
   if (eligible) {
     for (const company of getCompanyDefinitions()) {
@@ -159,10 +192,7 @@ export function reconcilePreferredShares(
       const price = stock?.currentPrice ?? 0;
       const faceValue =
         price > 0 ? Math.round(price * PREFERRED_FACE_PREMIUM) : PREFERRED_FACE_FALLBACK;
-      const commonYield = price > 0 ? (stock?.quarterlyDividend ?? 0) / price : 0;
-      const dividendPerShare = Math.round(
-        faceValue * (commonYield + PREFERRED_DIVIDEND_YIELD_BONUS),
-      );
+      const dividendPerShare = Math.round(faceValue * PREFERRED_DIVIDEND_RATE);
       const ceo = getCharacterById(characterId);
       const share = {
         characterId,
@@ -173,6 +203,7 @@ export function reconcilePreferredShares(
         shares: 1,
         faceValue,
         dividendPerShare,
+        lastTrackPrice: price > 0 ? price : undefined,
         issuedSession: session,
         issuedAt: now,
         lastIssuedSession: session,
@@ -212,6 +243,8 @@ export function normalizePreferredShares(value: unknown): PreferredShare[] {
       shares: Math.max(1, Math.floor(Number(item.shares) || 1)),
       faceValue: Math.max(0, Number(item.faceValue) || PREFERRED_FACE_FALLBACK),
       dividendPerShare: Math.max(0, Number(item.dividendPerShare) || 0),
+      lastTrackPrice:
+        Number(item.lastTrackPrice) > 0 ? Number(item.lastTrackPrice) : undefined,
       issuedSession: Math.max(0, Math.floor(Number(item.issuedSession) || 0)),
       issuedAt: Number(item.issuedAt) || 0,
       lastIssuedSession: Math.max(

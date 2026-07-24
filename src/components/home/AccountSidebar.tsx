@@ -366,7 +366,7 @@ export function AccountSidebar() {
                         </span>
                         {position.preferred ? (
                           <span className="tabular-nums text-amber-300">
-                            분기 배당률 {(position.dividendYield ?? 0).toFixed(1)}%
+                            20일 배당률 {(position.dividendYield ?? 0).toFixed(1)}%
                           </span>
                         ) : (
                           <span
@@ -378,7 +378,7 @@ export function AccountSidebar() {
                       </div>
                       {position.preferred && (
                         <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--muted)]">
-                          <span>분기 배당</span>
+                          <span>20일 배당</span>
                           <span className="tabular-nums">
                             {formatPrice(position.quarterlyDividend ?? 0)}
                           </span>
