@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
 import { useToastStore } from "@/store/toastStore";
 
-const MANUAL_SAVE_COOLDOWN_MS = 60_000;
+const MANUAL_SAVE_COOLDOWN_MS = 30 * 60_000;
 
 function cooldownStorageKey(userId: string): string {
   return `2dstock-manual-save:${userId}`;
@@ -23,10 +23,18 @@ export function ManualCloudSaveButton() {
       setLastSavedAt(0);
       return;
     }
-    const stored = Number(
-      window.localStorage.getItem(cooldownStorageKey(userId)),
-    );
-    setLastSavedAt(Number.isFinite(stored) ? stored : 0);
+    const storageKey = cooldownStorageKey(userId);
+    const syncLastSavedAt = () => {
+      const stored = Number(window.localStorage.getItem(storageKey));
+      setLastSavedAt(Number.isFinite(stored) ? stored : 0);
+      setNow(Date.now());
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === storageKey) syncLastSavedAt();
+    };
+    syncLastSavedAt();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, [userId]);
 
   const remainingSeconds = useMemo(
@@ -48,6 +56,14 @@ export function ManualCloudSaveButton() {
 
   const disabled =
     !userId || !cloudSyncReady || saving || remainingSeconds > 0;
+  const remainingLabel =
+    remainingSeconds >= 60
+      ? `${Math.ceil(remainingSeconds / 60)}분`
+      : `${remainingSeconds}초`;
+  const remainingDescription =
+    remainingSeconds >= 60
+      ? `${Math.floor(remainingSeconds / 60)}분 ${remainingSeconds % 60}초`
+      : `${remainingSeconds}초`;
 
   async function handleSave() {
     if (disabled || !userId) return;
@@ -84,7 +100,7 @@ export function ManualCloudSaveButton() {
   const label = saving
     ? "저장 중"
     : remainingSeconds > 0
-      ? `${remainingSeconds}초`
+      ? remainingLabel
       : "저장";
 
   return (
@@ -96,10 +112,10 @@ export function ManualCloudSaveButton() {
         !userId
           ? "로그인 후 수동 저장할 수 있습니다"
           : remainingSeconds > 0
-            ? `${remainingSeconds}초 후 다시 저장할 수 있습니다`
+            ? `${remainingDescription} 후 다시 저장할 수 있습니다`
             : "현재 계좌를 Supabase에 수동 저장"
       }
-      aria-label={`수동 저장${remainingSeconds > 0 ? `, ${remainingSeconds}초 후 사용 가능` : ""}`}
+      aria-label={`수동 저장${remainingSeconds > 0 ? `, ${remainingDescription} 후 사용 가능` : ""}`}
       className="inline-flex min-h-10 min-w-14 touch-manipulation items-center justify-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-2 text-xs font-semibold transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-20 sm:px-3"
     >
       <span aria-hidden>💾</span>

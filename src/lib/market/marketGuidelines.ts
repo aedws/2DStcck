@@ -52,6 +52,7 @@ const TRAIT_AFFINITY: Record<string, Partial<Weights>> = {
   워커홀릭: { management: 2 },
   천재: { neutral: 1 },
   성실: { shareholder: 2 },
+  주주보호: { shareholder: 5 },
   은둔형: { defensive: 2 },
   회피형: { defensive: 2 },
 };

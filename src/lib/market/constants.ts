@@ -57,8 +57,10 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  메신저·페스티벌·연료비 절감·화력조절 사건 추가 — 전체 체크포인트를 재생성한다.
  *  v38: 7/26 승인 IPO '주붕투자증권(JBINV)'·'홍루 은행(HONGL)'·
  *  '파급효과(PGHG)'·'에이메스 네트웍스(AMNW)' 추가와 시간대별 상장 잠금 상속 —
+ *  종목·파생상품 구성이 바뀌어 전체 체크포인트를 재생성한다.
+ *  v39: 즉시 상장 '에덴 오트쿠튀르(EDEN)'·'엘리시안 파마(ELYS)'와 전용 사건 추가 —
  *  종목·파생상품 구성이 바뀌어 전체 체크포인트를 재생성한다. */
-export const MARKET_SIM_VERSION = 38;
+export const MARKET_SIM_VERSION = 39;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

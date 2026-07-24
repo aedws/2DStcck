@@ -30,6 +30,12 @@ import {
   getCompanyDefinitions,
 } from "../src/data/stocks";
 import { stockHref } from "../src/lib/ui/stockLink";
+import { getCharacterGuideline } from "../src/lib/market/marketGuidelines";
+import {
+  getMarketEra,
+  MARKET_ERA_SESSIONS,
+  MARKET_ERA_START_SESSION,
+} from "../src/lib/market/marketEras";
 
 const now = 1_000_000_000_000;
 
@@ -381,6 +387,53 @@ for (const [id, ticker, listingAt] of july26Slots) {
       `${ticker} ${suffix}가 본주보다 먼저 열림`,
     );
   }
+}
+
+// 운영자 즉시 상장 2종: 예약 잠금 없이 본주·전 파생상품이 바로 거래 가능
+const immediateListings = [
+  ["dorothy", "EDEN", "소비재·서비스", "chr_dorothy"],
+  ["elysia", "ELYS", "헬스케어", "chr_elysia"],
+] as const;
+for (const [id, ticker, sector, ceoId] of immediateListings) {
+  const stock = getCompanyDefinitions().find((item) => item.id === id);
+  assert.ok(stock, `${ticker} 종목 정의가 없음`);
+  assert.equal(stock.ticker, ticker);
+  assert.equal(stock.sector, sector);
+  assert.equal(stock.ceoId, ceoId);
+  assert.equal(stock.listingEpochMs, undefined);
+  assert.equal(isListed(stock, MARKET_EPOCH_MS), true);
+
+  for (const suffix of [
+    "inverse",
+    "inverse-2x",
+    "leverage-2x",
+    "covered-call",
+  ]) {
+    const derivative = STOCK_DEFINITIONS.find(
+      (item) => item.id === `${id}-${suffix}`,
+    );
+    assert.ok(derivative, `${ticker} ${suffix} 파생상품 정의가 없음`);
+    assert.equal(derivative.listingEpochMs, undefined);
+  }
+}
+
+const dorothyMoat = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "dorothy" &&
+    template.tag === "시그니처 디자인",
+);
+assert.ok(dorothyMoat && dorothyMoat.impact > 0);
+const elysiaCharity = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "elysia" && template.tag === "선행",
+);
+assert.ok(elysiaCharity && elysiaCharity.impact > 0);
+for (let eraIndex = 0; eraIndex < 24; eraIndex += 1) {
+  const era = getMarketEra(
+    MARKET_ERA_START_SESSION + eraIndex * MARKET_ERA_SESSIONS,
+  );
+  assert.equal(getCharacterGuideline("chr_dorothy", era).id, "shareholder");
+  assert.equal(getCharacterGuideline("chr_elysia", era).id, "shareholder");
 }
 
 // 나구사 야키토리&닭꼬치: 7/23 15:00 KST 개장과 AI 급등·조류독감 급락 사건

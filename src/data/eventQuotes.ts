@@ -411,6 +411,58 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "이번 불은… 조금 많이 뜨거웠나 봐. 수리팀, 미안!",
     ],
   },
+  {
+    characterId: "chr_dorothy",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "완벽한 디자인은 쉽게 바뀌지 않아요. 주주님의 신뢰도 마찬가지고요.",
+      "에덴의 품격은 오래 지킬수록 가치가 높아진답니다.",
+    ],
+  },
+  {
+    characterId: "chr_dorothy",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "조금 흐트러졌을 뿐이에요. 완벽하게 바로잡아 드리죠.",
+      "브랜드도 주주가치도 제가 끝까지 지킵니다.",
+    ],
+  },
+  {
+    characterId: "chr_dorothy",
+    tag: "시그니처 디자인",
+    direction: "positive",
+    quotes: [
+      "유행은 지나가도 에덴의 실루엣은 남아요. 그게 진짜 해자랍니다.",
+    ],
+  },
+  {
+    characterId: "chr_elysia",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "모두가 더 건강해지는 성과라니, 정말 아름다운 일이야♪",
+      "사랑과 신뢰는 오래 쌓일수록 더 큰 가치가 된답니다.",
+    ],
+  },
+  {
+    characterId: "chr_elysia",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "괜찮아. 필요한 사람을 위한 연구는 멈추지 않을 거야.",
+      "숫자가 흔들려도 우리가 지켜야 할 약속은 흔들리지 않아.",
+    ],
+  },
+  {
+    characterId: "chr_elysia",
+    tag: "선행",
+    direction: "positive",
+    quotes: [
+      "도움이 필요한 곳에 약과 마음이 함께 닿았으면 좋겠어♪",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",
