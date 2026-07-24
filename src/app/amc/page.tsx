@@ -100,8 +100,8 @@ const AMC_HOLDING_FILTERS: Array<{
 type AmcTab = "myetf" | "market" | "create";
 
 const AMC_TABS: Array<{ value: AmcTab; label: string }> = [
-  { value: "myetf", label: "📊 내 ETF" },
   { value: "market", label: "🏦 상장 마켓" },
+  { value: "myetf", label: "📊 내 ETF" },
   { value: "create", label: "➕ ETF 생성" },
 ];
 
@@ -301,7 +301,7 @@ export default function AssetManagerPage() {
   const [shareAdjustmentSavingId, setShareAdjustmentSavingId] = useState<
     string | null
   >(null);
-  const [amcTab, setAmcTab] = useState<AmcTab>("myetf");
+  const [amcTab, setAmcTab] = useState<AmcTab>("market");
   const [marketSearch, setMarketSearch] = useState("");
 
   const netWorth = getTotalAssets();
