@@ -291,7 +291,7 @@ export function AmcTradeClient() {
   const buyingPower = marginEnabled ? getBuyingPower() : Math.max(0, cash);
   const maxQuantity = side === "buy"
     ? nav > 0
-      ? Math.floor((buyingPower / nav) * 1_000_000) / 1_000_000
+      ? Math.floor(buyingPower / nav)
       : 0
     : holding?.quantity ?? 0;
   const canTrade = Boolean(
@@ -312,7 +312,14 @@ export function AmcTradeClient() {
     : 0;
 
   const setRatio = (ratio: number) => {
-    const next = Math.floor(maxQuantity * ratio * 1_000_000) / 1_000_000;
+    // 정수 좌수만 거래한다. 다만 매도 '최대'는 과거 소수 보유분까지 전량
+    // 청산할 수 있도록 보유 전량을 그대로 채운다.
+    if (side === "sell" && ratio >= 1) {
+      const all = holding?.quantity ?? 0;
+      setQuantity(all > 0 ? String(all) : "0");
+      return;
+    }
+    const next = Math.floor(maxQuantity * ratio);
     setQuantity(next > 0 ? String(next) : "0");
   };
 
@@ -621,14 +628,14 @@ export function AmcTradeClient() {
 
               <div className="flex items-center justify-between">
                 <label className="text-xs text-[var(--muted)]">주문 수량</label>
-                <span className="rounded-full bg-[var(--accent)]/15 px-2.5 py-1 text-[11px] text-[var(--accent)]">
-                  소수점 가능
+                <span className="rounded-full bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] text-[var(--muted)]">
+                  정수 좌수만
                 </span>
               </div>
               <input
                 value={quantity}
-                onChange={(event) => setQuantity(event.target.value.replace(/[^0-9.]/g, ""))}
-                inputMode="decimal"
+                onChange={(event) => setQuantity(event.target.value.replace(/[^0-9]/g, ""))}
+                inputMode="numeric"
                 className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
               />
               <div className="mt-2 grid grid-cols-4 gap-1.5">

@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-24",
+    tag: "수정",
+    title: "유저 ETF 정수 좌수 매매로 통일",
+    detail:
+      "유저 ETF 매매를 일반 종목과 같이 정수 좌수만 거래하도록 바꿨습니다. 주문 수량 입력에서 소수점을 막고, 매수 최대 수량과 비율 버튼도 정수로 내림합니다. 다만 과거 소수 좌수 보유분은 자산이 묶이지 않도록 매도 '최대'로 전량 청산할 수 있게 남겨 두었습니다.",
+  },
+  {
+    date: "2026-07-24",
     tag: "개선",
     title: "요청 쿨다운 완화 — 유저 ETF 상장 30분·종목 요청 3시간",
     detail:
