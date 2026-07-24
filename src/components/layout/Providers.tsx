@@ -14,7 +14,10 @@ import { Toaster } from "@/components/layout/Toaster";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const fullWidth = pathname === "/" || pathname.startsWith("/stock/");
+  const fullWidth =
+    pathname === "/" ||
+    pathname.startsWith("/stock/") ||
+    pathname.startsWith("/amc/trade");
 
   return (
     <StoreHydration>
