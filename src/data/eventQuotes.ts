@@ -463,6 +463,32 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "도움이 필요한 곳에 약과 마음이 함께 닿았으면 좋겠어♪",
     ],
   },
+  {
+    characterId: "chr_iori",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "표준을 쥔 쪽이 규칙을 정한다. 이 실적은 그 증거일 뿐이야.",
+      "빈틈없이 준비했으니 당연한 결과다. 다음 분기도 방심은 없어.",
+    ],
+  },
+  {
+    characterId: "chr_iori",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "숫자가 흔들려도 점유율은 그대로다. 소란 떨 이유는 없어.",
+      "규제든 잡음이든, 원칙대로 대응하면 지나갈 문제야.",
+    ],
+  },
+  {
+    characterId: "chr_iori",
+    tag: "신제품",
+    direction: "positive",
+    quotes: [
+      "새 클라우드 제품군은 이미 표준이 될 설계로 짰다. 쫓아올 테면 쫓아와.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",

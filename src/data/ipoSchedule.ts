@@ -50,4 +50,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   pghg: Date.UTC(2026, 6, 26, 10, 0),
   // 에이메스 네트웍스(AMNW) — 2026-07-26 22:00 KST 개장 (= 13:00 UTC)
   amnw: Date.UTC(2026, 6, 26, 13, 0),
+  // 이오리 소프트웨어(IORI) — 2026-07-27 15:30 KST 개장 (= 06:30 UTC)
+  iori: Date.UTC(2026, 6, 27, 6, 30),
 };

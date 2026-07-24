@@ -103,6 +103,7 @@ assert.deepEqual(
     "hinafg",
     "honglu",
     "ifrit",
+    "iori",
     "jbinv",
     "miku",
     "minori",
@@ -387,6 +388,28 @@ for (const [id, ticker, listingAt] of july26Slots) {
       `${ticker} ${suffix}가 본주보다 먼저 열림`,
     );
   }
+}
+
+// 7/27 승인 요청: 이오리 소프트웨어(IORI) 15:30 KST 예약 상장과 전 파생상품 잠금 상속
+const ioriListing = Date.UTC(2026, 6, 27, 6, 30);
+const iori = getCompanyDefinitions().find((item) => item.id === "iori");
+assert.ok(iori, "이오리 소프트웨어 종목 정의가 없음");
+assert.equal(iori.ticker, "IORI");
+assert.equal(iori.sector, "기술");
+assert.equal(iori.ceoId, "chr_iori");
+assert.equal(iori.listingEpochMs, ioriListing);
+assert.equal(isListed(iori, ioriListing - 1), false);
+assert.equal(isListed(iori, ioriListing), true);
+for (const suffix of ["inverse", "inverse-2x", "leverage-2x", "covered-call"]) {
+  const derivative = STOCK_DEFINITIONS.find(
+    (item) => item.id === `iori-${suffix}`,
+  );
+  assert.ok(derivative, `IORI ${suffix} 파생상품 정의가 없음`);
+  assert.equal(
+    derivative.listingEpochMs,
+    ioriListing,
+    `IORI ${suffix}가 본주보다 먼저 열림`,
+  );
 }
 
 // 운영자 즉시 상장 2종: 예약 잠금 없이 본주·전 파생상품이 바로 거래 가능
