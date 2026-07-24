@@ -626,7 +626,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
   {
     id: "elysia",
     ticker: "ELYS",
-    name: "엘리시안 파마",
+    name: "엘리시아 파마",
     instrumentType: "company",
     sector: "헬스케어",
     subsector: "글로벌 빅파마",
@@ -1471,7 +1471,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     category: "company",
     companyId: "elysia",
     tag: "임상 성과",
-    title: "엘리시안 파마, 핵심 신약 임상 목표 달성",
+    title: "엘리시아 파마, 핵심 신약 임상 목표 달성",
     description:
       "대사질환 치료제의 주요 임상 지표가 목표를 충족했습니다. 승인 가능성과 글로벌 공급 확대 기대가 함께 높아집니다.",
     impact: 0.075,
@@ -1480,7 +1480,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     category: "company",
     companyId: "elysia",
     tag: "선행",
-    title: "엘리시안 파마, 의약품 기부·의료 봉사 확대",
+    title: "엘리시아 파마, 의약품 기부·의료 봉사 확대",
     description:
       "취약 지역 의약품 무상 공급과 임직원 의료 봉사를 장기 프로그램으로 전환했습니다. 단기 비용보다 브랜드 신뢰와 장기 접근성 확대가 부각됩니다.",
     impact: 0.045,

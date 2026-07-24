@@ -9,6 +9,7 @@ import {
   listingCountdownLabel,
 } from "@/lib/market/ipo";
 import { StockRequestForm } from "@/components/market/StockRequestForm";
+import { DevStatusBanner } from "@/components/market/DevStatusBanner";
 import { useMarketStore } from "@/store/marketStore";
 
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24시간
@@ -47,6 +48,10 @@ export default function IpoPage() {
           곧 상장할 신규 종목을 미리 확인하고, 원하는 종목·캐릭터를 직접
           신청하세요. 상장 시각이 되면 공모가로 자동 개장됩니다.
         </p>
+      </div>
+
+      <div className="mb-4">
+        <DevStatusBanner />
       </div>
 
       <Link

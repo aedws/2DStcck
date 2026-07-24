@@ -36,6 +36,11 @@ import {
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { formatExactMoney } from "@/lib/market/exactAmount";
+import {
+  getActivePreferredShares,
+  getPreferredShareValue,
+} from "@/lib/player/preferredShares";
+import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
@@ -44,6 +49,8 @@ export function AccountSidebar() {
   const cash = useMarketStore((s) => s.cash);
   const cashExact = useMarketStore((s) => s.cashExact);
   const holdings = useMarketStore((s) => s.holdings);
+  const preferredShares = useMarketStore((s) => s.preferredShares);
+  const getEquity = useMarketStore((s) => s.getEquity);
   const options = useMarketStore((s) => s.options);
   const stocks = useMarketStore((s) => s.stocks);
   const assetManager = useMarketStore((s) => s.assetManager);
@@ -85,27 +92,52 @@ export function AccountSidebar() {
       assetManager?.funds ?? [],
       listedAmcFunds.map(listedFundToAmcState),
     );
-    const userEtfs = getAmcPortfolioPositions(holdings, funds, stocks).map(
-      (position) => {
-        const cost =
-          position.holding.quantity * position.holding.averagePrice;
-        return {
-          id: position.holding.stockId,
-          name: position.fund.name,
-          ticker: position.fund.ticker,
-          quantity: position.holding.quantity,
-          evaluation: position.evaluation,
-          pnl:
-            cost > 0
-              ? ((position.evaluation - cost) / cost) * 100
-              : 0,
-          href: `/amc/trade?id=${encodeURIComponent(position.fund.id)}`,
-          userEtf: true,
-        };
-      },
+    const amcPositions = getAmcPortfolioPositions(holdings, funds, stocks);
+    const userEtfs = amcPositions.map((position) => {
+      const cost = position.holding.quantity * position.holding.averagePrice;
+      return {
+        id: position.holding.stockId,
+        name: position.fund.name,
+        ticker: position.fund.ticker,
+        quantity: position.holding.quantity,
+        evaluation: position.evaluation,
+        pnl: cost > 0 ? ((position.evaluation - cost) / cost) * 100 : 0,
+        href: `/amc/trade?id=${encodeURIComponent(position.fund.id)}`,
+        userEtf: true,
+      };
+    });
+    // 관계 보상 우선주도 계좌에 보이도록 활성분을 포지션으로 함께 표시한다.
+    const concentration = computeCharacterConcentration(
+      holdings,
+      stocks,
+      getEquity(),
+      amcPositions.map((position) => ({
+        value: position.evaluation,
+        holdings: position.fund.holdings,
+      })),
     );
-    return [...regular, ...userEtfs];
-  }, [assetManager, holdings, listedAmcFunds, stocks]);
+    const preferred = getActivePreferredShares(
+      preferredShares,
+      concentration,
+    ).map((share) => ({
+      id: `preferred-${share.characterId}`,
+      name: `${share.companyName} 우선주`,
+      ticker: `🎖️ ${share.emoji}`,
+      quantity: share.shares,
+      evaluation: getPreferredShareValue([share]),
+      pnl: 0,
+      href: `/characters/${share.companyId}`,
+      userEtf: false,
+    }));
+    return [...regular, ...userEtfs, ...preferred];
+  }, [
+    assetManager,
+    holdings,
+    listedAmcFunds,
+    stocks,
+    preferredShares,
+    getEquity,
+  ]);
 
   const optionPositions = useMemo(() => {
     const sessionExact = Date.now() / SESSION_DURATION_MS;

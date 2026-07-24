@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/market/engine";
 import {
+  fetchDevStatus,
+  setDevStatus,
+  DEV_STATE_LABEL,
+  type DevState,
+  type DevStatus,
+} from "@/lib/supabase/devStatus";
+import {
   getCurrentAuth,
   isAdminEmail,
   listStockRequests,
@@ -298,6 +305,8 @@ export default function AdminPage() {
           새로고침
         </button>
       </div>
+
+      <DevStatusControl />
 
       <div className="flex flex-wrap gap-1.5">
         <button
@@ -1307,5 +1316,141 @@ export default function AdminPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** datetime-local input(로컬 시각) ↔ epoch ms 변환. */
+function msToLocalInput(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
+const DEV_STATE_ORDER: DevState[] = ["available", "paused", "blocked"];
+
+/**
+ * 개발자 처리 상태 패널. 관리자가 수정 가능(available)/보류(paused)/토큰 부족으로
+ * 불가(blocked)를 설정하고, blocked 일 때 작업 재개 예정 시각을 선택한다. 저장 시
+ * 버그 리포트·피드백·IPO 화면 상단 배너에 반영된다.
+ */
+function DevStatusControl() {
+  const [status, setStatus] = useState<DevStatus | null>(null);
+  const [state, setState] = useState<DevState>("available");
+  const [resumeInput, setResumeInput] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const applyStatus = useCallback((s: DevStatus | null) => {
+    setStatus(s);
+    if (!s) return;
+    setState(s.state);
+    setNote(s.note ?? "");
+    setResumeInput(s.resumeAt ? msToLocalInput(s.resumeAt) : "");
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchDevStatus().then((s) => {
+      if (alive) applyStatus(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [applyStatus]);
+
+  const save = useCallback(async () => {
+    setSaving(true);
+    setSaved(false);
+    const resumeAt =
+      state === "blocked" && resumeInput
+        ? new Date(resumeInput).getTime()
+        : null;
+    const next = await setDevStatus(state, resumeAt, note.trim());
+    setSaving(false);
+    if (next) {
+      applyStatus(next);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    }
+  }, [state, resumeInput, note, applyStatus]);
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold">🧑‍💻 개발자 상태</h2>
+        {status && (
+          <span className="text-[11px] text-[var(--muted)]">
+            현재: {DEV_STATE_LABEL[status.state]}
+            {status.state === "blocked" && status.resumeAt
+              ? ` · ${new Date(status.resumeAt).toLocaleString("ko-KR", {
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })} 재개`
+              : ""}
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-[11px] text-[var(--muted)]">
+        버그 리포트·피드백·IPO 화면 상단 배너에 노출됩니다.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {DEV_STATE_ORDER.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setState(s)}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+              state === s
+                ? "bg-[var(--accent)] text-white"
+                : "border border-[var(--border)] text-[var(--muted)]"
+            }`}
+          >
+            {DEV_STATE_LABEL[s]}
+          </button>
+        ))}
+      </div>
+
+      {state === "blocked" && (
+        <div className="mt-3">
+          <label className="text-[11px] font-semibold text-[var(--muted)]">
+            작업 재개 예정 시각
+          </label>
+          <input
+            type="datetime-local"
+            value={resumeInput}
+            onChange={(e) => setResumeInput(e.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs outline-none focus:border-[var(--accent)]"
+          />
+        </div>
+      )}
+
+      <div className="mt-3">
+        <label className="text-[11px] font-semibold text-[var(--muted)]">
+          안내 메모 (선택)
+        </label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, 500))}
+          rows={2}
+          placeholder="유저에게 함께 보여줄 안내가 있으면 입력하세요."
+          className="mt-1.5 w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs outline-none focus:border-[var(--accent)]"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={save}
+        disabled={saving || (state === "blocked" && !resumeInput)}
+        className="mt-3 w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+      >
+        {saving ? "저장 중…" : saved ? "저장됨 ✓" : "상태 저장"}
+      </button>
+    </section>
   );
 }
