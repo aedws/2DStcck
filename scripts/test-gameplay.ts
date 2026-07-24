@@ -1392,7 +1392,35 @@ assert.equal(
 assert.equal(
   getCharacterProgress(diversifiedEtfProgress, "second-character").affinity,
   2,
-  "all characters in a held user ETF should gain affinity",
+  "all characters at >=3% effective weight in a held user ETF should gain affinity",
+);
+
+// 실질 비중(ETF 자산 비중 × ETF 내 편입 비중)이 3% 미만인 캐릭터는 호감도가 오르지
+// 않는다 — 개별 주식 투자(각 3% 이상)와의 형평성 개선.
+let unbalancedEtfHoldings = [{
+  value: relationshipStock.currentPrice, // ETF 자산 비중 10%
+  holdings: [
+    { stockId: relationshipStock.id, weight: 0.2 }, // 실질 2% < 3%
+    { stockId: secondCharacterStock.id, weight: 0.8 }, // 실질 8% >= 3%
+  ],
+}];
+let unbalancedEtfProgress = accrueLongHoldingAffinity(
+  {}, [], [relationshipStock, secondCharacterStock],
+  relationshipStock.currentPrice * 10, windowStart, [], unbalancedEtfHoldings,
+);
+unbalancedEtfProgress = accrueLongHoldingAffinity(
+  unbalancedEtfProgress, [], [relationshipStock, secondCharacterStock],
+  relationshipStock.currentPrice * 10, windowStart + 5, [], unbalancedEtfHoldings,
+);
+assert.equal(
+  getCharacterProgress(unbalancedEtfProgress, relationshipCharacter.id).affinity,
+  0,
+  "a character below 3% effective weight in a user ETF should not gain affinity",
+);
+assert.equal(
+  getCharacterProgress(unbalancedEtfProgress, "second-character").affinity,
+  2,
+  "a character at/above 3% effective weight in a user ETF should still gain affinity",
 );
 
 let singleCharacterEtfProgress = accrueLongHoldingAffinity(

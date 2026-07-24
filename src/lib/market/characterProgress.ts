@@ -332,7 +332,30 @@ export function accrueLongHoldingAffinity(
         .filter((exposure) => exposure.kind !== "hostile")
         .map((exposure) => exposure.characterId),
     );
+    // 캐릭터별 ETF 내 편입 비중(우호 노출 종목 가중 합). 개별 주식 투자와 형평을
+    // 맞추기 위해, ETF 자산 비중 × 종목 편입 비중 = 실질 자산 비중이 3% 이상일 때만
+    // 해당 캐릭터의 장기 호감도가 오른다.
+    const etfEquityRatio = etf.value / equity;
+    const positiveWeightInEtf = new Map<string, number>();
+    for (const holding of etf.holdings) {
+      const exposure = resolveStockCharacterExposure(holding.stockId, stockById);
+      if (!exposure || exposure.kind === "hostile") continue;
+      const weight = holding.weight > 0 ? holding.weight : 0;
+      positiveWeightInEtf.set(
+        exposure.characterId,
+        (positiveWeightInEtf.get(exposure.characterId) ?? 0) + weight,
+      );
+    }
     for (const characterId of positiveIds) {
+      const effectiveRatio =
+        etfEquityRatio * (positiveWeightInEtf.get(characterId) ?? 0);
+      // 단일 캐릭터 테마 ETF는 편입 비중이 사실상 100%라 기존과 동일하게 통과한다.
+      if (
+        characterId !== singleCharacterId &&
+        effectiveRatio < LONG_HOLD_MIN_EQUITY_RATIO
+      ) {
+        continue;
+      }
       const baseWeight =
         characterId === singleCharacterId
           ? Math.max(
