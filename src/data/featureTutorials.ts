@@ -125,7 +125,7 @@ export const MINIGAME_TUTORIAL_STEPS: FeatureTutorialStep[] = [
 ];
 
 /** v4: 절차적 패턴 혼합·시간 왜곡·FOMO/손절 사냥 함정 추가. */
-export const PUMP_TUTORIAL_VERSION = 4;
+export const PUMP_TUTORIAL_VERSION = 5;
 
 export const PUMP_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
@@ -157,6 +157,16 @@ export const PUMP_TUTORIAL_STEPS: FeatureTutorialStep[] = [
     emoji: "⚡",
     title: "빠른 버튼으로 즉시 매매",
     body: "급한 순간에는 홈 배너의 1·10·100·전체 버튼으로 원하는 수량을 곧바로 시장가 매수·매도할 수 있습니다. ‘전체’는 매수 시 최대 매수 가능 수량, 매도 시 보유 전량입니다.",
+  },
+  {
+    emoji: "🧊",
+    title: "유동성이 얕아 체결가가 밀립니다",
+    body: "급등주는 호가가 얇아 주문이 크거나 상장가 대비 고가권일수록 체결가가 더 불리해집니다(슬리피지, 최대 40%). 매수는 표시가보다 비싸게, 매도는 싸게 체결되니 소량으로 나눠 거래하는 편이 유리합니다.",
+  },
+  {
+    emoji: "🏛️",
+    title: "매매 수익엔 감시세 30%",
+    body: "급등주에서 실현한 매매 차익에는 순자산 면세 구간과 무관하게 시세조종 감시세 30%가 부과됩니다(손실 매도에는 없습니다). 수익이 났을 때만 회수되므로, 감시세와 체결 마찰을 제하고도 남을 만큼의 정점 타이밍이 필요합니다.",
   },
 ];
 
@@ -283,7 +293,7 @@ export const SEASON_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   },
 ];
 
-export const COMPANY_TUTORIAL_VERSION = 1;
+export const COMPANY_TUTORIAL_VERSION = 2;
 export const COMPANY_TUTORIAL_STEPS: FeatureTutorialStep[] = [
   {
     emoji: "🏢",
@@ -309,6 +319,11 @@ export const COMPANY_TUTORIAL_STEPS: FeatureTutorialStep[] = [
     emoji: "🚀",
     title: "4. 성장 후 IPO 신청",
     body: "조건을 채우면 IPO 신청으로 시장에 올릴 수 있습니다. 회사 탭에서 레벨·명성·보유 지분을 확인하며 키워 보세요.",
+  },
+  {
+    emoji: "🏛️",
+    title: "5. 초고액 자산엔 세금이 붙습니다",
+    body: "순자산 $1조(1T)까지는 모든 세금이 완전 면세입니다. 초과분에 대해서만 거래소 거래세·양도소득세·금융투자소득세·법인세가 순자산 구간별 누진율로 붙고, 경계선을 넘어도 초과분 비율에만 과세되어 거래 전체에 세금 절벽이 생기지 않습니다. 급등주 매매 차익에는 순자산과 무관하게 감시세 30%가 별도로 부과됩니다. 부과된 세금은 자산 ‘내역’ 화면에서 확인할 수 있습니다.",
   },
 ];
 
