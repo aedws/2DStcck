@@ -1035,6 +1035,25 @@ function exactCashOf(state: { cash: number; cashExact?: string }): string {
   );
 }
 
+/** 지갑에서 가장 최근 거래 시각(ms). 저장 충돌 시 이 기기의 활동이 원격보다
+ *  최신인지 판단하는 데 쓴다. */
+function latestTradeTs(
+  source: { trades?: { timestamp?: number }[] } | null | undefined,
+): number {
+  const trades = source?.trades;
+  if (!Array.isArray(trades) || trades.length === 0) return 0;
+  let max = 0;
+  for (const trade of trades) {
+    const ts = Number(trade?.timestamp) || 0;
+    if (ts > max) max = ts;
+  }
+  return max;
+}
+
+/** 저장 충돌 후 로컬을 최신 revision 위에 재저장하는 재시도가 무한 반복하지
+ *  않도록 막는 가드. */
+let cloudConflictRetryInFlight = false;
+
 function exactInitialCashOf(state: {
   initialCash: number;
   initialCashExact?: string;
@@ -2607,8 +2626,26 @@ export const useMarketStore = create<MarketStore>()(
         });
 
         if (saveResult === "conflict") {
-          // 다른 탭·기기의 최신 저장본이 있으면 현재 탭의 오래된 지갑으로 덮지 않는다.
-          // 서버 원본을 다시 읽은 뒤 다음 변경부터 새 revision 위에서 저장한다.
+          // 충돌: 서버 revision 이 우리가 아는 값보다 앞섰다. 무조건 로컬을 버리면
+          // 방금 한 옵션 청산·거래가 사라지므로, 먼저 원격을 '들여다보고'(로컬은
+          // 그대로 둔 채) 어느 쪽 활동이 더 최신인지 비교한다.
+          const localTradeTs = latestTradeTs(get());
+          const remote = await loadGameSave();
+          const remoteTradeTs =
+            remote.status === "loaded" ? latestTradeTs(remote.wallet) : 0;
+          // 이 기기의 최근 거래가 원격보다 최신이면(=방금 이 기기에서 거래) 원격을
+          // 덮어쓰지 않고 최신 revision 위에 로컬을 다시 저장해 조작을 보존한다.
+          // loadGameSave 가 revision 캐시를 갱신했으므로 재시도는 새 revision 을 쓴다.
+          if (localTradeTs > remoteTradeTs && !cloudConflictRetryInFlight) {
+            cloudConflictRetryInFlight = true;
+            try {
+              return await get().saveCloud();
+            } finally {
+              cloudConflictRetryInFlight = false;
+            }
+          }
+          // 원격이 더 최신이거나(다른 탭·기기가 이후에 거래) 재시도가 소진되면,
+          // 오래된 로컬로 덮지 않도록 서버 원본을 그대로 채택한다.
           set({ cloudSyncReady: false, cloudSaveFailedAt: 0 });
           await get().loadCloudSave();
           set({ cloudSyncReady: true, cloudSaveFailedAt: 0 });
