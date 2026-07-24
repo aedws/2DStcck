@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-24",
+    tag: "개선",
+    title: "자산운용사 페이지 탭 분리·상장 마켓 검색",
+    detail:
+      "자산운용사 페이지를 '내 ETF', '상장 마켓', 'ETF 생성' 세 탭으로 분리해 한 화면에서 길게 스크롤하지 않고 원하는 작업으로 바로 이동할 수 있게 했습니다. 상장 ETF 마켓에는 검색창을 추가해 티커·펀드명·운용사명으로 상장 ETF를 빠르게 찾을 수 있습니다.",
+  },
+  {
+    date: "2026-07-24",
     tag: "신규",
     title: "개발자 처리 상태 안내 — 버그·피드백·IPO 화면 상단 배너",
     detail:

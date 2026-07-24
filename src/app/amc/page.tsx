@@ -97,6 +97,14 @@ const AMC_HOLDING_FILTERS: Array<{
   { value: "covered-call", label: "커버드콜" },
 ];
 
+type AmcTab = "myetf" | "market" | "create";
+
+const AMC_TABS: Array<{ value: AmcTab; label: string }> = [
+  { value: "myetf", label: "📊 내 ETF" },
+  { value: "market", label: "🏦 상장 마켓" },
+  { value: "create", label: "➕ ETF 생성" },
+];
+
 function amcHoldingKindOf(stock: {
   id: string;
   coveredCallUnderlyingId?: string;
@@ -293,6 +301,8 @@ export default function AssetManagerPage() {
   const [shareAdjustmentSavingId, setShareAdjustmentSavingId] = useState<
     string | null
   >(null);
+  const [amcTab, setAmcTab] = useState<AmcTab>("myetf");
+  const [marketSearch, setMarketSearch] = useState("");
 
   const netWorth = getTotalAssets();
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -518,6 +528,16 @@ export default function AssetManagerPage() {
     );
   }, [listedAmcFunds, managedFunds, userId]);
 
+  const visibleMarketplaceFunds = useMemo(() => {
+    const query = marketSearch.trim().toLowerCase();
+    if (!query) return marketplaceFunds;
+    return marketplaceFunds.filter((fund) =>
+      `${fund.ticker} ${fund.name} ${fund.managerName}`
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [marketplaceFunds, marketSearch]);
+
   useEffect(() => {
     setHoldingWeightPct(equalWeightPercentages(selectedIds));
   }, [selectedIds]);
@@ -713,31 +733,55 @@ export default function AssetManagerPage() {
         </p>
       ) : (
         <div className="mt-4 space-y-3">
-          {marketplaceFunds.map((fund) => (
-            <ListedFundCard
-              key={fund.id}
-              fund={fund}
-              holdingsQty={
-                holdings.find(
-                  (item) => item.stockId === amcFundStockId(fund.id),
-                )?.quantity ?? 0
-              }
-              priceOf={priceOf}
-              initialPriceOf={initialPriceOf}
-              valuationPriceOf={valuationPriceOf}
-              stockOf={stockOfSelected}
-              qty={tradeQty[fund.id] ?? "1"}
-              onQty={(value) =>
-                setTradeQty((prev) => ({
-                  ...prev,
-                  [fund.id]: value.replace(/[^0-9.]/g, ""),
-                }))
-              }
-              busy={tradingId === fund.id}
-              onBuy={() => void handleTrade(fund.id, "buy")}
-              onSell={() => void handleTrade(fund.id, "sell")}
+          <div className="relative">
+            <input
+              value={marketSearch}
+              onChange={(event) => setMarketSearch(event.target.value)}
+              placeholder="티커·펀드명·운용사 검색"
+              className={fieldClass}
             />
-          ))}
+            {marketSearch && (
+              <button
+                type="button"
+                onClick={() => setMarketSearch("")}
+                aria-label="검색 지우기"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {visibleMarketplaceFunds.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--muted)]">
+              “{marketSearch.trim()}”에 해당하는 상장 ETF가 없습니다.
+            </p>
+          ) : (
+            visibleMarketplaceFunds.map((fund) => (
+              <ListedFundCard
+                key={fund.id}
+                fund={fund}
+                holdingsQty={
+                  holdings.find(
+                    (item) => item.stockId === amcFundStockId(fund.id),
+                  )?.quantity ?? 0
+                }
+                priceOf={priceOf}
+                initialPriceOf={initialPriceOf}
+                valuationPriceOf={valuationPriceOf}
+                stockOf={stockOfSelected}
+                qty={tradeQty[fund.id] ?? "1"}
+                onQty={(value) =>
+                  setTradeQty((prev) => ({
+                    ...prev,
+                    [fund.id]: value.replace(/[^0-9.]/g, ""),
+                  }))
+                }
+                busy={tradingId === fund.id}
+                onBuy={() => void handleTrade(fund.id, "buy")}
+                onSell={() => void handleTrade(fund.id, "sell")}
+              />
+            ))
+          )}
         </div>
       )}
     </section>
@@ -1010,8 +1054,27 @@ export default function AssetManagerPage() {
         )}
       </header>
 
-      {marketplaceSection}
+      <div className="mb-5 flex gap-1.5">
+        {AMC_TABS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => setAmcTab(item.value)}
+            className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-bold transition ${
+              amcTab === item.value
+                ? "bg-cyan-500 text-white"
+                : "border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
+      {amcTab === "market" && marketplaceSection}
+
+      {amcTab === "myetf" && (
+        <>
       <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-bold">운용사 실적</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
@@ -1868,7 +1931,10 @@ export default function AssetManagerPage() {
           })
         )}
       </section>
+        </>
+      )}
 
+      {amcTab === "create" && (
       <section className="rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -2335,6 +2401,7 @@ export default function AssetManagerPage() {
           {creating ? "신청 중…" : "ETF 설정 · 상장 허가 신청 (시드 10% 소각)"}
         </button>
       </section>
+      )}
 
       {message && (
         <p className="mt-4 rounded-xl bg-[var(--surface)] p-3 text-xs text-[var(--muted)]">
