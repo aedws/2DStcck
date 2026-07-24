@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSettingsStore } from "@/store/settingsStore";
+import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 
 interface Step {
   emoji: string;
@@ -45,7 +46,12 @@ export function OnboardingModal() {
 
   useEffect(() => setMounted(true), []);
 
-  if (!mounted || onboarded) return null;
+  const show = useModalSlot(
+    "onboarding",
+    MODAL_PRIORITY.onboarding,
+    mounted && !onboarded,
+  );
+  if (!show || !mounted || onboarded) return null;
 
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;

@@ -6,6 +6,7 @@ import { LEARNING_LAYERS } from "@/data/learningJourney";
 import { reachedLearningLayer } from "@/lib/player/learningProgress";
 import { useLearningSignals } from "@/components/layout/useLearningSignals";
 import { useSettingsStore } from "@/store/settingsStore";
+import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 
 /**
  * 학습 여정 진행 컨트롤러 — 진척이 새 레이어를 열면 그 레이어의 교육 모달을
@@ -32,14 +33,22 @@ export function LearningJourneyController() {
     if (seen === 1 && reached > 1) setSeen(reached);
   }, [mounted, onboarded, seen, reached, setSeen]);
 
-  if (!mounted || !onboarded) return null;
-  if (seen >= reached) return null;
-
   const nextLayerId = Math.min(reached, seen + 1);
   const layer = LEARNING_LAYERS[nextLayerId - 1];
-  if (!layer) return null;
-  // 첫 거래 직후엔 축하 연출이 먼저 나가도록, 그게 끝나기 전 레이어2 안내는 미룬다.
-  if (nextLayerId === 2 && !firstTradeCelebrated) return null;
+  const wants =
+    mounted &&
+    onboarded &&
+    seen < reached &&
+    !!layer &&
+    // 첫 거래 직후엔 축하 연출이 먼저 나가도록, 그게 끝나기 전 레이어2 안내는 미룬다.
+    !(nextLayerId === 2 && !firstTradeCelebrated);
+  const show = useModalSlot(
+    "learning-journey",
+    MODAL_PRIORITY.learningJourney,
+    wants,
+  );
+
+  if (!show || !wants || !layer) return null;
 
   return (
     <FeatureTutorialModal

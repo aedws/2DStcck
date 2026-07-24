@@ -60,7 +60,7 @@ export function HomeIpoBanner() {
   const emojiOf = (ceoId?: string) => getCharacterById(ceoId)?.emoji ?? "📈";
 
   return (
-    <div className="mx-4 mt-3 space-y-2 md:mx-5">
+    <div className="space-y-2">
       {listedList.map((listed) => (
         <Link
           key={listed.id}

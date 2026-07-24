@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { formatPrice } from "@/lib/market/engine";
+import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 
 const CONFETTI = ["🎉", "✨", "💸", "📈", "🎊", "💰", "🥳", "⭐"];
 
@@ -40,7 +41,12 @@ export function FirstTradeCelebration() {
     prevCount.current = count;
   }, [mounted, onboarded, trades.length, celebrated, setCelebrated]);
 
-  if (!mounted || !open) return null;
+  const show = useModalSlot(
+    "first-trade",
+    MODAL_PRIORITY.firstTrade,
+    mounted && open,
+  );
+  if (!show || !mounted || !open) return null;
 
   const firstBuy = trades.find((t) => t.type === "buy") ?? trades[0];
 

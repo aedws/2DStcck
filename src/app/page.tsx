@@ -14,6 +14,7 @@ import { SupportForms } from "@/components/market/SupportForms";
 import { LearningJourneyCard } from "@/components/home/LearningJourneyCard";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 import { MARKET_ERA_TUTORIAL_STEPS } from "@/data/featureTutorials";
 import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
@@ -30,6 +31,12 @@ export default function MarketPage() {
   const eraTutorialSeen = useSettingsStore((s) => s.marketEraTutorialSeen);
   const setEraTutorialSeen = useSettingsStore((s) => s.setMarketEraTutorialSeen);
   useEffect(() => setMounted(true), []);
+
+  const showEraTutorial = useModalSlot(
+    "era-tutorial",
+    MODAL_PRIORITY.eraTutorial,
+    mounted && onboarded && !eraTutorialSeen,
+  );
 
   // 급등주는 정적 상세 페이지가 없으므로 목록에서 분리해 인라인 배너로 노출한다
   const pumpStocks = useMemo(() => stocks.filter(isPumpStock), [stocks]);
@@ -48,27 +55,26 @@ export default function MarketPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
-      {mounted && onboarded && !eraTutorialSeen && (
+      {showEraTutorial && (
         <FeatureTutorialModal
           steps={MARKET_ERA_TUTORIAL_STEPS}
           onFinish={() => setEraTutorialSeen(true)}
         />
       )}
       <MarketOverview stocks={marketStocks} events={events} />
-      <div className="px-4 pt-3 md:px-5">
+      {/* 국면·출석·IPO 안내를 한 밴드로 묶어 상단 정보 과밀을 줄인다. 각 배너는
+          해당 없을 때 스스로 사라지므로 밴드는 필요한 것만 촘촘히 보여준다. */}
+      <div className="space-y-2 px-4 pt-3 md:px-5">
         <MarketEraBanner />
+        <AttendanceBanner />
+        <HomeIpoBanner />
       </div>
-      <AttendanceBanner />
-      <HomeIpoBanner />
       <LearningJourneyCard />
       {/* 새내기(거래 3건 미만)에겐 시즌·연속사건·라이벌까지 담긴 작전 브리핑이
           과부하다. 학습 여정 카드가 '첫 매수' 한 가지에 집중하도록 잠시 감춘다.
           마운트 전엔 렌더하지 않아 새내기 화면에 깜빡임이 남지 않게 한다. */}
       {mounted && trades.length >= 3 && <OperationBriefing />}
       <PumpBanner pumps={pumpStocks} />
-      <div className="px-4 pt-3 md:px-5">
-        <SupportForms />
-      </div>
       {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해
           페이지 전체가 스크롤되도록 두고, 이 행에만 한 화면 높이를 줘 각 패널이
           내부 스크롤을 유지하게 한다. */}
@@ -78,6 +84,16 @@ export default function MarketPage() {
         <AccountSidebar />
       </div>
       <BottomTicker stocks={marketStocks} />
+      {/* 운영용 문의·버그·건의는 항상 펼쳐두면 홈이 과밀해지므로 하단 접기로
+          내려 필요할 때만 펼치게 한다. 개발자 상태 배너도 이 안에서 확인한다. */}
+      <details className="mx-4 mb-4 mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40 md:mx-5">
+        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-[var(--muted)]">
+          🛠️ 문의·버그·건의 · 개발자 상태
+        </summary>
+        <div className="px-4 pb-4">
+          <SupportForms />
+        </div>
+      </details>
     </div>
   );
 }

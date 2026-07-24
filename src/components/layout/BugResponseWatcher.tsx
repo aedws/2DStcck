@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useMarketStore } from "@/store/marketStore";
+import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 import {
   listMyBugResponses,
   BUG_REPORT_STATUS_LABEL,
@@ -136,7 +137,12 @@ export function BugResponseWatcher() {
     };
   }, [userId, isReady, check]);
 
-  if (queue.length === 0) return null;
+  const show = useModalSlot(
+    "bug-response",
+    MODAL_PRIORITY.bugResponse,
+    queue.length > 0,
+  );
+  if (queue.length === 0 || !show) return null;
 
   const current = queue[0];
   const isBug = current.source === "bug";

@@ -7,6 +7,7 @@ import {
   GLOBAL_SERVICE_NOTICE,
   TARGETED_ACCOUNT_ACTIONS,
 } from "@/data/serviceNotice";
+import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 
 /**
  * 운영 공지 모달 — 전체 공지(GLOBAL_SERVICE_NOTICE)를 모든 플레이어에게, 또는
@@ -20,7 +21,6 @@ export function ServiceNoticeModal() {
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
 
   const targeted = userId ? TARGETED_ACCOUNT_ACTIONS[userId] : undefined;
   // 전체 공지와 대상 공지 중 아직 안 본 것 하나를 고른다(높은 버전 우선).
@@ -36,7 +36,13 @@ export function ServiceNoticeModal() {
         ? globalNotice
         : targetedNotice
       : (globalNotice ?? targetedNotice);
-  if (!notice) return null;
+
+  const show = useModalSlot(
+    "service-notice",
+    MODAL_PRIORITY.serviceNotice,
+    mounted && notice != null,
+  );
+  if (!show || !mounted || !notice) return null;
 
   const version =
     "version" in notice ? notice.version : notice.resetVersion;

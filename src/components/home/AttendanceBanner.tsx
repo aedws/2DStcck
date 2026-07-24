@@ -29,7 +29,7 @@ export function AttendanceBanner() {
 
   if (claimedToday) {
     return (
-      <div className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm md:mx-5">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm">
         <span className="text-[var(--muted)]">
           📅 출석 완료 · {attendance.streak}일 연속 (누적 {attendance.totalDays}일)
         </span>
@@ -39,7 +39,7 @@ export function AttendanceBanner() {
   }
 
   return (
-    <div className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 md:mx-5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-bold text-emerald-300">
           🔥 {attendance.streak > 0 ? `${attendance.streak}일 연속 출석 중!` : "오늘의 출석 보상"}
