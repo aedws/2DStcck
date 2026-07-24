@@ -52,4 +52,12 @@ export const IPO_SCHEDULE: Record<string, number> = {
   amnw: Date.UTC(2026, 6, 26, 13, 0),
   // 이오리 소프트웨어(IORI) — 2026-07-27 15:30 KST 개장 (= 06:30 UTC)
   iori: Date.UTC(2026, 6, 27, 6, 30),
+  // 레이크루시드증권(LCID) — 2026-07-27 18:00 KST 개장 (= 09:00 UTC)
+  lcid: Date.UTC(2026, 6, 27, 9, 0),
+  // 레비 종합보조서비스(LEVI) — 2026-07-27 21:00 KST 개장 (= 12:00 UTC)
+  levi: Date.UTC(2026, 6, 27, 12, 0),
+  // NexR(NEXR) — 2026-07-28 12:00 KST 개장 (= 03:00 UTC)
+  nexr: Date.UTC(2026, 6, 28, 3, 0),
+  // 카르티시아 F&B(TEHTY) — 2026-07-28 15:00 KST 개장 (= 06:00 UTC)
+  tehty: Date.UTC(2026, 6, 28, 6, 0),
 };

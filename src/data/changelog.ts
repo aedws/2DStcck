@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-24",
+    tag: "신규",
+    title: "예약 상장 4종 — LCID·LEVI·NEXR·TEHTY (7/27~28)",
+    detail:
+      "승인된 종목 요청을 개장 큐에 이어 붙였습니다. 레이크루시드증권(LCID·증권)은 7/27 18:00 KST, 레비 종합보조서비스(LEVI·구독 생활 서비스)는 7/27 21:00 KST, NexR(NEXR·종합 반도체·AI, GPU/AI 90% 점유)는 7/28 12:00 KST, 카르티시아 F&B(TEHTY·다이닝 프랜차이즈)는 7/28 15:00 KST에 상장합니다. LCID·NEXR·TEHTY는 플레이어(@asset_management·@luxury·@aemeath) 회사로 상장 시각 전까지 거래·시세·창업주 지분 반영이 잠기고 개장 시 창업주 보통주가 1회 반영되며, LEVI는 캐릭터 레비를 CEO로 한 캐릭터 기업입니다. 본주와 함께 인버스·곱버스·2배 레버리지(LEVI는 커버드콜 포함) 파생상품과 시장 체크포인트 v41을 배포했습니다.",
+  },
+  {
+    date: "2026-07-24",
     tag: "수정",
     title: "옵션 청산 등 최신 거래가 저장 충돌로 되돌아가던 문제 수정",
     detail:

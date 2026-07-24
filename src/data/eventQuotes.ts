@@ -489,6 +489,24 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "새 클라우드 제품군은 이미 표준이 될 설계로 짰다. 쫓아올 테면 쫓아와.",
     ],
   },
+  {
+    characterId: "chr_levi",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "사소한 불편 하나 덜어드리는 게 제 일이에요. 오늘도 구독자가 늘었네요!",
+      "발로 뛴 만큼 압니다. 현장을 아는 서비스가 결국 오래갑니다.",
+    ],
+  },
+  {
+    characterId: "chr_levi",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "잠깐 삐끗했지만, 불편을 해결하는 일은 멈추지 않아요.",
+      "B2B 계약이 받쳐주니 이 정도 흔들림은 금방 지나갑니다.",
+    ],
+  },
   // 소라사키 히나 — CSV(선도부 방위산업) 시절 대사를 금융지주로 이관.
   {
     characterId: "chr_bahina",
