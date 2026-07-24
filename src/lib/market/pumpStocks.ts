@@ -20,8 +20,8 @@ export const PUMP_SECTOR = "급등주";
 export const PUMP_SPAWN_CHANCE = 0.14;
 /** 상장 후 상장폐지까지 허용되는 최대 거래일 수 */
 export const PUMP_LIFETIME_SESSIONS = 2;
-/** 상장 직후 바로 사라지는 불공정한 경우를 막는 최소 수명 */
-export const PUMP_MIN_LIFETIME_SESSIONS = 0.5;
+/** 상장 직후 바로 사라지는 불공정한 경우를 막는 최소 수명 (하드코어: 조기 상폐 허용) */
+export const PUMP_MIN_LIFETIME_SESSIONS = 0.25;
 
 export const PUMP_PATTERN_IDS = [
   "whipsaw",
@@ -70,11 +70,14 @@ function rawPumpSpawnAt(session: number): PumpSpec | null {
   const rand = seededRand(session, "pump-spec");
   const [ticker, name, emoji] = NAMES[Math.floor(rand() * NAMES.length)];
   const basePrice = Math.round(1000 + rand() * 4000); // $10 ~ $50
-  const peakMult = 3 + rand() * 5; // 3x ~ 8x
-  const crashMult = 0.08 + rand() * 0.17; // 최종 8% ~ 25%
+  // 하드코어: 고점 여유를 좁혀 오차 허용폭을 줄이고, 정산 바닥을 낮춰
+  // 상폐까지 버티면 사실상 전손이 되게 한다.
+  const peakMult = 1.8 + rand() * 1.4; // 1.8x ~ 3.2x
+  const crashMult = 0.02 + rand() * 0.05; // 최종 2% ~ 7%
+  // 수명 분포를 조기(짧은 수명) 쪽으로 편향해 "상승 중 급 상폐"를 늘린다.
   const lifetimeSessions =
     PUMP_MIN_LIFETIME_SESSIONS +
-    rand() * (PUMP_LIFETIME_SESSIONS - PUMP_MIN_LIFETIME_SESSIONS);
+    Math.pow(rand(), 1.8) * (PUMP_LIFETIME_SESSIONS - PUMP_MIN_LIFETIME_SESSIONS);
   const pattern = PUMP_PATTERN_IDS[Math.floor(rand() * PUMP_PATTERN_IDS.length)];
   return {
     spawnSession: session,
@@ -239,7 +242,9 @@ export function pumpAdversarialMultiplierAt(
 ): number {
   const t = Math.min(1, Math.max(0, progress));
   const variantRand = seededRand(spec.spawnSession, "pump-procedural-variant");
-  const exponent = 0.72 + variantRand() * 0.7;
+  // 하드코어: 지수를 키워 후반부 시간축을 압축 → 진짜 고점 체류가 짧아지고
+  // 정점 이후 하락이 더 빠르게 진행된다.
+  const exponent = 0.85 + variantRand() * 0.85;
   const timeWobble = 0.025 + variantRand() * 0.055;
   const timeFrequency = 1 + Math.floor(variantRand() * 3);
   const timePhase = variantRand() * Math.PI * 2;
@@ -270,7 +275,7 @@ export function pumpAdversarialMultiplierAt(
   );
 
   const trapRand = seededRand(spec.spawnSession, "pump-psychological-traps");
-  const trapPairs = 4 + Math.floor(trapRand() * 4);
+  const trapPairs = 8 + Math.floor(trapRand() * 5); // 하드코어: 8~12쌍
   let trapMultiplier = 1;
   for (let index = 0; index < trapPairs; index++) {
     const anchor =
@@ -291,6 +296,27 @@ export function pumpAdversarialMultiplierAt(
     trapMultiplier *=
       1 +
       (secondTarget - 1) * manipulationPulse(t, anchor + gap, secondWidth);
+  }
+
+  // 하드코어: 진짜 고점이 자주 형성되는 중후반 구간에 더 좁고 깊은 스톱헌트·
+  // 가짜돌파를 밀집시켜, 큰 상승 직후 매도하려는 순간을 집중적으로 휘젓는다.
+  const clusterRand = seededRand(spec.spawnSession, "pump-peak-cluster");
+  const clusterCenter = 0.42 + clusterRand() * 0.4; // 0.42~0.82
+  const clusterCount = 3 + Math.floor(clusterRand() * 3); // 3~5쌍
+  for (let index = 0; index < clusterCount; index++) {
+    const anchor = clusterCenter + (clusterRand() - 0.5) * 0.12;
+    const gap = 0.005 + clusterRand() * 0.014;
+    const firstWidth = 0.0025 + clusterRand() * 0.008;
+    const secondWidth = 0.0025 + clusterRand() * 0.01;
+    const squeeze = 1.6 + clusterRand() * 3.2;
+    const crash = 0.006 + clusterRand() * 0.14;
+    const stopHuntFirst = clusterRand() < 0.55;
+    const firstTarget = stopHuntFirst ? crash : squeeze;
+    const secondTarget = stopHuntFirst ? squeeze : crash;
+    trapMultiplier *=
+      1 + (firstTarget - 1) * manipulationPulse(t, anchor, firstWidth);
+    trapMultiplier *=
+      1 + (secondTarget - 1) * manipulationPulse(t, anchor + gap, secondWidth);
   }
 
   return Math.max(0.0005, Math.min(30, hybrid * trapMultiplier));
