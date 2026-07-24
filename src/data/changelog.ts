@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-24",
+    tag: "수정",
+    title: "유저 ETF 구성 종목 도넛 라벨 겹침 수정",
+    detail:
+      "유저 ETF 상세(매매) 화면의 구성 종목 도넛 차트 범례가 PC 넓은 화면에서 좁은 칸에 억지로 2열로 접히며 종목명과 비중이 겹쳐 보이던 문제를 수정했습니다. 화면 전체 폭이 아니라 범례가 실제로 차지하는 폭(컨테이너 쿼리)에 맞춰 열 수를 정하도록 바꿔, 공간이 넉넉할 때만 2열로 나누고 좁으면 1열로 이름과 비중을 온전히 표시합니다. 모바일에서는 원래대로 세로로 쌓입니다.",
+  },
+  {
+    date: "2026-07-24",
     tag: "개선",
     title: "유저 ETF 상장 신청 취소·상폐 후 삭제",
     detail:

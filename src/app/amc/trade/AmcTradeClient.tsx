@@ -962,7 +962,8 @@ function AmcHoldingsDonut({
         <p className="text-xs font-semibold text-[var(--muted)]">보유 비중</p>
         <p className="text-[11px] text-[var(--muted)]">목표 비중 · 합계 100%</p>
       </div>
-      <div className="mt-3 flex flex-col items-center gap-4 xl:flex-row xl:items-start">
+      <div className="@container mt-3">
+       <div className="flex flex-col items-center gap-4 @lg:flex-row @lg:items-start">
         <svg
           width="144"
           height="144"
@@ -1011,30 +1012,33 @@ function AmcHoldingsDonut({
             구성 종목
           </text>
         </svg>
-        <ul className="grid min-w-0 flex-1 gap-1.5 self-stretch sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          {items.map((item) => (
-            <li key={item.stockId}>
-              <Link
-                href={`/stock/${item.stockId}`}
-                className="flex min-h-8 items-center gap-2 rounded-lg px-2 text-xs hover:bg-[var(--surface)]"
-              >
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="min-w-0 flex-1 truncate font-semibold">
-                  {item.stock?.name ?? item.stockId}
-                  <span className="ml-1 font-normal text-[var(--muted)]">
-                    {item.stock?.ticker ?? item.stockId}
+        <div className="@container min-w-0 flex-1 self-stretch">
+          <ul className="grid gap-1.5 @xs:grid-cols-2">
+            {items.map((item) => (
+              <li key={item.stockId}>
+                <Link
+                  href={`/stock/${item.stockId}`}
+                  className="flex min-h-8 items-center gap-2 rounded-lg px-2 text-xs hover:bg-[var(--surface)]"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate font-semibold">
+                    {item.stock?.name ?? item.stockId}
+                    <span className="ml-1 font-normal text-[var(--muted)]">
+                      {item.stock?.ticker ?? item.stockId}
+                    </span>
                   </span>
-                </span>
-                <span className="shrink-0 tabular-nums text-cyan-300">
-                  {(item.weight * 100).toFixed(1)}%
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  <span className="shrink-0 pl-1 tabular-nums text-cyan-300">
+                    {(item.weight * 100).toFixed(1)}%
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+       </div>
       </div>
     </div>
   );
