@@ -39,10 +39,28 @@ import { formatExactMoney } from "@/lib/market/exactAmount";
 import {
   getActivePreferredShares,
   getPreferredShareValue,
+  getPreferredQuarterlyDividend,
 } from "@/lib/player/preferredShares";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
+
+interface AccountPosition {
+  id: string;
+  name: string;
+  ticker: string;
+  quantity: number;
+  evaluation: number;
+  pnl: number;
+  href: string;
+  userEtf: boolean;
+  /** 우선주 포지션 여부 */
+  preferred?: boolean;
+  /** 우선주 분기 배당률(%) */
+  dividendYield?: number;
+  /** 우선주 분기 총 배당액 */
+  quarterlyDividend?: number;
+}
 
 export function AccountSidebar() {
   const [orderTab, setOrderTab] = useState(1);
@@ -72,7 +90,7 @@ export function AccountSidebar() {
   const playerCompany = useMarketStore((s) => s.playerCompany);
 
   const accountPositions = useMemo(() => {
-    const regular = holdings.flatMap((holding) => {
+    const regular: AccountPosition[] = holdings.flatMap((holding) => {
       const stock = stocks.find((item) => item.id === holding.stockId);
       if (!stock) return [];
       const evaluation = holding.quantity * stock.currentPrice;
@@ -93,7 +111,7 @@ export function AccountSidebar() {
       listedAmcFunds.map(listedFundToAmcState),
     );
     const amcPositions = getAmcPortfolioPositions(holdings, funds, stocks);
-    const userEtfs = amcPositions.map((position) => {
+    const userEtfs: AccountPosition[] = amcPositions.map((position) => {
       const cost = position.holding.quantity * position.holding.averagePrice;
       return {
         id: position.holding.stockId,
@@ -116,7 +134,7 @@ export function AccountSidebar() {
         holdings: position.fund.holdings,
       })),
     );
-    const preferred = getActivePreferredShares(
+    const preferred: AccountPosition[] = getActivePreferredShares(
       preferredShares,
       concentration,
     ).map((share) => ({
@@ -128,6 +146,12 @@ export function AccountSidebar() {
       pnl: 0,
       href: `/characters/${share.companyId}`,
       userEtf: false,
+      preferred: true,
+      dividendYield:
+        share.faceValue > 0
+          ? (share.dividendPerShare / share.faceValue) * 100
+          : 0,
+      quarterlyDividend: getPreferredQuarterlyDividend([share]),
     }));
     return [...regular, ...userEtfs, ...preferred];
   }, [
@@ -337,12 +361,29 @@ export function AccountSidebar() {
                         <span className="text-[var(--muted)]">
                           {position.quantity.toLocaleString("ko-KR", {
                             maximumFractionDigits: 6,
-                          })}주
+                          })}
+                          {position.preferred ? "좌" : "주"}
                         </span>
-                        <span className={`tabular-nums ${upDownClass(position.pnl)}`}>
-                          {formatSignedPercent(position.pnl)}
-                        </span>
+                        {position.preferred ? (
+                          <span className="tabular-nums text-amber-300">
+                            분기 배당률 {(position.dividendYield ?? 0).toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span
+                            className={`tabular-nums ${upDownClass(position.pnl)}`}
+                          >
+                            {formatSignedPercent(position.pnl)}
+                          </span>
+                        )}
                       </div>
+                      {position.preferred && (
+                        <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--muted)]">
+                          <span>분기 배당</span>
+                          <span className="tabular-nums">
+                            {formatPrice(position.quarterlyDividend ?? 0)}
+                          </span>
+                        </div>
+                      )}
                     </li>
                   );
                 })}
