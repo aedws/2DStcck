@@ -13,9 +13,13 @@ import {
   getRelationshipTier,
   LONG_HOLD_SESSIONS,
   MAX_CHARACTER_AFFINITY,
+  FAVORITE_AFFINITY,
   PREFERRED_SHARE_AFFINITY,
 } from "@/lib/market/characterProgress";
-import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import {
+  computeCharacterConcentration,
+  isPreferredEligible,
+} from "@/lib/market/characterConcentration";
 import {
   isPreferredActive,
   preferredGrantIntervalSessions,
@@ -114,8 +118,15 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const grantEta = sessionEta(grantSessionsLeft);
   // 호감도가 실제로 오르는 상태(우선주 보유 또는 이 캐릭터 포지션 보유)에서만
   // 다음 상승 타이머를 보여준다.
+  // 121~150은 집중 중일 때만 오르므로, 집중이 아니면 상한은 120.
+  const characterFocused =
+    isPreferredEligible(concentration) &&
+    concentration.focusedCharacterIds.includes(ceo.id);
+  const affinityCap = characterFocused
+    ? MAX_CHARACTER_AFFINITY
+    : FAVORITE_AFFINITY;
   const affinityGaining =
-    progress.affinity < MAX_CHARACTER_AFFINITY &&
+    progress.affinity < affinityCap &&
     progress.affinity >= 0 &&
     (preferredShare != null ||
       concentration.ranked.some((r) => r.characterId === ceo.id && r.share > 0));
@@ -209,15 +220,19 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <p className={`text-xs ${progress.affinity < 0 ? "text-red-400" : "text-pink-400"}`}>
             개인 호감도{progress.affinity < 0 ? " · ⚔️ 적대" : ""}
           </p>
-          <p className="mt-1 text-xl font-bold tabular-nums">{progress.affinity}<span className="text-xs font-normal text-[var(--muted)]"> / 120</span></p>
+          <p className="mt-1 text-xl font-bold tabular-nums">{progress.affinity}<span className="text-xs font-normal text-[var(--muted)]"> / {MAX_CHARACTER_AFFINITY}</span></p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
-            <div className="h-full rounded-full bg-pink-400" style={{ width: `${Math.max(0, (progress.affinity / 120) * 100)}%` }} />
+            <div className="h-full rounded-full bg-pink-400" style={{ width: `${Math.max(0, Math.min(100, (progress.affinity / MAX_CHARACTER_AFFINITY) * 100))}%` }} />
           </div>
           {affinityGaining && (
             <p className="mt-1.5 text-[10px] text-pink-300/80">
               ⏱️ 다음 상승 {affinityEta.countdown}
             </p>
           )}
+          <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--muted)]">
+            💖 120(최애)까지는 집중 없이 오르고, 121~150(사랑)은 집중(원 앤 온리·
+            트윈 스타·트리플 하르모니아) 중일 때만 오릅니다.
+          </p>
         </div>
       </div>
 

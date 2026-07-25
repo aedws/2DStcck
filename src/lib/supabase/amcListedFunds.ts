@@ -941,6 +941,8 @@ export async function tradeAmcListedFund(input: {
   fundId: string;
   delta: number;
   expectedPosition: number;
+  /** 서버의 정밀 보유 좌수. 있으면 반올림 오차 없이 이 값으로 기대 좌수를 맞춘다. */
+  expectedPositionExact?: string;
   priceFactor: number;
   clientOrderId: string;
   allowMargin?: boolean;
@@ -951,7 +953,9 @@ export async function tradeAmcListedFund(input: {
   let { data, error } = await supabase.rpc("amc_trade_fund_exact", {
     p_fund_id: input.fundId,
     p_delta: normalizeExactQuantity(input.delta),
-    p_expected_position: normalizeExactQuantity(input.expectedPosition),
+    p_expected_position:
+      input.expectedPositionExact ??
+      normalizeExactQuantity(input.expectedPosition),
     p_price_factor: String(input.priceFactor),
     p_client_order_id: input.clientOrderId,
     p_allow_margin: input.allowMargin === true,

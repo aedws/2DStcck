@@ -36,20 +36,21 @@ export function shareholderRightFactor(affinity: number): number {
 
 export interface RelationshipTier {
   index: number;
-  id: "acquaintance" | "interest" | "trust" | "ally" | "favorite";
+  id: "acquaintance" | "interest" | "trust" | "ally" | "favorite" | "love";
   name: string;
   emoji: string;
   /** 이 등급이 시작되는 최소 호감도 */
   min: number;
 }
 
-/** 호감도(0~120)를 관계 등급으로 승격. 기존 게이트 값을 그대로 경계로 쓴다. */
+/** 호감도(0~150)를 관계 등급으로 승격. 기존 게이트 값을 그대로 경계로 쓴다. */
 export const RELATIONSHIP_TIERS: RelationshipTier[] = [
   { index: 0, id: "acquaintance", name: "면식", emoji: "🤝", min: 0 },
   { index: 1, id: "interest", name: "관심", emoji: "🌱", min: PRIVATE_CLUE_AFFINITY },
   { index: 2, id: "trust", name: "신뢰", emoji: "🔗", min: CHARACTER_MISSION_AFFINITY },
   { index: 3, id: "ally", name: "동맹", emoji: "🤍", min: SPECIAL_CHOICE_AFFINITY },
   { index: 4, id: "favorite", name: "최애", emoji: "⭐", min: FAVORITE_AFFINITY },
+  { index: 5, id: "love", name: "사랑", emoji: "💖", min: MAX_CHARACTER_AFFINITY },
 ];
 
 /** 최애(호감 만렙) 관계 수 — 수집 완성 진척도. */
@@ -292,6 +293,9 @@ export function accrueLongHoldingAffinity(
   currentSession: number,
   activePreferred: { characterId: string; faceValue: number; shares: number }[] = [],
   userEtfHoldings: CharacterLinkedEtfHolding[] = [],
+  /** 지금 집중(원 앤 온리·트윈 스타·트리플 하르모니아) 중인 캐릭터 id.
+   *  120까지는 집중 없이 오르지만, 121~150은 집중 상태에서만 오른다. */
+  focusedCharacterIds: ReadonlySet<string> = new Set(),
 ): CharacterProgressMap {
   if (equity <= 0) return progress;
   const holdingsById = new Map(holdings.map((holding) => [holding.stockId, holding]));
@@ -505,7 +509,17 @@ export function accrueLongHoldingAffinity(
     if (elapsed === 0) continue;
     const total = current.holdingSessions + elapsed;
     const rewards = Math.floor(total / LONG_HOLD_SESSIONS);
-    const affinity = clampAffinity(current.affinity + rewards * rate);
+    // 120까지는 집중 없이 오르고, 121~150은 집중 중일 때만 오른다.
+    // 이미 121+인 캐릭터가 집중을 풀어도 낮아지진 않으며 상승만 멈춘다.
+    const affinityCap = focusedCharacterIds.has(characterId)
+      ? MAX_CHARACTER_AFFINITY
+      : FAVORITE_AFFINITY;
+    const rawAffinity = current.affinity + rewards * rate;
+    const cappedAffinity =
+      rawAffinity > affinityCap
+        ? Math.max(current.affinity, affinityCap)
+        : rawAffinity;
+    const affinity = clampAffinity(cappedAffinity);
     const trust = Math.max(
       0,
       Math.min(

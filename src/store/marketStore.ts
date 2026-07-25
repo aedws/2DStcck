@@ -264,7 +264,10 @@ import {
   PREFERRED_SALE_GRACE_SESSIONS,
   reconcilePreferredShares,
 } from "@/lib/player/preferredShares";
-import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import {
+  computeCharacterConcentration,
+  isPreferredEligible,
+} from "@/lib/market/characterConcentration";
 import {
   ROOM_RESIDENT_LIMIT,
   canInviteRoomResident,
@@ -3740,6 +3743,11 @@ export const useMarketStore = create<MarketStore>()(
         // 호감도 진행은 '보유 중인' 우선주(집중 해제로 휴면이어도)를 모두 반영한다.
         // 동맹(우선주)을 맺은 캐릭터는 본주를 팔아도 관계가 최애(120)까지 계속
         // 깊어지도록 — 우선주만 남아 호감도가 105에서 멈추던 문제를 없앤다.
+        // 121~150 호감도는 집중(원 앤 온리·트윈 스타·트리플 하르모니아) 중일 때만
+        // 오른다. 집중 자격이 성립할 때의 포커스 캐릭터만 상한 150을 얻는다.
+        const focusedCharacterIds = isPreferredEligible(preferredConcentration)
+          ? new Set(preferredConcentration.focusedCharacterIds)
+          : new Set<string>();
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
           holdings,
@@ -3748,6 +3756,7 @@ export const useMarketStore = create<MarketStore>()(
           currentSession,
           state.preferredShares,
           userEtfHoldings,
+          focusedCharacterIds,
         );
         if (investmentMission?.status === "active") {
           const benchmarkPrice = getBenchmark(combinedStocks)?.currentPrice ?? 0;
@@ -6932,6 +6941,7 @@ export const useMarketStore = create<MarketStore>()(
             traded = await tradeAmcListedFund({
               ...buyArgs,
               expectedPosition: synced.quantity,
+              expectedPositionExact: synced.quantityExact,
             });
           }
         }
@@ -7152,6 +7162,7 @@ export const useMarketStore = create<MarketStore>()(
             traded = await tradeAmcListedFund({
               ...sellArgs,
               expectedPosition: synced.quantity,
+              expectedPositionExact: synced.quantityExact,
             });
           }
         }
