@@ -1,5 +1,6 @@
 import type {
   CashPayment,
+  CashPaymentKind,
   CharacterProgressMap,
   Holding,
   PreferredShare,
@@ -22,8 +23,16 @@ import {
   SALARY_INTERVAL_DAYS,
   settleSalary,
 } from "@/lib/market/salary";
+import { computeProgressiveTaxExact, makeTaxPayment } from "@/lib/market/taxes";
 
 const MAX_CASH_PAYMENTS = 50;
+
+/** 원천징수세 대상 현금흐름 — 배당·우선주 배당·커버드콜 분배금. */
+const TAXABLE_DIVIDEND_KINDS: ReadonlySet<CashPaymentKind> = new Set([
+  "dividend",
+  "preferred_dividend",
+  "covered_call",
+]);
 
 export interface LocalCashflowInput {
   cash: number;
@@ -36,6 +45,8 @@ export interface LocalCashflowInput {
   cashPayments: CashPayment[];
   preferredShares?: PreferredShare[];
   characterProgress?: CharacterProgressMap;
+  /** 배당·분배금 원천징수세 산정을 위한 순자산(센트, 정수 문자열). 없으면 미과세. */
+  netWorthExact?: string;
 }
 
 export interface LocalCashflowSettlement {
@@ -114,6 +125,29 @@ export function settleLocalCashflows(
     paidIds.add(payment.id);
     creditedAmount += payment.amount;
     issued.push(payment);
+    // 배당·분배금은 $1T 초과 계정에 원천징수세(최대 15.4%)를 즉시 차감한다.
+    if (
+      input.netWorthExact &&
+      payment.amount > 0 &&
+      TAXABLE_DIVIDEND_KINDS.has(payment.kind)
+    ) {
+      const baseExact = payment.amountExact ?? String(Math.round(payment.amount));
+      const taxExact = computeProgressiveTaxExact(
+        baseExact.startsWith("-") ? baseExact.slice(1) : baseExact,
+        input.netWorthExact,
+        "dividend_tax",
+      );
+      const taxPayment = makeTaxPayment({
+        id: `tax-div-${payment.id}`,
+        kind: "dividend_tax",
+        amountExact: taxExact,
+        sourceId: payment.sourceId,
+        ticker: payment.ticker,
+        dueSession: payment.dueSession,
+        timestamp: now,
+      });
+      if (taxPayment) creditOnce(taxPayment);
+    }
   };
 
   for (let index = 0; index < salary.periods; index++) {

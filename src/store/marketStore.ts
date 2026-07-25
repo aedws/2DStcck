@@ -3122,6 +3122,7 @@ export const useMarketStore = create<MarketStore>()(
             cash,
             holdings,
             preferredShares: activePreferredForTick,
+            netWorthExact: fullNetWorthExactOf(state),
           },
           currentSession,
           now,
@@ -3961,7 +3962,11 @@ export const useMarketStore = create<MarketStore>()(
           ),
         );
         const settled = settleLocalCashflows(
-          { ...state, preferredShares: activePreferred },
+          {
+            ...state,
+            preferredShares: activePreferred,
+            netWorthExact: fullNetWorthExactOf(state),
+          },
           currentSession,
           now,
         );

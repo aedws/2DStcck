@@ -10,7 +10,8 @@ export type MarketTaxKind =
   | "exchange_tax"
   | "capital_gains_tax"
   | "financial_investment_tax"
-  | "corporate_tax";
+  | "corporate_tax"
+  | "dividend_tax";
 
 /** $1T까지는 모든 신설 세금을 완전히 면제한다. 단위는 센트. */
 export const TAX_FREE_NET_WORTH_EXACT = "100000000000000";
@@ -26,6 +27,7 @@ const TAX_RATES_BPS: Array<{
       capital_gains_tax: 2_000n,
       financial_investment_tax: 2_200n,
       corporate_tax: 2_500n,
+      dividend_tax: 1_540n,
     },
   },
   {
@@ -35,6 +37,7 @@ const TAX_RATES_BPS: Array<{
       capital_gains_tax: 1_500n,
       financial_investment_tax: 1_800n,
       corporate_tax: 2_000n,
+      dividend_tax: 1_540n,
     },
   },
   {
@@ -44,6 +47,7 @@ const TAX_RATES_BPS: Array<{
       capital_gains_tax: 1_000n,
       financial_investment_tax: 1_200n,
       corporate_tax: 1_400n,
+      dividend_tax: 1_540n,
     },
   },
   {
@@ -53,6 +57,7 @@ const TAX_RATES_BPS: Array<{
       capital_gains_tax: 500n,
       financial_investment_tax: 700n,
       corporate_tax: 800n,
+      dividend_tax: 1_540n,
     },
   },
 ];

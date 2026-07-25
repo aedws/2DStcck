@@ -341,6 +341,8 @@ export type CashPaymentKind =
   | "capital_gains_tax"
   | "financial_investment_tax"
   | "corporate_tax"
+  // 배당·분배금 원천징수세 — $1T 초과 계정에만 초과분 비율로 적용된다(최대 15.4%).
+  | "dividend_tax"
   // 급등주 시세조종 감시세 — 순자산과 무관한 정액 벌과금성 세금.
   | "pump_surveillance_tax"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
