@@ -15,6 +15,7 @@ import {
   getCharacterProgress,
   getRelationshipTier,
   MAX_CHARACTER_AFFINITY,
+  FAVORITE_AFFINITY,
 } from "@/lib/market/characterProgress";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import { getActivePreferredShares } from "@/lib/player/preferredShares";
@@ -129,7 +130,7 @@ export default function CharactersPage() {
   const favorites = entries.filter(
     ({ ceo }) =>
       getCharacterProgress(characterProgress, ceo.id).affinity >=
-      MAX_CHARACTER_AFFINITY,
+      FAVORITE_AFFINITY,
   ).length;
 
   return (

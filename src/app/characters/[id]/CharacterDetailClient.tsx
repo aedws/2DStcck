@@ -18,7 +18,7 @@ import {
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
 import {
   isPreferredActive,
-  PREFERRED_GRANT_INTERVAL_SESSIONS,
+  preferredGrantIntervalSessions,
 } from "@/lib/player/preferredShares";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { sessionEta } from "@/lib/market/sessionTime";
@@ -106,7 +106,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const grantSessionsLeft = preferredShare
     ? Math.max(
         0,
-        PREFERRED_GRANT_INTERVAL_SESSIONS -
+        preferredGrantIntervalSessions(progress.affinity) -
           (currentSession -
             (preferredShare.lastIssuedSession ?? preferredShare.issuedSession)),
       )
@@ -240,12 +240,19 @@ export function CharacterDetailClient({ id }: { id: string }) {
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 20일 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
             {preferredActive
-              ? "집중과 호감 100 이상을 유지하면 20거래일마다 가치의 약 83%를 배당하고, 5거래일마다 1좌를 추가 지급합니다."
+              ? "집중과 호감 100 이상을 유지하면 5거래일당 100%(20거래일마다 가치의 400%)를 배당합니다. 추가 지급은 호감 100→5거래일·120→3거래일·150→2거래일마다 1좌입니다."
               : "지금은 휴면(자산·배당 0)입니다. 다시 집중하면 부활하지만, 5캐릭터 이상으로 분산하는 순간 전량 소멸하며 환급되지 않습니다."}
+          </p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--muted)]">
+            ℹ️ 좌당 가치·배당은 매 거래일 갱신되어 저장되며, 발행 시점의 본주
+            가격을 기준으로 계산됩니다. 같은 캐릭터라도 발행 시점에 따라 좌당
+            가치·배당이 다를 수 있습니다.
           </p>
           {preferredActive && (
             <p className="mt-1.5 text-[10px] font-semibold text-amber-300/90">
-              ⏱️ 다음 1좌 지급 {grantEta.countdown} · {grantEta.clock}
+              ⏱️ 다음 1좌 지급 {grantEta.countdown} · {grantEta.clock} (호감{" "}
+              {progress.affinity} · {preferredGrantIntervalSessions(progress.affinity)}
+              거래일마다)
             </p>
           )}
         </div>
@@ -263,9 +270,13 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <p className="mt-1 text-xs text-[var(--muted)]">
             호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 + 집중 투자(원 앤 온리·트윈
             스타·트리플 하르모니아) 상태일 때 {company.name}이(가) 고배당 우선주
-            1좌를 지급합니다. 이후 조건을 유지하면 5거래일마다 1좌를 추가 지급합니다.
-            앞으로 호감{" "}
+            1좌를 지급합니다. 이후 조건을 유지하면 호감 100→5거래일·120→3거래일·150→
+            2거래일마다 1좌를 추가 지급합니다. 앞으로 호감{" "}
             <span className="font-semibold text-pink-400">{untilAlly}</span> 더 필요.
+          </p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--muted)]">
+            ℹ️ 우선주 좌당 가치·배당은 매 거래일 갱신·저장되며, 발행 시점의 본주
+            가격을 기준으로 하므로 발행 시점에 따라 달라집니다.
           </p>
         </div>
       )}

@@ -51,8 +51,28 @@ const PREFERRED_FACE_FALLBACK = 80_000;
 export const PREFERRED_DIVERSIFY_CHARACTERS = 5;
 /** 분산 지속 후 휴면 우선주가 매각되기까지의 거래일 유예. */
 export const PREFERRED_SALE_GRACE_SESSIONS = 5;
-/** 동맹·집중 조건 유지 시 우선주 1좌가 추가 지급되는 간격. */
+/** 동맹·집중 조건 유지 시 우선주 1좌가 추가 지급되는 기본 간격(호감 100). */
 export const PREFERRED_GRANT_INTERVAL_SESSIONS = 5;
+/** 호감도 120 이상: 발행 간격 단축(3거래일당 1좌). */
+export const PREFERRED_GRANT_FAST_AFFINITY = 120;
+export const PREFERRED_GRANT_FAST_INTERVAL_SESSIONS = 3;
+/** 호감도 150(만점): 추가 단축(2거래일당 1좌). */
+export const PREFERRED_GRANT_FASTEST_AFFINITY = 150;
+export const PREFERRED_GRANT_FASTEST_INTERVAL_SESSIONS = 2;
+
+/**
+ * 호감도에 따른 우선주 추가 발행 간격(거래일). 관계가 깊을수록 더 자주 지급된다.
+ * 호감 150 → 2거래일, 120 → 3거래일, 그 외(≥100) → 5거래일.
+ */
+export function preferredGrantIntervalSessions(affinity: number): number {
+  if (affinity >= PREFERRED_GRANT_FASTEST_AFFINITY) {
+    return PREFERRED_GRANT_FASTEST_INTERVAL_SESSIONS;
+  }
+  if (affinity >= PREFERRED_GRANT_FAST_AFFINITY) {
+    return PREFERRED_GRANT_FAST_INTERVAL_SESSIONS;
+  }
+  return PREFERRED_GRANT_INTERVAL_SESSIONS;
+}
 
 /**
  * 활성 우선주 — 지금 집중(focused) 상태인 캐릭터의 우선주만 혜택이 살아있다.
@@ -172,7 +192,7 @@ export function reconcilePreferredShares(
     if (
       isActive(share.characterId) &&
       affinity >= PREFERRED_SHARE_AFFINITY &&
-      session - lastIssuedSession >= PREFERRED_GRANT_INTERVAL_SESSIONS
+      session - lastIssuedSession >= preferredGrantIntervalSessions(affinity)
     ) {
       const updated = {
         ...tracked,

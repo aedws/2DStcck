@@ -6,12 +6,14 @@ import type {
 } from "@/lib/types/market";
 
 export const MAX_CHARACTER_TRUST = 100;
-export const MAX_CHARACTER_AFFINITY = 120;
+export const MAX_CHARACTER_AFFINITY = 150;
 /** 인버스·곱버스(적대 베팅) 보유 시 호감도가 음수로 내려갈 수 있는 하한. */
 export const MIN_CHARACTER_AFFINITY = -120;
 export const PRIVATE_CLUE_AFFINITY = 30;
 export const CHARACTER_MISSION_AFFINITY = 50;
 export const SPECIAL_CHOICE_AFFINITY = 100;
+/** 최애(관계 등급 만렙 진입) 임계값. 만점(150)과 별개로 120에서 시작한다. */
+export const FAVORITE_AFFINITY = 120;
 export const LONG_HOLD_SESSIONS = 5;
 export const LONG_HOLD_MIN_EQUITY_RATIO = 0.03;
 
@@ -47,7 +49,7 @@ export const RELATIONSHIP_TIERS: RelationshipTier[] = [
   { index: 1, id: "interest", name: "관심", emoji: "🌱", min: PRIVATE_CLUE_AFFINITY },
   { index: 2, id: "trust", name: "신뢰", emoji: "🔗", min: CHARACTER_MISSION_AFFINITY },
   { index: 3, id: "ally", name: "동맹", emoji: "🤍", min: SPECIAL_CHOICE_AFFINITY },
-  { index: 4, id: "favorite", name: "최애", emoji: "⭐", min: MAX_CHARACTER_AFFINITY },
+  { index: 4, id: "favorite", name: "최애", emoji: "⭐", min: FAVORITE_AFFINITY },
 ];
 
 /** 최애(호감 만렙) 관계 수 — 수집 완성 진척도. */
@@ -56,7 +58,7 @@ export function countFavoriteRelationships(
 ): number {
   let count = 0;
   for (const entry of Object.values(progress)) {
-    if ((entry?.affinity ?? 0) >= MAX_CHARACTER_AFFINITY) count += 1;
+    if ((entry?.affinity ?? 0) >= FAVORITE_AFFINITY) count += 1;
   }
   return count;
 }
