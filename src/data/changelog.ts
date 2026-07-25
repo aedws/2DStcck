@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-25",
+    tag: "수정",
+    title: "유저 ETF 비중조절 오류·좌수 desync 매수 불가 수정",
+    detail:
+      "① 고액 유저 ETF에서 비중조절·종목추가 시 ‘invalid input syntax for type bigint / out of range’ 오류로 운용이 막히던 문제를 고쳤습니다(서버 금액 파라미터 bigint→numeric, 클라이언트 문자열 전송). ② 유저 ETF 매수 후 추가 주문 시 좌수 잠금이 충돌하면 ‘다른 기기에서 보유 좌수가 변경됐습니다’ 이후 거래가 계속 막히던 문제를, 서버 실제 좌수로 자동 재동기화 후 1회 자동 재시도하도록 고쳤습니다.",
+  },
+  {
+    date: "2026-07-25",
     tag: "신규",
     title: "유저 회사 배당 집행 — 선 소각 후 배당일 좌수 비례 지급",
     detail:
