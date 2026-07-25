@@ -207,7 +207,7 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     drift: 0,
     beta: 0,
     coveredCallUnderlyingId: "vnasdaq",
-    coveredCallAnnualYield: 85,
+    coveredCallAnnualYield: 20,
     coveredCallUpsideCapture: 0.9,
     coveredCallDistributionIntervalDays: 20,
     description:

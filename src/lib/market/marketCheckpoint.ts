@@ -20,6 +20,38 @@ import type {
   StockState,
 } from "@/lib/types/market";
 
+/**
+ * 캔들·가격점은 속성명(open/high/low/close/timestamp) 반복이 체크포인트 용량의
+ * 대부분을 차지하므로 튜플로 저장한다. 캔들 [t,o,h,l,c], 가격점 [t,price].
+ * 이렇게 하면 캔들 1건이 ~75B → ~40B로 줄어 번들이 크게 작아진다.
+ */
+export type CandleTuple = [number, number, number, number, number];
+export type PricePointTuple = [number, number];
+
+function encodeCandle(candle: Candle): CandleTuple {
+  return [candle.timestamp, candle.open, candle.high, candle.low, candle.close];
+}
+function decodeCandle(value: CandleTuple | Candle): Candle {
+  // 튜플(신규)과 구 객체 형식을 모두 허용해 과거 캐시가 섞여도 안전하게 복원한다.
+  return Array.isArray(value)
+    ? {
+        timestamp: value[0],
+        open: value[1],
+        high: value[2],
+        low: value[3],
+        close: value[4],
+      }
+    : value;
+}
+function encodePrice(point: PricePoint): PricePointTuple {
+  return [point.timestamp, point.price];
+}
+function decodePrice(value: PricePointTuple | PricePoint): PricePoint {
+  return Array.isArray(value)
+    ? { timestamp: value[0], price: value[1] }
+    : value;
+}
+
 export interface CompactStockCheckpoint {
   id: string;
   currentPrice: number;
@@ -29,9 +61,9 @@ export interface CompactStockCheckpoint {
   leveragePathSessionId?: number;
   leveragePathSessionBase?: number;
   leveragePathFactors?: Record<string, number>;
-  priceHistory: PricePoint[];
-  candles: Candle[];
-  dailyCandles: Candle[];
+  priceHistory: PricePointTuple[];
+  candles: CandleTuple[];
+  dailyCandles: CandleTuple[];
   coveredCallPremiumReserve?: number;
   navDistributionAdjustment?: number;
   shareMultiplier?: number;
@@ -153,15 +185,20 @@ export function hydrateMarketCheckpoint(checkpoint: MarketCheckpoint): {
           }
         : stock;
     }
+    const savedDaily = (saved.dailyCandles ?? []).map(decodeCandle);
+    const savedCandles = (saved.candles ?? []).map(decodeCandle);
+    const savedHistory = (saved.priceHistory ?? []).map(decodePrice);
     const firstSavedDaily =
-      saved.dailyCandles[0]?.timestamp ?? Number.POSITIVE_INFINITY;
+      savedDaily[0]?.timestamp ?? Number.POSITIVE_INFINITY;
     const syntheticDaily = stock.dailyCandles.filter(
       (candle) => candle.timestamp < firstSavedDaily,
     );
     return applyDefinitionOverlay({
       ...stock,
       ...saved,
-      dailyCandles: [...syntheticDaily, ...saved.dailyCandles].slice(-1_250),
+      priceHistory: savedHistory,
+      candles: savedCandles,
+      dailyCandles: [...syntheticDaily, ...savedDaily].slice(-1_250),
       orderBook: generateOrderBook(saved.currentPrice),
     });
   });
@@ -231,11 +268,12 @@ export function compactMarketCheckpoint(
         leveragePathSessionId: stock.leveragePathSessionId,
         leveragePathSessionBase: stock.leveragePathSessionBase,
         leveragePathFactors: stock.leveragePathFactors,
-        priceHistory: stock.priceHistory.slice(-20),
-        candles: stock.candles.slice(-30),
+        priceHistory: stock.priceHistory.slice(-20).map(encodePrice),
+        candles: stock.candles.slice(-30).map(encodeCandle),
         dailyCandles: stock.dailyCandles
           .filter((candle) => candle.timestamp >= MARKET_EPOCH_MS)
-          .slice(-dailyCandleLimit),
+          .slice(-dailyCandleLimit)
+          .map(encodeCandle),
         coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
         navDistributionAdjustment: stock.navDistributionAdjustment,
         shareMultiplier: stock.shareMultiplier,
