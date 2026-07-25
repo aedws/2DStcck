@@ -506,7 +506,7 @@ export async function syncAmcListedFundMeta(
     p_dividend_rate: fund.dividendRate,
     p_include_nav: includeNav,
     p_basket_price_factor: fund.basketPriceFactor ?? 1,
-    p_seed_nav_value: fund.seedNavValue,
+    p_seed_nav_value: String(Math.round(fund.seedNavValue)),
     p_last_rebalance_session: fund.lastRebalanceSession,
   });
   if (error) {
@@ -1047,7 +1047,8 @@ export async function adjustAmcListedShares(
   const { data, error } = await supabase.rpc("amc_adjust_shares", {
     p_fund_id: fundId,
     p_delta: delta,
-    p_cash_delta: Math.round(cashDelta),
+    // 고액 NAV 는 bigint 상한을 넘어 문자열(numeric)로 보낸다.
+    p_cash_delta: String(Math.round(cashDelta)),
   });
   if (error || !data) {
     const raw = error?.message ?? "";
@@ -1088,10 +1089,10 @@ export async function applyAmcListedManagementFee(input: {
   const { data, error } = await supabase.rpc("amc_apply_management_fee", {
     p_fund_id: input.fundId,
     p_due_session: input.dueSession,
-    p_amount: input.amount,
-    p_new_seed_nav_value: input.newSeedNavValue,
+    p_amount: String(Math.round(input.amount)),
+    p_new_seed_nav_value: String(Math.round(input.newSeedNavValue)),
     p_new_last_fee_session: input.newLastFeeSession,
-    p_new_cumulative_fees_paid: input.newCumulativeFeesPaid,
+    p_new_cumulative_fees_paid: String(Math.round(input.newCumulativeFeesPaid)),
   });
   if (error || !data) {
     return {
@@ -1125,11 +1126,13 @@ export async function applyAmcListedDividend(input: {
   const { data, error } = await supabase.rpc("amc_apply_dividend", {
     p_fund_id: input.fundId,
     p_due_session: input.dueSession,
-    p_per_share: input.perShare,
-    p_total: input.total,
-    p_new_seed_nav_value: input.newSeedNavValue,
+    p_per_share: String(Math.round(input.perShare)),
+    p_total: String(Math.round(input.total)),
+    p_new_seed_nav_value: String(Math.round(input.newSeedNavValue)),
     p_new_last_dividend_session: input.newLastDividendSession,
-    p_new_cumulative_dividends_paid: input.newCumulativeDividendsPaid,
+    p_new_cumulative_dividends_paid: String(
+      Math.round(input.newCumulativeDividendsPaid),
+    ),
     p_dividend_history: input.dividendHistory,
   });
   if (error || !data) {
