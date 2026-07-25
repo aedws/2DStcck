@@ -85,10 +85,18 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const bestAsk = getMarketBuyPrice(liveStock.currentPrice);
   const bestBid = getMarketSellPrice(liveStock.currentPrice);
   const buyingPower = getBuyingPower();
-  const maxBuy = bestAsk > 0
+  const limitPriceCents = Math.round(Number(limitPrice) * 100);
+  // 지정가 탭에서는 최대 매수 수량을 입력한 지정가 기준으로 산정한다.
+  // 시장 호가로 계산하면 시세가 틱마다 바뀌어 '최대'가 계속 흔들리고
+  // 지정가 체결 경제와도 어긋난다(버그리포트 087b50dc).
+  const buyReferencePrice =
+    activeTab === 1 && Number.isFinite(limitPriceCents) && limitPriceCents > 0
+      ? limitPriceCents
+      : bestAsk;
+  const maxBuy = buyReferencePrice > 0
     ? fractional
-      ? Math.floor((buyingPower / bestAsk) * 1_000) / 1_000
-      : Math.floor(buyingPower / bestAsk)
+      ? Math.floor((buyingPower / buyReferencePrice) * 1_000) / 1_000
+      : Math.floor(buyingPower / buyReferencePrice)
     : 0;
   const maxSell = holding?.quantity ?? 0;
   const isIndexLike = liveStock.sector === "선물" || liveStock.sector === "지수";

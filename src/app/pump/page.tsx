@@ -124,8 +124,7 @@ export default function PumpDetailPage() {
             </p>
             <p className="mt-1">
               🧊 유동성이 얕아 주문이 크거나 고가권일수록 체결가가 더 불리해집니다
-              (슬리피지). 🏛️ 실현 차익에는 순자산과 무관하게 시세조종 감시세 30%가
-              부과됩니다.
+              (슬리피지).
             </p>
           </div>
           <CandlestickChart

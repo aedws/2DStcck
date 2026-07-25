@@ -150,7 +150,6 @@ import {
   corporateIncomeTaxExact,
   derivativeProfitTaxExact,
   makeTaxPayment,
-  pumpSurveillanceTaxExact,
   taxableGainExact,
 } from "@/lib/market/taxes";
 import { generateOrderBook } from "@/lib/market/orderBook";
@@ -1764,26 +1763,8 @@ function applyLocalBuySell(
     dueSession: Math.floor(now / SESSION_DURATION_MS),
     timestamp: now,
   });
-  // 급등주 실현 차익에는 순자산과 무관한 시세조종 감시세를 정액률로 부과한다.
-  const surtaxExact = isPumpStock(stock)
-    ? pumpSurveillanceTaxExact(
-        taxableGainExact(price, soldHolding?.averagePrice ?? price, quantity),
-      )
-    : "0";
-  const surtaxPayment = makeTaxPayment({
-    id: `tax-pump-${result.trade.id}`,
-    kind: "pump_surveillance_tax",
-    amountExact: surtaxExact,
-    sourceId: stockId,
-    ticker: stock.ticker,
-    dueSession: Math.floor(now / SESSION_DURATION_MS),
-    timestamp: now,
-  });
-  const cashExact = exactSubtract(
-    exactSubtract(result.cashExact, taxExact),
-    surtaxExact,
-  );
-  const newPayments = [taxPayment, surtaxPayment].filter(
+  const cashExact = exactSubtract(result.cashExact, taxExact);
+  const newPayments = [taxPayment].filter(
     (payment): payment is NonNullable<typeof payment> => payment !== null,
   );
   set({
