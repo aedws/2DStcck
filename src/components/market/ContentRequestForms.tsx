@@ -3,23 +3,35 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToastStore } from "@/store/toastStore";
+import { useMarketStore } from "@/store/marketStore";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
 import {
   submitFeedback,
+  serializeCharacterDialogueDescription,
   CHARACTER_DIALOGUE_CATEGORY,
-  MARKET_PHASE_CATEGORY,
   FEEDBACK_REWARD_CENTS,
   MARKET_PHASE_REQUEST_COST_CENTS,
 } from "@/lib/supabase/feedback";
 import { formatPrice } from "@/lib/market/engine";
+import { getCompanyDefinitions } from "@/data/stocks";
+import { getCharacterById } from "@/data/characters";
+
+/** 대사를 붙일 수 있는 캐릭터(회사 CEO) 목록 — 도감 한마디 탭에 연결된다. */
+const CHARACTER_OPTIONS = getCompanyDefinitions()
+  .map((company) => {
+    const character = getCharacterById(company.ceoId);
+    return character
+      ? { id: character.id, label: `${character.name} · ${company.name}` }
+      : null;
+  })
+  .filter((option): option is { id: string; label: string } => option !== null)
+  .sort((a, b) => a.label.localeCompare(b.label, "ko"));
 
 type RequestTab = "dialogue" | "phase";
 
 const TABS: Array<{
   key: RequestTab;
   label: string;
-  category: string;
-  title: string;
   intro: string;
   reward: string;
   rewardTone: "emerald" | "rose";
@@ -29,24 +41,20 @@ const TABS: Array<{
   {
     key: "dialogue",
     label: "🗨️ 캐릭터 대사",
-    category: CHARACTER_DIALOGUE_CATEGORY,
-    title: "캐릭터 대사 요청",
     intro:
       "캐릭터가 뉴스·이벤트에서 할 만한 대사를 제안해 주세요. 어떤 캐릭터가 어떤 상황에서 무슨 말을 하면 좋을지 적어주면 좋아요.",
     reward: `🎁 채택(반영 완료) 시 보상 ${formatPrice(FEEDBACK_REWARD_CENTS)} 지급`,
     rewardTone: "emerald",
-    titlePlaceholder: "어떤 캐릭터의 대사인가요? (필수 · 예: 도로시 — 급등장)",
+    titlePlaceholder: "제안하는 대사 (필수 · 한 줄 · 예: 이건 좀 과열 아닌가요?)",
     bodyPlaceholder:
-      "제안하는 대사와 상황을 적어주세요. (예: 시장이 급등할 때 “이건 좀 과열 아닌가요?”)",
+      "상황 설명 (선택 · 언제/어떤 뉴스에서 이 대사를 하면 좋을지)",
   },
   {
     key: "phase",
     label: "🌐 새 국면",
-    category: MARKET_PHASE_CATEGORY,
-    title: "새 시장 국면 추가 요청",
     intro:
       "새로운 시장 국면(예: 특정 섹터 랠리, 유동성 위기 등)을 제안해 주세요. 국면의 성격과 종목에 미치는 영향을 적어주면 좋아요.",
-    reward: `⚠️ 승인(반영 완료) 시 신청 비용 ${formatPrice(MARKET_PHASE_REQUEST_COST_CENTS)} 소모`,
+    reward: `⚠️ 신청 시 ${formatPrice(MARKET_PHASE_REQUEST_COST_CENTS)} 선 회수 · 반려되면 전액 환불`,
     rewardTone: "rose",
     titlePlaceholder: "어떤 국면인가요? (필수 · 한 줄 요약)",
     bodyPlaceholder:
@@ -62,11 +70,15 @@ const TABS: Array<{
  */
 export function ContentRequestForms() {
   const push = useToastStore((s) => s.push);
+  const submitMarketPhaseRequest = useMarketStore(
+    (s) => s.submitMarketPhaseRequest,
+  );
   const [mounted, setMounted] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [tab, setTab] = useState<RequestTab>("dialogue");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [characterId, setCharacterId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -82,15 +94,33 @@ export function ContentRequestForms() {
     if (submitting) return;
     const trimmed = title.trim();
     if (trimmed.length < 1) {
-      push("어떤 요청인지 제목을 적어주세요.", "info");
+      push(
+        tab === "dialogue"
+          ? "제안하는 대사를 적어주세요."
+          : "국면 요약을 적어주세요.",
+        "info",
+      );
+      return;
+    }
+    if (tab === "dialogue" && !characterId) {
+      push("어떤 캐릭터의 대사인지 선택해 주세요.", "info");
       return;
     }
     setSubmitting(true);
-    const res = await submitFeedback({
-      title: trimmed,
-      category: active.category,
-      description: description || undefined,
-    });
+    const res =
+      tab === "phase"
+        ? await submitMarketPhaseRequest({
+            title: trimmed,
+            description: description || undefined,
+          })
+        : await submitFeedback({
+            title: trimmed,
+            category: CHARACTER_DIALOGUE_CATEGORY,
+            description: serializeCharacterDialogueDescription(
+              characterId,
+              description,
+            ),
+          });
     if (!res.success) {
       push(res.message, "error");
       setSubmitting(false);
@@ -99,11 +129,12 @@ export function ContentRequestForms() {
     push(
       tab === "dialogue"
         ? "🗨️ 캐릭터 대사 요청 접수 · 고마워요!"
-        : "🌐 새 국면 요청 접수 · 검토할게요!",
+        : res.message,
       "success",
     );
     setTitle("");
     setDescription("");
+    setCharacterId("");
     setSubmitting(false);
   }
 
@@ -119,6 +150,7 @@ export function ContentRequestForms() {
               setTab(t.key);
               setTitle("");
               setDescription("");
+              setCharacterId("");
             }}
             className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
               tab === t.key
@@ -153,6 +185,20 @@ export function ContentRequestForms() {
         </div>
       ) : (
         <div className="mt-3 space-y-2">
+          {tab === "dialogue" && (
+            <select
+              value={characterId}
+              onChange={(e) => setCharacterId(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value="">어떤 캐릭터의 대사인가요? (필수)</option>
+              {CHARACTER_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value.slice(0, 80))}

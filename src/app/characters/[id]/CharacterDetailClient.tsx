@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
+import {
+  listMyAcceptedCharacterDialogues,
+  type AcceptedCharacterDialogue,
+} from "@/lib/supabase/feedback";
 import { CharacterGuidelineTag } from "@/components/market/CharacterGuidelineTag";
 import { StockRequestForm } from "@/components/market/StockRequestForm";
 import { formatPrice } from "@/lib/market/engine";
@@ -47,10 +51,38 @@ export function CharacterDetailClient({ id }: { id: string }) {
   );
   const allStocks = useMarketStore((s) => s.stocks);
   const getEquity = useMarketStore((s) => s.getEquity);
+  // 이 캐릭터가 실제로 말한 뉴스만 노출한다. quoteBy 는 "이모지 이름" 표시
+  // 문자열이라, 이 캐릭터의 표시명과 일치하는 대사만 고른다(다른 캐릭터가
+  // 반응한 섹터·거시 뉴스가 섞여 나오던 문제 해결).
+  const speakerLabel = ceo ? `${ceo.emoji} ${ceo.name}` : "";
   const relatedNews = useMemo(
     () =>
-      events.filter((e) => e.quoteBy && e.affectedStockIds.includes(id)),
-    [events, id],
+      speakerLabel
+        ? events.filter((e) => e.quoteBy === speakerLabel)
+        : [],
+    [events, speakerLabel],
+  );
+
+  // 내가 요청해 채택된 이 캐릭터의 대사(있으면 한마디 탭에 함께 노출).
+  const [acceptedDialogues, setAcceptedDialogues] = useState<
+    AcceptedCharacterDialogue[]
+  >([]);
+  const ceoId = ceo?.id;
+  useEffect(() => {
+    let alive = true;
+    void listMyAcceptedCharacterDialogues().then((rows) => {
+      if (alive) setAcceptedDialogues(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const myCharacterDialogues = useMemo(
+    () =>
+      ceoId
+        ? acceptedDialogues.filter((d) => d.characterId === ceoId)
+        : [],
+    [acceptedDialogues, ceoId],
   );
 
   if (!company || !ceo) {
@@ -296,10 +328,26 @@ export function CharacterDetailClient({ id }: { id: string }) {
         </Link>
       </div>
 
-      {relatedNews.length > 0 && (
+      {(relatedNews.length > 0 || myCharacterDialogues.length > 0) && (
         <div className="mt-4">
           <h2 className="mb-2 text-sm font-semibold">최근 한마디</h2>
           <ul className="space-y-2">
+            {myCharacterDialogues.map((d) => (
+              <li
+                key={d.id}
+                className="rounded-2xl border border-emerald-400/25 bg-emerald-400/5 p-3 text-xs"
+              >
+                <p className="mb-1 inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  🗨️ 채택된 요청 대사
+                </p>
+                <p className="italic text-[var(--foreground)]">“{d.quote}”</p>
+                {d.situation && (
+                  <p className="mt-1 text-[11px] text-[var(--muted)]">
+                    {d.situation}
+                  </p>
+                )}
+              </li>
+            ))}
             {[...relatedNews]
               .reverse()
               .slice(0, 5)

@@ -10,6 +10,8 @@ import {
 import {
   listMyFeedbackResponses,
   FEEDBACK_STATUS_LABEL,
+  MARKET_PHASE_CATEGORY,
+  CHARACTER_DIALOGUE_CATEGORY,
 } from "@/lib/supabase/feedback";
 import {
   listMyStockRequestResponses,
@@ -81,7 +83,7 @@ export function BugResponseWatcher() {
           id: r.id,
           title: r.title,
           statusLabel: FEEDBACK_STATUS_LABEL[r.status],
-          reward: r.status === "done" && r.rewardCents > 0,
+          reward: r.rewardCents > 0,
           rewardCents: r.rewardCents,
           category: r.category,
           message: r.message,
@@ -154,45 +156,61 @@ export function BugResponseWatcher() {
   const isStock = current.source === "stock";
   const isCompany = current.source === "company";
   const rewarded = current.reward && current.rewardCents > 0;
-  // 국면 추가 요청 승인 — 보상이 아니라 신청 비용을 차감한다(음수).
-  const charged = current.source === "feedback" && current.rewardCents < 0;
+  const isPhase =
+    current.source === "feedback" &&
+    current.category === MARKET_PHASE_CATEGORY;
+  const isDialogue =
+    current.source === "feedback" &&
+    current.category === CHARACTER_DIALOGUE_CATEGORY;
+  // 국면 추가 요청 반려 — 선 회수한 신청 비용을 환불한다(양수).
+  const phaseRefund = isPhase && current.rewardCents > 0;
+  // 국면 추가 요청 반영 완료 — 신청 시 이미 회수했으므로 지갑 변동 없음.
+  const phaseApproved = isPhase && current.rewardCents === 0;
   const dismiss = () => setQueue((prev) => prev.slice(1));
 
   const heading = isCompany
     ? "회사 설립 허가 반려"
     : isStock
       ? "IPO 신청 반려 — 비용 환불"
-      : charged
-        ? "국면 추가 요청 승인 — 비용 차감"
-        : rewarded
-          ? isBug
-            ? "버그 수정 완료 — 보상 지급"
-            : "피드백 반영 — 보상 지급"
-          : isBug
-            ? "버그 리포트 회신"
-            : "피드백 회신";
+      : phaseRefund
+        ? "새 국면 요청 반려 — 비용 환불"
+        : phaseApproved
+          ? "새 시장 국면 반영 완료"
+          : rewarded
+            ? isBug
+              ? "버그 수정 완료 — 보상 지급"
+              : isDialogue
+                ? "캐릭터 대사 채택 — 보상 지급"
+                : "피드백 반영 — 보상 지급"
+            : isBug
+              ? "버그 리포트 회신"
+              : "피드백 회신";
   const emoji = isCompany
     ? "🏢"
     : isStock
       ? "📈"
-      : charged
+      : isPhase
         ? "🌐"
         : rewarded
           ? isBug
             ? "🛠️"
-            : "💡"
+            : isDialogue
+              ? "🗨️"
+              : "💡"
           : "📮";
   const closing = isCompany
     ? "반려 사유를 확인해 주세요. 내용을 수정한 뒤 다시 허가 신청할 수 있습니다."
     : isStock
       ? "반려 사유를 확인해 주세요. 사용한 IPO 신청 비용은 전액 돌려드렸습니다."
-      : charged
-        ? "요청하신 새 시장 국면이 반영됐습니다. 신청 비용이 차감되었어요."
-        : rewarded
-          ? isBug
-            ? "제보해 주셔서 고맙습니다. 여러분의 제보가 게임을 더 단단하게 만듭니다."
-            : "제안해 주셔서 고맙습니다. 여러분의 아이디어가 게임을 키웁니다."
-          : "소중한 의견 고맙습니다. 다음에 더 좋은 소식으로 찾아뵐게요.";
+      : phaseRefund
+        ? "요청하신 국면은 반영되지 않아 신청 비용을 전액 돌려드렸어요."
+        : phaseApproved
+          ? "요청하신 새 국면이 반영됐습니다. 신청 비용으로 게임을 키워 주셔서 고맙습니다."
+          : rewarded
+            ? isBug
+              ? "제보해 주셔서 고맙습니다. 여러분의 제보가 게임을 더 단단하게 만듭니다."
+              : "제안해 주셔서 고맙습니다. 여러분의 아이디어가 게임을 키웁니다."
+            : "소중한 의견 고맙습니다. 다음에 더 좋은 소식으로 찾아뵐게요.";
   const sourceLabel = isBug
     ? "🐞 버그"
     : isStock
@@ -208,7 +226,7 @@ export function BugResponseWatcher() {
         <h2 className="mt-3 text-lg font-bold">{heading}</h2>
         <span
           className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            rewarded && !isStock && !isCompany
+            (rewarded || phaseApproved) && !isStock && !isCompany
               ? "bg-emerald-500/15 text-emerald-400"
               : "bg-rose-500/15 text-rose-400"
           }`}
@@ -223,19 +241,18 @@ export function BugResponseWatcher() {
         {rewarded && (
           <div className="mt-4 rounded-2xl bg-emerald-500/10 px-5 py-3">
             <p className="text-[11px] text-[var(--muted)]">
-              {isStock ? "IPO 신청 비용 환불" : isBug ? "제보 보상" : "제안 보상"}
+              {isStock
+                ? "IPO 신청 비용 환불"
+                : phaseRefund
+                  ? "국면 요청 비용 환불"
+                  : isBug
+                    ? "제보 보상"
+                    : isDialogue
+                      ? "대사 채택 보상"
+                      : "제안 보상"}
             </p>
             <p className="text-xl font-black tabular-nums text-emerald-400">
               +{formatPrice(current.rewardCents)}
-            </p>
-          </div>
-        )}
-
-        {charged && (
-          <div className="mt-4 rounded-2xl bg-rose-500/10 px-5 py-3">
-            <p className="text-[11px] text-[var(--muted)]">국면 추가 요청 비용</p>
-            <p className="text-xl font-black tabular-nums text-rose-400">
-              -{formatPrice(Math.abs(current.rewardCents))}
             </p>
           </div>
         )}

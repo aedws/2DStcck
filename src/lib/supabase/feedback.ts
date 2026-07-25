@@ -47,15 +47,79 @@ export function isContentRequestCategory(
   );
 }
 
-/** 카테고리별 채택(done) 지갑 효과(센트, 부호 있음). 양수는 지급, 음수는 차감. */
-export function feedbackDoneEffectCents(
+/**
+ * 캐릭터 대사 요청 설명 앞에 대상 캐릭터 id를 [char:<id>] 마커로 저장해,
+ * 채택된 대사를 해당 캐릭터 한마디 탭에 붙일 수 있게 한다.
+ */
+export function serializeCharacterDialogueDescription(
+  characterId: string,
+  situation?: string,
+): string {
+  const head = `[char:${characterId}]`;
+  const body = situation?.trim();
+  return body ? `${head}\n${body}` : head;
+}
+
+function parseCharacterDialogueCharacterId(
+  description: string | null,
+): string | null {
+  const match = description?.match(/^\[char:([A-Za-z0-9_-]+)\]/);
+  return match ? match[1] : null;
+}
+
+export interface AcceptedCharacterDialogue {
+  id: string;
+  characterId: string;
+  quote: string; // 제안한 대사(제목)
+  situation: string | null; // 상황 설명(마커 이후 본문)
+}
+
+/**
+ * 내가 요청해 채택(done)된 캐릭터 대사 목록. RLS 로 본인 것만 반환된다.
+ * 캐릭터 한마디 탭에서 채택된 대사를 함께 노출하는 데 쓴다.
+ */
+export async function listMyAcceptedCharacterDialogues(): Promise<
+  AcceptedCharacterDialogue[]
+> {
+  const auth = await getCurrentAuth();
+  if (!auth) return [];
+  const rows = await listFeedback();
+  return rows
+    .filter(
+      (r) =>
+        r.user_id === auth.userId &&
+        r.category === CHARACTER_DIALOGUE_CATEGORY &&
+        r.status === "done",
+    )
+    .map((r) => {
+      const characterId = parseCharacterDialogueCharacterId(r.description);
+      if (!characterId) return null;
+      const situation =
+        (r.description ?? "").replace(/^\[char:[^\]]+\]\s*/, "").trim() || null;
+      return {
+        id: r.id,
+        characterId,
+        quote: r.title,
+        situation,
+      } satisfies AcceptedCharacterDialogue;
+    })
+    .filter((x): x is AcceptedCharacterDialogue => x !== null);
+}
+
+/**
+ * 처리 결과별 지갑 효과(센트, 부호 있음). 양수 지급·음수 차감·0 무효과.
+ * - 국면 추가 요청: 신청 시 선 회수하므로 채택(done)엔 효과 없음(0),
+ *   반려(declined) 시 신청 비용을 환불한다(+cost).
+ * - 캐릭터 대사·일반 피드백: 채택(done) 시 보상 지급(+reward), 반려는 0.
+ */
+export function feedbackResponseEffectCents(
   category: string | null | undefined,
+  status: FeedbackStatus,
 ): number {
   if (category === MARKET_PHASE_CATEGORY) {
-    return -MARKET_PHASE_REQUEST_COST_CENTS;
+    return status === "declined" ? MARKET_PHASE_REQUEST_COST_CENTS : 0;
   }
-  // 캐릭터 대사 요청·일반 피드백 모두 채택 시 보상 지급.
-  return FEEDBACK_REWARD_CENTS;
+  return status === "done" ? FEEDBACK_REWARD_CENTS : 0;
 }
 
 /** 운영자 회신을 유저에게 전달하기 위한 정규화된 응답. */
@@ -92,6 +156,7 @@ export interface SubmitFeedbackResult {
   success: boolean;
   message: string;
   cooldown?: boolean;
+  requestId?: string;
 }
 
 /** 피드백·요청 제출. */
@@ -107,13 +172,17 @@ export async function submitFeedback(
     return { success: false, message: "제목은 1~80자로 입력해 주세요." };
   }
   const supabase = createClient();
-  const { error } = await supabase.from("feedback").insert({
-    user_id: auth.userId,
-    game_id: auth.gameId,
-    category: input.category?.trim() || null,
-    title,
-    description: input.description?.trim() || null,
-  });
+  const { data, error } = await supabase
+    .from("feedback")
+    .insert({
+      user_id: auth.userId,
+      game_id: auth.gameId,
+      category: input.category?.trim() || null,
+      title,
+      description: input.description?.trim() || null,
+    })
+    .select("id")
+    .single();
   if (error) {
     if (
       error.message?.includes("feedback_cooldown") ||
@@ -136,7 +205,11 @@ export async function submitFeedback(
       message: "제출에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
-  return { success: true, message: "피드백이 접수되었습니다. 고마워요!" };
+  return {
+    success: true,
+    message: "피드백이 접수되었습니다. 고마워요!",
+    requestId: (data as { id: string } | null)?.id,
+  };
 }
 
 /** (관리자) 전체 피드백 목록. 비관리자는 RLS 로 본인 것만 반환된다. */
@@ -172,7 +245,10 @@ export async function listMyFeedbackResponses(): Promise<FeedbackResponse[]> {
       status: r.status as "done" | "declined",
       category: r.category,
       message: r.admin_note,
-      rewardCents: r.status === "done" ? feedbackDoneEffectCents(r.category) : 0,
+      rewardCents: feedbackResponseEffectCents(
+        r.category,
+        r.status as FeedbackStatus,
+      ),
     }));
 }
 

@@ -201,7 +201,11 @@ import {
   markCompanyFoundationShipped,
   verifyCompanyFoundationApproval,
 } from "@/lib/supabase/companyFoundationRequests";
-import { isContentRequestCategory } from "@/lib/supabase/feedback";
+import {
+  submitFeedback,
+  MARKET_PHASE_CATEGORY,
+  MARKET_PHASE_REQUEST_COST_CENTS,
+} from "@/lib/supabase/feedback";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -578,6 +582,14 @@ interface MarketStore extends MarketSnapshot {
     message: string | null;
     rewardCents: number;
   }[];
+  /**
+   * 새 시장 국면 추가 요청 — 신청 시 비용($100,000)을 선 회수한다.
+   * 승인(done)되면 그대로 소모되고, 반려(declined) 시 회신 처리에서 환불된다.
+   */
+  submitMarketPhaseRequest: (input: {
+    title: string;
+    description?: string;
+  }) => Promise<OrderResult>;
   /** 반려된 IPO 요청의 사유를 전달하고 신청 비용을 한 번만 환불한다. */
   resolveStockRequestResponses: (
     responses: {
@@ -2117,13 +2129,19 @@ export const useMarketStore = create<MarketStore>()(
         // 국면 추가 요청은 승인 시 비용 차감(음수). 모두 투자 성과와 무관한
         // 외부 흐름이라 시즌·랭킹에서 제외한다(compensation·content_request).
         const rewardPayments: CashPayment[] = fresh
-          .filter((r) => r.status === "done" && r.rewardCents !== 0)
+          .filter((r) => r.rewardCents !== 0)
           .map((r) => ({
             id: `feedback-reward-${r.id}`,
-            kind: isContentRequestCategory(r.category)
-              ? "content_request"
-              : "compensation",
-            sourceId: "feedback",
+            // 국면 추가 요청 반려 환불은 content_request(선 회수와 짝),
+            // 나머지 채택 보상은 운영 지급(compensation).
+            kind:
+              r.category === MARKET_PHASE_CATEGORY
+                ? "content_request"
+                : "compensation",
+            sourceId:
+              r.category === MARKET_PHASE_CATEGORY
+                ? "market-phase-refund"
+                : "feedback",
             dueSession,
             amount: r.rewardCents,
             timestamp: now,
@@ -2142,6 +2160,51 @@ export const useMarketStore = create<MarketStore>()(
         }
         void get().saveCloud();
         return fresh;
+      },
+      submitMarketPhaseRequest: async (input) => {
+        const state = get();
+        const title = input.title.trim();
+        if (title.length < 1) {
+          return { success: false, message: "국면 요약을 적어주세요." };
+        }
+        const cost = MARKET_PHASE_REQUEST_COST_CENTS;
+        // 신청 시 선 회수 — 현금 범위에서만 신청할 수 있다(미수 사용 안 함).
+        if (state.cash < cost) {
+          return {
+            success: false,
+            message: `새 국면 추가 요청은 ${formatPrice(cost)}이 필요합니다.`,
+          };
+        }
+        const res = await submitFeedback({
+          title,
+          category: MARKET_PHASE_CATEGORY,
+          description: input.description,
+        });
+        if (!res.success || !res.requestId) {
+          return {
+            success: false,
+            message: res.message || "요청 접수에 실패했습니다.",
+          };
+        }
+        const now = Date.now();
+        const dueSession = Math.floor(now / SESSION_DURATION_MS);
+        const chargePayment: CashPayment = {
+          id: `phase-request-${res.requestId}`,
+          kind: "content_request",
+          sourceId: "market-phase-request",
+          dueSession,
+          amount: -cost,
+          timestamp: now,
+        };
+        set({
+          ...withExactCashDelta(get(), -cost),
+          cashPayments: [chargePayment, ...get().cashPayments].slice(0, 200),
+        });
+        void get().saveCloud();
+        return {
+          success: true,
+          message: `새 국면 추가 요청 접수 · 신청 비용 ${formatPrice(cost)} 회수(반려 시 환불)`,
+        };
       },
       resolveStockRequestResponses: (responses) => {
         const state = get();

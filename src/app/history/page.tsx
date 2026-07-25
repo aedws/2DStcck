@@ -89,7 +89,7 @@ export default function HistoryPage() {
                                                 ? "법인세"
                                         : payment.kind === "content_request"
                                           ? payment.amount >= 0
-                                            ? "캐릭터 대사 채택 보상"
+                                            ? "국면 요청 반려 환불"
                                             : "국면 추가 요청 비용"
                                         : payment.kind === "dividend_tax"
                                           ? "배당 원천징수세"
