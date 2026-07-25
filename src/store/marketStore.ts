@@ -206,6 +206,10 @@ import {
   MARKET_PHASE_CATEGORY,
   MARKET_PHASE_REQUEST_COST_CENTS,
 } from "@/lib/supabase/feedback";
+import {
+  declarePlayerCompanyDividend as declareDividendServer,
+  type PlayerCompanyDividend,
+} from "@/lib/supabase/playerCompanyDividends";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -541,6 +545,8 @@ interface MarketStore extends MarketSnapshot {
   resolvedBugReportIds: string[];
   /** 운영자 회신을 이미 처리한 피드백 id. 중복 지급 방지. */
   resolvedFeedbackIds: string[];
+  /** 이미 수령한 유저 회사 배당 id. 중복 지급 방지. */
+  resolvedPlayerCompanyDividendIds: string[];
   /** 반려 회신·환불을 이미 처리한 IPO 요청 id. 중복 환불 방지. */
   resolvedStockRequestIds: string[];
   /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
@@ -655,6 +661,12 @@ interface MarketStore extends MarketSnapshot {
   retirePlayerCompanyShares: (shares: number) => OrderResult;
   /** 회차(20거래일)당 배당률(0~0.5) 지정. */
   setPlayerCompanyDividendRate: (rate: number) => OrderResult;
+  /** 배당 집행 — 순자산×배당률을 선 소각하고 배당 원장에 선언한다(상장 후). */
+  declarePlayerCompanyDividend: () => Promise<OrderResult>;
+  /** 배당 원장에서 지급 개시된 배당을 보유 좌수 비례로 멱등 수령한다. */
+  resolvePlayerCompanyDividends: (
+    dividends: PlayerCompanyDividend[],
+  ) => void;
   resumePlayerCompany: () => OrderResult;
   markPlayerCompanyIpoRequested: () => OrderResult;
   /** 자산운용사·유저 ETF. 보유 좌의 NAV 평가액도 총자산·랭킹에 합산한다. */
@@ -797,6 +809,7 @@ function createInitialState(): MarketSnapshot & {
   readCharacterMessageIds: string[];
   resolvedBugReportIds: string[];
   resolvedFeedbackIds: string[];
+  resolvedPlayerCompanyDividendIds: string[];
   resolvedStockRequestIds: string[];
   claimedCompensationIds: string[];
   appliedTaxEventIds: string[];
@@ -890,6 +903,7 @@ function createInitialState(): MarketSnapshot & {
     readCharacterMessageIds: [],
     resolvedBugReportIds: [],
     resolvedFeedbackIds: [],
+    resolvedPlayerCompanyDividendIds: [],
     resolvedStockRequestIds: [],
     // 신규 계정은 기존 운영 보상 지급 대상이 아니므로 전부 수령 완료로 시작한다.
     claimedCompensationIds: OPERATIONAL_COMPENSATIONS.map(
@@ -2602,6 +2616,8 @@ export const useMarketStore = create<MarketStore>()(
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
           resolvedBugReportIds: wallet.resolvedBugReportIds ?? [],
           resolvedFeedbackIds: wallet.resolvedFeedbackIds ?? [],
+          resolvedPlayerCompanyDividendIds:
+            wallet.resolvedPlayerCompanyDividendIds ?? [],
           resolvedStockRequestIds: wallet.resolvedStockRequestIds ?? [],
           myRoomItems: normalizeRoomItems(
             wallet.myRoomItems,
@@ -2719,6 +2735,7 @@ export const useMarketStore = create<MarketStore>()(
           readCharacterMessageIds: s.readCharacterMessageIds,
           resolvedBugReportIds: s.resolvedBugReportIds,
           resolvedFeedbackIds: s.resolvedFeedbackIds,
+          resolvedPlayerCompanyDividendIds: s.resolvedPlayerCompanyDividendIds,
           resolvedStockRequestIds: s.resolvedStockRequestIds,
           claimedCompensationIds: s.claimedCompensationIds,
           appliedTaxEventIds: s.appliedTaxEventIds,
@@ -5289,6 +5306,128 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message: result.message };
       },
 
+      declarePlayerCompanyDividend: async () => {
+        const state = get();
+        const company = state.playerCompany;
+        if (!company) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        if (company.status !== "listed" || !company.ipoListingStockId) {
+          return {
+            success: false,
+            message: "상장 후에만 배당을 집행할 수 있습니다.",
+          };
+        }
+        const rate = company.dividendRate ?? 0;
+        if (!(rate > 0)) {
+          return { success: false, message: "먼저 배당률을 지정해 주세요." };
+        }
+        // 배당률 × 순자산을 선 소각 재원으로 요구한다.
+        const required = Math.round(rate * Math.max(0, state.getTotalAssets()));
+        if (required <= 0) {
+          return { success: false, message: "배당 금액이 0입니다." };
+        }
+        if (state.cash < required) {
+          return {
+            success: false,
+            message: `배당 선 소각에 ${formatPrice(required)}가 필요합니다.`,
+          };
+        }
+        const perShare = Math.floor(
+          required / Math.max(1, company.totalShares),
+        );
+        if (perShare < 1) {
+          return {
+            success: false,
+            message: "좌당 배당이 1센트 미만입니다. 배당률을 올려 주세요.",
+          };
+        }
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        // 다음 20거래일 그리드 경계를 배당일로 삼는다.
+        const dividendSession =
+          (Math.floor(currentSession / COVERED_CALL_INTERVAL_DAYS) + 1) *
+          COVERED_CALL_INTERVAL_DAYS;
+        const res = await declareDividendServer({
+          ticker: company.ticker,
+          stockId: company.ipoListingStockId,
+          perShareCents: perShare,
+          totalCents: required,
+          dividendSession,
+        });
+        if (!res.success || !res.dividend) {
+          return { success: false, message: res.message };
+        }
+        const now = Date.now();
+        const burnPayment: CashPayment = {
+          id: `pcdiv-burn-${res.dividend.id}`,
+          kind: "company_capital",
+          sourceId: company.id,
+          ticker: company.ticker,
+          dueSession: currentSession,
+          amount: -required,
+          timestamp: now,
+        };
+        set({
+          ...withExactCashDelta(get(), -required),
+          cashPayments: [burnPayment, ...get().cashPayments].slice(0, 200),
+        });
+        void get().saveCloud();
+        const message = `배당 선언 · ${formatPrice(required)} 선 소각, 좌당 ${formatPrice(perShare)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다.`;
+        useToastStore.getState().push(message, "success");
+        playSound("cash");
+        return { success: true, message };
+      },
+
+      resolvePlayerCompanyDividends: (dividends) => {
+        const state = get();
+        const already = resolvedResponseIdsWithPaymentEvidence(
+          state.resolvedPlayerCompanyDividendIds,
+          state.cashPayments,
+          "pcdiv-pay-",
+        );
+        const fresh = dividends.filter((d) => !already.has(d.id));
+        if (fresh.length === 0) return;
+        const now = Date.now();
+        const dueSession = Math.floor(now / SESSION_DURATION_MS);
+        const quantityByStock = new Map(
+          state.holdings.map((h) => [h.stockId, h.quantity]),
+        );
+        const payments: CashPayment[] = [];
+        for (const dividend of fresh) {
+          const quantity = quantityByStock.get(dividend.stockId) ?? 0;
+          if (quantity <= 0 || dividend.perShareCents <= 0) continue;
+          const amount = Math.round(quantity * dividend.perShareCents);
+          if (amount <= 0) continue;
+          payments.push({
+            id: `pcdiv-pay-${dividend.id}`,
+            kind: "dividend",
+            sourceId: dividend.stockId,
+            ticker: dividend.ticker,
+            dueSession,
+            quantity,
+            amountPerShare: dividend.perShareCents,
+            amount,
+            timestamp: now,
+          });
+        }
+        const total = payments.reduce((sum, p) => sum + p.amount, 0);
+        set({
+          ...(total > 0 ? withExactCashDelta(state, total) : {}),
+          cashPayments:
+            payments.length > 0
+              ? [...payments, ...state.cashPayments].slice(0, 200)
+              : state.cashPayments,
+          resolvedPlayerCompanyDividendIds: [
+            ...fresh.map((d) => d.id),
+            ...state.resolvedPlayerCompanyDividendIds,
+          ].slice(0, 300),
+        });
+        if (total > 0) {
+          playSound("cash");
+          void get().saveCloud();
+        }
+      },
+
       resumePlayerCompany: () => {
         const state = get();
         if (!state.playerCompany) {
@@ -7383,6 +7522,8 @@ export const useMarketStore = create<MarketStore>()(
         readCharacterMessageIds: state.readCharacterMessageIds.slice(0, 200),
         resolvedBugReportIds: state.resolvedBugReportIds.slice(0, 200),
         resolvedFeedbackIds: state.resolvedFeedbackIds.slice(0, 200),
+        resolvedPlayerCompanyDividendIds:
+          state.resolvedPlayerCompanyDividendIds.slice(0, 200),
         resolvedStockRequestIds: state.resolvedStockRequestIds.slice(0, 200),
         claimedCompensationIds: state.claimedCompensationIds,
         appliedTaxEventIds: state.appliedTaxEventIds.slice(0, 2_000),
@@ -7839,6 +7980,15 @@ export const useMarketStore = create<MarketStore>()(
             (walletSource as Partial<MarketStore>).resolvedFeedbackIds,
           )
             ? (walletSource as Partial<MarketStore>).resolvedFeedbackIds!.slice(0, 300)
+            : [],
+          resolvedPlayerCompanyDividendIds: Array.isArray(
+            (walletSource as Partial<MarketStore>)
+              .resolvedPlayerCompanyDividendIds,
+          )
+            ? (walletSource as Partial<MarketStore>).resolvedPlayerCompanyDividendIds!.slice(
+                0,
+                300,
+              )
             : [],
           resolvedStockRequestIds: Array.isArray(
             (walletSource as Partial<MarketStore>).resolvedStockRequestIds,

@@ -106,8 +106,12 @@ export default function CompanyPage() {
   const setDividendRate = useMarketStore(
     (state) => state.setPlayerCompanyDividendRate,
   );
+  const declareDividend = useMarketStore(
+    (state) => state.declarePlayerCompanyDividend,
+  );
   const [manageQty, setManageQty] = useState("1000");
   const [dividendPct, setDividendPct] = useState("");
+  const [declaring, setDeclaring] = useState(false);
 
   const [now, setNow] = useState(() => Date.now());
   const [name, setName] = useState("");
@@ -772,9 +776,26 @@ export default function CompanyPage() {
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
             현재 배당률 {((playerCompany.dividendRate ?? 0) * 100).toFixed(1)}%.
-            상장 후 배당일에 순자산 기준 금액을 선 소각해 보유 주주에게 좌수
-            비례로 지급하는 배당 집행은 서버 배당 원장 연동이 필요해 준비 중입니다.
+            상장 후 ‘배당 집행’을 누르면 배당률 × 순자산 금액을 선 소각하고,
+            다음 배당일부터 보유 주주 전원이 좌수 비례로 지급받습니다.
           </p>
+          {playerCompany.status === "listed" ? (
+            <button
+              type="button"
+              disabled={declaring || !(playerCompany.dividendRate ?? 0)}
+              onClick={() => {
+                setDeclaring(true);
+                void declareDividend().finally(() => setDeclaring(false));
+              }}
+              className="mt-2 w-full rounded-xl bg-amber-500/90 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-40"
+            >
+              {declaring ? "배당 선언 중…" : "배당 집행 (순자산 선 소각)"}
+            </button>
+          ) : (
+            <p className="mt-2 text-[11px] text-[var(--muted)]">
+              배당 집행은 상장 완료 후 가능합니다.
+            </p>
+          )}
         </div>
       </section>
 
