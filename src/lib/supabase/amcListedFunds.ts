@@ -538,16 +538,12 @@ export async function updateListedAmcManagerProfile(
     return { success: false, message: "로그인 후 수정할 수 있습니다." };
   }
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("amc_listed_funds")
-    .update({
-      manager_name: manager.name.trim().slice(0, 40),
-      manager_tagline: manager.tagline.trim().slice(0, 80),
-      manager_detail: manager.detail?.trim().slice(0, 500) || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("manager_user_id", auth.userId)
-    .select("*");
+  // 직접 UPDATE 권한이 회수돼 있어 SECURITY DEFINER RPC로 본인 소유 상장 ETF를 갱신한다.
+  const { data, error } = await supabase.rpc("amc_update_manager_profile", {
+    p_name: manager.name.trim().slice(0, 40),
+    p_tagline: manager.tagline.trim().slice(0, 80),
+    p_detail: manager.detail?.trim().slice(0, 500) || null,
+  });
   if (error) {
     return { success: false, message: error.message };
   }

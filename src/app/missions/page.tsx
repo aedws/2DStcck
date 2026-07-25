@@ -293,7 +293,15 @@ export default function MissionsPage() {
                 </p>
                 <button
                   onClick={() => {
-                    const result = accept(offer.kind);
+                    const result = accept(
+                      offer.kind,
+                      issuer
+                        ? {
+                            characterId: issuer.characterId,
+                            companyId: issuer.companyId,
+                          }
+                        : undefined,
+                    );
                     setMessage(result.message);
                   }}
                   className="mt-4 rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90"

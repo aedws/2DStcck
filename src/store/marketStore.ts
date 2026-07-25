@@ -596,7 +596,10 @@ interface MarketStore extends MarketSnapshot {
   markSeasonCeremonySeen: (seasonId: string) => void;
   markCharacterMessageRead: (messageId: string) => void;
   markAllCharacterMessagesRead: (messageIds: string[]) => void;
-  acceptInvestmentMission: (kind: InvestmentMissionKind) => OrderResult;
+  acceptInvestmentMission: (
+    kind: InvestmentMissionKind,
+    issuer?: { characterId: string; companyId: string },
+  ) => OrderResult;
   /** 현재 연속 사건에 내린 판단과 최근 정산 기록. */
   storyDecision: StoryDecision | null;
   storyDecisionHistory: StoryDecision[];
@@ -1016,8 +1019,13 @@ function fullBuyingPower(s: MarginAwareState): number {
   const { equity, exposure } = marginContext(s);
   // 유저 ETF는 서버 원장 자산이라 로컬 강제청산 대상은 아니지만 담보 자기자본에는
   // 포함한다. 이를 빼면 유저 ETF 비중이 큰 정상 계정을 마진콜로 오인할 수 있다.
+  // 단, 담보는 노출(분모)에도 함께 넣어야 한다. 자기자본에만 더하면 유저 ETF를
+  // 미수로 사도 (현금↓ = 담보↑)로 매수여력이 줄지 않아 무한 미수 매수가 가능해진다.
   const collateral = userEtfPortfolioValueOf(s);
-  return Math.max(0, effectiveLeverage(s) * (equity + collateral) - exposure);
+  return Math.max(
+    0,
+    effectiveLeverage(s) * (equity + collateral) - (exposure + collateral),
+  );
 }
 
 /** 현물 매수는 미수 해제 시 현금과 1배 노출 한도를 모두 넘지 못한다. */
@@ -4036,7 +4044,7 @@ export const useMarketStore = create<MarketStore>()(
       sellCurrent: (stockId, quantity) =>
         applyLocalBuySell(set, get, "sellCurrent", stockId, quantity),
 
-      acceptInvestmentMission: (kind) => {
+      acceptInvestmentMission: (kind, issuerOverride) => {
         const state = get();
         const now = Date.now();
         const session = Math.floor(now / SESSION_DURATION_MS);
@@ -4058,12 +4066,23 @@ export const useMarketStore = create<MarketStore>()(
           equity,
           userEtfHoldings,
         );
-        const issuer = resolveMissionIssuer(
-          STOCK_DEFINITIONS,
-          concentration,
-          arc.character?.id,
-          session,
+        // 화면에서 본 발행자를 그대로 전달받으면 보유 캐릭터인지 검증한 뒤 사용한다.
+        // 페이지와 스토어가 발행자를 각자 재계산하며 순자산·회사목록 차이로 서로
+        // 다른 캐릭터를 고르던 문제(표시≠수락, 호감 50↑인데 고난도 막힘)를 없앤다.
+        const heldCharacterIds = new Set(
+          concentration.ranked
+            .filter((row) => row.share > 0)
+            .map((row) => row.characterId),
         );
+        const issuer =
+          issuerOverride && heldCharacterIds.has(issuerOverride.characterId)
+            ? issuerOverride
+            : resolveMissionIssuer(
+                STOCK_DEFINITIONS,
+                concentration,
+                arc.character?.id,
+                session,
+              );
         if (!issuer) {
           return {
             success: false,
