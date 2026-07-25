@@ -6892,23 +6892,49 @@ export const useMarketStore = create<MarketStore>()(
         const serverFund = settled ?? listed;
         state = get();
         const stockId = amcFundStockId(fund.id);
-        const existing = state.holdings.find((item) => item.stockId === stockId);
+        let existing = state.holdings.find((item) => item.stockId === stockId);
         if (existing?.quantity) {
           await bootstrapAmcPosition(fundId);
         }
         const orderId =
           globalThis.crypto?.randomUUID?.() ??
           `amc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const traded = await tradeAmcListedFund({
+        const buyArgs = {
           fundId,
           delta: qty,
-          expectedPosition: existing?.quantity ?? 0,
           priceFactor,
           clientOrderId: orderId,
           allowMargin: state.marginEnabled,
           marginBuyingPower: buyingPower,
           marginBuyingPowerExact: normalizeExactAmount(buyingPower),
+        };
+        let traded = await tradeAmcListedFund({
+          ...buyArgs,
+          expectedPosition: existing?.quantity ?? 0,
         });
+        if (!traded.success && traded.conflict) {
+          // 서버 실제 보유 좌수로 재동기화한 뒤 1회 자동 재시도해, 좌수 desync로
+          // 매수가 영구히 막히던 문제를 푼다(같은 주문 id로 멱등 유지).
+          const synced = await bootstrapAmcPosition(fundId);
+          if (synced) {
+            existing = existing
+              ? {
+                  ...existing,
+                  quantity: synced.quantity,
+                  quantityExact: synced.quantityExact,
+                }
+              : {
+                  stockId,
+                  quantity: synced.quantity,
+                  quantityExact: synced.quantityExact,
+                  averagePrice: 1,
+                };
+            traded = await tradeAmcListedFund({
+              ...buyArgs,
+              expectedPosition: synced.quantity,
+            });
+          }
+        }
         if (
           !traded.success ||
           !traded.fund ||
@@ -7091,7 +7117,7 @@ export const useMarketStore = create<MarketStore>()(
               : 0,
         });
         state = get();
-        const latestExisting = state.holdings.find(
+        let latestExisting = state.holdings.find(
           (item) => item.stockId === stockId,
         );
         if (!latestExisting || latestExisting.quantity < qty) {
@@ -7101,13 +7127,34 @@ export const useMarketStore = create<MarketStore>()(
         const orderId =
           globalThis.crypto?.randomUUID?.() ??
           `amc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const traded = await tradeAmcListedFund({
+        const sellArgs = {
           fundId,
           delta: -qty,
-          expectedPosition: latestExisting.quantity,
           priceFactor,
           clientOrderId: orderId,
+        };
+        let traded = await tradeAmcListedFund({
+          ...sellArgs,
+          expectedPosition: latestExisting.quantity,
         });
+        if (!traded.success && traded.conflict) {
+          // 서버 보유 좌수로 재동기화 후 1회 재시도(좌수 desync로 매도가 막히던 문제).
+          const synced = await bootstrapAmcPosition(fundId);
+          if (synced) {
+            if (synced.quantity < qty) {
+              return { success: false, message: "보유 좌수가 부족합니다." };
+            }
+            latestExisting = {
+              ...latestExisting,
+              quantity: synced.quantity,
+              quantityExact: synced.quantityExact,
+            };
+            traded = await tradeAmcListedFund({
+              ...sellArgs,
+              expectedPosition: synced.quantity,
+            });
+          }
+        }
         if (
           !traded.success ||
           !traded.fund ||

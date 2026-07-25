@@ -100,6 +100,8 @@ export interface AmcLedgerPayment {
 export interface AmcLedgerTradeResult {
   success: boolean;
   message: string;
+  /** 서버 보유 좌수와 기대값이 달라 낙관적 잠금이 충돌한 경우. 재동기화 후 재시도용. */
+  conflict?: boolean;
   fund?: ListedAmcFund;
   position?: number;
   positionExact?: string;
@@ -979,7 +981,8 @@ export async function tradeAmcListedFund(input: {
   }
   if (error || !data) {
     const raw = error?.message ?? "";
-    const message = raw.includes("position_conflict")
+    const conflict = raw.includes("position_conflict");
+    const message = conflict
       ? "다른 기기에서 보유 좌수가 변경됐습니다. 원장을 새로고침해 주세요."
       : raw.includes("insufficient_cash")
         ? "현금이 부족합니다."
@@ -990,7 +993,7 @@ export async function tradeAmcListedFund(input: {
             : raw.includes("save_required")
               ? "클라우드 저장 후 다시 거래해 주세요."
               : raw || "ETF 서버 거래에 실패했습니다.";
-    return { success: false, message };
+    return { success: false, message, conflict };
   }
   const row = data as {
     fund?: unknown;
