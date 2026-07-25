@@ -878,14 +878,26 @@ export async function bootstrapAmcPosition(
     p_fund_id: fundId,
   });
   if (error || !data) return null;
-  const row = data as { fund_id?: unknown; quantity?: unknown };
+  const row = data as {
+    fund_id?: unknown;
+    quantity?: unknown;
+    quantityExact?: unknown;
+  };
   const id = String(row.fund_id ?? fundId);
-  const parsedQuantity = Math.max(0, Number(row.quantity) || 0);
+  // 거액 좌수(예: 1.88e80)는 JSON number(quantity)로 오면 double 반올림으로
+  // 정밀도가 깨진다. 서버가 함께 실어 보내는 문자열 quantityExact 를 우선 사용해
+  // 정밀 좌수를 보존한다(있으면 quantity 는 무시).
+  const exactSource =
+    typeof row.quantityExact === "string" && row.quantityExact.trim()
+      ? row.quantityExact
+      : (row.quantity ?? "0");
+  const quantityExact = normalizeExactQuantity(exactSource);
+  const parsedQuantity = Math.max(0, Number(quantityExact) || 0);
   return id
     ? {
         fundId: id,
         quantity: parsedQuantity,
-        quantityExact: normalizeExactQuantity(row.quantity ?? "0"),
+        quantityExact,
       }
     : null;
 }
