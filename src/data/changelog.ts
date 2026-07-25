@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-25",
+    tag: "개선",
+    title: "회사 자본 확충 — 하루 한 번으로 완화",
+    detail:
+      "플레이어 회사의 정기 자본 확충을 5시간(5거래일)마다에서 하루 한 번(24거래일마다)으로 바꿔, 하루에 한 번만 처리하면 되도록 완화했습니다. 대신 기존과 같은 부담 비율이 되도록 요구 금액을 순자산 5% → 24%로 비례 증액했습니다(시간당 부담은 동일). 회사 화면과 캐릭터·배당 타이머처럼 다음 확충까지 남은 실제 시간도 함께 표시합니다.",
+  },
+  {
+    date: "2026-07-25",
     tag: "신규",
     title: "예약 상장 3종 — 마카샤·몬텔리·히스클리프 (7/28~29)",
     detail:

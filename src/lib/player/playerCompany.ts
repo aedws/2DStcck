@@ -3,8 +3,10 @@ import type { Holding, StockState } from "@/lib/types/market";
 
 export const PLAYER_COMPANY_MIN_NET_WORTH = 100_000_000_000; // $1B
 export const PLAYER_COMPANY_FOUNDING_RATE = 0.2;
-export const PLAYER_COMPANY_CAPITAL_CALL_RATE = 0.05;
-export const PLAYER_COMPANY_CAPITAL_CALL_INTERVAL = 5;
+// 자본 확충은 실제 1일에 1번(24거래일 = 24시간)만 처리하면 되도록 하고, 기존
+// 5시간(5거래일) 주기·5% 부담과 같은 비율이 되도록 금액을 24%로 비례 증액한다.
+export const PLAYER_COMPANY_CAPITAL_CALL_RATE = 0.24;
+export const PLAYER_COMPANY_CAPITAL_CALL_INTERVAL = 24;
 export const PLAYER_COMPANY_DILUTION_RATE = 0.1;
 export const PLAYER_COMPANY_INITIAL_SHARES = 100_000;
 export const PLAYER_COMPANY_MAX_PRESTIGE = 500;

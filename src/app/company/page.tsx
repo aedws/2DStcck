@@ -33,6 +33,7 @@ import {
   type PublicPlayerCompany,
 } from "@/lib/supabase/publicPlayerCompanies";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { sessionEta } from "@/lib/market/sessionTime";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -606,7 +607,7 @@ export default function CompanyPage() {
         <section className="mb-5 rounded-3xl border border-amber-400/40 bg-amber-400/5 p-5">
           <p className="text-xs font-bold text-amber-300">정기 자본 확충</p>
           <h2 className="mt-1 text-xl font-black">
-            순자산 5% · {formatCompactMoney(call.amount)}
+            순자산 24% · {formatCompactMoney(call.amount)}
           </h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             회차 시작 순자산 {formatCompactMoney(call.netWorthSnapshot)} 기준입니다.
@@ -644,7 +645,7 @@ export default function CompanyPage() {
         <section className="mb-5 rounded-3xl border border-red-400/30 bg-red-400/5 p-5">
           <h2 className="text-lg font-bold">⏸ 회사 운영 정지</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            성장과 IPO 진행이 멈췄습니다. 현재 순자산의 5%를 기준으로 자본 확충
+            성장과 IPO 진행이 멈췄습니다. 현재 순자산의 24%를 기준으로 자본 확충
             요구를 다시 만들 수 있습니다.
           </p>
           <button
@@ -663,7 +664,11 @@ export default function CompanyPage() {
             <div>
               <h2 className="font-bold">다음 자본 확충</h2>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                {sessionsLeft}거래일 뒤 · 당시 개인 순자산의 5%
+                ⏱️ {sessionEta(sessionsLeft).countdown} · {sessionsLeft}거래일 뒤 ·
+                당시 개인 순자산의 24%
+              </p>
+              <p className="mt-0.5 text-[10px] text-[var(--muted)]/70">
+                {sessionEta(sessionsLeft).clock} · 하루에 한 번만 처리하면 됩니다
               </p>
             </div>
             <span className="text-2xl">🔥</span>
