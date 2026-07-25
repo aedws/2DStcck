@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-25",
+    tag: "신규",
+    title: "콘텐츠 요청 — 캐릭터 대사·새 시장 국면 신청",
+    detail:
+      "홈 하단 폼에 콘텐츠 요청 탭을 추가했습니다. ‘캐릭터 대사’ 탭은 캐릭터가 뉴스·이벤트에서 할 대사를 제안하는 곳으로, 채택되면 $50,000 보상을 드립니다. ‘새 국면’ 탭은 새로운 시장 국면을 제안하는 곳으로, 승인되어 실제 반영되면 신청 비용 $100,000이 차감됩니다. 두 요청 모두 제출은 무료이고 지갑 효과는 운영자 채택·승인 시에만 적용되며, 처리 결과는 회신 팝업으로 알려드립니다.",
+  },
+  {
+    date: "2026-07-25",
     tag: "수정",
     title: "분할·병합 종목 장기 차트 절벽(가짜 급등락) 수정",
     detail:

@@ -25,13 +25,48 @@ export const FEEDBACK_STATUS_LABEL: Record<FeedbackStatus, string> = {
 /** 피드백 반영 완료(done) 시 제안자에게 지급하는 보상(센트) — $50,000. */
 export const FEEDBACK_REWARD_CENTS = 5_000_000;
 
+/**
+ * 특수 요청 카테고리 — 일반 피드백과 같은 `feedback` 테이블을 쓰되,
+ * 채택(done) 시 지갑 효과가 다르다.
+ * - 캐릭터 대사 요청: 채택 시 +$50,000 보상.
+ * - 국면 추가 요청: 승인 시 $100,000 소모(차감).
+ */
+export const CHARACTER_DIALOGUE_CATEGORY = "캐릭터 대사 요청";
+export const MARKET_PHASE_CATEGORY = "국면 추가 요청";
+
+/** 국면 추가 요청 승인 시 신청자에게서 차감하는 비용(센트) — $100,000. */
+export const MARKET_PHASE_REQUEST_COST_CENTS = 10_000_000;
+
+/** 특수 요청(캐릭터 대사·국면 추가) 카테고리인지. */
+export function isContentRequestCategory(
+  category: string | null | undefined,
+): boolean {
+  return (
+    category === CHARACTER_DIALOGUE_CATEGORY ||
+    category === MARKET_PHASE_CATEGORY
+  );
+}
+
+/** 카테고리별 채택(done) 지갑 효과(센트, 부호 있음). 양수는 지급, 음수는 차감. */
+export function feedbackDoneEffectCents(
+  category: string | null | undefined,
+): number {
+  if (category === MARKET_PHASE_CATEGORY) {
+    return -MARKET_PHASE_REQUEST_COST_CENTS;
+  }
+  // 캐릭터 대사 요청·일반 피드백 모두 채택 시 보상 지급.
+  return FEEDBACK_REWARD_CENTS;
+}
+
 /** 운영자 회신을 유저에게 전달하기 위한 정규화된 응답. */
 export interface FeedbackResponse {
   id: string;
   title: string;
   status: "done" | "declined"; // 처리 완료된 두 상태만
+  category: string | null; // 특수 요청 구분용(캐릭터 대사·국면 추가)
   message: string | null; // 운영자 회신 메시지(admin_note)
-  rewardCents: number; // 반영 완료 보상(센트). 반려면 0.
+  /** 채택(done) 지갑 효과(센트, 부호 있음). 양수 지급·음수 차감. 반려면 0. */
+  rewardCents: number;
 }
 
 export interface FeedbackInput {
@@ -135,8 +170,9 @@ export async function listMyFeedbackResponses(): Promise<FeedbackResponse[]> {
       id: r.id,
       title: r.title,
       status: r.status as "done" | "declined",
+      category: r.category,
       message: r.admin_note,
-      rewardCents: r.status === "done" ? FEEDBACK_REWARD_CENTS : 0,
+      rewardCents: r.status === "done" ? feedbackDoneEffectCents(r.category) : 0,
     }));
 }
 

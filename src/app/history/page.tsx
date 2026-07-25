@@ -87,6 +87,10 @@ export default function HistoryPage() {
                                               ? "금융투자소득세"
                                               : payment.kind === "corporate_tax"
                                                 ? "법인세"
+                                        : payment.kind === "content_request"
+                                          ? payment.amount >= 0
+                                            ? "캐릭터 대사 채택 보상"
+                                            : "국면 추가 요청 비용"
                                         : payment.kind === "dividend_tax"
                                           ? "배당 원천징수세"
                                         : payment.kind === "pump_surveillance_tax"

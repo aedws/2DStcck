@@ -2,9 +2,10 @@
 
 import { BugReportForm } from "@/components/market/BugReportForm";
 import { FeedbackForm } from "@/components/market/FeedbackForm";
+import { ContentRequestForms } from "@/components/market/ContentRequestForms";
 import { DevStatusBanner } from "@/components/market/DevStatusBanner";
 
-/** 버그 리포트 + 피드백·요청을 반반(데스크톱 2열) 나란히 배치한다. */
+/** 버그 리포트 + 피드백·요청 + 콘텐츠 요청(캐릭터 대사·새 국면)을 배치한다. */
 export function SupportForms() {
   return (
     <div className="space-y-3">
@@ -13,6 +14,7 @@ export function SupportForms() {
         <BugReportForm />
         <FeedbackForm />
       </div>
+      <ContentRequestForms />
     </div>
   );
 }

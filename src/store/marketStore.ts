@@ -201,6 +201,7 @@ import {
   markCompanyFoundationShipped,
   verifyCompanyFoundationApproval,
 } from "@/lib/supabase/companyFoundationRequests";
+import { isContentRequestCategory } from "@/lib/supabase/feedback";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -565,6 +566,7 @@ interface MarketStore extends MarketSnapshot {
       id: string;
       title: string;
       status: "done" | "declined";
+      category: string | null;
       message: string | null;
       rewardCents: number;
     }[],
@@ -572,6 +574,7 @@ interface MarketStore extends MarketSnapshot {
     id: string;
     title: string;
     status: "done" | "declined";
+    category: string | null;
     message: string | null;
     rewardCents: number;
   }[];
@@ -2110,12 +2113,16 @@ export const useMarketStore = create<MarketStore>()(
         if (fresh.length === 0) return [];
         const now = Date.now();
         const dueSession = Math.floor(now / SESSION_DURATION_MS);
-        // 반영 완료 보상은 운영 지급(compensation) — 시즌·랭킹 성과에서 제외된다.
+        // 반영 완료 지갑 효과 — 일반 피드백·캐릭터 대사 요청은 보상(양수),
+        // 국면 추가 요청은 승인 시 비용 차감(음수). 모두 투자 성과와 무관한
+        // 외부 흐름이라 시즌·랭킹에서 제외한다(compensation·content_request).
         const rewardPayments: CashPayment[] = fresh
-          .filter((r) => r.status === "done" && r.rewardCents > 0)
+          .filter((r) => r.status === "done" && r.rewardCents !== 0)
           .map((r) => ({
             id: `feedback-reward-${r.id}`,
-            kind: "compensation",
+            kind: isContentRequestCategory(r.category)
+              ? "content_request"
+              : "compensation",
             sourceId: "feedback",
             dueSession,
             amount: r.rewardCents,
