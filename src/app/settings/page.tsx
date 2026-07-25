@@ -27,6 +27,7 @@ import {
 } from "@/data/featureTutorials";
 import { useSettingsStore } from "@/store/settingsStore";
 import { SupportForms } from "@/components/market/SupportForms";
+import { MyRequestHistory } from "@/components/market/MyRequestHistory";
 
 type TutorialKind =
   | "mission"
@@ -230,6 +231,8 @@ export default function SettingsPage() {
         </div>
         <AccountResetPanel />
       </section>
+
+      <MyRequestHistory />
 
       <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
         <div className="border-b border-[var(--border)] px-4 py-3">
