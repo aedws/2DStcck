@@ -48,6 +48,9 @@ import {
   updateFeedback,
   FEEDBACK_STATUS_LABEL,
   FEEDBACK_REWARD_CENTS,
+  CHARACTER_DIALOGUE_CATEGORY,
+  MARKET_PHASE_CATEGORY,
+  DEX_REFLECTION_CATEGORY,
   type FeedbackRow,
   type FeedbackStatus,
 } from "@/lib/supabase/feedback";
@@ -104,7 +107,23 @@ const FEEDBACK_STATUS_STYLE: Record<FeedbackStatus, string> = {
   declined: "bg-rose-500/15 text-rose-400",
 };
 
-type Tab = "companies" | "amc" | "etf" | "stocks" | "bugs" | "feedback";
+type Tab =
+  | "companies"
+  | "amc"
+  | "etf"
+  | "stocks"
+  | "bugs"
+  | "feedback"
+  | "dialogue"
+  | "phase"
+  | "dex";
+
+/** 특수 요청 카테고리 — 일반 피드백 탭에서는 제외하고 전용 탭에서 본다. */
+const SPECIAL_FEEDBACK_CATEGORIES: string[] = [
+  CHARACTER_DIALOGUE_CATEGORY,
+  MARKET_PHASE_CATEGORY,
+  DEX_REFLECTION_CATEGORY,
+];
 
 export default function AdminPage() {
   const [phase, setPhase] = useState<"loading" | "denied" | "ready">("loading");
@@ -291,7 +310,33 @@ export default function AdminPage() {
   const pendingAmc = amcRows.filter((r) => r.status === "pending").length;
   const pendingEtf = etfRows.filter((r) => r.status === "pending").length;
   const openBugs = bugRows.filter((r) => r.status === "open").length;
-  const openFeedback = feedbackRows.filter((r) => r.status === "open").length;
+  // 일반 피드백 탭은 특수 요청(대사·국면·도감)을 제외한다.
+  const generalFeedbackRows = feedbackRows.filter(
+    (r) => !r.category || !SPECIAL_FEEDBACK_CATEGORIES.includes(r.category),
+  );
+  const dialogueRows = feedbackRows.filter(
+    (r) => r.category === CHARACTER_DIALOGUE_CATEGORY,
+  );
+  const phaseRows = feedbackRows.filter(
+    (r) => r.category === MARKET_PHASE_CATEGORY,
+  );
+  const dexRows = feedbackRows.filter(
+    (r) => r.category === DEX_REFLECTION_CATEGORY,
+  );
+  const openFeedback = generalFeedbackRows.filter(
+    (r) => r.status === "open",
+  ).length;
+  const openDialogue = dialogueRows.filter((r) => r.status === "open").length;
+  const openPhase = phaseRows.filter((r) => r.status === "open").length;
+  const openDex = dexRows.filter((r) => r.status === "open").length;
+  const visibleFeedbackRows =
+    tab === "dialogue"
+      ? dialogueRows
+      : tab === "phase"
+        ? phaseRows
+        : tab === "dex"
+          ? dexRows
+          : generalFeedbackRows;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -375,6 +420,39 @@ export default function AdminPage() {
           }`}
         >
           💡 피드백 {openFeedback > 0 && `· ${openFeedback}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("dialogue")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "dialogue"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          🗨️ 대사 요청 {openDialogue > 0 && `· ${openDialogue}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("phase")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "phase"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          🌐 국면 요청 {openPhase > 0 && `· ${openPhase}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("dex")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "dex"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          🏛️ 도감 요청 {openDex > 0 && `· ${openDex}`}
         </button>
       </div>
 
@@ -1140,15 +1218,22 @@ export default function AdminPage() {
       ) : (
         <>
           <p className="text-sm text-[var(--muted)]">
-            총 {feedbackRows.length}건 · 접수 {openFeedback}건
+            총 {visibleFeedbackRows.length}건 · 접수{" "}
+            {visibleFeedbackRows.filter((r) => r.status === "open").length}건
           </p>
-          {feedbackRows.length === 0 ? (
+          {visibleFeedbackRows.length === 0 ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-sm text-[var(--muted)]">
-              아직 피드백이 없습니다.
+              {tab === "dialogue"
+                ? "대사 요청이 없습니다."
+                : tab === "phase"
+                  ? "국면 요청이 없습니다."
+                  : tab === "dex"
+                    ? "도감 반영 요청이 없습니다."
+                    : "아직 피드백이 없습니다."}
             </div>
           ) : (
             <ul className="space-y-3">
-              {feedbackRows.map((r) => {
+              {visibleFeedbackRows.map((r) => {
                 // 처리 완료(반영 완료·반려)된 피드백은 기본으로 접어 목록을 정리한다.
                 const terminal = r.status === "done" || r.status === "declined";
                 const collapsed = terminal && !expandedBugIds.has(r.id);
@@ -1250,6 +1335,14 @@ export default function AdminPage() {
                             <span className="text-[10px] font-semibold text-emerald-400">
                               ✓ 회신 전송됨 · {FEEDBACK_STATUS_LABEL[r.status]}
                             </span>
+                          ) : r.category === MARKET_PHASE_CATEGORY ? (
+                            <span className="text-[10px] text-amber-400">
+                              반영 완료=비용 소모 · 반려 시 신청 비용 환불
+                            </span>
+                          ) : r.category === DEX_REFLECTION_CATEGORY ? (
+                            <span className="text-[10px] text-sky-400">
+                              반영 완료 시 도감 등재 · 지갑 변동 없음
+                            </span>
                           ) : (
                             <span className="text-[10px] text-emerald-400">
                               반영 완료 시 자동 보상 {formatPrice(FEEDBACK_REWARD_CENTS)}
@@ -1280,7 +1373,11 @@ export default function AdminPage() {
                               onClick={() => setFeedbackStatus(r.id, "done")}
                               className="rounded-lg bg-emerald-500/90 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-40"
                             >
-                              ✅ 반영 완료 + 보상·회신
+                              {r.category === MARKET_PHASE_CATEGORY
+                                ? "✅ 반영 완료(비용 소모)"
+                                : r.category === DEX_REFLECTION_CATEGORY
+                                  ? "✅ 도감 등재"
+                                  : "✅ 반영 완료 + 보상·회신"}
                             </button>
                             <button
                               type="button"

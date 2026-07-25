@@ -330,6 +330,7 @@ import {
   fundPlayerCompanyCapitalCall as fundCompanyCapitalCall,
   markPlayerCompanyIpoRequested as markCompanyIpoRequested,
   normalizePlayerCompany,
+  playerCompanyFounderStakeValue,
   preparePlayerCompanyCapitalCall as prepareCompanyCapitalCall,
   reconcilePlayerCompanyIpo,
   refusePlayerCompanyCapitalCall as refuseCompanyCapitalCall,
@@ -1386,9 +1387,14 @@ function totalAssetsExactOf(state: MarketStore): string {
       userEtfRelationshipHoldingsOf(state),
     ),
   );
+  // 상장 전 창업주 지분(장부가치)도 총자산에 포함해 계좌·포트폴리오에 표시한다.
+  const founderStake = playerCompanyFounderStakeValue(state.playerCompany);
   return exactAdd(
-    exactAdd(regularAndOptions, userEtfs),
-    getPreferredShareValue(activePreferred),
+    exactAdd(
+      exactAdd(regularAndOptions, userEtfs),
+      getPreferredShareValue(activePreferred),
+    ),
+    String(founderStake),
   );
 }
 

@@ -94,6 +94,25 @@ export async function listCharacterQuotes(
   }));
 }
 
+/** 전체 커뮤니티 채택 대사(캐릭터 무관, 최신순). 커뮤니티 탭용. */
+export async function listCommunityQuotes(
+  limit = 100,
+): Promise<CharacterQuote[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("character_quotes")
+    .select("id, character_id, quote, situation, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: String(row.id),
+    characterId: String(row.character_id),
+    quote: String(row.quote),
+    situation: row.situation ? String(row.situation) : null,
+  }));
+}
+
 /** 도감에 등재된 커뮤니티 유저 회사(모든 유저 공개). */
 export interface CommunityDexCompany {
   id: string;
@@ -114,6 +133,25 @@ export async function listCharacterCompanies(
     .eq("character_id", characterId)
     .order("created_at", { ascending: false })
     .limit(20);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: String(row.id),
+    characterId: String(row.character_id),
+    companyName: String(row.company_name),
+    concept: row.concept ? String(row.concept) : null,
+  }));
+}
+
+/** 전체 커뮤니티 등재 유저 회사(캐릭터 무관, 최신순). 커뮤니티 탭용. */
+export async function listCommunityCompanies(
+  limit = 100,
+): Promise<CommunityDexCompany[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("community_dex_companies")
+    .select("id, character_id, company_name, concept, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
   if (error || !data) return [];
   return data.map((row) => ({
     id: String(row.id),

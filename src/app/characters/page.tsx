@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { getCompanyDefinitions } from "@/data/stocks";
+import { CommunityShowcase } from "@/components/market/CommunityShowcase";
 import { getCharacterById } from "@/data/characters";
 import {
   getCharacterRelation,
@@ -42,6 +43,7 @@ const BADGE_STYLE: Record<CharacterRelationStatus, string> = {
 };
 
 export default function CharactersPage() {
+  const [view, setView] = useState<"characters" | "community">("characters");
   const holdings = useMarketStore((state) => state.holdings);
   const stocks = useMarketStore((state) => state.stocks);
   const getEquity = useMarketStore((state) => state.getEquity);
@@ -138,6 +140,32 @@ export default function CharactersPage() {
           활성화 {discovered} / {entries.length}
         </span>
       </div>
+      <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-[var(--surface)] p-1">
+        {(
+          [
+            { key: "characters", label: "캐릭터" },
+            { key: "community", label: "🏛️ 커뮤니티" },
+          ] as const
+        ).map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setView(option.key)}
+            className={`rounded-xl py-2 text-sm font-semibold transition ${
+              view === option.key
+                ? "bg-[var(--accent)] text-white"
+                : "text-[var(--muted)]"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {view === "community" ? (
+        <CommunityShowcase />
+      ) : (
+      <>
       <div className="mb-5 grid grid-cols-3 gap-2">
         <SummaryStat label="활성화" value={`${discovered}/${entries.length}`} tone="text-sky-400" />
         <SummaryStat label="최애 ⭐" value={`${favorites}/${entries.length}`} tone="text-amber-400" />
@@ -234,6 +262,8 @@ export default function CharactersPage() {
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }

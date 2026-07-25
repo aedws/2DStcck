@@ -103,6 +103,19 @@ export function playerCompanyFounderOwnership(
   return Math.max(0, Math.min(1, company.founderShares / company.totalShares));
 }
 
+/**
+ * 상장 전 창업주 지분의 평가액(센트). 회사에 투자·소각한 총 자본을 장부가치로
+ * 보고 창업주 지분율만큼을 창업주 보통주 가치로 반영한다. 상장 후에는 계좌의
+ * 실제 보통주 홀딩으로 반영되므로 여기서는 0을 돌려준다(이중 계상 방지).
+ */
+export function playerCompanyFounderStakeValue(
+  company: PlayerCompanyState | null | undefined,
+): number {
+  if (!company || company.status === "listed") return 0;
+  const bookValue = Math.max(0, company.cumulativeCapitalBurned);
+  return Math.round(bookValue * playerCompanyFounderOwnership(company));
+}
+
 export function playerCompanyPrestige(
   company: PlayerCompanyState | null | undefined,
 ): number {

@@ -22,9 +22,12 @@ export const PREFERRED_UPSIDE_TRACK = 2.0;
 export const PREFERRED_DOWNSIDE_TRACK = 0.2;
 /** 배당 주기 — 커버드콜 월 분배와 같은 20거래일 그리드로 지급한다. */
 export const PREFERRED_DIVIDEND_INTERVAL_SESSIONS = 20;
-/** 연 배당률 1000% 고정. */
-export const PREFERRED_ANNUAL_DIVIDEND_RATE = 10.0;
-/** 회차(20거래일) 배당 비율 = 연 1000% ÷ (240/20 = 12회) ≈ 0.833. */
+/** 연 배당률 4800% (= 5거래일당 100%). */
+export const PREFERRED_ANNUAL_DIVIDEND_RATE = 48.0;
+/**
+ * 회차(20거래일) 배당 비율 = 연 4800% ÷ (240/20 = 12회) = 4.0.
+ * 즉 20거래일마다 현재 가치의 400%를 지급하며, 이는 5거래일당 100%와 같다.
+ */
 export const PREFERRED_DIVIDEND_RATE =
   (PREFERRED_ANNUAL_DIVIDEND_RATE * PREFERRED_DIVIDEND_INTERVAL_SESSIONS) /
   TRADING_SESSIONS_PER_YEAR;
@@ -137,7 +140,7 @@ export function reconcilePreferredShares(
     }
   }
   // 활성 우선주 가치를 본주 등락에 맞춰 비대칭 추종 갱신하고, 20거래일 배당액을
-  // 현재 가치의 50%로 재산정한다.
+  // 현재 가치의 400%(5거래일당 100%)로 재산정한다.
   const trackValue = (share: PreferredShare): PreferredShare => {
     const price = stockByCharacter.get(share.characterId)?.currentPrice ?? 0;
     if (!(price > 0)) return share;

@@ -42,6 +42,7 @@ import {
   getPreferredQuarterlyDividend,
 } from "@/lib/player/preferredShares";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import { playerCompanyFounderStakeValue } from "@/lib/player/playerCompany";
 
 const ORDER_TABS = ["대기", "완료", "조건주문"];
 
@@ -156,7 +157,25 @@ export function AccountSidebar() {
           : 0,
       quarterlyDividend: getPreferredQuarterlyDividend([share]),
     }));
-    return [...regular, ...userEtfs, ...preferred];
+    // 상장 전 창업주 보통주 지분도 계좌에 표시한다(회사 탭에만 뜨던 문제 해결).
+    const founderStake: AccountPosition[] =
+      playerCompany &&
+      playerCompany.status !== "listed" &&
+      playerCompany.founderShares > 0
+        ? [
+            {
+              id: `founder-${playerCompany.id}`,
+              name: `${playerCompany.name} 창업주 보통주`,
+              ticker: `🏢 ${playerCompany.ticker}`,
+              quantity: playerCompany.founderShares,
+              evaluation: playerCompanyFounderStakeValue(playerCompany),
+              pnl: 0,
+              href: `/company`,
+              userEtf: false,
+            },
+          ]
+        : [];
+    return [...regular, ...userEtfs, ...preferred, ...founderStake];
   }, [
     assetManager,
     holdings,
@@ -164,6 +183,7 @@ export function AccountSidebar() {
     stocks,
     preferredShares,
     getEquity,
+    playerCompany,
   ]);
 
   const optionPositions = useMemo(() => {

@@ -20,6 +20,7 @@ import {
 import { useMarketStore } from "@/store/marketStore";
 import { LUXURY_BY_ID } from "@/data/luxuries";
 import { getLuxuryValue } from "@/lib/market/luxury";
+import { playerCompanyFounderStakeValue } from "@/lib/player/playerCompany";
 import {
   getActivePreferredShares,
   getPreferredShareValue,
@@ -105,6 +106,8 @@ export default function PortfolioPage() {
   const total = getTotalAssets();
   const totalExact = getTotalAssetsExact();
   const luxuryValue = getLuxuryValue(ownedLuxuries);
+  const playerCompany = useMarketStore((s) => s.playerCompany);
+  const founderStakeValue = playerCompanyFounderStakeValue(playerCompany);
   const amcFunds = useMemo(
     () =>
       mergeAmcPortfolioFunds(
@@ -160,12 +163,13 @@ export default function PortfolioPage() {
     }
     add("유저 ETF", amcValue);
     add("우선주", preferredValue);
+    add("회사 지분", founderStakeValue);
     add("명품", luxuryValue);
     add("현금", Math.max(0, cash));
     return Object.entries(byCategory)
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value);
-  }, [holdings, stocks, amcValue, preferredValue, luxuryValue, cash]);
+  }, [holdings, stocks, amcValue, preferredValue, founderStakeValue, luxuryValue, cash]);
 
   // 캐릭터 비중 도넛: 직접 종목·유저 ETF 룩스루·커버드콜·양수 레버리지를 기초
   // 캐릭터로 합산한 비중(preferredConcentration). 나머지는 '기타·현금'으로 묶는다.
@@ -625,8 +629,8 @@ export default function PortfolioPage() {
           </div>
           <p className="mb-2 text-[11px] text-zinc-500">
             집중(원 앤 온리·트윈 스타·트리플 하르모니아) 유지 중인 우선주만 자산·배당에
-            반영됩니다. 가치는 본주 등락을 비대칭 추종(상승 200%·하락 20%)하고 연 1000%
-            배당을 20거래일마다(회차 약 83%) 지급합니다. 호감 100 이상 유지 시 5거래일마다 1좌가 추가 지급되며,
+            반영됩니다. 가치는 본주 등락을 비대칭 추종(상승 200%·하락 20%)하고 5거래일당 100%
+            (20거래일마다 현재 가치의 400%) 배당을 지급합니다. 호감 100 이상 유지 시 5거래일마다 1좌가 추가 지급되며,
             집중이 풀리면 휴면(재집중 시 부활)됩니다. 단, 5캐릭터 이상으로 분산하는 순간
             전량 0주로 소멸하며 가치는 환급되지 않습니다.
           </p>
