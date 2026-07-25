@@ -5,8 +5,10 @@ import Link from "next/link";
 import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import {
-  listMyAcceptedCharacterDialogues,
-  type AcceptedCharacterDialogue,
+  listCharacterQuotes,
+  listCharacterCompanies,
+  type CharacterQuote,
+  type CommunityDexCompany,
 } from "@/lib/supabase/feedback";
 import { CharacterGuidelineTag } from "@/components/market/CharacterGuidelineTag";
 import { StockRequestForm } from "@/components/market/StockRequestForm";
@@ -63,27 +65,25 @@ export function CharacterDetailClient({ id }: { id: string }) {
     [events, speakerLabel],
   );
 
-  // 내가 요청해 채택된 이 캐릭터의 대사(있으면 한마디 탭에 함께 노출).
-  const [acceptedDialogues, setAcceptedDialogues] = useState<
-    AcceptedCharacterDialogue[]
-  >([]);
+  // 채택된 커뮤니티 대사(모든 유저 공개) — 이 캐릭터 것만 불러온다.
   const ceoId = ceo?.id;
+  const [communityQuotes, setCommunityQuotes] = useState<CharacterQuote[]>([]);
+  const [communityCompanies, setCommunityCompanies] = useState<
+    CommunityDexCompany[]
+  >([]);
   useEffect(() => {
+    if (!ceoId) return;
     let alive = true;
-    void listMyAcceptedCharacterDialogues().then((rows) => {
-      if (alive) setAcceptedDialogues(rows);
+    void listCharacterQuotes(ceoId).then((rows) => {
+      if (alive) setCommunityQuotes(rows);
+    });
+    void listCharacterCompanies(ceoId).then((rows) => {
+      if (alive) setCommunityCompanies(rows);
     });
     return () => {
       alive = false;
     };
-  }, []);
-  const myCharacterDialogues = useMemo(
-    () =>
-      ceoId
-        ? acceptedDialogues.filter((d) => d.characterId === ceoId)
-        : [],
-    [acceptedDialogues, ceoId],
-  );
+  }, [ceoId]);
 
   if (!company || !ceo) {
     return (
@@ -328,17 +328,42 @@ export function CharacterDetailClient({ id }: { id: string }) {
         </Link>
       </div>
 
-      {(relatedNews.length > 0 || myCharacterDialogues.length > 0) && (
+      {communityCompanies.length > 0 && (
+        <div className="mt-4">
+          <h2 className="mb-2 text-sm font-semibold">
+            🏛️ 운영 중인 커뮤니티 기업
+          </h2>
+          <ul className="space-y-2">
+            {communityCompanies.map((c) => (
+              <li
+                key={c.id}
+                className="rounded-2xl border border-sky-400/25 bg-sky-400/5 p-3 text-xs"
+              >
+                <p className="font-semibold text-[var(--foreground)]">
+                  {c.companyName}
+                </p>
+                {c.concept && (
+                  <p className="mt-1 leading-relaxed text-[var(--muted)]">
+                    {c.concept}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(relatedNews.length > 0 || communityQuotes.length > 0) && (
         <div className="mt-4">
           <h2 className="mb-2 text-sm font-semibold">최근 한마디</h2>
           <ul className="space-y-2">
-            {myCharacterDialogues.map((d) => (
+            {communityQuotes.map((d) => (
               <li
                 key={d.id}
                 className="rounded-2xl border border-emerald-400/25 bg-emerald-400/5 p-3 text-xs"
               >
                 <p className="mb-1 inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                  🗨️ 채택된 요청 대사
+                  🗨️ 커뮤니티 채택 대사
                 </p>
                 <p className="italic text-[var(--foreground)]">“{d.quote}”</p>
                 {d.situation && (

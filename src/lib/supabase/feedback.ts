@@ -33,6 +33,8 @@ export const FEEDBACK_REWARD_CENTS = 5_000_000;
  */
 export const CHARACTER_DIALOGUE_CATEGORY = "캐릭터 대사 요청";
 export const MARKET_PHASE_CATEGORY = "국면 추가 요청";
+/** 캐릭터 이름을 단 유저 회사의 도감 반영 요청 — 채택 시 도감에 등재, 지갑 효과 없음. */
+export const DEX_REFLECTION_CATEGORY = "도감 반영 요청";
 
 /** 국면 추가 요청 승인 시 신청자에게서 차감하는 비용(센트) — $100,000. */
 export const MARKET_PHASE_REQUEST_COST_CENTS = 10_000_000;
@@ -60,50 +62,65 @@ export function serializeCharacterDialogueDescription(
   return body ? `${head}\n${body}` : head;
 }
 
-function parseCharacterDialogueCharacterId(
-  description: string | null,
-): string | null {
-  const match = description?.match(/^\[char:([A-Za-z0-9_-]+)\]/);
-  return match ? match[1] : null;
-}
-
-export interface AcceptedCharacterDialogue {
+/** 공개 승격된 커뮤니티 캐릭터 대사(모든 유저 열람). */
+export interface CharacterQuote {
   id: string;
   characterId: string;
-  quote: string; // 제안한 대사(제목)
-  situation: string | null; // 상황 설명(마커 이후 본문)
+  quote: string;
+  situation: string | null;
 }
 
 /**
- * 내가 요청해 채택(done)된 캐릭터 대사 목록. RLS 로 본인 것만 반환된다.
- * 캐릭터 한마디 탭에서 채택된 대사를 함께 노출하는 데 쓴다.
+ * 특정 캐릭터의 채택된 커뮤니티 대사 목록(모든 유저 공개).
+ * feedback 채택(done) 시 트리거가 character_quotes 로 승격한 데이터를 읽는다.
  */
-export async function listMyAcceptedCharacterDialogues(): Promise<
-  AcceptedCharacterDialogue[]
-> {
-  const auth = await getCurrentAuth();
-  if (!auth) return [];
-  const rows = await listFeedback();
-  return rows
-    .filter(
-      (r) =>
-        r.user_id === auth.userId &&
-        r.category === CHARACTER_DIALOGUE_CATEGORY &&
-        r.status === "done",
-    )
-    .map((r) => {
-      const characterId = parseCharacterDialogueCharacterId(r.description);
-      if (!characterId) return null;
-      const situation =
-        (r.description ?? "").replace(/^\[char:[^\]]+\]\s*/, "").trim() || null;
-      return {
-        id: r.id,
-        characterId,
-        quote: r.title,
-        situation,
-      } satisfies AcceptedCharacterDialogue;
-    })
-    .filter((x): x is AcceptedCharacterDialogue => x !== null);
+export async function listCharacterQuotes(
+  characterId: string,
+): Promise<CharacterQuote[]> {
+  if (!characterId) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("character_quotes")
+    .select("id, character_id, quote, situation, created_at")
+    .eq("character_id", characterId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: String(row.id),
+    characterId: String(row.character_id),
+    quote: String(row.quote),
+    situation: row.situation ? String(row.situation) : null,
+  }));
+}
+
+/** 도감에 등재된 커뮤니티 유저 회사(모든 유저 공개). */
+export interface CommunityDexCompany {
+  id: string;
+  characterId: string;
+  companyName: string;
+  concept: string | null;
+}
+
+/** 특정 캐릭터 이름을 달고 도감에 등재된 커뮤니티 유저 회사 목록(공개). */
+export async function listCharacterCompanies(
+  characterId: string,
+): Promise<CommunityDexCompany[]> {
+  if (!characterId) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("community_dex_companies")
+    .select("id, character_id, company_name, concept, created_at")
+    .eq("character_id", characterId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: String(row.id),
+    characterId: String(row.character_id),
+    companyName: String(row.company_name),
+    concept: row.concept ? String(row.concept) : null,
+  }));
 }
 
 /**
@@ -118,6 +135,10 @@ export function feedbackResponseEffectCents(
 ): number {
   if (category === MARKET_PHASE_CATEGORY) {
     return status === "declined" ? MARKET_PHASE_REQUEST_COST_CENTS : 0;
+  }
+  // 도감 반영 요청은 지갑 효과 없이 도감 등재만 한다.
+  if (category === DEX_REFLECTION_CATEGORY) {
+    return 0;
   }
   return status === "done" ? FEEDBACK_REWARD_CENTS : 0;
 }

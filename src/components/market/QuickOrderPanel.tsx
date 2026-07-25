@@ -36,6 +36,7 @@ function formatQuantity(quantity: number): string {
 
 export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const [activeTab, setActiveTab] = useState(0);
+  const [side, setSide] = useState<"buy" | "sell">("buy");
   const [fractional, setFractional] = useState(false);
   const [quantityInput, setQuantityInput] = useState("1");
   const [limitPrice, setLimitPrice] = useState("");
@@ -144,8 +145,15 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     );
   }
 
+  const maxForSide = side === "buy" ? maxBuy : maxSell;
+
   function setMaximum() {
-    if (maxBuy > 0) setQuantityInput(String(maxBuy));
+    const max = side === "buy" ? maxBuy : maxSell;
+    if (max > 0) {
+      setQuantityInput(
+        String(fractional ? Math.floor(max * 1_000) / 1_000 : Math.floor(max)),
+      );
+    }
   }
 
   function order(orderType: OrderType) {
@@ -272,6 +280,24 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
 
         {(activeTab === 0 || activeTab === 1) && (
           <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-[var(--surface)] p-1">
+              {(["buy", "sell"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setSide(option)}
+                  className={`rounded-lg py-2 text-sm font-semibold transition ${
+                    side === option
+                      ? option === "buy"
+                        ? "bg-[var(--up)] text-white"
+                        : "bg-[var(--down)] text-white"
+                      : "text-[var(--muted)]"
+                  }`}
+                >
+                  {option === "buy" ? "매수" : "매도"}
+                </button>
+              ))}
+            </div>
             {activeTab === 1 && (
               <div>
                 <label className="mb-1 block text-xs text-[var(--muted)]">지정가 ($)</label>
@@ -318,45 +344,55 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
               <button
                 type="button"
                 onClick={setMaximum}
-                disabled={maxBuy <= 0}
+                disabled={maxForSide <= 0}
                 className="min-h-10 rounded-lg bg-[var(--surface)] text-xs text-[var(--muted)] disabled:opacity-40"
               >
                 최대
               </button>
             </div>
+            <p className="text-right text-[11px] text-[var(--muted)]">
+              {side === "buy"
+                ? `최대 매수 ${formatQuantity(maxBuy)}주`
+                : `최대 매도 ${formatQuantity(maxSell)}주`}
+            </p>
 
             {activeTab === 0 ? (
               <>
-                <div className="grid grid-cols-2 gap-2">
-                  <OrderButton
-                    label="현재가 매도"
-                    sub={formatPrice(liveStock.currentPrice)}
-                    variant="sell-current"
-                    disabled={loading || !validQuantity || quantity > maxSell + 1e-9}
-                    onClick={() => order("sell_current")}
-                  />
-                  <OrderButton
-                    label="현재가 매수"
-                    sub={formatPrice(liveStock.currentPrice)}
-                    variant="buy-current"
-                    disabled={loading || !validQuantity || quantity > maxBuy + 1e-9}
-                    onClick={() => order("buy_current")}
-                  />
-                  <OrderButton
-                    label="시장가 매도"
-                    sub={formatPrice(bestBid)}
-                    variant="sell-market"
-                    disabled={loading || !validQuantity || quantity > maxSell + 1e-9}
-                    onClick={() => order("sell_market")}
-                  />
-                  <OrderButton
-                    label="시장가 매수"
-                    sub={formatPrice(bestAsk)}
-                    variant="buy-market"
-                    disabled={loading || !validQuantity || quantity > maxBuy + 1e-9}
-                    onClick={() => order("buy_market")}
-                  />
-                </div>
+                {side === "buy" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <OrderButton
+                      label="현재가 매수"
+                      sub={formatPrice(liveStock.currentPrice)}
+                      variant="buy-current"
+                      disabled={loading || !validQuantity || quantity > maxBuy + 1e-9}
+                      onClick={() => order("buy_current")}
+                    />
+                    <OrderButton
+                      label="시장가 매수"
+                      sub={formatPrice(bestAsk)}
+                      variant="buy-market"
+                      disabled={loading || !validQuantity || quantity > maxBuy + 1e-9}
+                      onClick={() => order("buy_market")}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <OrderButton
+                      label="현재가 매도"
+                      sub={formatPrice(liveStock.currentPrice)}
+                      variant="sell-current"
+                      disabled={loading || !validQuantity || quantity > maxSell + 1e-9}
+                      onClick={() => order("sell_current")}
+                    />
+                    <OrderButton
+                      label="시장가 매도"
+                      sub={formatPrice(bestBid)}
+                      variant="sell-market"
+                      disabled={loading || !validQuantity || quantity > maxSell + 1e-9}
+                      onClick={() => order("sell_market")}
+                    />
+                  </div>
+                )}
 
                 {isPump && (
                   <div className="border-t border-[var(--border)] pt-3">
@@ -398,25 +434,24 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                   </div>
                 )}
               </>
+            ) : side === "buy" ? (
+              <button
+                type="button"
+                onClick={() => orderLimit("buy")}
+                disabled={loading || !validQuantity}
+                className="w-full rounded-2xl bg-[var(--up)] px-2 py-4 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                지정가 매수
+              </button>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => orderLimit("sell")}
-                  disabled={loading || !validQuantity || quantity > maxSell + 1e-9}
-                  className="rounded-2xl bg-[var(--down)] px-2 py-4 text-sm font-semibold text-white disabled:opacity-40"
-                >
-                  지정가 매도
-                </button>
-                <button
-                  type="button"
-                  onClick={() => orderLimit("buy")}
-                  disabled={loading || !validQuantity}
-                  className="rounded-2xl bg-[var(--up)] px-2 py-4 text-sm font-semibold text-white disabled:opacity-40"
-                >
-                  지정가 매수
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => orderLimit("sell")}
+                disabled={loading || !validQuantity || quantity > maxSell + 1e-9}
+                className="w-full rounded-2xl bg-[var(--down)] px-2 py-4 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                지정가 매도
+              </button>
             )}
           </div>
         )}

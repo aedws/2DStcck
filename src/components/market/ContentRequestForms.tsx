@@ -9,6 +9,7 @@ import {
   submitFeedback,
   serializeCharacterDialogueDescription,
   CHARACTER_DIALOGUE_CATEGORY,
+  DEX_REFLECTION_CATEGORY,
   FEEDBACK_REWARD_CENTS,
   MARKET_PHASE_REQUEST_COST_CENTS,
 } from "@/lib/supabase/feedback";
@@ -27,20 +28,22 @@ const CHARACTER_OPTIONS = getCompanyDefinitions()
   .filter((option): option is { id: string; label: string } => option !== null)
   .sort((a, b) => a.label.localeCompare(b.label, "ko"));
 
-type RequestTab = "dialogue" | "phase";
+type RequestTab = "dialogue" | "phase" | "dex";
 
 const TABS: Array<{
   key: RequestTab;
   label: string;
+  needsCharacter: boolean;
   intro: string;
   reward: string;
-  rewardTone: "emerald" | "rose";
+  rewardTone: "emerald" | "rose" | "sky";
   titlePlaceholder: string;
   bodyPlaceholder: string;
 }> = [
   {
     key: "dialogue",
     label: "🗨️ 캐릭터 대사",
+    needsCharacter: true,
     intro:
       "캐릭터가 뉴스·이벤트에서 할 만한 대사를 제안해 주세요. 어떤 캐릭터가 어떤 상황에서 무슨 말을 하면 좋을지 적어주면 좋아요.",
     reward: `🎁 채택(반영 완료) 시 보상 ${formatPrice(FEEDBACK_REWARD_CENTS)} 지급`,
@@ -52,6 +55,7 @@ const TABS: Array<{
   {
     key: "phase",
     label: "🌐 새 국면",
+    needsCharacter: false,
     intro:
       "새로운 시장 국면(예: 특정 섹터 랠리, 유동성 위기 등)을 제안해 주세요. 국면의 성격과 종목에 미치는 영향을 적어주면 좋아요.",
     reward: `⚠️ 신청 시 ${formatPrice(MARKET_PHASE_REQUEST_COST_CENTS)} 선 회수 · 반려되면 전액 환불`,
@@ -59,6 +63,18 @@ const TABS: Array<{
     titlePlaceholder: "어떤 국면인가요? (필수 · 한 줄 요약)",
     bodyPlaceholder:
       "국면의 성격, 지속 기간, 종목·섹터에 미치는 영향을 적어주세요.",
+  },
+  {
+    key: "dex",
+    label: "🏛️ 도감 반영",
+    needsCharacter: true,
+    intro:
+      "캐릭터 이름을 달고 설립한 유저 회사를 도감에 등재해 주세요. 채택되면 해당 캐릭터 도감에 ‘운영 중인 커뮤니티 기업’으로 표시됩니다.",
+    reward: "🏛️ 채택 시 해당 캐릭터 도감에 등재 · 지갑 변동 없음",
+    rewardTone: "sky",
+    titlePlaceholder: "회사 이름 (필수 · 예: 도로시 상사)",
+    bodyPlaceholder:
+      "회사 소개 (선택 · 티커·업종·어떤 컨셉으로 운영하는지)",
   },
 ];
 
@@ -97,13 +113,20 @@ export function ContentRequestForms() {
       push(
         tab === "dialogue"
           ? "제안하는 대사를 적어주세요."
-          : "국면 요약을 적어주세요.",
+          : tab === "dex"
+            ? "회사 이름을 적어주세요."
+            : "국면 요약을 적어주세요.",
         "info",
       );
       return;
     }
-    if (tab === "dialogue" && !characterId) {
-      push("어떤 캐릭터의 대사인지 선택해 주세요.", "info");
+    if (active.needsCharacter && !characterId) {
+      push(
+        tab === "dialogue"
+          ? "어떤 캐릭터의 대사인지 선택해 주세요."
+          : "어떤 캐릭터의 이름을 단 회사인지 선택해 주세요.",
+        "info",
+      );
       return;
     }
     setSubmitting(true);
@@ -115,7 +138,10 @@ export function ContentRequestForms() {
           })
         : await submitFeedback({
             title: trimmed,
-            category: CHARACTER_DIALOGUE_CATEGORY,
+            category:
+              tab === "dex"
+                ? DEX_REFLECTION_CATEGORY
+                : CHARACTER_DIALOGUE_CATEGORY,
             description: serializeCharacterDialogueDescription(
               characterId,
               description,
@@ -129,7 +155,9 @@ export function ContentRequestForms() {
     push(
       tab === "dialogue"
         ? "🗨️ 캐릭터 대사 요청 접수 · 고마워요!"
-        : res.message,
+        : tab === "dex"
+          ? "🏛️ 도감 반영 요청 접수 · 검토할게요!"
+          : res.message,
       "success",
     );
     setTitle("");
@@ -170,7 +198,9 @@ export function ContentRequestForms() {
         className={`mt-1.5 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold ${
           active.rewardTone === "emerald"
             ? "bg-emerald-500/10 text-emerald-400"
-            : "bg-rose-500/10 text-rose-300"
+            : active.rewardTone === "sky"
+              ? "bg-sky-500/10 text-sky-300"
+              : "bg-rose-500/10 text-rose-300"
         }`}
       >
         {active.reward}
@@ -185,13 +215,17 @@ export function ContentRequestForms() {
         </div>
       ) : (
         <div className="mt-3 space-y-2">
-          {tab === "dialogue" && (
+          {active.needsCharacter && (
             <select
               value={characterId}
               onChange={(e) => setCharacterId(e.target.value)}
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             >
-              <option value="">어떤 캐릭터의 대사인가요? (필수)</option>
+              <option value="">
+                {tab === "dex"
+                  ? "어떤 캐릭터 이름의 회사인가요? (필수)"
+                  : "어떤 캐릭터의 대사인가요? (필수)"}
+              </option>
               {CHARACTER_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.label}
