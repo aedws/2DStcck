@@ -64,6 +64,9 @@ interface AccountPosition {
 
 export function AccountSidebar() {
   const [orderTab, setOrderTab] = useState(1);
+  // 주문내역은 접을 수 있게 해, 분산투자로 보유 종목이 많을 때 목록을 가리지
+  // 않도록 한다. (@wakamo 피드백)
+  const [ordersOpen, setOrdersOpen] = useState(true);
   const cash = useMarketStore((s) => s.cash);
   const cashExact = useMarketStore((s) => s.cashExact);
   const holdings = useMarketStore((s) => s.holdings);
@@ -445,7 +448,17 @@ export function AccountSidebar() {
 
       <div className="border-t border-[var(--border)] p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">주문내역</h3>
+          <button
+            type="button"
+            onClick={() => setOrdersOpen((open) => !open)}
+            aria-expanded={ordersOpen}
+            className="flex items-center gap-1 text-sm font-semibold"
+          >
+            주문내역
+            <span className="text-[10px] text-[var(--muted)]">
+              {ordersOpen ? "▾" : "▸"}
+            </span>
+          </button>
           <Link
             href="/history"
             className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -453,6 +466,8 @@ export function AccountSidebar() {
             전체보기
           </Link>
         </div>
+        {ordersOpen && (
+        <>
         <div className="mb-3 flex gap-3">
           {ORDER_TABS.map((label, i) => (
             <button
@@ -512,7 +527,8 @@ export function AccountSidebar() {
             ))}
           </ul>
         )}
-
+        </>
+        )}
       </div>
     </aside>
   );

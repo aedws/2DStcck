@@ -5286,6 +5286,11 @@ export const useMarketStore = create<MarketStore>()(
 
           let ledger = await fetchMyAmcLedger();
           const ledgerIds = new Set(ledger.positions.map((row) => row.fundId));
+          // 서버 원장이 이미 거래(매도 포함)한 펀드 집합. 전량 매도로 포지션이 0이 되어
+          // positions에서 빠진 펀드를 '서버가 아는 종목(=이미 처분됨)'으로 식별한다.
+          const tradedFundIds = new Set(
+            ledger.trades.map((trade) => trade.fundId),
+          );
           const bootstrapped = await Promise.all(
             state.holdings
               .map((holding) => ({
@@ -5296,7 +5301,9 @@ export const useMarketStore = create<MarketStore>()(
                 (row): row is { holding: Holding; fundId: string } =>
                   Boolean(row.fundId) &&
                   row.holding.quantity > 0 &&
-                  !ledgerIds.has(row.fundId!),
+                  !ledgerIds.has(row.fundId!) &&
+                  // 서버가 이미 거래(매도로 0)한 펀드는 로컬 보유분으로 재생성하지 않는다.
+                  !tradedFundIds.has(row.fundId!),
               )
               .map((row) =>
                 bootstrapAmcPosition(row.fundId),
@@ -5313,7 +5320,13 @@ export const useMarketStore = create<MarketStore>()(
             const fundId = parseAmcFundId(holding.stockId);
             if (!fundId) return [holding];
             existingAmcIds.add(fundId);
-            if (!ledgerById.has(fundId)) return [holding];
+            if (!ledgerById.has(fundId)) {
+              // 서버 원장이 거래한 펀드인데 현재 포지션에 없으면 전량 매도로 0이 된
+              // 것 → 오래된 로컬 보유분을 정리해 재매도 시 position_conflict를 막는다.
+              // 서버에 기록이 전혀 없는 펀드(구 로컬 전용)는 그대로 두고 위에서
+              // bootstrap 한다.
+              return tradedFundIds.has(fundId) ? [] : [holding];
+            }
             const ledgerPosition = ledgerById.get(fundId);
             const quantity = ledgerPosition?.quantity ?? 0;
             const shareMultiplier =
