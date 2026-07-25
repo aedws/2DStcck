@@ -8,6 +8,7 @@ import {
   safeMarketStorage,
 } from "@/lib/storage/safeLocalStorage";
 import {
+  alignGenesisDailyCandlesToScale,
   createInitialStockState,
   formatPrice,
   getMarketBuyPrice,
@@ -6014,7 +6015,35 @@ export const useMarketStore = create<MarketStore>()(
         if (state.listedAmcFunds.some((item) => item.id === fundId && item.status !== "delisted")) {
           return { success: false, message: "이미 공유 마켓에 상장되어 있습니다." };
         }
-        const requestId = fund.listingRequestId;
+        let requestId = fund.listingRequestId;
+        if (!requestId) {
+          // 로컬 펀드에 신청 ID가 유실됐어도 서버에 허가된 신청이 있으면
+          // 그 신청을 찾아 이어서 상장한다(상태 desync로 상장이 막히던 버그).
+          const requests = await listMyAmcEtfListingRequests().catch(() => []);
+          const match = requests.find(
+            (request) =>
+              request.payload.fundId === fund.id &&
+              request.status === "accepted",
+          );
+          requestId = match?.id;
+          if (requestId) {
+            const restoredId = requestId;
+            set((current) =>
+              current.assetManager
+                ? {
+                    assetManager: {
+                      ...current.assetManager,
+                      funds: current.assetManager.funds.map((item) =>
+                        item.id === fund.id
+                          ? { ...item, listingRequestId: restoredId }
+                          : item,
+                      ),
+                    },
+                  }
+                : {},
+            );
+          }
+        }
         if (!requestId) {
           return {
             success: false,
@@ -7310,9 +7339,15 @@ export const useMarketStore = create<MarketStore>()(
               }
               const migrated = migrateStock(persistedStock);
               const firstSaved = migrated.dailyCandles[0]?.timestamp ?? Number.POSITIVE_INFINITY;
-              const synthetic = genesisById
-                .get(definition.id)
-                ?.dailyCandles.filter((candle) => candle.timestamp < firstSaved) ?? [];
+              // 제네시스 일봉을 저장본의 누적 액면배수에 맞춰 소급 조정(분할·병합 절벽 제거).
+              const synthetic = alignGenesisDailyCandlesToScale(
+                genesisById
+                  .get(definition.id)
+                  ?.dailyCandles.filter(
+                    (candle) => candle.timestamp < firstSaved,
+                  ) ?? [],
+                migrated.shareMultiplier,
+              );
               return {
                 ...migrated,
                 dailyCandles: [...synthetic, ...migrated.dailyCandles].slice(-1_250),

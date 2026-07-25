@@ -1070,6 +1070,22 @@ function scaleCandle(candle: Candle, factor: number): Candle {
 }
 
 /**
+ * 제네시스(원가격) 일봉을 현재 누적 액면배수에 맞춰 소급 조정한다.
+ * 조정가 = 원가격 / shareMultiplier. 체크포인트·저장본의 일봉은 이미 조정가라,
+ * 조정하지 않은 제네시스 일봉을 앞에 붙이면 분할·병합 종목의 장기(주·월봉)
+ * 차트에 실제 없는 절벽(가짜 급등락)이 생긴다.
+ */
+export function alignGenesisDailyCandlesToScale(
+  candles: Candle[],
+  shareMultiplier: number | undefined,
+): Candle[] {
+  const multiplier = shareMultiplier ?? 1;
+  if (!(multiplier > 0) || multiplier === 1) return candles;
+  const factor = 1 / multiplier;
+  return candles.map((candle) => scaleCandle(candle, factor));
+}
+
+/**
  * 일반 주식과 비레버리지 ETF를 $1~$1,000 표시 범위에 유지한다.
  * 액면만 바꾸고 과거 차트·보유 좌수는 같은 누적 배수로 소급 조정되어
  * 순자산과 수익률이 변하지 않는다. 레버리지 ETF는 별도 raw-price 경로를 쓴다.

@@ -53,6 +53,32 @@ export function instrumentTypeOf(
   return "company";
 }
 
+/**
+ * 유저 ETF 성과 비교 대상으로 고를 수 있는 시장 대표 지수형 ETF.
+ * 일반 종목뿐 아니라 이 지수 ETF들과도 총수익률을 견줄 수 있게 한다.
+ */
+export const AMC_COMPARISON_INDEX_ETF_IDS: readonly string[] = [
+  "baspy", // 키보토스 종합지수 (시장대표)
+  "baqqq", // 밀레니엄 테크 100 (기술주)
+];
+
+/** 유저 ETF 성과 비교 목표로 선택 가능한 종목인지 — 일반 종목 + 시장 지수 ETF. */
+export function isAmcComparisonEligible(
+  stock: Pick<
+    StockDefinition,
+    | "id"
+    | "instrumentType"
+    | "sector"
+    | "leverage"
+    | "coveredCallUnderlyingId"
+  >,
+): boolean {
+  return (
+    instrumentTypeOf(stock) === "company" ||
+    AMC_COMPARISON_INDEX_ETF_IDS.includes(stock.id)
+  );
+}
+
 export function strategyTypeOf(
   stock: Pick<
     StockDefinition,

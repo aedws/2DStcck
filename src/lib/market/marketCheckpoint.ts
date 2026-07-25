@@ -6,6 +6,7 @@ import {
 } from "@/lib/market/constants";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
+  alignGenesisDailyCandlesToScale,
   computeLeveragedSnapshot,
   leverageAdjustedCandles,
   leverageAdjustedHistory,
@@ -182,6 +183,10 @@ export function hydrateMarketCheckpoint(checkpoint: MarketCheckpoint): {
             shareMultiplier: shareAdjustment[0],
             lastShareAdjustmentSession:
               shareAdjustment[1] ?? undefined,
+            dailyCandles: alignGenesisDailyCandlesToScale(
+              stock.dailyCandles,
+              shareAdjustment[0],
+            ),
           }
         : stock;
     }
@@ -190,8 +195,13 @@ export function hydrateMarketCheckpoint(checkpoint: MarketCheckpoint): {
     const savedHistory = (saved.priceHistory ?? []).map(decodePrice);
     const firstSavedDaily =
       savedDaily[0]?.timestamp ?? Number.POSITIVE_INFINITY;
-    const syntheticDaily = stock.dailyCandles.filter(
-      (candle) => candle.timestamp < firstSavedDaily,
+    // 제네시스 일봉(원가격)을 저장본의 누적 액면배수에 맞춰 소급 조정해
+    // 분할·병합 종목의 장기 차트 절벽을 없앤다.
+    const syntheticDaily = alignGenesisDailyCandlesToScale(
+      stock.dailyCandles.filter(
+        (candle) => candle.timestamp < firstSavedDaily,
+      ),
+      saved.shareMultiplier,
     );
     return applyDefinitionOverlay({
       ...stock,

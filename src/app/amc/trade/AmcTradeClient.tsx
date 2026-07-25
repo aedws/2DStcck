@@ -12,7 +12,7 @@ import {
   formatSignedMoney,
   formatTradeTime,
 } from "@/lib/market/engine";
-import { instrumentTypeOf } from "@/lib/market/taxonomy";
+import { isAmcComparisonEligible } from "@/lib/market/taxonomy";
 import { isListed } from "@/lib/market/ipo";
 import { MARGIN_LEVERAGE_OPTIONS } from "@/lib/market/margin";
 import {
@@ -263,7 +263,7 @@ export function AmcTradeClient() {
     () =>
       stocks.filter(
         (stock) =>
-          instrumentTypeOf(stock) === "company" &&
+          isAmcComparisonEligible(stock) &&
           isListed(stock) &&
           stock.currentPrice > 0,
       ),

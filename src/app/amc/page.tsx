@@ -54,7 +54,10 @@ import {
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
 import { formatCompactMoney, formatPrice } from "@/lib/market/engine";
-import { instrumentTypeOf } from "@/lib/market/taxonomy";
+import {
+  instrumentTypeOf,
+  isAmcComparisonEligible,
+} from "@/lib/market/taxonomy";
 import { isListed } from "@/lib/market/ipo";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { useMarketStore } from "@/store/marketStore";
@@ -392,7 +395,7 @@ export default function AssetManagerPage() {
     () =>
       stocks.filter(
         (stock) =>
-          instrumentTypeOf(stock) === "company" &&
+          isAmcComparisonEligible(stock) &&
           isListed(stock) &&
           stock.currentPrice > 0,
       ),
