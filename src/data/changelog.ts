@@ -242,6 +242,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-07-25",
+    tag: "신규",
+    title: "예약 상장 3종 — 마카샤·몬텔리·히스클리프 (7/28~29)",
+    detail:
+      "승인된 종목 요청을 개장 큐에 이어 붙였습니다. 마카샤 연구소(MKSA·기술)는 7/28 18:00 KST, 몬텔리 캐피탈(MONC·금융 BDC)은 7/28 21:00 KST, 히스클리프 리츠운용(HTCL·금융 리츠)은 7/29 15:00 KST에 상장합니다. 마카샤 연구소는 외부 사건 영향이 적은 대신 기술 성패로 자체 변동성이 큰 연구개발 기업, 몬텔리 캐피탈은 스타트업 채권에 고정금리로 투자해 이자를 배당하는 고배당 BDC, 히스클리프 리츠운용은 현금흐름을 전액 배당하는 리츠입니다. 상장 시각까지는 본주·파생 거래가 잠기고 시초가가 고정됩니다. (@gudokza111·@titia8397)",
+  },
+  {
     date: "2026-07-24",
     tag: "개선",
     title: "관계 보상 우선주 개편 — 고배당·가치 추종·분산 소멸",

@@ -1233,6 +1233,72 @@ export const CSV_COMPANIES: StockDefinition[] = [
       }
     ],
     "quarterlyDividend": 350
+  },
+  {
+    "id": "mksa",
+    "ticker": "MKSA",
+    "name": "마카샤 연구소",
+    "instrumentType": "company",
+    "sector": "기술",
+    "subsector": "연구개발",
+    "marketTags": [
+      "기술"
+    ],
+    "initialPrice": 42000,
+    "volatility": 0.055,
+    "drift": 0.0007,
+    "beta": 0.3,
+    "description": "대표 마카샤의 직관으로 기술을 개발하는 연구소. 외부 사건 영향은 적지만 기술 성패에 따라 자체 변동성이 매우 크고, 잉여 현금을 자사주 매입과 배당으로 환원한다.",
+    "eventBias": {
+      "신제품": 4,
+      "실적": 2
+    },
+    "quarterlyDividend": 900,
+    "ceoId": "chr_mksa"
+  },
+  {
+    "id": "monc",
+    "ticker": "MONC",
+    "name": "몬텔리 캐피탈",
+    "instrumentType": "company",
+    "sector": "금융",
+    "subsector": "사모·BDC",
+    "marketTags": [
+      "금융"
+    ],
+    "initialPrice": 58000,
+    "volatility": 0.022,
+    "drift": 0.0006,
+    "beta": 0.6,
+    "description": "라군나 스타트업 채권에 고정금리로 투자해 이자 수익을 배당하는 BDC. 부실채권을 히트맨으로 압류한다는 소문이 돈다.",
+    "eventBias": {
+      "실적": 2,
+      "스캔들": 2
+    },
+    "quarterlyDividend": 2400,
+    "ceoId": "chr_monc"
+  },
+  {
+    "id": "htcl",
+    "ticker": "HTCL",
+    "name": "히스클리프 리츠운용",
+    "instrumentType": "company",
+    "sector": "금융",
+    "subsector": "리츠",
+    "marketTags": [
+      "금융"
+    ],
+    "initialPrice": 51000,
+    "volatility": 0.04,
+    "drift": 0.0005,
+    "beta": 0.5,
+    "description": "히스클리프의 직감으로 부동산 리츠를 운용하는 회사. 현금흐름 전액을 배당하며, 위기 때 전환사채로 급락한 뒤 대표가 이를 되사들여 급등한다.",
+    "eventBias": {
+      "실적": 2,
+      "스캔들": 3
+    },
+    "quarterlyDividend": 3000,
+    "ceoId": "chr_htcl"
   }
 ];
 
@@ -1741,6 +1807,39 @@ export const CSV_CHARACTERS: Character[] = [
     ],
     "bio": "EUV 노광 장비를 홀로 만들어내는 정밀공학의 정점.",
     "emoji": "🔬"
+  },
+  {
+    "id": "chr_mksa",
+    "name": "마카샤",
+    "title": "소장",
+    "traits": [
+      "천재",
+      "사고뭉치"
+    ],
+    "bio": "직관에 의존해 기술을 개발하고, 다음 연구비만 남긴 채 전액을 주주에게 환원하는 변덕스러운 천재.",
+    "emoji": "🔬"
+  },
+  {
+    "id": "chr_monc",
+    "name": "카를로타",
+    "title": "대표",
+    "traits": [
+      "천재",
+      "카리스마"
+    ],
+    "bio": "몬텔리 가문의 차녀. 냉정한 계산으로 스타트업 채권을 굴리며, 부실은 가문의 힘으로 처리한다.",
+    "emoji": "💼"
+  },
+  {
+    "id": "chr_htcl",
+    "name": "히스클리프",
+    "title": "대표",
+    "traits": [
+      "천재",
+      "워커홀릭"
+    ],
+    "bio": "직감으로 부동산을 고르는 리츠 운용가. 위기를 전환사채와 자기인수로 되돌리는 승부사.",
+    "emoji": "🏢"
   }
 ];
 

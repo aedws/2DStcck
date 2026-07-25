@@ -60,4 +60,10 @@ export const IPO_SCHEDULE: Record<string, number> = {
   nexr: Date.UTC(2026, 6, 28, 3, 0),
   // 카르티시아 F&B(TEHTY) — 2026-07-28 15:00 KST 개장 (= 06:00 UTC)
   tehty: Date.UTC(2026, 6, 28, 6, 0),
+  // 마카샤 연구소(MKSA) — 2026-07-28 18:00 KST 개장 (= 09:00 UTC)
+  mksa: Date.UTC(2026, 6, 28, 9, 0),
+  // 몬텔리 캐피탈(MONC) — 2026-07-28 21:00 KST 개장 (= 12:00 UTC)
+  monc: Date.UTC(2026, 6, 28, 12, 0),
+  // 히스클리프 리츠운용(HTCL) — 2026-07-29 15:00 KST 개장 (= 06:00 UTC)
+  htcl: Date.UTC(2026, 6, 29, 6, 0),
 };

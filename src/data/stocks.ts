@@ -915,7 +915,7 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
   );
 
 function deterministicCoveredCallYield(_stockId: string): number {
-  return 85;
+  return 60;
 }
 
 /** 캐릭터가 있는 실제 기업마다 ±0.7배 단일 종목 커버드콜을 제공한다. */
