@@ -385,6 +385,16 @@ export const PUMP_BASE_SPREAD = 0.01; // 소량이라도 최소 1% 마찰
 export const PUMP_LIQUIDITY_REF_CENTS = 1_800_000; // 상장가 부근에서 마찰 없이 소화되는 명목가 기준($18k)
 export const PUMP_MAX_FILL_IMPACT = 0.4; // 체결 마찰 상한 40%
 
+/**
+ * 주문 유형별 체결 마찰 계수. 시장가(공격적 테이커)는 마찰을 전량 부담하고,
+ * 현재가 주문은 30% 완화, 지정가(대기·메이커) 주문은 완화된 현재가 마찰의
+ * 절반만 적용한다.
+ */
+export const PUMP_FILL_IMPACT_SCALE_MARKET = 1; // 시장가: 전량
+export const PUMP_FILL_IMPACT_SCALE_CURRENT = 0.7; // 현재가: 30% 완화
+export const PUMP_FILL_IMPACT_SCALE_LIMIT =
+  PUMP_FILL_IMPACT_SCALE_CURRENT * 0.5; // 지정가: 완화된 현재가 마찰의 50%
+
 export function pumpFillImpact(elevation: number, notionalCents: number): number {
   const effectiveLiquidity = Math.max(
     300_000,
@@ -400,9 +410,12 @@ export function pumpExecutionFillPrice(
   currentPrice: number,
   initialPrice: number,
   quantity: number,
+  impactScale: number = PUMP_FILL_IMPACT_SCALE_MARKET,
 ): number {
   const elevation = currentPrice / Math.max(1, initialPrice);
-  const impact = pumpFillImpact(elevation, fillPrice * quantity);
+  const impact =
+    pumpFillImpact(elevation, fillPrice * quantity) *
+    Math.max(0, impactScale);
   return side === "buy"
     ? Math.ceil(fillPrice * (1 + impact))
     : Math.max(1, Math.floor(fillPrice * (1 - impact)));

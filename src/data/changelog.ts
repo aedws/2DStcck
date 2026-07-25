@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-25",
+    tag: "수정",
+    title: "급등주 지정가 슬리피지 누락 수정·주문별 마찰 재조정",
+    detail:
+      "급등주를 지정가로 체결할 때 유동성 마찰(슬리피지)이 적용되지 않던 버그를 고쳤습니다. 이제 지정가 체결도 마찰을 부담하되, 주문 방식에 따라 강도를 차등화했습니다. 시장가는 마찰 전량, 현재가 주문은 30% 완화, 지정가 주문은 완화된 현재가 마찰의 50%만 부담합니다(트리거 판정은 호가 그대로, 체결가만 조정).",
+  },
+  {
+    date: "2026-07-25",
     tag: "개선",
     title: "배당 원천징수세 — 고자산가 대상 최대 15.4%",
     detail:

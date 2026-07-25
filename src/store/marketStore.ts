@@ -97,6 +97,9 @@ import {
   delistedPumpFinalPrice,
   isPumpStock,
   pumpExecutionFillPrice,
+  PUMP_FILL_IMPACT_SCALE_CURRENT,
+  PUMP_FILL_IMPACT_SCALE_LIMIT,
+  PUMP_FILL_IMPACT_SCALE_MARKET,
   replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
 import { isListed } from "@/lib/market/ipo";
@@ -1679,13 +1682,19 @@ function applyLocalBuySell(
   }
 
   // 급등주는 유동성이 얕아 명목가·고가권에 따라 체결가가 더 불리해진다(체결 마찰).
+  // 현재가 주문은 시장가보다 마찰을 30% 완화한다.
   if (isPumpStock(stock)) {
+    const impactScale =
+      mode === "buyCurrent" || mode === "sellCurrent"
+        ? PUMP_FILL_IMPACT_SCALE_CURRENT
+        : PUMP_FILL_IMPACT_SCALE_MARKET;
     price = pumpExecutionFillPrice(
       mode.startsWith("buy") ? "buy" : "sell",
       price,
       stock.currentPrice,
       stock.initialPrice,
       quantity,
+      impactScale,
     );
   }
 
@@ -2978,9 +2987,21 @@ export const useMarketStore = create<MarketStore>()(
               remainingOrders.push(order);
               continue;
             }
+            // 급등주 지정가 체결도 얕은 유동성에 따른 마찰을 부담한다.
+            // (완화된 현재가 마찰의 50%). 트리거 판정은 호가로 하되 체결가만 조정.
+            const execPrice = isPumpStock(stock)
+              ? pumpExecutionFillPrice(
+                  order.side === "buy" ? "buy" : "sell",
+                  stock.currentPrice,
+                  stock.currentPrice,
+                  stock.initialPrice,
+                  order.quantity,
+                  PUMP_FILL_IMPACT_SCALE_LIMIT,
+                )
+              : stock.currentPrice;
             let result;
             if (order.side === "buy") {
-              const total = shareOrderTotal(stock.currentPrice, order.quantity);
+              const total = shareOrderTotal(execPrice, order.quantity);
               const buyingPower = longBuyingPower({
                 ...state,
                 cash,
@@ -2994,7 +3015,7 @@ export const useMarketStore = create<MarketStore>()(
                       holdings,
                       order.stockId,
                       order.ticker,
-                      stock.currentPrice,
+                      execPrice,
                       order.quantity,
                       now,
                     )
@@ -3003,7 +3024,7 @@ export const useMarketStore = create<MarketStore>()(
                 result = { ...result, cash: cash - total };
                 cashExact = exactSubtract(
                   cashExact,
-                  exactPositionValue(stock.currentPrice, order.quantity),
+                  exactPositionValue(execPrice, order.quantity),
                 );
               }
             } else {
@@ -3015,7 +3036,7 @@ export const useMarketStore = create<MarketStore>()(
                 holdings,
                 order.stockId,
                 order.ticker,
-                stock.currentPrice,
+                execPrice,
                 order.quantity,
                 now,
                 cashExact,
@@ -3024,8 +3045,8 @@ export const useMarketStore = create<MarketStore>()(
                 const taxExact = combinedSecuritiesSaleTaxExact({
                   proceedsExact: result.trade.totalExact ?? result.trade.total,
                   realizedGainExact: taxableGainExact(
-                    stock.currentPrice,
-                    soldHolding?.averagePrice ?? stock.currentPrice,
+                    execPrice,
+                    soldHolding?.averagePrice ?? execPrice,
                     order.quantity,
                   ),
                   netWorthExact: fullNetWorthExactOf(state),
