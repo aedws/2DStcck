@@ -11,11 +11,17 @@ import { getCharacterRelation } from "@/lib/market/characterRelations";
 import {
   getCharacterProgress,
   getRelationshipTier,
+  LONG_HOLD_SESSIONS,
   MAX_CHARACTER_AFFINITY,
   PREFERRED_SHARE_AFFINITY,
 } from "@/lib/market/characterProgress";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
-import { isPreferredActive } from "@/lib/player/preferredShares";
+import {
+  isPreferredActive,
+  PREFERRED_GRANT_INTERVAL_SESSIONS,
+} from "@/lib/player/preferredShares";
+import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { sessionEta } from "@/lib/market/sessionTime";
 import {
   getAmcCharacterLinkedHoldings,
   mergeAmcPortfolioFunds,
@@ -84,6 +90,28 @@ export function CharacterDetailClient({ id }: { id: string }) {
   // 발행됐다가 집중 해제로 매각되어 사라진 상태(재발행 불가)
   const preferredSoldGone =
     !preferredShare && preferredIssuedCharacterIds.includes(ceo.id);
+
+  // 실제 시간 타이머(1거래일 = 1시간). 다음 호감도 상승·우선주 지급 시각을 계산한다.
+  const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+  const affinitySessionsLeft =
+    LONG_HOLD_SESSIONS - ((progress.holdingSessions ?? 0) % LONG_HOLD_SESSIONS);
+  const affinityEta = sessionEta(affinitySessionsLeft);
+  const grantSessionsLeft = preferredShare
+    ? Math.max(
+        0,
+        PREFERRED_GRANT_INTERVAL_SESSIONS -
+          (currentSession -
+            (preferredShare.lastIssuedSession ?? preferredShare.issuedSession)),
+      )
+    : 0;
+  const grantEta = sessionEta(grantSessionsLeft);
+  // 호감도가 실제로 오르는 상태(우선주 보유 또는 이 캐릭터 포지션 보유)에서만
+  // 다음 상승 타이머를 보여준다.
+  const affinityGaining =
+    progress.affinity < MAX_CHARACTER_AFFINITY &&
+    progress.affinity >= 0 &&
+    (preferredShare != null ||
+      concentration.ranked.some((r) => r.characterId === ceo.id && r.share > 0));
   if (!relation.unlocked) {
     return (
       <div className="mx-auto max-w-2xl pb-20">
@@ -178,6 +206,11 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
             <div className="h-full rounded-full bg-pink-400" style={{ width: `${Math.max(0, (progress.affinity / 120) * 100)}%` }} />
           </div>
+          {affinityGaining && (
+            <p className="mt-1.5 text-[10px] text-pink-300/80">
+              ⏱️ 다음 상승 {affinityEta.countdown}
+            </p>
+          )}
         </div>
       </div>
 
@@ -195,13 +228,19 @@ export function CharacterDetailClient({ id }: { id: string }) {
             {preferredActive ? "· 활성" : "· 💤 휴면(집중 해제)"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            {company.name}이(가) 발행한 매매불가 특별주(액면 = 발행 시 본주×1.30). 액면{" "}
-            {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 분기 배당{" "}
+            {company.name}이(가) 발행한 매매불가 특별주. 가치는 본주 등락을 비대칭
+            추종(상승 200%·하락 20%)합니다. 현재 가치{" "}
+            {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 20일 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
             {preferredActive
-              ? "집중과 호감 100 이상을 유지하면 5거래일마다 1좌가 추가 지급되며, 총자산·랭킹·배당에 반영됩니다."
-              : "지금은 휴면(자산·배당 0)입니다. 다시 집중하면 부활하지만, 5캐릭터 이상으로 5거래일 넘게 분산하면 액면가로 매각(현금화)되고 재발행되지 않습니다."}
+              ? "집중과 호감 100 이상을 유지하면 20거래일마다 가치의 약 83%를 배당하고, 5거래일마다 1좌를 추가 지급합니다."
+              : "지금은 휴면(자산·배당 0)입니다. 다시 집중하면 부활하지만, 5캐릭터 이상으로 분산하는 순간 전량 소멸하며 환급되지 않습니다."}
           </p>
+          {preferredActive && (
+            <p className="mt-1.5 text-[10px] font-semibold text-amber-300/90">
+              ⏱️ 다음 1좌 지급 {grantEta.countdown} · {grantEta.clock}
+            </p>
+          )}
         </div>
       ) : preferredSoldGone ? (
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">

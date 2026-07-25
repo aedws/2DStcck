@@ -309,7 +309,11 @@ export function accrueLongHoldingAffinity(
     posWeight.set(key, Math.max(posWeight.get(key) ?? 0, weight));
   };
 
+  // 우선주(동맹)를 보유한 캐릭터는 본주 비중이 3% 아래여도 관계가 계속 깊어지도록
+  // 3% 게이트를 면제한다. 우선주 자체가 지속적 관계의 증표다.
+  const preferredCharacterIds = new Set<string>();
   for (const share of activePreferred) {
+    preferredCharacterIds.add(share.characterId);
     raiseWeight(share.characterId, AFFINITY_WEIGHT_PREFERRED);
     bump(posValue, share.characterId, share.faceValue * share.shares);
   }
@@ -447,7 +451,10 @@ export function accrueLongHoldingAffinity(
   // 캐릭터별 최종 rate: 우호(가중×2, 3% 이상)가 적대보다 우선.
   const rateByCharacter = new Map<string, number>();
   for (const [ceoId, weight] of posWeight) {
-    if ((posValue.get(ceoId) ?? 0) / equity >= LONG_HOLD_MIN_EQUITY_RATIO) {
+    if (
+      preferredCharacterIds.has(ceoId) ||
+      (posValue.get(ceoId) ?? 0) / equity >= LONG_HOLD_MIN_EQUITY_RATIO
+    ) {
       rateByCharacter.set(ceoId, weight * AFFINITY_RATE_UNIT);
     }
   }

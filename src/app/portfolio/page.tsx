@@ -25,6 +25,7 @@ import {
   getPreferredShareValue,
 } from "@/lib/player/preferredShares";
 import { computeCharacterConcentration } from "@/lib/market/characterConcentration";
+import { sessionEta } from "@/lib/market/sessionTime";
 import { getCharacterById } from "@/data/characters";
 import {
   computeRealizedPnl,
@@ -381,7 +382,7 @@ export default function PortfolioPage() {
         />
         <SummaryCard
           label={`다음 고정급 (${formatPrice(SALARY_AMOUNT)})`}
-          value={`${salaryDays}거래일 후`}
+          value={`${sessionEta(salaryDays).countdown} · ${salaryDays}거래일`}
           color="text-emerald-400"
         />
       </div>
@@ -817,7 +818,10 @@ export default function PortfolioPage() {
                             {formatPrice(payoutAmount)}
                           </p>
                           <p className="text-[10px] text-zinc-500">
-                            {payoutDays}거래일 후
+                            {sessionEta(payoutDays).countdown} · {payoutDays}거래일
+                          </p>
+                          <p className="text-[10px] text-zinc-600">
+                            {sessionEta(payoutDays).clock}
                           </p>
                         </>
                       )}

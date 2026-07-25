@@ -3628,13 +3628,16 @@ export const useMarketStore = create<MarketStore>()(
           preferredConcentration,
         );
         const relationshipEquity = netWorth;
+        // 호감도 진행은 '보유 중인' 우선주(집중 해제로 휴면이어도)를 모두 반영한다.
+        // 동맹(우선주)을 맺은 캐릭터는 본주를 팔아도 관계가 최애(120)까지 계속
+        // 깊어지도록 — 우선주만 남아 호감도가 105에서 멈추던 문제를 없앤다.
         let characterProgress = accrueLongHoldingAffinity(
           state.characterProgress,
           holdings,
           combinedStocks,
           relationshipEquity,
           currentSession,
-          activePreferred,
+          state.preferredShares,
           userEtfHoldings,
         );
         if (investmentMission?.status === "active") {
