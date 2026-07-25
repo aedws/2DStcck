@@ -19,6 +19,8 @@ import {
   playerCompanyFoundingCost,
   playerCompanyLevel,
   playerCompanyPrestige,
+  playerCompanyBookPricePerShare,
+  PLAYER_COMPANY_MAX_DIVIDEND_RATE,
 } from "@/lib/player/playerCompany";
 import {
   COMPANY_FOUNDATION_STATUS_LABEL,
@@ -94,6 +96,18 @@ export default function CompanyPage() {
   const markIpoRequested = useMarketStore(
     (state) => state.markPlayerCompanyIpoRequested,
   );
+  const issueShares = useMarketStore((state) => state.issuePlayerCompanyShares);
+  const buybackShares = useMarketStore(
+    (state) => state.buybackPlayerCompanyShares,
+  );
+  const retireShares = useMarketStore(
+    (state) => state.retirePlayerCompanyShares,
+  );
+  const setDividendRate = useMarketStore(
+    (state) => state.setPlayerCompanyDividendRate,
+  );
+  const [manageQty, setManageQty] = useState("1000");
+  const [dividendPct, setDividendPct] = useState("");
 
   const [now, setNow] = useState(() => Date.now());
   const [name, setName] = useState("");
@@ -687,6 +701,80 @@ export default function CompanyPage() {
         <div className="mt-2 flex justify-between text-xs text-[var(--muted)]">
           <span>창업주 {playerCompany.founderShares.toLocaleString()}주</span>
           <span>NPC 시장 {playerCompany.publicShares.toLocaleString()}주</span>
+        </div>
+      </section>
+
+      <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <h2 className="text-lg font-bold">자본 관리</h2>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          좌당 장부가 {formatPrice(playerCompanyBookPricePerShare(playerCompany))} ·
+          발행/소각은 순자산 중립, 자사주 매입은 장부가만큼 현금을 씁니다.
+        </p>
+        <div className="mt-3">
+          <label className="mb-1 block text-[11px] text-[var(--muted)]">
+            좌수
+          </label>
+          <input
+            inputMode="numeric"
+            value={manageQty}
+            onChange={(e) => setManageQty(e.target.value.replace(/[^0-9]/g, ""))}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
+          />
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => issueShares(Number(manageQty))}
+              className="rounded-xl border border-[var(--border)] py-2 text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              신주 발행
+            </button>
+            <button
+              type="button"
+              onClick={() => buybackShares(Number(manageQty))}
+              className="rounded-xl bg-emerald-500/15 py-2 text-xs font-semibold text-emerald-300"
+            >
+              자사주 매입
+            </button>
+            <button
+              type="button"
+              onClick={() => retireShares(Number(manageQty))}
+              className="rounded-xl bg-rose-500/15 py-2 text-xs font-semibold text-rose-300"
+            >
+              공모주 소각
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 border-t border-[var(--border)] pt-4">
+          <label className="mb-1 block text-[11px] text-[var(--muted)]">
+            회차(20거래일)당 배당률 % · 최대{" "}
+            {(PLAYER_COMPANY_MAX_DIVIDEND_RATE * 100).toFixed(0)}%
+          </label>
+          <div className="flex gap-2">
+            <input
+              inputMode="decimal"
+              value={dividendPct}
+              placeholder={((playerCompany.dividendRate ?? 0) * 100).toFixed(1)}
+              onChange={(e) =>
+                setDividendPct(e.target.value.replace(/[^0-9.]/g, ""))
+              }
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setDividendRate(Number(dividendPct) / 100);
+                setDividendPct("");
+              }}
+              className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+            >
+              배당률 설정
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
+            현재 배당률 {((playerCompany.dividendRate ?? 0) * 100).toFixed(1)}%.
+            상장 후 배당일에 순자산 기준 금액을 선 소각해 보유 주주에게 좌수
+            비례로 지급하는 배당 집행은 서버 배당 원장 연동이 필요해 준비 중입니다.
+          </p>
         </div>
       </section>
 

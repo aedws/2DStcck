@@ -331,6 +331,10 @@ import {
   markPlayerCompanyIpoRequested as markCompanyIpoRequested,
   normalizePlayerCompany,
   playerCompanyFounderStakeValue,
+  issuePlayerCompanyShares as issueCompanyShares,
+  buybackPlayerCompanyShares as buybackCompanyShares,
+  retirePlayerCompanyShares as retireCompanyShares,
+  setPlayerCompanyDividendRate as setCompanyDividendRate,
   preparePlayerCompanyCapitalCall as prepareCompanyCapitalCall,
   reconcilePlayerCompanyIpo,
   refusePlayerCompanyCapitalCall as refuseCompanyCapitalCall,
@@ -643,6 +647,14 @@ interface MarketStore extends MarketSnapshot {
   fundPlayerCompanyCapitalCall: () => OrderResult;
   dilutePlayerCompanyCapitalCall: () => OrderResult;
   refusePlayerCompanyCapitalCall: () => OrderResult;
+  /** 신주 발행(공모주 증가·창업주 지분 희석, 순자산 중립). */
+  issuePlayerCompanyShares: (shares: number) => OrderResult;
+  /** 자사주 매입(공모주를 장부가로 매입해 창업주 지분 편입, 현금 소모). */
+  buybackPlayerCompanyShares: (shares: number) => OrderResult;
+  /** 공모주 소각(유통 좌수·장부자본 감소, 순자산 중립). */
+  retirePlayerCompanyShares: (shares: number) => OrderResult;
+  /** 회차(20거래일)당 배당률(0~0.5) 지정. */
+  setPlayerCompanyDividendRate: (rate: number) => OrderResult;
   resumePlayerCompany: () => OrderResult;
   markPlayerCompanyIpoRequested: () => OrderResult;
   /** 자산운용사·유저 ETF. 보유 좌의 NAV 평가액도 총자산·랭킹에 합산한다. */
@@ -5197,6 +5209,83 @@ export const useMarketStore = create<MarketStore>()(
         }
         set({ playerCompany: result.company });
         useToastStore.getState().push(result.message, "error");
+        return { success: true, message: result.message };
+      },
+
+      issuePlayerCompanyShares: (shares) => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const result = issueCompanyShares(state.playerCompany, shares);
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({ playerCompany: result.company });
+        useToastStore.getState().push(result.message, "info");
+        return { success: true, message: result.message };
+      },
+
+      buybackPlayerCompanyShares: (shares) => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const result = buybackCompanyShares(
+          state.playerCompany,
+          shares,
+          state.cash,
+          now,
+        );
+        if (!result.success || !result.company || result.cash === undefined) {
+          return { success: false, message: result.message };
+        }
+        const payment: CashPayment = {
+          id: `company-buyback-${result.company.id}-${now}`,
+          kind: "company_capital",
+          sourceId: result.company.id,
+          ticker: result.company.ticker,
+          dueSession: currentSession,
+          amount: -(result.burned ?? 0),
+          timestamp: now,
+        };
+        set({
+          ...withExactCashDelta(state, -(result.burned ?? 0)),
+          playerCompany: result.company,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        useToastStore.getState().push(result.message, "success");
+        playSound("cash");
+        return { success: true, message: result.message };
+      },
+
+      retirePlayerCompanyShares: (shares) => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const result = retireCompanyShares(state.playerCompany, shares);
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({ playerCompany: result.company });
+        useToastStore.getState().push(result.message, "info");
+        return { success: true, message: result.message };
+      },
+
+      setPlayerCompanyDividendRate: (rate) => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        const result = setCompanyDividendRate(state.playerCompany, rate);
+        if (!result.success || !result.company) {
+          return { success: false, message: result.message };
+        }
+        set({ playerCompany: result.company });
+        useToastStore.getState().push(result.message, "success");
         return { success: true, message: result.message };
       },
 

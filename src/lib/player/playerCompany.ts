@@ -60,6 +60,8 @@ export interface PlayerCompanyState {
   ipoListingAt?: number;
   /** 창업주 보통주가 계좌에 한 번 반영된 시각. 재접속·다기기 중복 지급 방지용. */
   founderSharesGrantedAt?: number;
+  /** 창업주가 지정한 회차(20거래일)당 배당률(0~0.5). 미설정이면 배당 없음. */
+  dividendRate?: number;
 }
 
 export interface FoundPlayerCompanyInput {
@@ -114,6 +116,143 @@ export function playerCompanyFounderStakeValue(
   if (!company || company.status === "listed") return 0;
   const bookValue = Math.max(0, company.cumulativeCapitalBurned);
   return Math.round(bookValue * playerCompanyFounderOwnership(company));
+}
+
+/** 자사주 매입·소각·발행의 기준가 = 좌당 장부가치(센트). */
+export function playerCompanyBookPricePerShare(
+  company: Pick<PlayerCompanyState, "cumulativeCapitalBurned" | "totalShares">,
+): number {
+  if (company.totalShares <= 0) return 0;
+  return Math.max(
+    1,
+    Math.round(company.cumulativeCapitalBurned / company.totalShares),
+  );
+}
+
+/** 배당률 상한 — 회차(20거래일)당 최대 50%. */
+export const PLAYER_COMPANY_MAX_DIVIDEND_RATE = 0.5;
+
+/**
+ * 신주 발행 — 공모주(NPC 시장)를 늘려 창업주 지분을 희석한다. 늘어난 좌수만큼
+ * 장부자본이 함께 커져(좌당 장부가 불변) 창업주 지분 평가액은 순자산 중립이다.
+ */
+export function issuePlayerCompanyShares(
+  company: PlayerCompanyState,
+  shares: number,
+  now = Date.now(),
+): PlayerCompanyActionResult {
+  const count = Math.floor(shares);
+  if (!(count > 0)) {
+    return { success: false, message: "발행 좌수를 1주 이상 입력해 주세요." };
+  }
+  const bookPrice = playerCompanyBookPricePerShare(company);
+  const raised = bookPrice * count;
+  return {
+    success: true,
+    message: `신주 ${count.toLocaleString("ko-KR")}주 발행 · 창업주 지분이 희석되었습니다.`,
+    company: {
+      ...company,
+      totalShares: company.totalShares + count,
+      publicShares: company.publicShares + count,
+      cumulativeCapitalBurned: company.cumulativeCapitalBurned + raised,
+      lastActionAt: now,
+    },
+  };
+}
+
+/**
+ * 자사주 매입 — 공모주를 좌당 장부가로 사들여 창업주 보통주로 편입한다.
+ * 현금 = 좌수 × 장부가를 소모하고, 같은 금액만큼 창업주 지분 평가액이 늘어(순자산
+ * 중립) 지분율이 올라간다.
+ */
+export function buybackPlayerCompanyShares(
+  company: PlayerCompanyState,
+  shares: number,
+  cash: number,
+  now = Date.now(),
+): PlayerCompanyActionResult {
+  const count = Math.floor(shares);
+  if (!(count > 0)) {
+    return { success: false, message: "매입 좌수를 1주 이상 입력해 주세요." };
+  }
+  if (count > company.publicShares) {
+    return {
+      success: false,
+      message: `공모주(${company.publicShares.toLocaleString("ko-KR")}주)보다 많이 매입할 수 없습니다.`,
+    };
+  }
+  const bookPrice = playerCompanyBookPricePerShare(company);
+  const cost = bookPrice * count;
+  if (!Number.isFinite(cash) || cash < cost) {
+    return { success: false, message: "자사주 매입 현금이 부족합니다." };
+  }
+  return {
+    success: true,
+    message: `자사주 ${count.toLocaleString("ko-KR")}주 매입 · 창업주 지분이 늘었습니다.`,
+    company: {
+      ...company,
+      founderShares: company.founderShares + count,
+      publicShares: company.publicShares - count,
+      lastActionAt: now,
+    },
+    cash: cash - cost,
+    burned: cost,
+  };
+}
+
+/**
+ * 자사주(공모주) 소각 — 공모주와 그에 대응하는 장부자본을 함께 없앤다.
+ * 좌당 장부가는 그대로라 창업주 지분 평가액은 순자산 중립이며 지분율만 올라간다.
+ */
+export function retirePlayerCompanyShares(
+  company: PlayerCompanyState,
+  shares: number,
+  now = Date.now(),
+): PlayerCompanyActionResult {
+  const count = Math.floor(shares);
+  if (!(count > 0)) {
+    return { success: false, message: "소각 좌수를 1주 이상 입력해 주세요." };
+  }
+  if (count > company.publicShares) {
+    return {
+      success: false,
+      message: `공모주(${company.publicShares.toLocaleString("ko-KR")}주)보다 많이 소각할 수 없습니다.`,
+    };
+  }
+  const bookPrice = playerCompanyBookPricePerShare(company);
+  const removedCapital = Math.min(
+    company.cumulativeCapitalBurned,
+    bookPrice * count,
+  );
+  return {
+    success: true,
+    message: `공모주 ${count.toLocaleString("ko-KR")}주 소각 · 유통 좌수가 줄었습니다.`,
+    company: {
+      ...company,
+      totalShares: company.totalShares - count,
+      publicShares: company.publicShares - count,
+      cumulativeCapitalBurned:
+        company.cumulativeCapitalBurned - removedCapital,
+      lastActionAt: now,
+    },
+  };
+}
+
+/** 배당률 지정 — 회차(20거래일)당 배당률(0~50%)을 설정한다. */
+export function setPlayerCompanyDividendRate(
+  company: PlayerCompanyState,
+  rate: number,
+  now = Date.now(),
+): PlayerCompanyActionResult {
+  if (!Number.isFinite(rate) || rate < 0) {
+    return { success: false, message: "배당률을 0 이상으로 입력해 주세요." };
+  }
+  const clamped = Math.min(PLAYER_COMPANY_MAX_DIVIDEND_RATE, rate);
+  return {
+    success: true,
+    message: `배당률을 ${(clamped * 100).toFixed(1)}%로 설정했습니다.`,
+    company: { ...company, dividendRate: clamped, lastActionAt: now },
+  };
 }
 
 export function playerCompanyPrestige(
@@ -602,6 +741,15 @@ export function normalizePlayerCompany(
       ? {
           founderSharesGrantedAt: finiteNonNegative(
             source.founderSharesGrantedAt,
+          ),
+        }
+      : {}),
+    ...(Number.isFinite(Number(source.dividendRate)) &&
+    Number(source.dividendRate) > 0
+      ? {
+          dividendRate: Math.min(
+            PLAYER_COMPANY_MAX_DIVIDEND_RATE,
+            Number(source.dividendRate),
           ),
         }
       : {}),
