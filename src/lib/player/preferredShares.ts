@@ -6,6 +6,7 @@ import {
 } from "@/lib/market/characterProgress";
 import type { CharacterConcentration } from "@/lib/market/characterConcentration";
 import { isPreferredEligible } from "@/lib/market/characterConcentration";
+import { TRADING_SESSIONS_PER_YEAR } from "@/lib/market/distributions";
 import type {
   CharacterProgressMap,
   PreferredShare,
@@ -19,8 +20,14 @@ export const PREFERRED_DIVIDEND_YIELD_BONUS = 0.05;
 /** 가치 추종: 본주 일별 상승은 200%, 하락은 20%만 반영한다(비대칭). */
 export const PREFERRED_UPSIDE_TRACK = 2.0;
 export const PREFERRED_DOWNSIDE_TRACK = 0.2;
-/** 20거래일마다 지급하는 배당 = 현재 가치의 50%. */
-export const PREFERRED_DIVIDEND_RATE = 0.5;
+/** 배당 주기 — 커버드콜 월 분배와 같은 20거래일 그리드로 지급한다. */
+export const PREFERRED_DIVIDEND_INTERVAL_SESSIONS = 20;
+/** 연 배당률 1000% 고정. */
+export const PREFERRED_ANNUAL_DIVIDEND_RATE = 10.0;
+/** 회차(20거래일) 배당 비율 = 연 1000% ÷ (240/20 = 12회) ≈ 0.833. */
+export const PREFERRED_DIVIDEND_RATE =
+  (PREFERRED_ANNUAL_DIVIDEND_RATE * PREFERRED_DIVIDEND_INTERVAL_SESSIONS) /
+  TRADING_SESSIONS_PER_YEAR;
 
 /** 본주 등락을 비대칭 추종해 갱신한 좌당 가치를 돌려준다. */
 export function trackedPreferredFaceValue(
