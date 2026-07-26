@@ -7,6 +7,7 @@ import { AccountSidebar } from "@/components/home/AccountSidebar";
 import { BottomTicker } from "@/components/home/BottomTicker";
 import { AveragingCalculator } from "@/components/market/AveragingCalculator";
 import { CandlestickChart } from "@/components/market/CandlestickChart";
+import { PriceAlertPanel } from "@/components/market/PriceAlertPanel";
 import {
   formatPrice,
   formatSignedMoney,
@@ -525,6 +526,9 @@ export function AmcTradeClient() {
                   서버 원장에서 즉시 처리됩니다. 매수·매도 결과와 현금은 같은 거래로 확정됩니다.
                 </p>
               </section>
+              <PriceAlertPanel
+                stock={{ id: amcFundStockId(fund.id), currentPrice: nav }}
+              />
             </div>
           )}
           {tab === 2 && (

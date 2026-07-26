@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-26",
+    tag: "개선",
+    title: "유저 ETF 가격 알림 · 코인 브레이커 빨리감기",
+    detail:
+      "피드백을 반영했습니다. ① 유저 ETF 상세(거래) 페이지에도 일반 상장주와 동일한 ''🔔 가격 알림'' 등록 폼을 추가했습니다 — 좌당 NAV 기준 목표가 이상 상승/이하 하락 알림을 걸고, 접속 중 도달 시 알려줍니다. ② 코인 브레이커에 ''⏩ 빨리감기'' 버튼을 추가했습니다 — 켜면 공이 굴러가는 발사 단계가 빠르게 끝나고, 한 번 켜면 이후 라운드에도 유지됩니다.",
+  },
+  {
+    date: "2026-07-26",
     tag: "신규",
     title: "예약 국면 '게-트 대전쟁' — 8/2 21:00 KST 개전(전 계정 동시)",
     detail:

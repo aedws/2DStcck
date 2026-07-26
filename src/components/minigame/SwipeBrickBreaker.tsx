@@ -293,6 +293,10 @@ export function SwipeBrickBreaker({
   const rafRef = useRef<number>(0);
   const overRef = useRef(false);
   const pausedRef = useRef(paused);
+  // 공이 굴러가는 걸 지켜보는 시간을 아끼는 빨리감기. 켜면 한 프레임에 물리를 여러 번
+  // 진행해 발사 단계가 빠르게 끝난다. 한 번 켜면 이후 라운드에도 유지된다.
+  const fastForwardRef = useRef(false);
+  const [fastForward, setFastForward] = useState(false);
   const [hud, setHud] = useState<Hud>({
     rounds: 1,
     bricksBroken: 0,
@@ -595,7 +599,11 @@ export function SwipeBrickBreaker({
 
     const loop = () => {
       if (!pausedRef.current) {
-        if (gs.phase === "fire") stepPhysics(gs);
+        if (gs.phase === "fire") {
+          // 빨리감기: 한 프레임에 물리를 여러 번 진행해 발사 단계를 빠르게 끝낸다.
+          const steps = fastForwardRef.current ? 8 : 1;
+          for (let i = 0; i < steps && gs.phase === "fire"; i++) stepPhysics(gs);
+        }
         updateEffects(gs);
       }
       draw(gs, ctx);
@@ -707,13 +715,36 @@ export function SwipeBrickBreaker({
         })}
       </div>
 
-      <p className="mt-2 text-center text-[11px] leading-relaxed text-[var(--muted)]">
-        {hud.phase === "aim"
-          ? `판을 스와이프해 조준·발사. 공 ${totalBalls}개 · 코인으로 N(단일)·S(광역)·SS(십자) 공을 사서 화력을 키우세요.`
-          : hud.phase === "fire"
-            ? "공이 굴러가는 중…"
-            : "게임 종료!"}
-      </p>
+      <div className="mt-2 flex items-center justify-center gap-2">
+        <p className="text-center text-[11px] leading-relaxed text-[var(--muted)]">
+          {hud.phase === "aim"
+            ? `판을 스와이프해 조준·발사. 공 ${totalBalls}개 · 코인으로 N(단일)·S(광역)·SS(십자) 공을 사서 화력을 키우세요.`
+            : hud.phase === "fire"
+              ? fastForward
+                ? "공이 빠르게 굴러가는 중… ⏩"
+                : "공이 굴러가는 중…"
+              : "게임 종료!"}
+        </p>
+        {hud.phase !== "over" && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = !fastForwardRef.current;
+              fastForwardRef.current = next;
+              setFastForward(next);
+            }}
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+              fastForward
+                ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                : "border-[var(--border)] text-[var(--muted)]"
+            }`}
+            aria-pressed={fastForward}
+            title="공이 굴러가는 발사 단계를 빠르게 넘깁니다. 한 번 켜면 계속 유지됩니다."
+          >
+            ⏩ 빨리감기{fastForward ? " ON" : ""}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,10 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { formatPrice } from "@/lib/market/engine";
-import type { StockState } from "@/lib/types/market";
 import { useSettingsStore } from "@/store/settingsStore";
 
-export function PriceAlertPanel({ stock }: { stock: StockState }) {
+/** 가격 알림에 필요한 최소 정보. 일반 종목(StockState)과 유저 ETF(NAV) 모두 만족한다. */
+export function PriceAlertPanel({
+  stock,
+}: {
+  stock: { id: string; currentPrice: number };
+}) {
   // 셀렉터 안에서 filter로 새 배열을 만들면 매 렌더마다 참조가 바뀌어
   // (zustand v5 = useSyncExternalStore) 무한 리렌더 → React #185가 난다.
   // 원본 배열을 그대로 구독하고 파생값은 useMemo로 계산한다.
