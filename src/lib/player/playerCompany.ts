@@ -60,6 +60,11 @@ export interface PlayerCompanyState {
   ipoListingAt?: number;
   /** 창업주 보통주가 계좌에 한 번 반영된 시각. 재접속·다기기 중복 지급 방지용. */
   founderSharesGrantedAt?: number;
+  /**
+   * 가치 보존 리베이스가 적용된 시각. 구 로직(공모가 1:1)으로 상장돼 이 값이 없는
+   * 회사는 다음 접속에서 좌당 장부가÷공모가 비율로 1회 보정(부족분 지급)한다.
+   */
+  founderSharesRebasedAt?: number;
   /** 창업주가 지정한 회차(20거래일)당 배당률(0~0.5). 미설정이면 배당 없음. */
   dividendRate?: number;
 }
@@ -598,7 +603,9 @@ export function reconcilePlayerCompanyIpo(
   if (!stock) return null;
   const listingAt = company.ipoListingAt ?? stock.listingEpochMs;
   if (!listingAt || now < listingAt) return null;
-  if (company.founderSharesGrantedAt && company.status === "listed") {
+  // 리베이스까지 끝난 회사만 완료로 본다. 구 로직(공모가 1:1)으로 상장돼
+  // founderSharesRebasedAt 이 없는 회사는 아래에서 부족분을 1회 보정한다.
+  if (company.founderSharesRebasedAt) {
     return { company, holdings, grantedShares: 0 };
   }
 
@@ -606,7 +613,11 @@ export function reconcilePlayerCompanyIpo(
   // 크게 어긋나 있으면, 캡테이블 좌수를 (장부가 ÷ 공모가) 비율로 재산정해 좌당
   // 장부가 = 공모가로 맞춘다. 창업주는 (장부 지분가치 ÷ 공모가)만큼 보통주를 받아
   // 상장 전후 순자산이 보존된다(예전 1:1 지급의 가치 붕괴를 없앤다).
-  const preBookPrice = playerCompanyBookPricePerShare(company);
+  // 리베이스 기준가는 항상 좌당 장부가(시장가 아님)라 status 를 무시하고 계산한다.
+  const preBookPrice = playerCompanyBookPricePerShare({
+    ...company,
+    status: "active",
+  });
   const ipoPrice = Math.max(1, Math.round(stock.initialPrice));
   const rawRatio = preBookPrice / ipoPrice;
   const ratio =
@@ -666,6 +677,7 @@ export function reconcilePlayerCompanyIpo(
       ipoListingStockId: stock.id,
       ipoListingAt: listingAt,
       founderSharesGrantedAt: company.founderSharesGrantedAt ?? now,
+      founderSharesRebasedAt: now,
       pendingCapitalCall: null,
       lastActionAt: Math.max(company.lastActionAt, now),
     },
@@ -780,6 +792,13 @@ export function normalizePlayerCompany(
       ? {
           founderSharesGrantedAt: finiteNonNegative(
             source.founderSharesGrantedAt,
+          ),
+        }
+      : {}),
+    ...(finiteNonNegative(source.founderSharesRebasedAt) > 0
+      ? {
+          founderSharesRebasedAt: finiteNonNegative(
+            source.founderSharesRebasedAt,
           ),
         }
       : {}),

@@ -232,6 +232,46 @@ assert.equal(
   "재접속 시 창업주 지분이 중복 지급되면 안 됨",
 );
 
+// 구 로직(공모가 1:1)으로 상장돼 리베이스가 안 된 회사는 다음 접속에서 부족분을
+// 1회 보정받아야 한다(가치 보존 목표 좌수까지 top-up).
+const oldListed = {
+  ...scheduledCompany,
+  status: "listed" as const,
+  founderSharesGrantedAt: now,
+  founderSharesRebasedAt: undefined,
+  ipoListingStockId: "aura",
+  ipoListingAt: listingAt,
+};
+const oldHoldings = [
+  {
+    stockId: "aura",
+    quantity: scheduledCompany.founderShares, // 구 1:1 지급분
+    quantityExact: String(scheduledCompany.founderShares),
+    averagePrice: 50_000,
+  },
+];
+const topUp = reconcilePlayerCompanyIpo(oldListed, oldHoldings, [ipoStock], listingAt + 100);
+assert.ok(topUp, "구 상장 회사도 보정 대상");
+assert.equal(
+  topUp.holdings[0]?.quantity,
+  expectedFounderShares,
+  "구 1:1 상장 회사가 가치 보존 목표 좌수까지 보정되어야",
+);
+assert.equal(
+  topUp.grantedShares,
+  expectedFounderShares - scheduledCompany.founderShares,
+  "부족분만큼만 지급",
+);
+assert.ok(topUp.company.founderSharesRebasedAt, "보정 후 리베이스 플래그 설정");
+// 보정 후 재실행은 중복 지급 없음
+const afterTopUp = reconcilePlayerCompanyIpo(
+  topUp.company,
+  topUp.holdings,
+  [ipoStock],
+  listingAt + 200,
+);
+assert.equal(afterTopUp?.grantedShares, 0, "보정 완료 후 재지급 없음");
+
 let pausedCandidate = preparePlayerCompanyCapitalCall(
   founded.company,
   80_000_000_000,

@@ -69,7 +69,7 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  v44: 단일 종목 커버드콜 연 분배율 60%로 하향 — 시세 산출이 바뀌어 재생성한다.
  *  v45: 마카샤 연구소·몬텔리 캐피탈·히스클리프 리츠운용 3종 예약 상장(7/28~29)
  *  — 종목 구성이 바뀌어 전체 체크포인트를 재생성한다. */
-export const MARKET_SIM_VERSION = 47;
+export const MARKET_SIM_VERSION = 48;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

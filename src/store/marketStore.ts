@@ -1020,34 +1020,6 @@ function appendNetWorthPoint(
   return [...history, { t: now, value, valueExact }].slice(-MAX_NET_WORTH_POINTS);
 }
 
-/**
- * 상장된 플레이어 회사의 자본관리(발행·매입·소각)가 시장 주가에 주는 즉시 영향.
- * factor로 현재가를 곱하고 즉시 봉/기록에도 반영해, 자사주 매입·소각은 상승, 신주
- * 발행은 하락으로 나타나게 한다. 최저가 $0.01(=1센트)은 유지한다.
- */
-function adjustPlayerCompanyStockPrice(
-  stocks: StockState[],
-  stockId: string,
-  factor: number,
-): StockState[] {
-  if (!(factor > 0) || factor === 1) return stocks;
-  return stocks.map((stock) => {
-    if (stock.id !== stockId) return stock;
-    const next = Math.max(1, Math.round(stock.currentPrice * factor));
-    const candles = stock.candles.slice();
-    const last = candles[candles.length - 1];
-    if (last) {
-      candles[candles.length - 1] = {
-        ...last,
-        close: next,
-        high: Math.max(last.high, next),
-        low: Math.min(last.low, next),
-      };
-    }
-    return { ...stock, currentPrice: next, candles };
-  });
-}
-
 /** 저장된 표시 칭호 목록을 정규화한다(최대 5개·중복 제거·비면 대표 칭호로). */
 function normalizeSelectedTitleIds(raw: unknown, primary: string): string[] {
   const arr = Array.isArray(raw)
@@ -5311,45 +5283,23 @@ export const useMarketStore = create<MarketStore>()(
         if (!company) {
           return { success: false, message: "설립한 회사가 없습니다." };
         }
-        // 상장 후에는 좌당 장부가 대신 실제 시장가로 발행하고, 늘어난 좌수 비율만큼
-        // 주가를 소폭 희석(하락)시킨다. 발행 대금은 창업주 현금으로 조달된다.
+        // 상장 후에는 좌당 장부가 대신 실제 시장가를 기준으로 발행한다. 주가에 직접
+        // 손대면 결정론적 시세가 계정마다 어긋나므로(시세는 전 계정 공통) 자본관리는
+        // 캡테이블·장부에만 반영하고 시세는 건드리지 않는다.
         const listed =
           company.status === "listed" && company.ipoListingStockId
             ? state.stocks.find((s) => s.id === company.ipoListingStockId)
             : undefined;
-        const marketPrice = listed?.currentPrice;
-        const now = Date.now();
-        const result = issueCompanyShares(company, shares, now, marketPrice);
+        const result = issueCompanyShares(
+          company,
+          shares,
+          Date.now(),
+          listed?.currentPrice,
+        );
         if (!result.success || !result.company) {
           return { success: false, message: result.message };
         }
-        const count = Math.floor(shares);
-        const patch: Partial<MarketStore> & Record<string, unknown> = {
-          playerCompany: result.company,
-        };
-        if (listed && company.totalShares > 0 && marketPrice) {
-          const impact = Math.min(0.15, count / company.totalShares);
-          const proceeds = Math.round(marketPrice * count);
-          const nextStocks = adjustPlayerCompanyStockPrice(
-            state.stocks,
-            listed.id,
-            1 - impact,
-          );
-          const payment: CashPayment = {
-            id: `company-issue-${result.company.id}-${now}`,
-            kind: "company_capital",
-            sourceId: result.company.id,
-            ticker: result.company.ticker,
-            dueSession: Math.floor(now / SESSION_DURATION_MS),
-            amount: proceeds,
-            timestamp: now,
-          };
-          Object.assign(patch, withExactCashDelta(state, proceeds), {
-            stocks: nextStocks,
-            cashPayments: [payment, ...state.cashPayments].slice(0, 200),
-          });
-        }
-        set(patch as Partial<MarketStore>);
+        set({ playerCompany: result.company });
         useToastStore.getState().push(result.message, "info");
         return { success: true, message: result.message };
       },
@@ -5366,13 +5316,12 @@ export const useMarketStore = create<MarketStore>()(
           company.status === "listed" && company.ipoListingStockId
             ? state.stocks.find((s) => s.id === company.ipoListingStockId)
             : undefined;
-        const marketPrice = listed?.currentPrice;
         const result = buybackCompanyShares(
           company,
           shares,
           state.cash,
           now,
-          marketPrice,
+          listed?.currentPrice,
         );
         if (!result.success || !result.company || result.cash === undefined) {
           return { success: false, message: result.message };
@@ -5386,19 +5335,9 @@ export const useMarketStore = create<MarketStore>()(
           amount: -(result.burned ?? 0),
           timestamp: now,
         };
-        const count = Math.floor(shares);
-        const nextStocks =
-          listed && company.totalShares > 0
-            ? adjustPlayerCompanyStockPrice(
-                state.stocks,
-                listed.id,
-                1 + Math.min(0.15, count / company.totalShares),
-              )
-            : state.stocks;
         set({
           ...withExactCashDelta(state, -(result.burned ?? 0)),
           playerCompany: result.company,
-          stocks: nextStocks,
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
         useToastStore.getState().push(result.message, "success");
@@ -5425,17 +5364,7 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company) {
           return { success: false, message: result.message };
         }
-        // 유통 좌수가 줄어드는 소각은 남은 주식의 가치를 높여 주가를 소폭 상승시킨다.
-        const count = Math.floor(shares);
-        const nextStocks =
-          listed && company.totalShares > 0
-            ? adjustPlayerCompanyStockPrice(
-                state.stocks,
-                listed.id,
-                1 + Math.min(0.15, count / company.totalShares),
-              )
-            : state.stocks;
-        set({ playerCompany: result.company, stocks: nextStocks });
+        set({ playerCompany: result.company });
         useToastStore.getState().push(result.message, "info");
         return { success: true, message: result.message };
       },
