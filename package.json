@@ -15,6 +15,7 @@
     "test:leverage-decay": "tsx scripts/test-leverage-decay-rebase.ts",
     "test:scheduled-war": "tsx scripts/test-scheduled-war.ts",
     "test:directors": "tsx scripts/test-character-directors.ts",
+    "test:stock-options": "tsx scripts/test-stock-options.ts",
     "test:learning": "tsx scripts/test-learning-journey.ts",
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
     "test:optionsplit": "tsx scripts/test-option-split.ts",

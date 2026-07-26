@@ -17,9 +17,15 @@ import {
   PREFERRED_SHARE_AFFINITY,
   DIRECTOR_TRUST_THRESHOLD,
   DIRECTOR_TIERS,
+  DIRECTOR_OPTION_VESTING_SESSIONS,
   directorRoleForCharacter,
   directorTierForTrust,
 } from "@/lib/market/characterProgress";
+import {
+  isOptionExercisable,
+  isOptionVested,
+  optionExerciseCost,
+} from "@/lib/player/characterStockOptions";
 import {
   computeCharacterConcentration,
   isPreferredEligible,
@@ -54,6 +60,10 @@ export function CharacterDetailClient({ id }: { id: string }) {
     (s) => s.preferredIssuedCharacterIds,
   );
   const allStocks = useMarketStore((s) => s.stocks);
+  const characterStockOptions = useMarketStore((s) => s.characterStockOptions);
+  const exerciseStockOption = useMarketStore(
+    (s) => s.exerciseCharacterStockOption,
+  );
   const getEquity = useMarketStore((s) => s.getEquity);
   // 이 캐릭터가 실제로 말한 뉴스만 노출한다. quoteBy 는 "이모지 이름" 표시
   // 문자열이라, 이 캐릭터의 표시명과 일치하는 대사만 고른다(다른 캐릭터가
@@ -260,6 +270,63 @@ export function CharacterDetailClient({ id }: { id: string }) {
           </p>
         </div>
       </div>
+
+      {characterStockOptions.some((option) => option.characterId === ceo.id) && (
+        <section className="mt-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-xs font-bold text-blue-300">💼 이사 스톡옵션</p>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-[var(--muted)]">
+            위촉 시점 시장가로 받은 보통주 매수권입니다. 위촉 후{" "}
+            {DIRECTOR_OPTION_VESTING_SESSIONS}거래일이 지나면 현금으로 행사가×수량을
+            내고 보통주를 받을 수 있습니다.
+          </p>
+          <div className="mt-2 space-y-2">
+            {characterStockOptions
+              .filter((option) => option.characterId === ceo.id)
+              .map((option) => {
+                const tier = DIRECTOR_TIERS.find((t) => t.id === option.tierId);
+                const exercised = option.exercisedSession !== undefined;
+                const vested = isOptionVested(option, currentSession);
+                const canExercise = isOptionExercisable(option, currentSession);
+                const gain = live
+                  ? (live.currentPrice - option.strike) * option.quantity
+                  : 0;
+                return (
+                  <div
+                    key={option.tierId}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--background)]/50 p-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold">
+                        {tier?.emoji} {tier?.name} ·{" "}
+                        {option.quantity.toLocaleString("ko-KR")}주
+                      </p>
+                      <p className="text-[10px] text-[var(--muted)]">
+                        행사가 {formatPrice(option.strike)} · 비용{" "}
+                        {formatPrice(optionExerciseCost(option))}
+                        {!exercised &&
+                          ` · 평가손익 ${gain >= 0 ? "+" : ""}${formatPrice(gain)}`}
+                      </p>
+                    </div>
+                    {exercised ? (
+                      <span className="shrink-0 text-[10px] font-semibold text-[var(--muted)]">
+                        행사 완료
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!canExercise}
+                        onClick={() => exerciseStockOption(ceo.id, option.tierId)}
+                        className="shrink-0 rounded-lg bg-blue-500/90 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-40"
+                      >
+                        {vested ? "행사" : "베스팅 중"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
 
       {progress.affinity < 0 && (
         <p className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-xs leading-relaxed text-red-300">

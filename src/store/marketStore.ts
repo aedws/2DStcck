@@ -352,6 +352,13 @@ import {
   type PlayerCompanyState,
 } from "@/lib/player/playerCompany";
 import {
+  reconcileCharacterStockOptions,
+  normalizeCharacterStockOptions,
+  isOptionExercisable,
+  optionExerciseCost,
+  type CharacterStockOption,
+} from "@/lib/player/characterStockOptions";
+import {
   AMC_FEE_INTERVAL_DAYS,
   AMC_REBALANCE_WINDOW_DAYS,
   amcFundStockId,
@@ -541,6 +548,7 @@ interface MarketStore extends MarketSnapshot {
   reputation: number;
   /** 캐릭터별 업무 신뢰도·개인 호감도. */
   characterProgress: CharacterProgressMap;
+  characterStockOptions: CharacterStockOption[];
   /** 동맹 관계 보상으로 발행받은 우선주 (매매불가 지갑 자산). */
   preferredShares: PreferredShare[];
   /** 한 번이라도 우선주가 발행된 캐릭터 id (매각 후 재발행 방지). */
@@ -660,6 +668,11 @@ interface MarketStore extends MarketSnapshot {
   fundPlayerCompanyCapitalCall: () => OrderResult;
   dilutePlayerCompanyCapitalCall: () => OrderResult;
   refusePlayerCompanyCapitalCall: () => OrderResult;
+  /** 이사 스톡옵션 행사 — 현금으로 행사가×수량을 내고 보통주를 받는다. */
+  exerciseCharacterStockOption: (
+    characterId: string,
+    tierId: string,
+  ) => OrderResult;
   /** 신주 발행(공모주 증가·창업주 지분 희석, 순자산 중립). */
   issuePlayerCompanyShares: (shares: number) => OrderResult;
   /** 자사주 매입(공모주를 장부가로 매입해 창업주 지분 편입, 현금 소모). */
@@ -811,6 +824,7 @@ function createInitialState(): MarketSnapshot & {
   missionHistory: InvestmentMissionHistory[];
   reputation: number;
   characterProgress: CharacterProgressMap;
+  characterStockOptions: CharacterStockOption[];
   preferredShares: PreferredShare[];
   preferredIssuedCharacterIds: string[];
   preferredDiversifiedSince: number | null;
@@ -906,6 +920,7 @@ function createInitialState(): MarketSnapshot & {
     missionHistory: [],
     reputation: 0,
     characterProgress: {},
+    characterStockOptions: [],
     preferredShares: [],
     preferredIssuedCharacterIds: [],
     preferredDiversifiedSince: null,
@@ -2642,6 +2657,9 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory: wallet.missionHistory ?? [],
           reputation: wallet.reputation ?? 0,
           characterProgress: cloudCharacterProgress,
+          characterStockOptions: normalizeCharacterStockOptions(
+            (wallet as { characterStockOptions?: unknown }).characterStockOptions,
+          ),
           // 발행·매각은 직후 tick 정산에서 처리 — 여기선 기존 우선주만 보존한다.
           preferredShares: normalizePreferredShares(wallet.preferredShares),
           preferredIssuedCharacterIds: Array.isArray(wallet.preferredIssuedCharacterIds)
@@ -4011,6 +4029,21 @@ export const useMarketStore = create<MarketStore>()(
           playSound("cash");
         }
 
+        // 이사 스톡옵션: 신뢰도 티어를 새로 넘으면 위촉 시점 시장가로 옵션을 부여한다.
+        const characterStockOptions = reconcileCharacterStockOptions(
+          characterProgress,
+          state.characterStockOptions,
+          (charId) =>
+            combinedStocks.find(
+              (item) =>
+                item.ceoId === charId &&
+                item.leverage === undefined &&
+                !item.coveredCallUnderlyingId &&
+                !item.universalDerivative,
+            )?.currentPrice ?? 0,
+          currentSession,
+        );
+
         set({
           tick: nextTick,
           events: nextEvents,
@@ -4030,6 +4063,7 @@ export const useMarketStore = create<MarketStore>()(
           missionHistory,
           reputation,
           characterProgress,
+          characterStockOptions,
           preferredShares,
           preferredIssuedCharacterIds,
           preferredDiversifiedSince,
@@ -5275,6 +5309,93 @@ export const useMarketStore = create<MarketStore>()(
         set({ playerCompany: result.company });
         useToastStore.getState().push(result.message, "error");
         return { success: true, message: result.message };
+      },
+
+      exerciseCharacterStockOption: (characterId, tierId) => {
+        const state = get();
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const option = state.characterStockOptions.find(
+          (item) => item.characterId === characterId && item.tierId === tierId,
+        );
+        if (!option) {
+          return { success: false, message: "행사할 스톡옵션이 없습니다." };
+        }
+        if (option.exercisedSession !== undefined) {
+          return { success: false, message: "이미 행사한 옵션입니다." };
+        }
+        if (!isOptionExercisable(option, currentSession)) {
+          return {
+            success: false,
+            message: "베스팅 기간이 지나야 행사할 수 있습니다.",
+          };
+        }
+        const stock = state.stocks.find(
+          (item) =>
+            item.ceoId === characterId &&
+            item.leverage === undefined &&
+            !item.coveredCallUnderlyingId &&
+            !item.universalDerivative,
+        );
+        if (!stock) {
+          return { success: false, message: "해당 회사 종목을 찾을 수 없습니다." };
+        }
+        const cost = optionExerciseCost(option);
+        if (state.cash < cost) {
+          return {
+            success: false,
+            message: `행사에 ${formatPrice(cost)}가 필요합니다.`,
+          };
+        }
+        const existing = state.holdings.find(
+          (item) => item.stockId === stock.id,
+        );
+        const nextHoldings = existing
+          ? state.holdings.map((item) =>
+              item.stockId === stock.id
+                ? {
+                    ...item,
+                    quantity: item.quantity + option.quantity,
+                    quantityExact: String(item.quantity + option.quantity),
+                    averagePrice:
+                      (item.averagePrice * item.quantity +
+                        option.strike * option.quantity) /
+                      (item.quantity + option.quantity),
+                  }
+                : item,
+            )
+          : [
+              ...state.holdings,
+              {
+                stockId: stock.id,
+                quantity: option.quantity,
+                quantityExact: String(option.quantity),
+                averagePrice: option.strike,
+              },
+            ];
+        const payment: CashPayment = {
+          id: `option-exercise-${characterId}-${tierId}-${now}`,
+          kind: "company_capital",
+          sourceId: stock.id,
+          ticker: stock.ticker,
+          dueSession: currentSession,
+          amount: -cost,
+          timestamp: now,
+        };
+        set({
+          ...withExactCashDelta(state, -cost),
+          holdings: nextHoldings,
+          characterStockOptions: state.characterStockOptions.map((item) =>
+            item === option
+              ? { ...item, exercisedSession: currentSession }
+              : item,
+          ),
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        const message = `${stock.name} 스톡옵션 ${option.quantity.toLocaleString("ko-KR")}주 행사 · ${formatPrice(cost)}`;
+        useToastStore.getState().push(message, "success");
+        playSound("cash");
+        return { success: true, message };
       },
 
       issuePlayerCompanyShares: (shares) => {
@@ -7645,6 +7766,7 @@ export const useMarketStore = create<MarketStore>()(
         missionHistory: state.missionHistory.slice(0, 30),
         reputation: state.reputation,
         characterProgress: state.characterProgress,
+        characterStockOptions: state.characterStockOptions,
         preferredShares: state.preferredShares,
         preferredIssuedCharacterIds: state.preferredIssuedCharacterIds,
         preferredDiversifiedSince: state.preferredDiversifiedSince,
@@ -8084,6 +8206,9 @@ export const useMarketStore = create<MarketStore>()(
             ? Math.max(0, (walletSource as Partial<MarketStore>).reputation ?? 0)
             : 0,
           characterProgress,
+          characterStockOptions: normalizeCharacterStockOptions(
+            (walletSource as Partial<MarketStore>).characterStockOptions,
+          ),
           preferredShares,
           preferredIssuedCharacterIds: Array.isArray(
             (walletSource as Partial<MarketStore>).preferredIssuedCharacterIds,

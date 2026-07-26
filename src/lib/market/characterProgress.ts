@@ -87,21 +87,26 @@ export interface DirectorTier {
   name: string;
   emoji: string;
   minTrust: number;
+  /** 위촉 시 부여되는 보통주 스톡옵션 수량(행사가는 위촉 시점 시장가). */
+  optionShares: number;
   /** 신뢰도 100 최고 티어 — 티어명 대신 캐릭터별 C급 직위를 쓴다. */
   isCSuite?: boolean;
 }
 export const DIRECTOR_TIERS: DirectorTier[] = [
-  { id: "advisor", name: "자문역", emoji: "🪪", minTrust: 55 },
-  { id: "outside", name: "사외이사", emoji: "🧑‍⚖️", minTrust: 70 },
-  { id: "managing", name: "상무이사", emoji: "🧑‍💼", minTrust: 85 },
+  { id: "advisor", name: "자문역", emoji: "🪪", minTrust: 55, optionShares: 50 },
+  { id: "outside", name: "사외이사", emoji: "🧑‍⚖️", minTrust: 70, optionShares: 150 },
+  { id: "managing", name: "상무이사", emoji: "🧑‍💼", minTrust: 85, optionShares: 500 },
   {
     id: "csuite",
     name: "C급 임원",
     emoji: "💼",
     minTrust: MAX_CHARACTER_TRUST,
+    optionShares: 1500,
     isCSuite: true,
   },
 ];
+/** 스톡옵션 베스팅 기간(거래일) — 위촉 후 이 거래일이 지나야 행사할 수 있다. */
+export const DIRECTOR_OPTION_VESTING_SESSIONS = 5;
 /** 이사 위촉 최소 신뢰도(가장 낮은 티어). */
 export const DIRECTOR_TRUST_THRESHOLD = DIRECTOR_TIERS[0].minTrust;
 
