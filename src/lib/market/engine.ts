@@ -17,6 +17,8 @@ import {
   LEVERAGE_MERGE_AT,
   LEVERAGE_SPLIT_RATIO,
   LEVERAGE_MERGE_RATIO,
+  LEVERAGE_RAW_PRICE_FLOOR,
+  LEVERAGE_SPLIT_GUARD,
   MIN_SHARE_MULTIPLIER,
   MARKET_ORDER_SLIPPAGE,
   MARKET_EPOCH_MS,
@@ -613,7 +615,7 @@ export function computeLeveragedRawPrice(
     Math.max(underlyingCurrent, 1) / underlyingSessionBase - 1;
   return Math.max(
     etfSessionStart * dailyLeverageFactor(underlyingReturn, leverage),
-    1e-12,
+    LEVERAGE_RAW_PRICE_FLOOR,
   );
 }
 
@@ -635,7 +637,10 @@ export function computeLeveragedSnapshot(
   const leverage = etf.leverage ?? 1;
   const closedFactor =
     underlying.leveragePathFactors?.[String(leverage)] ?? 1;
-  const sessionStartRawPrice = Math.max(etf.initialPrice * closedFactor, 1e-12);
+  const sessionStartRawPrice = Math.max(
+    etf.initialPrice * closedFactor,
+    LEVERAGE_RAW_PRICE_FLOOR,
+  );
   const underlyingSessionBase =
     underlying.leveragePathSessionBase ?? underlying.initialPrice ?? 0;
   const rawPrice = computeLeveragedRawPrice(
@@ -701,16 +706,19 @@ export function computeLeveragedSnapshot(
  * (5:1 분할이면 $500→$100, 2:1 병합이면 $50→$100, 모두 [$50,$500) 안) 진동하지 않는다.
  */
 export function leverageSplitMultiplier(rawPrice: number): number {
-  // 원시 파생 가격은 1센트보다 작을 수 있다. 1센트로 올려 계산하면
-  // 병합 배수가 1/1024에서 멈춰 표시가가 $0.01에 고정된다.
-  let price = Math.max(rawPrice, 1e-12);
+  // 원시 파생 가격은 변동성 감가로 극단적으로 작아질 수 있다. 예전엔 1e-12로 올려
+  // 계산해 병합 배수가 상한(1/1024)에서 멈추고 표시가가 한 값(예: $11.25)에 붙어
+  // 차트가 안 움직였다(미노리 2배 인버스). 하한을 double 표현 한계까지 낮추고 병합·
+  // 분할 반복 상한을 리베이스 폭까지 늘려, 감가분을 좌수 배수에 접어 넣어도 표시가는
+  // 항상 밴드로 되돌아오고 원가격이 바닥에 고정되지 않게 한다.
+  let price = Math.max(rawPrice, LEVERAGE_RAW_PRICE_FLOOR);
   let m = 1;
   let guard = 0;
-  while (price >= LEVERAGE_SPLIT_AT && guard++ < 48) {
+  while (price >= LEVERAGE_SPLIT_AT && guard++ < LEVERAGE_SPLIT_GUARD) {
     price /= LEVERAGE_SPLIT_RATIO;
     m *= LEVERAGE_SPLIT_RATIO;
   }
-  while (price < LEVERAGE_MERGE_AT && guard++ < 96) {
+  while (price < LEVERAGE_MERGE_AT && guard++ < LEVERAGE_SPLIT_GUARD) {
     price *= LEVERAGE_MERGE_RATIO;
     m /= LEVERAGE_MERGE_RATIO;
   }
@@ -820,14 +828,21 @@ function leverageChartConverter(
   return (price: number, timestamp: number) => {
     const session = Math.floor(timestamp / SESSION_DURATION_MS);
     const anchor = anchors.get(session) ?? fallback;
-    return Math.max(
-      computeLeveragedRawPrice(
-        anchor.rawBase,
-        price,
-        anchor.underlyingBase,
-        lev,
-      ) / m,
-      1,
+    // 소급 조정된 과거값을 실제 거래 밴드(≤ $1000)로 제한한다. 변동성 감가로 좌수
+    // 배수가 1e-32까지 작아진 곱버스는 현재 배수 기준 소급 조정 시 과거가가 1e35처럼
+    // 폭발해 차트 y축이 깨진다. 상품은 병합 덕에 늘 밴드 안에서만 거래됐으므로, 차트도
+    // 밴드로 제한해 실제 표시가와 일관되게 하고 정상 배수 상품에는 영향이 없게 한다.
+    return Math.min(
+      Math.max(
+        computeLeveragedRawPrice(
+          anchor.rawBase,
+          price,
+          anchor.underlyingBase,
+          lev,
+        ) / m,
+        1,
+      ),
+      LEVERAGE_SPLIT_AT,
     );
   };
 }

@@ -69,7 +69,7 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  v44: 단일 종목 커버드콜 연 분배율 60%로 하향 — 시세 산출이 바뀌어 재생성한다.
  *  v45: 마카샤 연구소·몬텔리 캐피탈·히스클리프 리츠운용 3종 예약 상장(7/28~29)
  *  — 종목 구성이 바뀌어 전체 체크포인트를 재생성한다. */
-export const MARKET_SIM_VERSION = 45;
+export const MARKET_SIM_VERSION = 46;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.
@@ -141,8 +141,23 @@ export const LEVERAGE_MERGE_AT = 1_000;
 export const LEVERAGE_SPLIT_RATIO = 5;
 /** 병합 비율 2:1 (가격 ×2, 좌수 ÷2) */
 export const LEVERAGE_MERGE_RATIO = 2;
-/** 초소형 곱버스 액면 배수를 수치적으로 안전하게 보존하는 하한. */
-export const MIN_SHARE_MULTIPLIER = 1e-18;
+/**
+ * 원시 레버리지 가격의 하한. 변동성 감가로 곱버스가 이 값에 닿으면 원가격이 고정돼
+ * 표시가·차트가 한 값에 붙어버린다(예: 미노리 2배 인버스). 배수 리베이스가 감가를
+ * 좌수 배수(shareMultiplier)에 접어 넣어 원가격을 밴드로 되돌리므로, 하한은 double이
+ * 정상수로 표현 가능한 극단까지 낮춰 실질적으로 걸리지 않게 한다.
+ */
+export const LEVERAGE_RAW_PRICE_FLOOR = 1e-290;
+/**
+ * 원가격을 밴드로 되돌리는 분할·병합 반복 상한(리베이스 폭). 감가한 곱버스도 표시
+ * 밴드에 안착하도록 double 표현 범위 전체(±약 1e300)를 덮는다.
+ */
+export const LEVERAGE_SPLIT_GUARD = 2048;
+/**
+ * 좌수 배수를 수치적으로 안전하게 보존하는 하한. 리베이스가 감가를 이 배수에 접어
+ * 넣으므로, 원가격 하한과 같은 극단까지 낮춰 감가한 상품도 계속 살아 움직이게 한다.
+ */
+export const MIN_SHARE_MULTIPLIER = 1e-290;
 export const MAX_PRICE_HISTORY = 120;
 /** 재접속·배포 뒤에도 보존할 1시간 거래일 봉 — 10시즌(240거래일). */
 export const PERSISTED_DAILY_CANDLES = 240;
