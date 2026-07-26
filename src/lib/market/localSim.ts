@@ -33,6 +33,7 @@ import { listingTickOf } from "@/lib/market/ipo";
 import { getStoryEventForSession } from "@/lib/market/storyArcs";
 import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
+import { getScheduledWarEventsForSession } from "@/lib/market/scheduledWar";
 import { getCorporateActionEventForSession } from "@/lib/market/corporateActions";
 import type {
   Candle,
@@ -226,6 +227,11 @@ export function replayMarket(
         events = [...events, crisisEvent].slice(-50);
       }
     }
+    for (const warEvent of getScheduledWarEventsForSession(prevSession)) {
+      if (!events.some((event) => event.id === warEvent.id)) {
+        events = [...events, warEvent].slice(-50);
+      }
+    }
   }
 
   for (let tick = fromTick + 1; tick <= toTick; tick++) {
@@ -353,6 +359,11 @@ export function replayMarket(
         for (const crisisEvent of getCrisisEventsForSession(s)) {
           if (!events.some((event) => event.id === crisisEvent.id)) {
             events = [...events, crisisEvent].slice(-50);
+          }
+        }
+        for (const warEvent of getScheduledWarEventsForSession(s)) {
+          if (!events.some((event) => event.id === warEvent.id)) {
+            events = [...events, warEvent].slice(-50);
           }
         }
 

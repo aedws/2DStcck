@@ -13,6 +13,7 @@
     "test:splits": "tsx scripts/test-leverage-splits.ts",
     "test:leverage-wipe": "tsx scripts/test-leverage-wipe-exploit.ts",
     "test:leverage-decay": "tsx scripts/test-leverage-decay-rebase.ts",
+    "test:scheduled-war": "tsx scripts/test-scheduled-war.ts",
     "test:learning": "tsx scripts/test-learning-journey.ts",
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
     "test:optionsplit": "tsx scripts/test-option-split.ts",

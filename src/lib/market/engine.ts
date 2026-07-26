@@ -56,6 +56,10 @@ import {
   crisisReturnForStock,
   getActiveMarketCrisis,
 } from "@/lib/market/marketCrises";
+import {
+  getActiveScheduledWar,
+  scheduledWarReturnForStock,
+} from "@/lib/market/scheduledWar";
 import { getMarketEra } from "@/lib/market/marketEras";
 import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
 import { strategyFilterLabel } from "@/lib/market/taxonomy";
@@ -239,6 +243,7 @@ export function calculateTickPrice(
   const regime = getMarketRegimeAtSession(session);
   const cycle = getMarketCycleAtSession(session);
   const crisis = getActiveMarketCrisis(session);
+  const war = getActiveScheduledWar(session);
   // 전역 시장 국면(에라)과 캐릭터 운영 지침. 국면 시작 전이면 배율 1·편향 0이라
   // 결과가 완전히 동일하다(과거 바이트 동일 → 버전 bump 불필요).
   const era = getMarketEra(session);
@@ -252,6 +257,7 @@ export function calculateTickPrice(
       regime.volatilityMultiplier *
         cycle.volatilityMultiplier *
         (crisis?.phase.volatilityMultiplier ?? 1) *
+        (war?.phase.volatilityMultiplier ?? 1) *
         era.volMul *
         guideline.volMul,
     ),
@@ -286,6 +292,9 @@ export function calculateTickPrice(
   const crisisReturn = crisis
     ? crisisReturnForStock(crisis, stock, dtSeconds)
     : 0;
+  const warReturn = war
+    ? scheduledWarReturnForStock(war, stock, dtSeconds)
+    : 0;
   const secularGrowthSupport = calculateSecularGrowthSupport(
     stock,
     now,
@@ -299,6 +308,7 @@ export function calculateTickPrice(
     regimeReturn +
     cycleReturn +
     crisisReturn +
+    warReturn +
     secularGrowthSupport +
     trend +
     shock +
@@ -306,6 +316,7 @@ export function calculateTickPrice(
       EVENT_IMPACT_TIME_SCALE *
       cycle.eventImpactMultiplier *
       (crisis?.phase.eventImpactMultiplier ?? 1) *
+      (war?.phase.eventImpactMultiplier ?? 1) *
       dtSeconds +
     noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
