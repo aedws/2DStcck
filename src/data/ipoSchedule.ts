@@ -66,4 +66,10 @@ export const IPO_SCHEDULE: Record<string, number> = {
   monc: Date.UTC(2026, 6, 28, 12, 0),
   // 히스클리프 리츠운용(HTCL) — 2026-07-29 15:00 KST 개장 (= 06:00 UTC)
   htcl: Date.UTC(2026, 6, 29, 6, 0),
+  // 누카-콜라(NKCL) — 2026-07-29 18:00 KST 개장 (= 09:00 UTC) · 플레이어 회사 IPO
+  nkcl: Date.UTC(2026, 6, 29, 9, 0),
+  // 코유키 정보해석(KOYU) — 2026-07-29 21:00 KST 개장 (= 12:00 UTC)
+  koyuki: Date.UTC(2026, 6, 29, 12, 0),
+  // 에이메스 엔터테인먼트(WWAM) — 2026-07-30 15:00 KST 개장 (= 06:00 UTC)
+  ames: Date.UTC(2026, 6, 30, 6, 0),
 };

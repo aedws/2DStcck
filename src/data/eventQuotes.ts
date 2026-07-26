@@ -546,6 +546,60 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "정정하겠습니다. 같은 실수는 두 번 일어나지 않습니다.",
     ],
   },
+  {
+    characterId: "chr_koyuki",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "암호는 이미 풀렸어요. 나머지는 그 정보로 조용히 벌면 됩니다.",
+      "정부 의뢰도, 시장의 빈틈도… 답은 늘 데이터 안에 있죠.",
+      "수익은 확보했습니다. 배당요? 그건 제 관심 밖이에요.",
+    ],
+  },
+  {
+    characterId: "chr_koyuki",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "노이즈가 많은 날이네요. 신호가 다시 잡힐 때까지 기다립니다.",
+      "이번 해석은 빗나갔어요. 키를 다시 맞춰 보죠.",
+    ],
+  },
+  {
+    characterId: "chr_koyuki",
+    tag: "보안",
+    direction: "positive",
+    quotes: [
+      "이 정도 방화벽은… 커피 식기 전에 뚫려요.",
+    ],
+  },
+  {
+    characterId: "chr_ames",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "새 곡의 반응이 좋네요. 역시 직접 쓴 게 제일 솔직하죠.",
+      "무대 위에선 스노우플러프, 무대 밖에선 대표. 둘 다 저예요.",
+      "멜로디가 통했어요. 다음 발매도 기대해 주세요.",
+    ],
+  },
+  {
+    characterId: "chr_ames",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "여러 일을 벌이다 보니… 이번 신곡이 조금 늦어졌어요. 미안해요.",
+      "작업이 밀렸네요. 곡은 제가 직접 써야 마음이 놓이거든요.",
+    ],
+  },
+  {
+    characterId: "chr_ames",
+    tag: "신제품",
+    direction: "positive",
+    quotes: [
+      "신곡 공개합니다. 이번엔 발매가 안 늦었죠?",
+    ],
+  },
 ];
 
 /**
