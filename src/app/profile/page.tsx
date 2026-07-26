@@ -20,6 +20,8 @@ import {
   countFavoriteRelationships,
   earnedDirectorships,
   directorTitleId,
+  directorTitleSuffix,
+  getCharacterProgress,
   DIRECTOR_TRUST_THRESHOLD,
 } from "@/lib/market/characterProgress";
 import { getCharacterById } from "@/data/characters";
@@ -82,11 +84,12 @@ export default function ProfilePage() {
   // 신뢰도로 위촉된 이사 칭호(CFO·CCO·CTO 등) — 캐릭터별 동적 칭호.
   const directorTitles = earnedDirectorships(characterProgress).map((item) => {
     const character = getCharacterById(item.characterId);
+    const progress = getCharacterProgress(characterProgress, item.characterId);
     return {
       id: directorTitleId(item.characterId),
-      emoji: "💼",
-      name: `${character?.name ?? item.characterId} ${item.role}`,
-      condition: `${character?.name ?? "캐릭터"} 신뢰도 ${DIRECTOR_TRUST_THRESHOLD} 달성`,
+      emoji: item.tier.emoji,
+      name: `${character?.name ?? item.characterId} ${directorTitleSuffix(item)}`,
+      condition: `${character?.name ?? "캐릭터"} 신뢰도 ${progress.trust} · ${item.tier.name}${item.tier.isCSuite ? ` (${item.role})` : ""}`,
     };
   });
   const titleDisplayById = new Map<
@@ -322,7 +325,7 @@ export default function ProfilePage() {
         {directorTitles.length > 0 && (
           <div className="mt-3">
             <p className="text-xs font-semibold text-[var(--muted)]">
-              💼 이사 칭호 (신뢰도 {DIRECTOR_TRUST_THRESHOLD} 위촉)
+              💼 이사 칭호 · 신뢰도 {DIRECTOR_TRUST_THRESHOLD}부터 위촉, 100에서 C급 임원
             </p>
             <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {directorTitles.map((title) => {

@@ -9,8 +9,12 @@ import assert from "node:assert";
 import {
   DIRECTOR_ROLES,
   DIRECTOR_TRUST_THRESHOLD,
+  DIRECTOR_TIERS,
+  MAX_CHARACTER_TRUST,
   LONG_HOLD_SESSIONS,
   directorRoleForCharacter,
+  directorTierForTrust,
+  directorTitleSuffix,
   earnedDirectorships,
   directorTitleId,
   parseDirectorTitleId,
@@ -24,13 +28,35 @@ const role1 = directorRoleForCharacter("chr_minori");
 assert.equal(directorRoleForCharacter("chr_minori"), role1, "같은 id는 같은 직위");
 assert.ok(DIRECTOR_ROLES.includes(role1), "정의된 직위 중 하나");
 
-// 위촉 목록: 임계 이상만
+// 티어: 임계 미만은 위촉 없음, 임계~99는 하위 티어, 100은 C급
+assert.equal(directorTierForTrust(DIRECTOR_TRUST_THRESHOLD - 1), null, "임계 미만 미위촉");
+assert.equal(
+  directorTierForTrust(DIRECTOR_TRUST_THRESHOLD)?.id,
+  DIRECTOR_TIERS[0].id,
+  "임계에서 최하위 티어",
+);
+const csuite = directorTierForTrust(MAX_CHARACTER_TRUST);
+assert.ok(csuite?.isCSuite, "신뢰도 100에서 C급 임원 티어");
+assert.ok(
+  directorTierForTrust(MAX_CHARACTER_TRUST - 1)?.isCSuite !== true,
+  "신뢰도 99는 C급 미만",
+);
+
+// 위촉 목록: 임계 이상만, 티어 포함
 const directors = earnedDirectorships({
-  chr_a: { affinity: 0, trust: DIRECTOR_TRUST_THRESHOLD, holdingSessions: 0 } as never,
+  chr_a: { affinity: 0, trust: MAX_CHARACTER_TRUST, holdingSessions: 0 } as never,
   chr_b: { affinity: 0, trust: DIRECTOR_TRUST_THRESHOLD - 1, holdingSessions: 0 } as never,
 });
 assert.equal(directors.length, 1, "임계 이상 1명만 위촉");
 assert.equal(directors[0].characterId, "chr_a");
+assert.ok(directors[0].tier.isCSuite, "신뢰도 100 → C급 위촉");
+// C급 접미사는 직위(CFO 등), 하위 티어는 티어명
+assert.equal(directorTitleSuffix(directors[0]), directors[0].role, "C급 접미사=직위");
+assert.equal(
+  directorTitleSuffix({ characterId: "x", role: "CFO", tier: DIRECTOR_TIERS[0] }),
+  DIRECTOR_TIERS[0].name,
+  "하위 티어 접미사=티어명",
+);
 
 // 칭호 id 왕복
 const tid = directorTitleId("chr_a");

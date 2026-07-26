@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-26",
+    tag: "개선",
+    title: "이사 위촉 신뢰도 티어 신설 — 자문역→사외이사→상무이사→C급(신뢰도 100)",
+    detail:
+      "이사 위촉을 신뢰도별 티어로 나눴습니다. 신뢰도 55 자문역, 70 사외이사, 85 상무이사로 승격하고, 신뢰도 100(만렙)에서 최고 티어인 C급 임원(캐릭터별 고정 CFO·CCO·CTO 등)으로 위촉됩니다. 프로필 칭호와 캐릭터 도감 상세에 현재 티어와 다음 승격 기준이 함께 표시됩니다.",
+  },
+  {
+    date: "2026-07-26",
     tag: "신규",
     title: "신뢰도 보유 일관성 상승 · 이사 위촉 칭호 · 칭호 5개 동시 표시",
     detail:

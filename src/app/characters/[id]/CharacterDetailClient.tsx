@@ -16,7 +16,9 @@ import {
   FAVORITE_AFFINITY,
   PREFERRED_SHARE_AFFINITY,
   DIRECTOR_TRUST_THRESHOLD,
+  DIRECTOR_TIERS,
   directorRoleForCharacter,
+  directorTierForTrust,
 } from "@/lib/market/characterProgress";
 import {
   computeCharacterConcentration,
@@ -217,15 +219,27 @@ export function CharacterDetailClient({ id }: { id: string }) {
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
             <div className="h-full rounded-full bg-blue-400" style={{ width: `${progress.trust}%` }} />
           </div>
-          {progress.trust >= DIRECTOR_TRUST_THRESHOLD ? (
-            <p className="mt-1.5 text-[10px] font-semibold text-blue-300">
-              💼 {ceo.name} {directorRoleForCharacter(ceo.id)} 위촉 · 프로필 칭호로 표시
-            </p>
-          ) : (
-            <p className="mt-1.5 text-[10px] text-[var(--muted)]">
-              💼 신뢰도 {DIRECTOR_TRUST_THRESHOLD} 달성 시 이사({directorRoleForCharacter(ceo.id)})로 위촉됩니다. 보유를 꾸준히 유지하면 신뢰도가 오릅니다.
-            </p>
-          )}
+          {(() => {
+            const tier = directorTierForTrust(progress.trust);
+            const suffix = tier?.isCSuite
+              ? directorRoleForCharacter(ceo.id)
+              : tier?.name;
+            const nextTier = DIRECTOR_TIERS.find(
+              (item) => item.minTrust > progress.trust,
+            );
+            return tier ? (
+              <p className="mt-1.5 text-[10px] font-semibold text-blue-300">
+                {tier.emoji} {ceo.name} {suffix} 위촉 · 프로필 칭호로 표시
+                {nextTier
+                  ? ` (신뢰도 ${nextTier.minTrust} → ${nextTier.isCSuite ? `C급 ${directorRoleForCharacter(ceo.id)}` : nextTier.name})`
+                  : ""}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-[10px] text-[var(--muted)]">
+                💼 신뢰도 {DIRECTOR_TRUST_THRESHOLD} 달성 시 이사(자문역)로 위촉되고, 신뢰도가 오를수록 상무이사·100에서 C급({directorRoleForCharacter(ceo.id)})까지 승격됩니다. 보유를 꾸준히 유지하면 신뢰도가 오릅니다.
+              </p>
+            );
+          })()}
         </div>
         <div className={`rounded-2xl border p-4 ${progress.affinity < 0 ? "border-red-500/30 bg-red-500/5" : "border-pink-500/20 bg-pink-500/5"}`}>
           <p className={`text-xs ${progress.affinity < 0 ? "text-red-400" : "text-pink-400"}`}>

@@ -64,11 +64,11 @@ export function countFavoriteRelationships(
   return count;
 }
 
-/** 이사 직위 — 캐릭터별로 결정론적으로 배정된다. */
+/** C급 임원 직위 — 캐릭터별로 결정론적으로 배정된다. */
 export const DIRECTOR_ROLES = ["CFO", "CCO", "CTO", "COO", "CMO"] as const;
 export type DirectorRole = (typeof DIRECTOR_ROLES)[number];
 
-/** 캐릭터 id → 결정론적 이사 직위(같은 캐릭터는 항상 같은 직위). */
+/** 캐릭터 id → 결정론적 C급 직위(같은 캐릭터는 항상 같은 직위). */
 export function directorRoleForCharacter(characterId: string): DirectorRole {
   let hash = 2166136261;
   for (let index = 0; index < characterId.length; index++) {
@@ -78,21 +78,67 @@ export function directorRoleForCharacter(characterId: string): DirectorRole {
   return DIRECTOR_ROLES[(hash >>> 0) % DIRECTOR_ROLES.length];
 }
 
+/**
+ * 신뢰도별 이사 위촉 티어. 신뢰도가 오를수록 상위 직급으로 올라가고, 신뢰도 100(만렙)
+ * 에서 최고 티어인 C급 임원(CFO·CCO·CTO 등)으로 승격된다.
+ */
+export interface DirectorTier {
+  id: string;
+  name: string;
+  emoji: string;
+  minTrust: number;
+  /** 신뢰도 100 최고 티어 — 티어명 대신 캐릭터별 C급 직위를 쓴다. */
+  isCSuite?: boolean;
+}
+export const DIRECTOR_TIERS: DirectorTier[] = [
+  { id: "advisor", name: "자문역", emoji: "🪪", minTrust: 55 },
+  { id: "outside", name: "사외이사", emoji: "🧑‍⚖️", minTrust: 70 },
+  { id: "managing", name: "상무이사", emoji: "🧑‍💼", minTrust: 85 },
+  {
+    id: "csuite",
+    name: "C급 임원",
+    emoji: "💼",
+    minTrust: MAX_CHARACTER_TRUST,
+    isCSuite: true,
+  },
+];
+/** 이사 위촉 최소 신뢰도(가장 낮은 티어). */
+export const DIRECTOR_TRUST_THRESHOLD = DIRECTOR_TIERS[0].minTrust;
+
+/** 신뢰도에 해당하는 최고 이사 티어(미달이면 null). */
+export function directorTierForTrust(trust: number): DirectorTier | null {
+  let tier: DirectorTier | null = null;
+  for (const candidate of DIRECTOR_TIERS) {
+    if (trust >= candidate.minTrust) tier = candidate;
+  }
+  return tier;
+}
+
 export interface CharacterDirectorship {
   characterId: string;
   role: DirectorRole;
+  tier: DirectorTier;
 }
 
-/** 신뢰도 DIRECTOR_TRUST_THRESHOLD 이상을 달성해 이사로 위촉된 캐릭터 목록. */
+/** 위촉 티어의 표시 접미사 — C급은 직위(CFO 등), 그 외는 티어명(상무이사 등). */
+export function directorTitleSuffix(directorship: CharacterDirectorship): string {
+  return directorship.tier.isCSuite
+    ? directorship.role
+    : directorship.tier.name;
+}
+
+/** 이사 위촉 최소 신뢰도를 넘은 캐릭터의 위촉 목록(현재 티어 포함). */
 export function earnedDirectorships(
   progress: CharacterProgressMap,
 ): CharacterDirectorship[] {
   const result: CharacterDirectorship[] = [];
   for (const [characterId, entry] of Object.entries(progress)) {
-    if ((entry?.trust ?? 0) >= DIRECTOR_TRUST_THRESHOLD) {
+    const tier = directorTierForTrust(entry?.trust ?? 0);
+    if (tier) {
       result.push({
         characterId,
         role: directorRoleForCharacter(characterId),
+        tier,
       });
     }
   }
@@ -211,8 +257,6 @@ export const TRUST_REWARD_SINGLE_CHARACTER_ETF = 2;
  * 신뢰도를 매매 일관성·장기 투자로도 쌓게 하는 난이도 하향 경로다.
  */
 export const TRUST_REWARD_LONG_HOLD = 1;
-/** 이 캐릭터 신뢰도 이상이면 플레이어가 회사 이사(CFO·CCO·CTO 등)로 위촉된다. */
-export const DIRECTOR_TRUST_THRESHOLD = 80;
 /** 단일 캐릭터 테마 ETF를 처음 설정할 때 즉시 주는 호감도. */
 export const SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY = 20;
 /** 가중치를 정수 상승폭으로 바꾸는 단위(×2). 보통주=+2로 기존과 동일. */
