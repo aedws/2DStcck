@@ -35,6 +35,8 @@ export const CHARACTER_DIALOGUE_CATEGORY = "캐릭터 대사 요청";
 export const MARKET_PHASE_CATEGORY = "국면 추가 요청";
 /** 캐릭터 이름을 단 유저 회사의 도감 반영 요청 — 채택 시 도감에 등재, 지갑 효과 없음. */
 export const DEX_REFLECTION_CATEGORY = "도감 반영 요청";
+/** 이사(신뢰도 위촉)가 낸 전용 뉴스 요청 — 채택 시 도감에 노출, 시세 영향·지갑 효과 없음. */
+export const DIRECTOR_NEWS_CATEGORY = "이사 뉴스 요청";
 
 /** 국면 추가 요청 승인 시 신청자에게서 차감하는 비용(센트) — $100,000. */
 export const MARKET_PHASE_REQUEST_COST_CENTS = 10_000_000;
@@ -161,6 +163,37 @@ export async function listCommunityCompanies(
   }));
 }
 
+/** 채택된 이사 전용 뉴스(모든 유저 공개, 플레이버). */
+export interface DirectorNewsItem {
+  id: string;
+  characterId: string;
+  headline: string;
+  body: string | null;
+  createdAt: string;
+}
+
+/** 특정 캐릭터의 채택된 이사 뉴스 목록(공개). */
+export async function listDirectorNews(
+  characterId: string,
+): Promise<DirectorNewsItem[]> {
+  if (!characterId) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("director_news")
+    .select("id, character_id, headline, body, created_at")
+    .eq("character_id", characterId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: String(row.id),
+    characterId: String(row.character_id),
+    headline: String(row.headline),
+    body: row.body ? String(row.body) : null,
+    createdAt: String(row.created_at),
+  }));
+}
+
 /**
  * 처리 결과별 지갑 효과(센트, 부호 있음). 양수 지급·음수 차감·0 무효과.
  * - 국면 추가 요청: 신청 시 선 회수하므로 채택(done)엔 효과 없음(0),
@@ -174,8 +207,11 @@ export function feedbackResponseEffectCents(
   if (category === MARKET_PHASE_CATEGORY) {
     return status === "declined" ? MARKET_PHASE_REQUEST_COST_CENTS : 0;
   }
-  // 도감 반영 요청은 지갑 효과 없이 도감 등재만 한다.
-  if (category === DEX_REFLECTION_CATEGORY) {
+  // 도감 반영·이사 뉴스 요청은 지갑 효과 없이 도감 노출만 한다.
+  if (
+    category === DEX_REFLECTION_CATEGORY ||
+    category === DIRECTOR_NEWS_CATEGORY
+  ) {
     return 0;
   }
   return status === "done" ? FEEDBACK_REWARD_CENTS : 0;

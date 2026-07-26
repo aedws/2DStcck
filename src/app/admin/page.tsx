@@ -51,6 +51,7 @@ import {
   CHARACTER_DIALOGUE_CATEGORY,
   MARKET_PHASE_CATEGORY,
   DEX_REFLECTION_CATEGORY,
+  DIRECTOR_NEWS_CATEGORY,
   type FeedbackRow,
   type FeedbackStatus,
 } from "@/lib/supabase/feedback";
@@ -116,13 +117,15 @@ type Tab =
   | "feedback"
   | "dialogue"
   | "phase"
-  | "dex";
+  | "dex"
+  | "directorNews";
 
 /** 특수 요청 카테고리 — 일반 피드백 탭에서는 제외하고 전용 탭에서 본다. */
 const SPECIAL_FEEDBACK_CATEGORIES: string[] = [
   CHARACTER_DIALOGUE_CATEGORY,
   MARKET_PHASE_CATEGORY,
   DEX_REFLECTION_CATEGORY,
+  DIRECTOR_NEWS_CATEGORY,
 ];
 
 export default function AdminPage() {
@@ -323,12 +326,18 @@ export default function AdminPage() {
   const dexRows = feedbackRows.filter(
     (r) => r.category === DEX_REFLECTION_CATEGORY,
   );
+  const directorNewsRows = feedbackRows.filter(
+    (r) => r.category === DIRECTOR_NEWS_CATEGORY,
+  );
   const openFeedback = generalFeedbackRows.filter(
     (r) => r.status === "open",
   ).length;
   const openDialogue = dialogueRows.filter((r) => r.status === "open").length;
   const openPhase = phaseRows.filter((r) => r.status === "open").length;
   const openDex = dexRows.filter((r) => r.status === "open").length;
+  const openDirectorNews = directorNewsRows.filter(
+    (r) => r.status === "open",
+  ).length;
   const visibleFeedbackRows =
     tab === "dialogue"
       ? dialogueRows
@@ -336,7 +345,9 @@ export default function AdminPage() {
         ? phaseRows
         : tab === "dex"
           ? dexRows
-          : generalFeedbackRows;
+          : tab === "directorNews"
+            ? directorNewsRows
+            : generalFeedbackRows;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -453,6 +464,17 @@ export default function AdminPage() {
           }`}
         >
           🏛️ 도감 요청 {openDex > 0 && `· ${openDex}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("directorNews")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "directorNews"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          📰 이사 뉴스 {openDirectorNews > 0 && `· ${openDirectorNews}`}
         </button>
       </div>
 
@@ -1229,7 +1251,9 @@ export default function AdminPage() {
                   ? "국면 요청이 없습니다."
                   : tab === "dex"
                     ? "도감 반영 요청이 없습니다."
-                    : "아직 피드백이 없습니다."}
+                    : tab === "directorNews"
+                      ? "이사 뉴스 요청이 없습니다."
+                      : "아직 피드백이 없습니다."}
             </div>
           ) : (
             <ul className="space-y-3">

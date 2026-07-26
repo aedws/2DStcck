@@ -6,6 +6,7 @@ import { getCompanyDefinitions } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import { CharacterGuidelineTag } from "@/components/market/CharacterGuidelineTag";
 import { StockRequestForm } from "@/components/market/StockRequestForm";
+import { DirectorNewsPanel } from "@/components/market/DirectorNewsPanel";
 import { formatPrice } from "@/lib/market/engine";
 import { getCharacterRelation } from "@/lib/market/characterRelations";
 import {
@@ -327,6 +328,12 @@ export function CharacterDetailClient({ id }: { id: string }) {
           </div>
         </section>
       )}
+
+      <DirectorNewsPanel
+        characterId={ceo.id}
+        characterName={ceo.name}
+        isDirector={directorTierForTrust(progress.trust) !== null}
+      />
 
       {progress.affinity < 0 && (
         <p className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-xs leading-relaxed text-red-300">
