@@ -249,6 +249,8 @@ import {
   addStorySupportAffinity,
   canUseBondChoice,
   countFavoriteRelationships,
+  earnedDirectorships,
+  parseDirectorTitleId,
   getCharacterProgress,
   getRelationshipTier,
   normalizeCharacterProgressMap,
@@ -458,6 +460,8 @@ interface MarketStore extends MarketSnapshot {
   cancelRecurringInvestment: (planId: string) => void;
   attendance: AttendanceState;
   selectedTitleId: string;
+  /** 동시에 표시할 칭호 id(최대 5개). selectedTitleIds[0]가 대표 칭호다. */
+  selectedTitleIds: string[];
   claimDailyAttendance: () => OrderResult;
   /**
    * 로그인 계정이 대상 조치(TARGETED_ACCOUNT_ACTIONS)에 있으면 지갑을 초기화하고
@@ -790,6 +794,7 @@ function createInitialState(): MarketSnapshot & {
   recurringInvestments: RecurringInvestment[];
   attendance: AttendanceState;
   selectedTitleId: string;
+  selectedTitleIds: string[];
   dailyOperation: DailyOperation | null;
   dailyOperationHistory: DailyOperation[];
   selectedPortfolioStrategyId: PortfolioStrategyId;
@@ -882,6 +887,7 @@ function createInitialState(): MarketSnapshot & {
     recurringInvestments: [],
     attendance: normalizeAttendance(undefined),
     selectedTitleId: "rookie",
+    selectedTitleIds: ["rookie"],
     dailyOperation: null,
     dailyOperationHistory: [],
     selectedPortfolioStrategyId: "index_core",
@@ -1040,6 +1046,18 @@ function adjustPlayerCompanyStockPrice(
     }
     return { ...stock, currentPrice: next, candles };
   });
+}
+
+/** 저장된 표시 칭호 목록을 정규화한다(최대 5개·중복 제거·비면 대표 칭호로). */
+function normalizeSelectedTitleIds(raw: unknown, primary: string): string[] {
+  const arr = Array.isArray(raw)
+    ? raw.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      )
+    : [];
+  const unique = [...new Set(arr)].slice(0, 5);
+  return unique.length ? unique : [primary];
 }
 
 /** 현재 기준금리(연 소수) */
@@ -2051,16 +2069,33 @@ export const useMarketStore = create<MarketStore>()(
           mastery: state.investmentMastery,
           favoriteCount: countFavoriteRelationships(state.characterProgress),
         });
-        if (!unlocked.some((title) => title.id === titleId)) {
+        // 정적 업적 칭호 또는 이사 칭호(신뢰도 위촉)를 해금 대상으로 인정한다.
+        const directorCharId = parseDirectorTitleId(titleId);
+        const isDirectorTitle =
+          directorCharId !== null &&
+          earnedDirectorships(state.characterProgress).some(
+            (item) => item.characterId === directorCharId,
+          );
+        const isStaticTitle = unlocked.some((title) => title.id === titleId);
+        if (!isStaticTitle && !isDirectorTitle) {
           return { success: false, message: "아직 해금되지 않은 칭호입니다." };
         }
-        set({ selectedTitleId: titleId });
-        const title = getPlayerTitle(titleId);
-        useToastStore.getState().push(
-          `${title.emoji} 대표 칭호 · ${title.name}`,
-          "success",
-        );
-        return { success: true, message: "대표 칭호를 변경했습니다." };
+        // 최대 5개까지 동시에 켤 수 있는 토글. 마지막 1개는 끌 수 없다(대표 칭호 유지).
+        const current = state.selectedTitleIds.length
+          ? state.selectedTitleIds
+          : [state.selectedTitleId];
+        let next: string[];
+        if (current.includes(titleId)) {
+          next = current.filter((id) => id !== titleId);
+          if (next.length === 0) next = [titleId];
+        } else {
+          if (current.length >= 5) {
+            return { success: false, message: "칭호는 최대 5개까지 표시할 수 있습니다." };
+          }
+          next = [...current, titleId];
+        }
+        set({ selectedTitleIds: next, selectedTitleId: next[0] });
+        return { success: true, message: "표시 칭호를 변경했습니다." };
       },
       acceptDailyOperation: (offerId) => {
         const state = get();
@@ -2676,6 +2711,10 @@ export const useMarketStore = create<MarketStore>()(
           ),
           attendance: normalizeAttendance(wallet.attendance),
           selectedTitleId: getPlayerTitle(wallet.selectedTitleId).id,
+          selectedTitleIds: normalizeSelectedTitleIds(
+            (wallet as { selectedTitleIds?: unknown }).selectedTitleIds,
+            getPlayerTitle(wallet.selectedTitleId).id,
+          ),
           dailyOperation: normalizeDailyOperation(wallet.dailyOperation),
           dailyOperationHistory: normalizeDailyOperationHistory(
             wallet.dailyOperationHistory,
@@ -7704,6 +7743,7 @@ export const useMarketStore = create<MarketStore>()(
         recurringInvestments: state.recurringInvestments,
         attendance: state.attendance,
         selectedTitleId: state.selectedTitleId,
+        selectedTitleIds: state.selectedTitleIds,
         dailyOperation: state.dailyOperation,
         dailyOperationHistory: state.dailyOperationHistory.slice(0, 30),
         selectedPortfolioStrategyId: state.selectedPortfolioStrategyId,
@@ -8209,6 +8249,12 @@ export const useMarketStore = create<MarketStore>()(
           selectedTitleId: getPlayerTitle(
             (walletSource as Partial<MarketStore>).selectedTitleId,
           ).id,
+          selectedTitleIds: normalizeSelectedTitleIds(
+            (walletSource as Partial<MarketStore>).selectedTitleIds,
+            getPlayerTitle(
+              (walletSource as Partial<MarketStore>).selectedTitleId,
+            ).id,
+          ),
           dailyOperation: normalizeDailyOperation(
             (walletSource as Partial<MarketStore>).dailyOperation,
           ),

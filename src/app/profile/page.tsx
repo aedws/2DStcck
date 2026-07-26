@@ -16,7 +16,13 @@ import {
   getSeasonReward,
 } from "@/lib/player/seasonRewards";
 import { computePrestige } from "@/lib/player/prestige";
-import { countFavoriteRelationships } from "@/lib/market/characterProgress";
+import {
+  countFavoriteRelationships,
+  earnedDirectorships,
+  directorTitleId,
+  DIRECTOR_TRUST_THRESHOLD,
+} from "@/lib/market/characterProgress";
+import { getCharacterById } from "@/data/characters";
 import { INVESTMENT_SEASON_TIERS } from "@/lib/market/investmentSeasons";
 import { getRoomItem, getRoomTheme } from "@/data/roomItems";
 import {
@@ -27,6 +33,7 @@ import {
 export default function ProfilePage() {
   const attendance = useMarketStore((state) => state.attendance);
   const selectedTitleId = useMarketStore((state) => state.selectedTitleId);
+  const selectedTitleIds = useMarketStore((state) => state.selectedTitleIds);
   const claimAttendance = useMarketStore((state) => state.claimDailyAttendance);
   const selectTitle = useMarketStore((state) => state.selectPlayerTitle);
   const unlockedSeasonRewardIds = useMarketStore((state) => state.unlockedSeasonRewardIds);
@@ -72,7 +79,29 @@ export default function ProfilePage() {
   const unlocked = new Set(
     unlockedPlayerTitles(titleContext).map((title) => title.id),
   );
-  const selectedTitle = getPlayerTitle(selectedTitleId);
+  // 신뢰도로 위촉된 이사 칭호(CFO·CCO·CTO 등) — 캐릭터별 동적 칭호.
+  const directorTitles = earnedDirectorships(characterProgress).map((item) => {
+    const character = getCharacterById(item.characterId);
+    return {
+      id: directorTitleId(item.characterId),
+      emoji: "💼",
+      name: `${character?.name ?? item.characterId} ${item.role}`,
+      condition: `${character?.name ?? "캐릭터"} 신뢰도 ${DIRECTOR_TRUST_THRESHOLD} 달성`,
+    };
+  });
+  const titleDisplayById = new Map<
+    string,
+    { emoji: string; name: string }
+  >();
+  for (const title of PLAYER_TITLES) titleDisplayById.set(title.id, title);
+  for (const title of directorTitles) titleDisplayById.set(title.id, title);
+  const activeTitleIds = selectedTitleIds.length
+    ? selectedTitleIds
+    : [selectedTitleId];
+  const activeTitles = activeTitleIds.map(
+    (id) => titleDisplayById.get(id) ?? getPlayerTitle(id),
+  );
+  const selectedTitle = activeTitles[0] ?? getPlayerTitle(selectedTitleId);
   const selectedFrame = getSeasonReward(selectedSeasonFrameId);
   const claimedToday = attendance.lastClaimDate === koreaDateKey();
   const roomTheme = getRoomTheme(myRoomTheme);
@@ -85,9 +114,16 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-4xl pb-20">
       <div className={`mb-6 flex flex-wrap items-start justify-between gap-4 rounded-3xl border p-5 ring-1 ${selectedFrame?.frameClass ?? "border-[var(--border)] bg-[var(--surface)] ring-transparent"}`}>
         <div>
-          <p className="text-sm font-semibold text-[var(--accent)]">
-            {selectedTitle.emoji} {selectedTitle.name}
-          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {activeTitles.map((title, index) => (
+              <span
+                key={`${title.name}-${index}`}
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${index === 0 ? "bg-[var(--accent)]/15 text-[var(--accent)]" : "bg-[var(--surface)] text-[var(--muted)] ring-1 ring-[var(--border)]"}`}
+              >
+                {title.emoji} {title.name}
+              </span>
+            ))}
+          </div>
           <h1 className="mt-1 text-2xl font-black">투자자 프로필</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
             출석 기록, 거래 성과와 랭킹에 표시할 대표 칭호를 관리합니다.
@@ -273,14 +309,45 @@ export default function ProfilePage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">칭호 선택</h2>
+        <h2 className="text-lg font-bold">
+          칭호 선택{" "}
+          <span className="text-sm font-normal text-[var(--muted)]">
+            ({activeTitleIds.length}/5)
+          </span>
+        </h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          선택한 칭호는 다음 10분 랭킹 갱신 때 프로필에 반영됩니다.
+          최대 5개까지 동시에 표시할 수 있습니다. 첫 번째가 대표 칭호이며, 선택한
+          칭호는 다음 10분 랭킹 갱신 때 프로필에 반영됩니다.
         </p>
+        {directorTitles.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-[var(--muted)]">
+              💼 이사 칭호 (신뢰도 {DIRECTOR_TRUST_THRESHOLD} 위촉)
+            </p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {directorTitles.map((title) => {
+                const selected = activeTitleIds.includes(title.id);
+                return (
+                  <button
+                    key={title.id}
+                    type="button"
+                    onClick={() => selectTitle(title.id)}
+                    className={`rounded-2xl border p-4 text-left transition ${selected ? "border-[var(--accent)] bg-[var(--accent)]/5 ring-1 ring-[var(--accent)]" : "border-[var(--border)] bg-[var(--surface)]"}`}
+                  >
+                    <p className="font-bold">{title.emoji} {title.name}</p>
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      {title.condition}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {PLAYER_TITLES.map((title) => {
             const isUnlocked = unlocked.has(title.id);
-            const selected = selectedTitleId === title.id;
+            const selected = activeTitleIds.includes(title.id);
             return (
               <button
                 key={title.id}

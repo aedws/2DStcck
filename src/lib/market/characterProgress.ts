@@ -64,6 +64,52 @@ export function countFavoriteRelationships(
   return count;
 }
 
+/** 이사 직위 — 캐릭터별로 결정론적으로 배정된다. */
+export const DIRECTOR_ROLES = ["CFO", "CCO", "CTO", "COO", "CMO"] as const;
+export type DirectorRole = (typeof DIRECTOR_ROLES)[number];
+
+/** 캐릭터 id → 결정론적 이사 직위(같은 캐릭터는 항상 같은 직위). */
+export function directorRoleForCharacter(characterId: string): DirectorRole {
+  let hash = 2166136261;
+  for (let index = 0; index < characterId.length; index++) {
+    hash ^= characterId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return DIRECTOR_ROLES[(hash >>> 0) % DIRECTOR_ROLES.length];
+}
+
+export interface CharacterDirectorship {
+  characterId: string;
+  role: DirectorRole;
+}
+
+/** 신뢰도 DIRECTOR_TRUST_THRESHOLD 이상을 달성해 이사로 위촉된 캐릭터 목록. */
+export function earnedDirectorships(
+  progress: CharacterProgressMap,
+): CharacterDirectorship[] {
+  const result: CharacterDirectorship[] = [];
+  for (const [characterId, entry] of Object.entries(progress)) {
+    if ((entry?.trust ?? 0) >= DIRECTOR_TRUST_THRESHOLD) {
+      result.push({
+        characterId,
+        role: directorRoleForCharacter(characterId),
+      });
+    }
+  }
+  return result;
+}
+
+/** 이사 칭호 id 규약: `director:<characterId>`. */
+export const DIRECTOR_TITLE_PREFIX = "director:";
+export function directorTitleId(characterId: string): string {
+  return `${DIRECTOR_TITLE_PREFIX}${characterId}`;
+}
+export function parseDirectorTitleId(titleId: string): string | null {
+  return titleId.startsWith(DIRECTOR_TITLE_PREFIX)
+    ? titleId.slice(DIRECTOR_TITLE_PREFIX.length)
+    : null;
+}
+
 export function getRelationshipTier(affinity: number): RelationshipTier {
   let tier = RELATIONSHIP_TIERS[0];
   for (const candidate of RELATIONSHIP_TIERS) {
@@ -159,6 +205,14 @@ export const AFFINITY_WEIGHT_USER_ETF = 1;
 export const AFFINITY_BONUS_SINGLE_CHARACTER_ETF = 3;
 /** 단일 캐릭터 테마 ETF 장기 보유 시 5거래일마다 받는 신뢰도. */
 export const TRUST_REWARD_SINGLE_CHARACTER_ETF = 2;
+/**
+ * 보유 일관성 신뢰도 — 캐릭터의 본주·커버드콜·레버리지·유저 ETF를 3% 이상 꾸준히
+ * (매도로 끊기지 않고) 5거래일 유지할 때마다 받는 기본 신뢰도. 의뢰로만 오르던
+ * 신뢰도를 매매 일관성·장기 투자로도 쌓게 하는 난이도 하향 경로다.
+ */
+export const TRUST_REWARD_LONG_HOLD = 1;
+/** 이 캐릭터 신뢰도 이상이면 플레이어가 회사 이사(CFO·CCO·CTO 등)로 위촉된다. */
+export const DIRECTOR_TRUST_THRESHOLD = 80;
 /** 단일 캐릭터 테마 ETF를 처음 설정할 때 즉시 주는 호감도. */
 export const SINGLE_CHARACTER_ETF_ISSUANCE_AFFINITY = 20;
 /** 가중치를 정수 상승폭으로 바꾸는 단위(×2). 보통주=+2로 기존과 동일. */
@@ -462,6 +516,13 @@ export function accrueLongHoldingAffinity(
       (posValue.get(ceoId) ?? 0) / equity >= LONG_HOLD_MIN_EQUITY_RATIO
     ) {
       rateByCharacter.set(ceoId, weight * AFFINITY_RATE_UNIT);
+      // 보유 일관성 신뢰도: 우호 보유(본주·커버드콜·레버리지·유저 ETF)를 3% 이상
+      // 꾸준히 유지하면 5거래일마다 기본 신뢰도가 쌓인다. 단일 캐릭터 ETF의 더 큰
+      // 보상과 max 로 합쳐, 매도로 끊기지 않는 한 계속 오른다.
+      trustRate.set(
+        ceoId,
+        Math.max(trustRate.get(ceoId) ?? 0, TRUST_REWARD_LONG_HOLD),
+      );
     }
   }
   for (const [ceoId, hostileRate] of hostile) {
