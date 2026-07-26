@@ -21,7 +21,7 @@ import {
   stampLeveragePositionMultiplier,
   currentPositionSplitMultiplier,
 } from "@/lib/market/leveragePositionSplits";
-import { instrumentTypeOf } from "@/lib/market/taxonomy";
+import { isAmcComparisonEligible } from "@/lib/market/taxonomy";
 import { withCharacterQuote } from "@/data/eventQuotes";
 import { applyDefinitionOverlay } from "@/lib/market/definitionOverlay";
 import {
@@ -6872,11 +6872,14 @@ export const useMarketStore = create<MarketStore>()(
           input,
           (stockId) => {
             const stock = state.stocks.find((item) => item.id === stockId);
+            // 비교 목표는 일반 종목뿐 아니라 시장 지수 ETF(키보토스 종합지수·
+            // 밀레니엄 테크 100)도 허용한다 — 드롭다운(isAmcComparisonEligible)과
+            // 검증 기준을 일치시켜, 지수를 골라도 거부되지 않게 한다.
             return Boolean(
               stock &&
                 stock.currentPrice > 0 &&
                 isListed(stock) &&
-                instrumentTypeOf(stock) === "company",
+                isAmcComparisonEligible(stock),
             );
           },
         );

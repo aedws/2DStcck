@@ -243,6 +243,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-07-26",
+    tag: "수정",
+    title: "유저 ETF 성과 비교 목표로 지수 선택 불가 수정",
+    detail:
+      "이미 상장된 유저 ETF의 성과 비교 목표를 키보토스 종합지수(BASPY)·밀레니엄 테크 100(BAQQQ)으로 바꾸려 하면 ‘상장된 일반 주식 1개를 선택해 주세요.’로 거부되던 문제를 고쳤습니다. 선택 목록은 지수 ETF를 허용하는데 저장 검증만 일반 종목으로 제한돼 있어 생긴 불일치로, 검증 기준을 목록과 동일하게 맞췄습니다. 비교 기준이 없던 ETF도 지수로 설정할 수 있습니다.",
+  },
+  {
+    date: "2026-07-26",
     tag: "개선",
     title: "유저 회사 상장가·좌당 장부가 정합 — 가치 보존 상장·시장가 자본관리",
     detail:
