@@ -2,6 +2,7 @@ import type { EventTemplate, StockDefinition } from "@/lib/types/market";
 import { CSV_COMPANIES } from "@/data/generated";
 import { IPO_SCHEDULE } from "@/data/ipoSchedule";
 import { instrumentTypeOf } from "@/lib/market/taxonomy";
+import { getDynamicListingDefs } from "@/lib/market/dynamicListings";
 
 export const INITIAL_CASH = 10_000_000;
 
@@ -1013,7 +1014,23 @@ export const STOCK_DEFINITIONS: StockDefinition[] = [
   ...SINGLE_STOCK_COVERED_CALLS,
 ];
 
-/** 지수·선물·ETF를 제외한 실제 기업 목록 (company 이벤트 대상) */
+/** 번들 종목 id 집합 — 동적 IPO가 기존 id 와 충돌하지 않도록 검증할 때 쓴다. */
+export const BUNDLED_STOCK_IDS: ReadonlySet<string> = new Set(
+  STOCK_DEFINITIONS.map((definition) => definition.id),
+);
+
+/**
+ * 런타임 종목 정의 = 번들 종목 + 관리자 즉시 IPO(동적 상장).
+ * 제네시스 생성·리플레이·정의 오버레이는 이걸 써서 동적 IPO를 결정론적으로 포함한다.
+ * 단, 회사 지정 이벤트 추첨(getCompanyDefinitions)은 번들만 대상으로 해 기존 뉴스
+ * 추첨을 그대로 보존한다(동적 종목 추가가 desync를 만들지 않게).
+ */
+export function getRuntimeStockDefinitions(): StockDefinition[] {
+  const dynamic = getDynamicListingDefs();
+  return dynamic.length > 0 ? [...STOCK_DEFINITIONS, ...dynamic] : STOCK_DEFINITIONS;
+}
+
+/** 지수·선물·ETF를 제외한 실제 기업 목록 (company 이벤트 대상 — 번들만) */
 export function getCompanyDefinitions(): StockDefinition[] {
   return STOCK_DEFINITIONS.filter((definition) =>
     instrumentTypeOf(definition) === "company"

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
+import { BUNDLED_STOCK_IDS, INITIAL_CASH, STOCK_DEFINITIONS } from "@/data/stocks";
 import { getCharacterById } from "@/data/characters";
 import {
   clearLegacyMarketStorage,
@@ -177,6 +177,12 @@ import {
   reconstructDerivativeSeries,
   type MarketCheckpoint,
 } from "@/lib/market/marketCheckpoint";
+import {
+  getDynamicListingDefs,
+  isDynamicListingId,
+  setDynamicListingDefs,
+  type StoredIpoListing,
+} from "@/lib/market/dynamicListings";
 import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
@@ -774,6 +780,8 @@ interface MarketStore extends MarketSnapshot {
     orderType: OrderType,
   ) => Promise<OrderResult>;
   tickMarket: () => void;
+  /** 관리자 즉시 IPO(동적 상장) 목록을 시장에 반영한다(코드 배포 없이 상장). */
+  reconcileDynamicListings: (listings: StoredIpoListing[]) => void;
   /** Web Worker가 계산한 공통 시장 체크포인트를 지갑과 분리해 반영한다. */
   applyMarketCheckpoint: (checkpoint: MarketCheckpoint) => void;
   /** 주문 전·복원 직후 밀린 급여와 투자 분배금을 정산 */
@@ -4090,6 +4098,54 @@ export const useMarketStore = create<MarketStore>()(
         });
 
         get().checkAchievements();
+      },
+
+      reconcileDynamicListings: (listings) => {
+        // 레지스트리를 활성 목록으로 교체 — 제네시스·리플레이·오버레이가 이 정의를 쓴다.
+        setDynamicListingDefs(listings, BUNDLED_STOCK_IDS);
+        const activeDefs = getDynamicListingDefs();
+        const activeIds = new Set(activeDefs.map((d) => d.id));
+        const state = get();
+        const now = Date.now();
+
+        // 비활성화된 동적 종목은 시장에서 제거한다(관리자가 내린 경우).
+        const present = new Map(state.stocks.map((s) => [s.id, s]));
+        let changed = false;
+        let stocks = state.stocks.filter((s) => {
+          if (isDynamicListingId(s.id) && !activeIds.has(s.id)) {
+            changed = true;
+            return false;
+          }
+          return true;
+        });
+
+        // 아직 시장에 없는 활성 상장을 주입한다.
+        const missing = activeDefs.filter((d) => !present.has(d.id));
+        if (missing.length > 0) {
+          // 이미 상장 시각이 지난 항목이 빠져 있으면 결정론 유지를 위해 번들
+          // 체크포인트부터 전체 재수화한다(제네시스가 이제 이 정의를 포함한다).
+          const needsFullRehydrate = missing.some(
+            (d) => (d.listingEpochMs ?? 0) <= now,
+          );
+          if (needsFullRehydrate) {
+            get().applyMarketCheckpoint(getBundledMarketCheckpoint());
+            return;
+          }
+          // 미래 상장: 제네시스(공모가 동결) 상태로 그대로 붙인다. 상장 전까지
+          // 가격이 공모가로 고정돼, 언제 주입해도 모든 클라이언트와 일치한다.
+          const genesisById = new Map(
+            createGenesisStocks().map((s) => [s.id, s]),
+          );
+          const injected = missing
+            .map((d) => genesisById.get(d.id))
+            .filter((s): s is StockState => Boolean(s));
+          if (injected.length > 0) {
+            stocks = [...stocks, ...injected];
+            changed = true;
+          }
+        }
+
+        if (changed) set({ stocks });
       },
 
       applyMarketCheckpoint: (checkpoint) => {

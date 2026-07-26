@@ -55,6 +55,7 @@ import {
   type FeedbackRow,
   type FeedbackStatus,
 } from "@/lib/supabase/feedback";
+import { IpoComposer } from "@/components/admin/IpoComposer";
 
 const STOCK_STATUSES: StockRequestStatus[] = [
   "pending",
@@ -109,6 +110,7 @@ const FEEDBACK_STATUS_STYLE: Record<FeedbackStatus, string> = {
 };
 
 type Tab =
+  | "ipoPublish"
   | "companies"
   | "amc"
   | "etf"
@@ -367,6 +369,17 @@ export default function AdminPage() {
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
+          onClick={() => setTab("ipoPublish")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "ipoPublish"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          🆕 IPO 발행
+        </button>
+        <button
+          type="button"
           onClick={() => setTab("companies")}
           className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
             tab === "companies"
@@ -478,7 +491,9 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {tab === "companies" ? (
+      {tab === "ipoPublish" ? (
+        <IpoComposer />
+      ) : tab === "companies" ? (
         <>
           <p className="text-sm text-[var(--muted)]">
             총 {foundationRows.length}건 · 허가 대기 {pendingFoundations}건

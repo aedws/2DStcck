@@ -1,4 +1,4 @@
-import { STOCK_DEFINITIONS } from "@/data/stocks";
+import { getRuntimeStockDefinitions } from "@/data/stocks";
 import {
   BASE_CANDLE_INTERVAL_MS,
   MARKET_EPOCH_MS,
@@ -119,7 +119,7 @@ function createHistoricalDailyCandles(def: StockDefinition): Candle[] {
 
 /** 기원점 시각의 초기 시장 (모든 클라이언트 공통 제네시스) */
 export function createGenesisStocks(): StockState[] {
-  return STOCK_DEFINITIONS.map((def) => {
+  return getRuntimeStockDefinitions().map((def) => {
     const state = createInitialStockState(def, MARKET_EPOCH_MS);
     // 자동 생성 레버리지 상품의 과거 일봉은 기초자산에서 즉시 역산한다.
     // 여기서 1,200개를 만들면 복원 직후 버려지는 중복 계산이 된다.
@@ -160,7 +160,7 @@ export function replayMarket(
   // 가변 작업본
   const stocks: StockState[] = inputStocks.map((s) => ({ ...s }));
   const byId = new Map(stocks.map((s) => [s.id, s]));
-  const defById = new Map(STOCK_DEFINITIONS.map((d) => [d.id, d]));
+  const defById = new Map(getRuntimeStockDefinitions().map((d) => [d.id, d]));
   let events: MarketEvent[] = [...inputEvents];
 
   const isDerived = (s: StockState) =>
