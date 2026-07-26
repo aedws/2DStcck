@@ -118,10 +118,25 @@ export function playerCompanyFounderStakeValue(
   return Math.round(bookValue * playerCompanyFounderOwnership(company));
 }
 
-/** 자사주 매입·소각·발행의 기준가 = 좌당 장부가치(센트). */
+/**
+ * 자사주 매입·소각·발행의 기준가(센트). 상장 전에는 좌당 장부가(누적 소각 자본 ÷
+ * 좌수)를, 상장 후에는 실제 거래되는 시장가를 기준으로 한다 — 상장 시 좌당 장부가를
+ * 공모가로 리베이스하므로 상장 시점엔 둘이 일치하고, 이후에는 시장가를 따른다.
+ */
 export function playerCompanyBookPricePerShare(
-  company: Pick<PlayerCompanyState, "cumulativeCapitalBurned" | "totalShares">,
+  company: Pick<
+    PlayerCompanyState,
+    "cumulativeCapitalBurned" | "totalShares" | "status"
+  >,
+  marketPrice?: number,
 ): number {
+  if (
+    company.status === "listed" &&
+    Number.isFinite(marketPrice) &&
+    (marketPrice ?? 0) > 0
+  ) {
+    return Math.max(1, Math.round(marketPrice as number));
+  }
   if (company.totalShares <= 0) return 0;
   return Math.max(
     1,
@@ -140,12 +155,13 @@ export function issuePlayerCompanyShares(
   company: PlayerCompanyState,
   shares: number,
   now = Date.now(),
+  pricePerShare?: number,
 ): PlayerCompanyActionResult {
   const count = Math.floor(shares);
   if (!(count > 0)) {
     return { success: false, message: "발행 좌수를 1주 이상 입력해 주세요." };
   }
-  const bookPrice = playerCompanyBookPricePerShare(company);
+  const bookPrice = pricePerShare ?? playerCompanyBookPricePerShare(company);
   const raised = bookPrice * count;
   return {
     success: true,
@@ -170,6 +186,7 @@ export function buybackPlayerCompanyShares(
   shares: number,
   cash: number,
   now = Date.now(),
+  pricePerShare?: number,
 ): PlayerCompanyActionResult {
   const count = Math.floor(shares);
   if (!(count > 0)) {
@@ -181,7 +198,7 @@ export function buybackPlayerCompanyShares(
       message: `공모주(${company.publicShares.toLocaleString("ko-KR")}주)보다 많이 매입할 수 없습니다.`,
     };
   }
-  const bookPrice = playerCompanyBookPricePerShare(company);
+  const bookPrice = pricePerShare ?? playerCompanyBookPricePerShare(company);
   const cost = bookPrice * count;
   if (!Number.isFinite(cash) || cash < cost) {
     return { success: false, message: "자사주 매입 현금이 부족합니다." };
@@ -208,6 +225,7 @@ export function retirePlayerCompanyShares(
   company: PlayerCompanyState,
   shares: number,
   now = Date.now(),
+  pricePerShare?: number,
 ): PlayerCompanyActionResult {
   const count = Math.floor(shares);
   if (!(count > 0)) {
@@ -219,7 +237,7 @@ export function retirePlayerCompanyShares(
       message: `공모주(${company.publicShares.toLocaleString("ko-KR")}주)보다 많이 소각할 수 없습니다.`,
     };
   }
-  const bookPrice = playerCompanyBookPricePerShare(company);
+  const bookPrice = pricePerShare ?? playerCompanyBookPricePerShare(company);
   const removedCapital = Math.min(
     company.cumulativeCapitalBurned,
     bookPrice * count,
@@ -584,11 +602,29 @@ export function reconcilePlayerCompanyIpo(
     return { company, holdings, grantedShares: 0 };
   }
 
-  const founderShares = Math.max(0, Math.floor(company.founderShares));
+  // 가치 보존 리베이스: 상장 시 좌당 장부가(누적 소각 자본 ÷ 좌수)가 공모가와
+  // 크게 어긋나 있으면, 캡테이블 좌수를 (장부가 ÷ 공모가) 비율로 재산정해 좌당
+  // 장부가 = 공모가로 맞춘다. 창업주는 (장부 지분가치 ÷ 공모가)만큼 보통주를 받아
+  // 상장 전후 순자산이 보존된다(예전 1:1 지급의 가치 붕괴를 없앤다).
+  const preBookPrice = playerCompanyBookPricePerShare(company);
+  const ipoPrice = Math.max(1, Math.round(stock.initialPrice));
+  const rawRatio = preBookPrice / ipoPrice;
+  const ratio =
+    Number.isFinite(rawRatio) && rawRatio > 0 ? rawRatio : 1;
+  const rebasedFounderShares = Math.max(
+    0,
+    Math.round(company.founderShares * ratio),
+  );
+  const rebasedPublicShares = Math.max(
+    0,
+    Math.round(company.publicShares * ratio),
+  );
+  const rebasedTotalShares = rebasedFounderShares + rebasedPublicShares;
+
   const existing = holdings.find((item) => item.stockId === stock.id);
   const grantedShares = Math.max(
     0,
-    founderShares - Math.max(0, existing?.quantity ?? 0),
+    rebasedFounderShares - Math.max(0, existing?.quantity ?? 0),
   );
   let nextHoldings = holdings;
   if (grantedShares > 0) {
@@ -612,8 +648,8 @@ export function reconcilePlayerCompanyIpo(
         ...holdings,
         {
           stockId: stock.id,
-          quantity: founderShares,
-          quantityExact: String(founderShares),
+          quantity: rebasedFounderShares,
+          quantityExact: String(rebasedFounderShares),
           averagePrice: stock.initialPrice,
         },
       ];
@@ -624,6 +660,9 @@ export function reconcilePlayerCompanyIpo(
     company: {
       ...company,
       status: "listed",
+      founderShares: rebasedFounderShares,
+      publicShares: rebasedPublicShares,
+      totalShares: rebasedTotalShares,
       ipoListingStockId: stock.id,
       ipoListingAt: listingAt,
       founderSharesGrantedAt: company.founderSharesGrantedAt ?? now,

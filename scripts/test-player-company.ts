@@ -8,6 +8,8 @@ import {
   isPlayerCompanyIpoReady,
   markPlayerCompanyIpoRequested,
   normalizePlayerCompany,
+  playerCompanyCapitalCallAmount,
+  playerCompanyBookPricePerShare,
   playerCompanyFounderOwnership,
   playerCompanyFoundingCost,
   playerCompanyPrestige,
@@ -79,7 +81,8 @@ company = preparePlayerCompanyCapitalCall(
   session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL,
   now + 2,
 );
-assert.equal(company.pendingCapitalCall?.amount, 4_000_000_000);
+const callAmount = playerCompanyCapitalCallAmount(80_000_000_000);
+assert.equal(company.pendingCapitalCall?.amount, callAmount);
 
 let cash = 80_000_000_000;
 const firstFunding = fundPlayerCompanyCapitalCall(
@@ -92,10 +95,15 @@ assert.equal(firstFunding.success, true);
 assert.ok(firstFunding.company);
 company = firstFunding.company;
 cash = firstFunding.cash!;
-assert.equal(cash, 76_000_000_000);
+assert.equal(cash, 80_000_000_000 - callAmount);
 assert.equal(company.fundedRounds, 1);
 
-company = preparePlayerCompanyCapitalCall(company, cash, session + 10, now + 4);
+company = preparePlayerCompanyCapitalCall(
+  company,
+  cash,
+  session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL * 2,
+  now + 4,
+);
 const secondFunding = fundPlayerCompanyCapitalCall(
   company,
   cash,
@@ -107,7 +115,12 @@ company = secondFunding.company;
 cash = secondFunding.cash!;
 assert.equal(company.fundedRounds, 2);
 
-company = preparePlayerCompanyCapitalCall(company, cash, session + 15, now + 6);
+company = preparePlayerCompanyCapitalCall(
+  company,
+  cash,
+  session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL * 3,
+  now + 6,
+);
 const firstDilution = dilutePlayerCompanyCapitalCall(
   company,
   session + 15,
@@ -118,7 +131,12 @@ company = firstDilution.company;
 assert.equal(company.totalShares, 110_000);
 assert.equal(company.publicShares, 10_000);
 
-company = preparePlayerCompanyCapitalCall(company, cash, session + 20, now + 8);
+company = preparePlayerCompanyCapitalCall(
+  company,
+  cash,
+  session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL * 4,
+  now + 8,
+);
 const secondDilution = dilutePlayerCompanyCapitalCall(
   company,
   session + 20,
@@ -178,11 +196,29 @@ const listedCompany = reconcilePlayerCompanyIpo(
 );
 assert.ok(listedCompany);
 assert.equal(listedCompany.company.status, "listed");
-assert.equal(
-  listedCompany.holdings[0]?.quantity,
-  scheduledCompany.founderShares,
-);
+// 가치 보존 리베이스: 창업주 보통주 = round(창업주좌수 × 장부가/공모가).
+const preBook = playerCompanyBookPricePerShare(scheduledCompany);
+const ratio = preBook / 50_000;
+const expectedFounderShares = Math.round(scheduledCompany.founderShares * ratio);
+assert.ok(ratio > 1, "테스트 전제: 장부가가 공모가보다 커야 리베이스가 의미 있음");
+assert.equal(listedCompany.holdings[0]?.quantity, expectedFounderShares);
+assert.equal(listedCompany.company.founderShares, expectedFounderShares);
 assert.equal(listedCompany.holdings[0]?.averagePrice, 50_000);
+// 상장 전 창업주 장부 지분가치 ≈ 상장 후 보통주 평가액(가치 보존).
+const preStakeValue =
+  preBook * playerCompanyFounderOwnership(scheduledCompany) *
+  scheduledCompany.totalShares;
+const postStakeValue = expectedFounderShares * 50_000;
+assert.ok(
+  Math.abs(postStakeValue - preStakeValue) / Math.max(1, preStakeValue) < 0.001,
+  `가치 보존: 상장 전 $${preStakeValue} ≈ 상장 후 $${postStakeValue}`,
+);
+// 상장 후 좌당 장부가는 시장가를 따른다.
+assert.equal(
+  playerCompanyBookPricePerShare(listedCompany.company, 77_000),
+  77_000,
+  "상장 후 좌당 장부가 = 시장가",
+);
 const repeatedListing = reconcilePlayerCompanyIpo(
   listedCompany.company,
   listedCompany.holdings,
@@ -192,26 +228,26 @@ const repeatedListing = reconcilePlayerCompanyIpo(
 assert.equal(repeatedListing?.grantedShares, 0);
 assert.equal(
   repeatedListing?.holdings[0]?.quantity,
-  scheduledCompany.founderShares,
+  expectedFounderShares,
   "재접속 시 창업주 지분이 중복 지급되면 안 됨",
 );
 
 let pausedCandidate = preparePlayerCompanyCapitalCall(
   founded.company,
   80_000_000_000,
-  session + 5,
+  session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL,
   now + 11,
 );
 const refused = refusePlayerCompanyCapitalCall(
   pausedCandidate,
-  session + 5,
+  session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL,
   now + 12,
 );
 assert.equal(refused.company?.status, "paused");
 const resumed = resumePlayerCompany(
   refused.company!,
   80_000_000_000,
-  session + 6,
+  session + PLAYER_COMPANY_CAPITAL_CALL_INTERVAL + 1,
   now + 13,
 );
 assert.equal(resumed.company?.status, "active");

@@ -60,6 +60,15 @@ const STATUS_LABEL = {
 
 export default function CompanyPage() {
   const playerCompany = useMarketStore((state) => state.playerCompany);
+  // 상장 후에는 좌당 장부가를 실제 시장가로 표시·계산한다.
+  const listedMarketPrice = useMarketStore((state) =>
+    state.playerCompany?.status === "listed" &&
+    state.playerCompany.ipoListingStockId
+      ? state.stocks.find(
+          (s) => s.id === state.playerCompany!.ipoListingStockId,
+        )?.currentPrice
+      : undefined,
+  );
   const cash = useMarketStore((state) => state.cash);
   const userId = useMarketStore((state) => state.userId);
   const cloudSyncReady = useMarketStore((state) => state.cloudSyncReady);
@@ -711,8 +720,14 @@ export default function CompanyPage() {
       <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-bold">자본 관리</h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          좌당 장부가 {formatPrice(playerCompanyBookPricePerShare(playerCompany))} ·
-          발행/소각은 순자산 중립, 자사주 매입은 장부가만큼 현금을 씁니다.
+          좌당 {playerCompany.status === "listed" ? "시장가" : "장부가"}{" "}
+          {formatPrice(
+            playerCompanyBookPricePerShare(playerCompany, listedMarketPrice),
+          )}{" "}
+          ·{" "}
+          {playerCompany.status === "listed"
+            ? "상장 후에는 실제 시장가로 발행·매입·소각하고, 그만큼 주가에 반영됩니다."
+            : "발행/소각은 순자산 중립, 자사주 매입은 장부가만큼 현금을 씁니다."}
         </p>
         <div className="mt-3">
           <label className="mb-1 block text-[11px] text-[var(--muted)]">
