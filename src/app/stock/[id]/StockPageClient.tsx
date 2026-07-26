@@ -13,6 +13,7 @@ import { OrderBook } from "@/components/market/OrderBook";
 import { OptionsPanel } from "@/components/market/OptionsPanel";
 import { QuickOrderPanel } from "@/components/market/QuickOrderPanel";
 import { PriceAlertPanel } from "@/components/market/PriceAlertPanel";
+import { AnalystPanel } from "@/components/market/AnalystPanel";
 import { RelatedStocksTab } from "@/components/market/RelatedStocksTab";
 import { FlashValue } from "@/components/ui/FlashValue";
 import { getCharacterById } from "@/data/characters";
@@ -474,6 +475,7 @@ export function StockPageClient({ id }: { id: string }) {
                 averagePrice={holding?.averagePrice}
                 prevDayClose={stock.prevDayClose}
               />
+              <AnalystPanel stock={stock} />
               <PriceAlertPanel stock={stock} />
               {stock.etfHoldings && stock.etfHoldings.length > 0 && (
                 <EtfComposition etf={stock} stocks={stocks} />

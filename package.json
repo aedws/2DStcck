@@ -16,6 +16,7 @@
     "test:scheduled-war": "tsx scripts/test-scheduled-war.ts",
     "test:directors": "tsx scripts/test-character-directors.ts",
     "test:stock-options": "tsx scripts/test-stock-options.ts",
+    "test:analyst": "tsx scripts/test-analyst.ts",
     "test:learning": "tsx scripts/test-learning-journey.ts",
     "test:zerodte": "tsx scripts/test-zero-dte.ts",
     "test:optionsplit": "tsx scripts/test-option-split.ts",
