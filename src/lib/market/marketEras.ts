@@ -19,7 +19,27 @@ export type MarketEraArchetypeId =
   | "highvol"
   | "calm"
   | "recovery"
-  | "choppy";
+  | "choppy"
+  | "boom-bubble";
+
+export type BoomBubbleOutcome = "boom" | "bubble";
+export type BoomBubblePhase =
+  | "runup"
+  | "sideways"
+  | "boom"
+  | "crash"
+  | "decline";
+
+export interface BoomBubbleEraState {
+  phase: BoomBubblePhase;
+  /** 국면 내부 비공개 판정 시점. 결과는 횡보 종료 전까지 노출하지 않는다. */
+  decisionSession: number;
+  decisionMade: boolean;
+  sidewaysStartSession: number;
+  sidewaysEndSession: number;
+  /** 횡보가 끝나 가격으로 결과가 드러난 뒤에만 채운다. */
+  outcome?: BoomBubbleOutcome;
+}
 
 interface EraArchetype {
   id: MarketEraArchetypeId;
@@ -42,8 +62,27 @@ const ARCHETYPES: EraArchetype[] = [
   { id: "choppy", name: "순환 등락", emoji: "🔄", volMul: 1.05, trendMul: 1.5, driftBiasPerSession: 0 },
 ];
 
+const BOOM_BUBBLE_ARCHETYPE: EraArchetype = {
+  id: "boom-bubble",
+  name: "대호황과 버블은 구별할 수 없다",
+  emoji: "🎈",
+  volMul: 1.25,
+  trendMul: 1.2,
+  driftBiasPerSession: 0.012,
+};
+
 /** 국면 길이(거래일). 시즌(20)의 배수라 이후 시즌 정렬과 맞물린다. */
 export const MARKET_ERA_SESSIONS = 60;
+/** 최초 신규 복합 국면. 2026-07-31 09:00 KST 시작, 기존 과거 에라는 불변. */
+export const BOOM_BUBBLE_FIRST_ERA_INDEX = 6;
+/** 이후 기존 국면 일곱 개마다 한 번씩 다시 등장한다. */
+export const BOOM_BUBBLE_ERA_INTERVAL = 7;
+export const BOOM_BUBBLE_SIDEWAYS_SESSIONS = Math.round(
+  MARKET_ERA_SESSIONS * 0.2,
+);
+export const BOOM_BUBBLE_MIN_SIDEWAYS_OFFSET = Math.ceil(
+  MARKET_ERA_SESSIONS * 0.35,
+);
 
 const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 
@@ -67,6 +106,7 @@ export interface MarketEra {
   driftPerSecond: number;
   startSession: number;
   endSession: number;
+  boomBubble?: BoomBubbleEraState;
 }
 
 const NEUTRAL_ERA: MarketEra = {
@@ -92,11 +132,104 @@ function hashIndex(index: number, n: number): number {
 
 /** 연속한 국면이 같은 성격으로 반복되지 않게 결정론적으로 회피한다. */
 function archetypeForEra(index: number): EraArchetype {
+  if (
+    index >= BOOM_BUBBLE_FIRST_ERA_INDEX &&
+    (index - BOOM_BUBBLE_FIRST_ERA_INDEX) % BOOM_BUBBLE_ERA_INTERVAL === 0
+  ) {
+    return BOOM_BUBBLE_ARCHETYPE;
+  }
   const pick = hashIndex(index, ARCHETYPES.length);
   if (index > 0 && pick === hashIndex(index - 1, ARCHETYPES.length)) {
     return ARCHETYPES[(pick + 1) % ARCHETYPES.length];
   }
   return ARCHETYPES[pick];
+}
+
+function boomBubbleTiming(index: number, startSession: number) {
+  // 판정과 판정→횡보 지연은 각각 국면의 10~25%(60일 기준 6~15일).
+  const decisionOffset = 6 + hashIndex(index * 31 + 11, 10);
+  const sidewaysDelay = 6 + hashIndex(index * 31 + 23, 10);
+  const sidewaysStartOffset = Math.max(
+    BOOM_BUBBLE_MIN_SIDEWAYS_OFFSET,
+    decisionOffset + sidewaysDelay,
+  );
+  const sidewaysStartSession = startSession + sidewaysStartOffset;
+  return {
+    decisionSession: startSession + decisionOffset,
+    sidewaysStartSession,
+    sidewaysEndSession:
+      sidewaysStartSession + BOOM_BUBBLE_SIDEWAYS_SESSIONS,
+    hiddenOutcome:
+      hashIndex(index * 31 + 47, 2) === 0
+        ? ("boom" as const)
+        : ("bubble" as const),
+  };
+}
+
+function boomBubbleModifiers(
+  index: number,
+  session: number,
+  startSession: number,
+): {
+  name: string;
+  volMul: number;
+  trendMul: number;
+  driftBiasPerSession: number;
+  state: BoomBubbleEraState;
+} {
+  const timing = boomBubbleTiming(index, startSession);
+  let phase: BoomBubblePhase = "runup";
+  let name = BOOM_BUBBLE_ARCHETYPE.name;
+  let volMul = 1.25;
+  let trendMul = 1.2;
+  let driftBiasPerSession = 0.012;
+  let outcome: BoomBubbleOutcome | undefined;
+
+  if (
+    session >= timing.sidewaysStartSession &&
+    session < timing.sidewaysEndSession
+  ) {
+    phase = "sideways";
+    volMul = 0.75;
+    trendMul = 0.8;
+    driftBiasPerSession = 0;
+  } else if (session >= timing.sidewaysEndSession) {
+    outcome = timing.hiddenOutcome;
+    if (outcome === "boom") {
+      phase = "boom";
+      name = "대호황 확정";
+      volMul = 1.2;
+      trendMul = 1.15;
+      driftBiasPerSession = 0.014;
+    } else if (session === timing.sidewaysEndSession) {
+      phase = "crash";
+      name = "버블 붕괴";
+      volMul = 2.4;
+      trendMul = 1.5;
+      driftBiasPerSession = -0.16;
+    } else {
+      phase = "decline";
+      name = "버블 붕괴 후 하락장";
+      volMul = 1.5;
+      trendMul = 1.2;
+      driftBiasPerSession = -0.018;
+    }
+  }
+
+  return {
+    name,
+    volMul,
+    trendMul,
+    driftBiasPerSession,
+    state: {
+      phase,
+      decisionSession: timing.decisionSession,
+      decisionMade: session >= timing.decisionSession,
+      sidewaysStartSession: timing.sidewaysStartSession,
+      sidewaysEndSession: timing.sidewaysEndSession,
+      outcome,
+    },
+  };
 }
 
 /** 해당 세션의 시장 국면. 시작 전이면 중립(효과 없음). */
@@ -109,16 +242,23 @@ export function getMarketEra(session: number): MarketEra {
   );
   const arch = archetypeForEra(index);
   const startSession = MARKET_ERA_START_SESSION + index * MARKET_ERA_SESSIONS;
+  const boomBubble =
+    arch.id === "boom-bubble"
+      ? boomBubbleModifiers(index, session, startSession)
+      : null;
   return {
     index,
     archetypeId: arch.id,
-    name: arch.name,
+    name: boomBubble?.name ?? arch.name,
     emoji: arch.emoji,
-    volMul: arch.volMul,
-    trendMul: arch.trendMul,
-    driftPerSecond: arch.driftBiasPerSession / (SESSION_DURATION_MS / 1000),
+    volMul: boomBubble?.volMul ?? arch.volMul,
+    trendMul: boomBubble?.trendMul ?? arch.trendMul,
+    driftPerSecond:
+      (boomBubble?.driftBiasPerSession ?? arch.driftBiasPerSession) /
+      (SESSION_DURATION_MS / 1000),
     startSession,
     endSession: startSession + MARKET_ERA_SESSIONS,
+    boomBubble: boomBubble?.state,
   };
 }
 

@@ -36,10 +36,30 @@ export function MarketEraBanner() {
   }
 
   const left = Math.max(0, era.endSession - session);
+  const boomBubble = era.boomBubble;
+  const phaseText =
+    boomBubble?.phase === "sideways"
+      ? "횡보 관망 · 판정 비공개"
+      : boomBubble?.phase === "boom"
+        ? "대호황 · 상승 재개"
+        : boomBubble?.phase === "crash"
+          ? "버블 판정 · 대폭락"
+          : boomBubble?.phase === "decline"
+            ? "버블 판정 · 하락 지속"
+            : boomBubble
+              ? "강한 상승 · 호황/버블 판정 비공개"
+              : null;
   return (
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-violet-400/25 bg-violet-500/10 px-4 py-2.5 text-sm">
-      <span className="min-w-0 truncate font-semibold text-violet-100">
-        {era.emoji} 이번 시장 국면 · {era.name}
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-violet-100">
+          {era.emoji} 이번 시장 국면 · {era.name}
+        </span>
+        {phaseText && (
+          <span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">
+            {phaseText}
+          </span>
+        )}
       </span>
       <span className="shrink-0 tabular-nums text-[var(--muted)]">
         {left}거래일 남음
