@@ -53,7 +53,11 @@ import {
   listedFundToAmcState,
   type ListedAmcFund,
 } from "@/lib/supabase/amcListedFunds";
-import { formatCompactMoney, formatPrice } from "@/lib/market/engine";
+import {
+  formatCompactMoney,
+  formatCompactQuantity,
+  formatPrice,
+} from "@/lib/market/engine";
 import {
   instrumentTypeOf,
   isAmcComparisonEligible,
@@ -709,9 +713,9 @@ export default function AssetManagerPage() {
   };
 
   const marketplaceSection = (
-    <section className="mb-5 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <section className="mb-5 min-w-0 max-w-full overflow-hidden rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold">상장 ETF 마켓</h2>
           <p className="mt-1 text-xs text-[var(--muted)]">
             다른 계정 운용사의 공유 상장 펀드입니다. AUM(유통 좌수)은 전 계정
@@ -735,7 +739,7 @@ export default function AssetManagerPage() {
           아직 다른 운용사의 상장 ETF가 없습니다.
         </p>
       ) : (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 min-w-0 max-w-full space-y-3">
           <div className="relative">
             <input
               value={marketSearch}
@@ -2456,34 +2460,47 @@ function ListedFundCard({
   const aum = Math.round(nav * fund.totalShares);
   const exposureProfile = classifyAmcFundExposure(state, stockOf);
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] text-[var(--muted)]">
+    <div
+      data-testid="listed-fund-card"
+      className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4"
+    >
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-56">
+          <p className="break-words text-[11px] text-[var(--muted)] [overflow-wrap:anywhere]">
             {fund.managerName} · {fund.style === "active" ? "액티브" : "패시브"} ·
             회차 {(fund.feeRate * 100).toFixed(2)}% · 배당{" "}
             {fund.dividendIntervalDays}거래일
           </p>
-          <h3 className="text-base font-black">
+          <h3 className="break-words text-base font-black [overflow-wrap:anywhere]">
             {fund.name}{" "}
             <span className="text-xs font-semibold text-[var(--muted)]">
               {fund.ticker}
             </span>
           </h3>
-          <p className="mt-1 text-xs text-[var(--muted)]">{fund.managerTagline}</p>
-          <p className="mt-1 text-[11px] font-semibold text-violet-200">
+          <p className="mt-1 break-words text-xs text-[var(--muted)] [overflow-wrap:anywhere]">
+            {fund.managerTagline}
+          </p>
+          <p className="mt-1 break-words text-[11px] font-semibold text-violet-200 [overflow-wrap:anywhere]">
             {exposureProfile.label} · 인컴{" "}
             {(exposureProfile.incomeWeight * 100).toFixed(0)}% · 레버리지{" "}
             {(exposureProfile.leverageWeight * 100).toFixed(0)}%
           </p>
           <ShareAdjustmentLabel fund={fund} />
         </div>
-        <div className="text-right">
+        <div className="min-w-0 max-w-full text-right sm:shrink-0">
           <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
-          <p className="font-black tabular-nums">{formatPrice(nav)}</p>
-          <p className="text-[11px] text-[var(--muted)]">
+          <p
+            className="break-all font-black tabular-nums"
+            title={formatPrice(nav)}
+          >
+            {formatCompactMoney(nav)}
+          </p>
+          <p
+            className="break-words text-[11px] text-[var(--muted)] [overflow-wrap:anywhere]"
+            title={`AUM ${formatPrice(aum)} · 보유 ${holdingsQty.toLocaleString("ko-KR")}좌`}
+          >
             AUM {formatCompactMoney(aum)} · 보유{" "}
-            {holdingsQty.toLocaleString("ko-KR")}좌
+            {formatCompactQuantity(holdingsQty, "좌")}
           </p>
         </div>
       </div>
@@ -2548,7 +2565,7 @@ function ShareAdjustmentLabel({
 }) {
   if (!fund.splitTriggerPrice && !fund.reverseSplitTriggerPrice) return null;
   return (
-    <p className="mt-1 text-[11px] font-semibold text-violet-300">
+    <p className="mt-1 break-words text-[11px] font-semibold text-violet-300 [overflow-wrap:anywhere]">
       자동 액면조정 ·{" "}
       {[
         fund.splitTriggerPrice

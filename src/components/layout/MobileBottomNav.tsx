@@ -11,8 +11,8 @@ interface MobileNavItem {
 }
 
 const bottomItems: MobileNavItem[] = [
-  { href: "/", label: "시장", icon: "⌂" },
-  { href: "/portfolio", label: "계좌", icon: "○" },
+  { href: "/", label: "홈", icon: "⌂" },
+  { href: "/trade", label: "거래", icon: "↕" },
   { href: "/company", label: "회사", icon: "🏢" },
   { href: "/amc", label: "ETF", icon: "📊" },
 ];
@@ -66,7 +66,15 @@ const menuGroups: Array<{ label: string; items: MobileNavItem[] }> = [
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/" || pathname.startsWith("/stock/");
+  if (href === "/") return pathname === "/";
+  if (href === "/trade") {
+    return (
+      pathname === "/trade" ||
+      pathname.startsWith("/stock/") ||
+      pathname.startsWith("/amc/trade") ||
+      pathname.startsWith("/portfolio")
+    );
+  }
   return pathname.startsWith(href);
 }
 
@@ -99,7 +107,7 @@ export function MobileBottomNav() {
     <>
       <nav
         aria-label="모바일 주요 메뉴"
-        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--background)]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid w-screen max-w-full grid-cols-5 overflow-hidden border-t border-[var(--border)] bg-[var(--background)]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden"
       >
         {bottomItems.map((item) => {
           const active = isActivePath(pathname, item.href);

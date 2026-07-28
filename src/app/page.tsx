@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AccountSidebar } from "@/components/home/AccountSidebar";
-import { BottomTicker } from "@/components/home/BottomTicker";
 import { MarketOverview } from "@/components/home/MarketOverview";
-import { StockDetailPanel } from "@/components/home/StockDetailPanel";
-import { StockListPanel } from "@/components/home/StockListPanel";
 import { PumpBanner } from "@/components/home/PumpBanner";
 import { AttendanceBanner } from "@/components/home/AttendanceBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
@@ -18,7 +14,6 @@ import { MarketEraBanner } from "@/components/market/MarketEraBanner";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 import { MARKET_ERA_TUTORIAL_STEPS } from "@/data/featureTutorials";
-import { getDayChangePercent } from "@/lib/market/engine";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { isListed } from "@/lib/market/ipo";
 import { useMarketStore } from "@/store/marketStore";
@@ -47,13 +42,6 @@ export default function MarketPage() {
     [stocks],
   );
 
-  // 우측 미리보기: 등락률 1위 종목 (토스증권처럼 주도주를 보여준다)
-  const topStock =
-    marketStocks.length > 0
-      ? [...marketStocks]
-          .filter((s) => s.sector !== "지수" && s.sector !== "선물")
-          .sort((a, b) => getDayChangePercent(b) - getDayChangePercent(a))[0]
-      : undefined;
   const currentSession =
     stocks[0]?.daySessionId ?? Math.floor(Date.now() / (60 * 60 * 1000));
 
@@ -83,15 +71,6 @@ export default function MarketPage() {
           마운트 전엔 렌더하지 않아 새내기 화면에 깜빡임이 남지 않게 한다. */}
       {mounted && trades.length >= 3 && <OperationBriefing />}
       <PumpBanner pumps={pumpStocks} />
-      {/* 데스크톱: 상단 개요가 화면을 채워 종목 목록이 안 보이던 문제를 막기 위해
-          페이지 전체가 스크롤되도록 두고, 이 행에만 한 화면 높이를 줘 각 패널이
-          내부 스크롤을 유지하게 한다. */}
-      <div className="flex min-h-0 flex-1 flex-col lg:h-[calc(100vh-3.5rem)] lg:flex-row lg:overflow-hidden">
-        <StockListPanel stocks={marketStocks} events={events} />
-        <StockDetailPanel stock={topStock} events={events} />
-        <AccountSidebar />
-      </div>
-      <BottomTicker stocks={marketStocks} />
       {/* 운영용 문의·버그·건의는 항상 펼쳐두면 홈이 과밀해지므로 하단 접기로
           내려 필요할 때만 펼치게 한다. 개발자 상태 배너도 이 안에서 확인한다. */}
       <details className="mx-4 mb-4 mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40 md:mx-5">

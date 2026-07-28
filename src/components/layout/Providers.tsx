@@ -12,20 +12,27 @@ import { ServiceNoticeModal } from "@/components/layout/ServiceNoticeModal";
 import { BugResponseWatcher } from "@/components/layout/BugResponseWatcher";
 import { ModalQueueProvider } from "@/components/layout/ModalQueue";
 import { Toaster } from "@/components/layout/Toaster";
+import { TradeSectionTabs } from "@/components/layout/TradeSectionTabs";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const fullWidth =
     pathname === "/" ||
+    pathname === "/trade" ||
     pathname.startsWith("/stock/") ||
     pathname.startsWith("/amc/trade");
 
   return (
     <StoreHydration>
       <ModalQueueProvider>
-        <div className="min-h-screen bg-[var(--background)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0">
+        <div className="min-h-screen min-w-0 max-w-full overflow-x-clip bg-[var(--background)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0">
           <TossHeader />
-          <main className={fullWidth ? "" : "mx-auto max-w-6xl px-4 py-6"}>
+          <TradeSectionTabs />
+          <main
+            className={`min-w-0 max-w-full ${
+              fullWidth ? "" : "mx-auto w-full max-w-6xl px-4 py-6"
+            }`}
+          >
             {children}
           </main>
           <MobileBottomNav />

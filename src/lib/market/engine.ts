@@ -1415,6 +1415,11 @@ export function formatPrice(cents: number): string {
 }
 
 const COMPACT_UNITS = [
+  { s: "Dc", n: 1e33 },
+  { s: "No", n: 1e30 },
+  { s: "Oc", n: 1e27 },
+  { s: "Sp", n: 1e24 },
+  { s: "Sx", n: 1e21 },
   { s: "Qi", n: 1e18 },
   { s: "Qa", n: 1e15 },
   { s: "T", n: 1e12 },
@@ -1432,6 +1437,11 @@ export function formatCompactMoney(cents: number): string {
   const abs = Math.abs(v);
   if (!Number.isFinite(v)) return "$∞";
   if (abs < 1e6) return formatPrice(cents);
+  // Dc보다 세 자리 이상 큰 값은 가장 큰 단위로 나눠도 긴 정수 문자열이 된다.
+  // 모바일 레이아웃을 밀지 않도록 이 구간은 짧은 지수 표기로 고정한다.
+  if (abs >= 1e36) {
+    return `$${v.toExponential(2).replace("e+", "e")}`;
+  }
   for (const u of COMPACT_UNITS) {
     if (abs >= u.n) {
       const scaled = v / u.n;
@@ -1508,6 +1518,40 @@ export function formatPercent(value: number): string {
 
 export function formatQuantity(qty: number): string {
   return qty.toLocaleString("ko-KR") + "주";
+}
+
+/** 모바일 카드용 좌수 표기. 초거대 보유량도 한 줄 너비를 밀지 않는다. */
+export function formatCompactQuantity(qty: number, suffix = "주"): string {
+  if (!Number.isFinite(qty)) return `∞${suffix}`;
+  const abs = Math.abs(qty);
+  if (abs < 1e9) {
+    return (
+      qty.toLocaleString("ko-KR", {
+        maximumFractionDigits: 6,
+      }) + suffix
+    );
+  }
+  if (abs >= 1e36) {
+    return `${qty.toExponential(2).replace("e+", "e")}${suffix}`;
+  }
+  const units = [
+    { suffix: "Dc", value: 1e33 },
+    { suffix: "No", value: 1e30 },
+    { suffix: "Oc", value: 1e27 },
+    { suffix: "Sp", value: 1e24 },
+    { suffix: "Sx", value: 1e21 },
+    { suffix: "Qi", value: 1e18 },
+    { suffix: "Qa", value: 1e15 },
+    { suffix: "T", value: 1e12 },
+    { suffix: "B", value: 1e9 },
+  ] as const;
+  const unit = units.find((candidate) => abs >= candidate.value)!;
+  const scaled = qty / unit.value;
+  const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
+  return `${scaled.toLocaleString("ko-KR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}${unit.suffix}${suffix}`;
 }
 
 export function formatMarketTime(startedAt: number, tick: number): string {

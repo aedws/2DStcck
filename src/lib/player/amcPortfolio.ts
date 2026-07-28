@@ -9,6 +9,7 @@ import type {
   StockState,
 } from "@/lib/types/market";
 import {
+  AMC_FEE_INTERVAL_DAYS,
   classifyAmcFundExposure,
   computeAmcFundNavPerShare,
   parseAmcFundId,
@@ -35,6 +36,17 @@ export interface AmcPortfolioDistribution {
   perShare: number;
   amount: number;
   daysRemaining: number;
+}
+
+export interface AmcManagementFeeForecast {
+  fundId: string;
+  name: string;
+  ticker: string;
+  feeRate: number;
+  dueSession: number;
+  daysRemaining: number;
+  expectedAmount: number;
+  overduePeriods: number;
 }
 
 export interface AmcPortfolioLookThroughPosition {
@@ -250,6 +262,72 @@ export function mergeAmcPortfolioFunds(
     for (const fund of funds) byId.set(fund.id, fund);
   }
   return [...byId.values()];
+}
+
+/**
+ * 운용사 소유 ETF의 다음 운용료를 실제 정산과 같은 현재 NAV × 유통 좌수 ×
+ * 회차 요율로 예상한다. 미래 AUM 변동과 지급 시점 법인세는 알 수 없으므로
+ * 계좌 화면에서는 현재 AUM 기준 세전 금액으로 안내한다.
+ */
+export function getAmcManagementFeeForecasts(
+  funds: readonly AmcFundState[],
+  stocks: readonly AmcPriceStock[],
+  currentSession: number,
+): AmcManagementFeeForecast[] {
+  const stockById = new Map(stocks.map((stock) => [stock.id, stock]));
+  const priceOf = (stockId: string) =>
+    stockById.get(stockId)?.currentPrice ?? 0;
+  const initialPriceOf = (stockId: string) =>
+    stockById.get(stockId)?.initialPrice ?? 0;
+  const valuationPriceOf = createAmcValuationPriceResolver(stocks);
+
+  return funds
+    .flatMap((fund) => {
+      if (
+        fund.status !== "active" ||
+        !(fund.feeRate > 0) ||
+        !(fund.totalShares > 0)
+      ) {
+        return [];
+      }
+
+      const elapsed = Math.max(0, currentSession - fund.lastFeeSession);
+      const overduePeriods = Math.min(
+        3,
+        Math.floor(elapsed / AMC_FEE_INTERVAL_DAYS),
+      );
+      const periodsToEstimate = Math.max(1, overduePeriods);
+      const nav = computeAmcFundNavPerShare(
+        fund,
+        priceOf,
+        initialPriceOf,
+        valuationPriceOf,
+      );
+      let remainingAum = Math.max(0, nav * fund.totalShares);
+      let expectedAmount = 0;
+      for (let period = 0; period < periodsToEstimate; period++) {
+        const amount = Math.max(0, Math.round(remainingAum * fund.feeRate));
+        expectedAmount += amount;
+        remainingAum = Math.max(0, remainingAum - amount);
+      }
+      const dueSession = fund.lastFeeSession + AMC_FEE_INTERVAL_DAYS;
+
+      return [{
+        fundId: fund.id,
+        name: fund.name,
+        ticker: fund.ticker,
+        feeRate: fund.feeRate,
+        dueSession,
+        daysRemaining: Math.max(0, dueSession - currentSession),
+        expectedAmount,
+        overduePeriods,
+      }];
+    })
+    .sort(
+      (left, right) =>
+        left.daysRemaining - right.daysRemaining ||
+        right.expectedAmount - left.expectedAmount,
+    );
 }
 
 /** Build user-ETF positions, which are absent from the regular stock map. */

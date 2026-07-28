@@ -21,12 +21,12 @@ export function FeatureTutorialModal({
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[90] flex touch-manipulation items-end justify-center overscroll-contain bg-black/60 p-4 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-[90] flex w-screen max-w-full touch-manipulation items-end justify-center overflow-x-hidden overscroll-contain bg-black/60 p-4 backdrop-blur-sm sm:items-center">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="feature-tutorial-title"
-        className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--background)] p-6 shadow-2xl"
+        className="min-w-0 w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)] p-6 shadow-2xl"
       >
         <div className="flex justify-between">
           <span className="text-4xl" aria-hidden>{current.emoji}</span>

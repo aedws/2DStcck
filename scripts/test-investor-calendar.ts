@@ -4,6 +4,7 @@ import {
   SHAREHOLDER_MEETING_INTERVAL_SESSIONS,
 } from "../src/lib/market/investorCalendar";
 import type { AmcFundState } from "../src/lib/player/assetManager";
+import { getAmcManagementFeeForecasts } from "../src/lib/player/amcPortfolio";
 import type { StockState } from "../src/lib/types/market";
 import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "../src/lib/market/constants";
 
@@ -91,5 +92,16 @@ assert.ok(
   "모든 일정은 가까운 순으로 정렬",
 );
 assert.equal(SHAREHOLDER_MEETING_INTERVAL_SESSIONS, 90);
+
+const feeForecast = getAmcManagementFeeForecasts(
+  [fund],
+  [stock],
+  currentSession,
+)[0];
+assert.ok(feeForecast, "운용료 수취 예측이 필요함");
+assert.equal(feeForecast.daysRemaining, 20);
+assert.equal(feeForecast.dueSession, currentSession + 20);
+assert.equal(feeForecast.feeRate, fund.feeRate);
+assert.ok(feeForecast.expectedAmount > 0);
 
 console.log("investor calendar tests passed");

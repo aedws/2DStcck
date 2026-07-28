@@ -50,6 +50,7 @@ import {
   isZeroDteExpiry,
 } from "@/lib/market/options";
 import {
+  getAmcManagementFeeForecasts,
   getAmcPortfolioDistribution,
   getAmcPortfolioPositions,
   mergeAmcPortfolioFunds,
@@ -234,6 +235,17 @@ export default function PortfolioPage() {
     lastSalarySession,
     currentSession,
   );
+  const managementFeeForecasts = useMemo(() => {
+    if (!assetManager) return [];
+    const managedFundIds = new Set(
+      assetManager.funds.map((fund) => fund.id),
+    );
+    return getAmcManagementFeeForecasts(
+      amcFunds.filter((fund) => managedFundIds.has(fund.id)),
+      stocks,
+      currentSession,
+    );
+  }, [amcFunds, assetManager, currentSession, stocks]);
 
   const toggleHoldingSort = (key: HoldingSortKey) => {
     setHoldingSort((current) =>
@@ -396,6 +408,10 @@ export default function PortfolioPage() {
           color="text-emerald-400"
         />
       </div>
+
+      {managementFeeForecasts.length > 0 && (
+        <ManagementFeeForecastPanel forecasts={managementFeeForecasts} />
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
@@ -911,6 +927,89 @@ function SummaryCard({
       <p className={`mt-1 text-xl font-semibold ${color}`}>{value}</p>
     </div>
   );
+}
+
+function ManagementFeeForecastPanel({
+  forecasts,
+}: {
+  forecasts: ReturnType<typeof getAmcManagementFeeForecasts>;
+}) {
+  const nextDays = forecasts[0]?.daysRemaining ?? 0;
+  const nextForecasts = forecasts.filter(
+    (forecast) => forecast.daysRemaining === nextDays,
+  );
+  const nextAmount = nextForecasts.reduce(
+    (sum, forecast) => sum + forecast.expectedAmount,
+    0,
+  );
+  const eta = sessionEta(nextDays);
+
+  return (
+    <section className="mb-6 rounded-2xl border border-emerald-400/25 bg-emerald-500/5 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold text-emerald-300">
+            자산운용사 운용료
+          </p>
+          <h2 className="mt-1 text-lg font-bold">
+            {nextDays === 0
+              ? "다음 운용료 정산 대기"
+              : `${eta.countdown} · ${nextDays}거래일 뒤 수취`}
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            1거래일은 실제 1시간이며, 상장 ETF는 서버 정산 후 계좌에 반영됩니다.
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-[var(--muted)]">다음 세전 예상 수취액</p>
+          <p className="mt-1 text-xl font-black tabular-nums text-emerald-300">
+            {formatCompactMoney(nextAmount)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--background)]/55">
+        {forecasts.map((forecast) => {
+          const forecastEta = sessionEta(forecast.daysRemaining);
+          return (
+            <div
+              key={forecast.fundId}
+              className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-3 py-3 text-sm"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-semibold">
+                  {forecast.name}{" "}
+                  <span className="text-xs text-[var(--muted)]">
+                    {forecast.ticker}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">
+                  20거래일당 {(forecast.feeRate * 100).toFixed(2)}% ·{" "}
+                  {forecast.daysRemaining === 0
+                    ? `미정산 ${forecast.overduePeriods}회`
+                    : `${forecastForecastLabel(forecast.daysRemaining, forecastEta.countdown)}`}
+                </p>
+              </div>
+              <p className="shrink-0 font-bold tabular-nums text-emerald-300">
+                {formatCompactMoney(forecast.expectedAmount)}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-[var(--muted)]">
+        현재 NAV와 유통 좌수 기준 예상치입니다. 지급 전 AUM 변동에 따라 실제
+        운용료가 달라지며, 법인세가 발생하면 세후 입금액은 표시액보다 적습니다.
+      </p>
+    </section>
+  );
+}
+
+function forecastForecastLabel(
+  daysRemaining: number,
+  countdown: string,
+): string {
+  return `${countdown} · ${daysRemaining}거래일 남음`;
 }
 
 const DONUT_COLORS = [

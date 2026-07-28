@@ -17,7 +17,7 @@ import { isListed } from "@/lib/market/ipo";
 // 업데이트·설정은 우측 아이콘으로 상시 노출한다.
 const primaryNavItems = [
   { href: "/", label: "홈" },
-  { href: "/portfolio", label: "내 계좌" },
+  { href: "/trade", label: "거래" },
   { href: "/season", label: "시즌" },
   { href: "/leaderboard", label: "랭킹" },
   { href: "/characters", label: "도감" },
@@ -136,7 +136,14 @@ export function TossHeader() {
         <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
           {primaryNavItems.map((item) => {
             const active =
-              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              item.href === "/"
+                ? pathname === "/"
+                : item.href === "/trade"
+                  ? pathname === "/trade" ||
+                    pathname.startsWith("/stock/") ||
+                    pathname.startsWith("/amc/trade") ||
+                    pathname.startsWith("/portfolio")
+                  : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
