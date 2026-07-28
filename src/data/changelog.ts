@@ -18,6 +18,7 @@ export interface ChangelogDaySummary {
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
   "2026-07-29": {
     highlights: [
+      "내 계좌의 실적·배당 캘린더는 가까운 일정 3개를 먼저 보여주고, 필요할 때 전체 일정을 펼치거나 다시 접을 수 있게 정리했습니다.",
       "상장 플레이어 회사에 24거래일 분기 이사회를 추가했습니다. 창업주는 연구개발·배당 확대·자사주 매입·스타트업 인수 중 하나를 고르고 다음 분기 실적 발표에서 성장률·주가·회사 명성 결과를 모든 계정에 함께 공개합니다.",
       "창업주와 90거래일 이상 연속 보유한 장기주주가 다음 1회 배당 예산·증자·자사주 소각·사업 확장 안건에 실제 지분 가중 투표권을 행사합니다. 가결·부결 결과는 서버 공통 원장과 회사 명성에 한 번만 반영됩니다.",
       "24거래일 이상 장기 미접속 뒤에는 배당 수익, 주요 기업 사건, 종목별 손익 기여도를 한 화면에 정리한 복귀 투자 리포트를 제공합니다.",
@@ -270,6 +271,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-29",
+    tag: "개선",
+    title: "내 계좌 캘린더 3개 요약·접기",
+    detail:
+      "포트폴리오의 실적·배당 캘린더는 가까운 일정 3개를 기본으로 표시하고, 전체 일정 보기와 가까운 3개만 보기 버튼으로 펼치고 접을 수 있습니다. 일정은 기존처럼 가장 가까운 거래일 순서로 정렬됩니다.",
+  },
   {
     date: "2026-07-29",
     tag: "개선",

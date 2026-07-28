@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   buildInvestorCalendar,
   calendarEventTone,
@@ -18,6 +18,7 @@ export function InvestorCalendarCountdown({
   currentSession: number;
   expanded?: boolean;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const stocks = useMarketStore((state) => state.stocks);
   const holdings = useMarketStore((state) => state.holdings);
   const assetManager = useMarketStore((state) => state.assetManager);
@@ -43,7 +44,8 @@ export function InvestorCalendarCountdown({
       }),
     [currentSession, funds, holdings, stocks, watchlist],
   );
-  const visible = expanded ? events : events.slice(0, 3);
+  const canToggle = expanded && events.length > 3;
+  const visible = expanded && showAll ? events : events.slice(0, 3);
 
   return (
     <section
@@ -67,9 +69,25 @@ export function InvestorCalendarCountdown({
             내 계좌에서 전체 보기 →
           </Link>
         )}
+        {canToggle && (
+          <button
+            type="button"
+            aria-expanded={showAll}
+            aria-controls="investment-calendar-events"
+            onClick={() => setShowAll((current) => !current)}
+            className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--accent)] transition hover:bg-[var(--background)]"
+          >
+            {showAll
+              ? "가까운 3개만 보기 ↑"
+              : `전체 ${events.length}개 보기 ↓`}
+          </button>
+        )}
       </div>
       {visible.length ? (
-        <div className="mt-3 space-y-2">
+        <div
+          id={expanded ? "investment-calendar-events" : undefined}
+          className="mt-3 space-y-2"
+        >
           {visible.map((event) => (
             <Link
               key={event.id}
@@ -102,7 +120,6 @@ export function InvestorCalendarCountdown({
           관심 종목이나 보유 종목을 추가하면 향후 90거래일 일정을 보여드립니다.
         </p>
       )}
-      {expanded && events.length > visible.length && null}
     </section>
   );
 }
