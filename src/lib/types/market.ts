@@ -161,6 +161,8 @@ export interface StockState extends StockDefinition {
   shareMultiplier?: number;
   /** 짧은 간격의 분할↔병합 반복을 막는 마지막 액면조정 거래일. */
   lastShareAdjustmentSession?: number;
+  /** 서버 공통 플레이어 회사 기업행동 원장에서 마지막으로 적용한 순번. */
+  lastPlayerCompanyActionSequence?: number;
   /** 정수 센트 가격에 아직 반영되지 않은 커버드콜 옵션 프리미엄(0 이상 1 미만 센트) */
   coveredCallPremiumReserve?: number;
   /** NAV 추종 ETF가 지급한 누적 주당 분배금. 원 NAV에서 차감해 배당락 스냅백을 막는다. */

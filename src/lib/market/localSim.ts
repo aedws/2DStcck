@@ -35,6 +35,7 @@ import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
 import { getScheduledWarEventsForSession } from "@/lib/market/scheduledWar";
 import { getCorporateActionEventForSession } from "@/lib/market/corporateActions";
+import { applyDuePlayerCompanyMarketActions } from "@/lib/market/playerCompanyMarketActions";
 import type {
   Candle,
   MarketEvent,
@@ -158,7 +159,9 @@ export function replayMarket(
   }
 
   // 가변 작업본
-  const stocks: StockState[] = inputStocks.map((s) => ({ ...s }));
+  const stocks: StockState[] = inputStocks.map((stock) =>
+    applyDuePlayerCompanyMarketActions({ ...stock }, fromTick),
+  );
   const byId = new Map(stocks.map((s) => [s.id, s]));
   const defById = new Map(getRuntimeStockDefinitions().map((d) => [d.id, d]));
   let events: MarketEvent[] = [...inputEvents];
@@ -272,6 +275,7 @@ export function replayMarket(
       if (isNewSession) s.dayOpen = next;
       s.daySessionId = session;
       s.currentPrice = next;
+      Object.assign(s, applyDuePlayerCompanyMarketActions(s, tick));
     }
 
     // 2차: NAV ETF. 이 결과를 기초로 하는 레버리지 상품보다 먼저 갱신한다.

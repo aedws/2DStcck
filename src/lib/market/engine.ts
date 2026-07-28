@@ -40,6 +40,7 @@ import {
 import { getCharacterById } from "@/data/characters";
 import { pickEventQuote, withCharacterQuote } from "@/data/eventQuotes";
 import { generateOrderBook } from "@/lib/market/orderBook";
+import { applyDuePlayerCompanyMarketActions } from "@/lib/market/playerCompanyMarketActions";
 import { isListed } from "@/lib/market/ipo";
 import {
   TRADING_SESSIONS_PER_YEAR,
@@ -1007,19 +1008,22 @@ export function tickAllStocks(
     Boolean(s.etfHoldings?.length) ||
     s.leverage !== undefined ||
     Boolean(s.coveredCallUnderlyingId);
-  const ticked = stocks.map((stock) =>
-    isDerived(stock)
-      ? stock
-      : tickStock(
-          stock,
-          events,
-          now,
-          tick,
-          marketShock,
-          dtSeconds,
-          simTick !== undefined ? seededRand(simTick, stock.id) : Math.random,
-        ),
-  );
+  const ticked = stocks.map((stock) => {
+    if (isDerived(stock)) return stock;
+    const tickedStock = tickStock(
+      stock,
+      events,
+      now,
+      tick,
+      marketShock,
+      dtSeconds,
+      simTick !== undefined ? seededRand(simTick, stock.id) : Math.random,
+    );
+    return applyDuePlayerCompanyMarketActions(
+      tickedStock,
+      simTick ?? tick,
+    );
+  });
 
   // 2차: NAV ETF를 먼저 산출해 해당 ETF를 기초로 하는 파생상품도 같은 틱을 추종한다.
   const baseById = new Map(ticked.map((s) => [s.id, s]));

@@ -121,6 +121,9 @@ export default function CompanyPage() {
   const [manageQty, setManageQty] = useState("1000");
   const [dividendPct, setDividendPct] = useState("");
   const [declaring, setDeclaring] = useState(false);
+  const [capitalAction, setCapitalAction] = useState<
+    "issue" | "buyback" | "retire" | null
+  >(null);
 
   const [now, setNow] = useState(() => Date.now());
   const [name, setName] = useState("");
@@ -331,6 +334,22 @@ export default function CompanyPage() {
       setMessage(result.message);
     }
     setSubmittingIpo(false);
+  };
+
+  const handleCapitalAction = async (
+    kind: "issue" | "buyback" | "retire",
+  ) => {
+    if (capitalAction) return;
+    const quantity = Number(manageQty);
+    setCapitalAction(kind);
+    const result =
+      kind === "issue"
+        ? await issueShares(quantity)
+        : kind === "buyback"
+          ? await buybackShares(quantity)
+          : await retireShares(quantity);
+    setMessage(result.message);
+    setCapitalAction(null);
   };
 
   const formLocked = Boolean(activeFoundationRequest);
@@ -726,7 +745,7 @@ export default function CompanyPage() {
           )}{" "}
           ·{" "}
           {playerCompany.status === "listed"
-            ? "상장 후에는 실제 시장가로 발행·매입·소각하고, 그만큼 주가에 반영됩니다."
+            ? "상장 후에는 실제 시장가로 처리하며, 서버 공통 기업행동이 약 15초 뒤 모든 계정의 주가에 동시에 반영됩니다(1회 최대 ±15%)."
             : "발행/소각은 순자산 중립, 자사주 매입은 장부가만큼 현금을 씁니다."}
         </p>
         <div className="mt-3">
@@ -742,24 +761,27 @@ export default function CompanyPage() {
           <div className="mt-2 grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => issueShares(Number(manageQty))}
+              onClick={() => void handleCapitalAction("issue")}
+              disabled={capitalAction !== null}
               className="rounded-xl border border-[var(--border)] py-2 text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
             >
-              신주 발행
+              {capitalAction === "issue" ? "등록 중…" : "신주 발행"}
             </button>
             <button
               type="button"
-              onClick={() => buybackShares(Number(manageQty))}
+              onClick={() => void handleCapitalAction("buyback")}
+              disabled={capitalAction !== null}
               className="rounded-xl bg-emerald-500/15 py-2 text-xs font-semibold text-emerald-300"
             >
-              자사주 매입
+              {capitalAction === "buyback" ? "등록 중…" : "자사주 매입"}
             </button>
             <button
               type="button"
-              onClick={() => retireShares(Number(manageQty))}
+              onClick={() => void handleCapitalAction("retire")}
+              disabled={capitalAction !== null}
               className="rounded-xl bg-rose-500/15 py-2 text-xs font-semibold text-rose-300"
             >
-              공모주 소각
+              {capitalAction === "retire" ? "등록 중…" : "공모주 소각"}
             </button>
           </div>
         </div>

@@ -69,6 +69,7 @@ export interface CompactStockCheckpoint {
   navDistributionAdjustment?: number;
   shareMultiplier?: number;
   lastShareAdjustmentSession?: number;
+  lastPlayerCompanyActionSequence?: number;
 }
 
 export interface MarketCheckpoint {
@@ -288,6 +289,8 @@ export function compactMarketCheckpoint(
         navDistributionAdjustment: stock.navDistributionAdjustment,
         shareMultiplier: stock.shareMultiplier,
         lastShareAdjustmentSession: stock.lastShareAdjustmentSession,
+        lastPlayerCompanyActionSequence:
+          stock.lastPlayerCompanyActionSequence,
       })),
     shareAdjustments:
       Object.keys(shareAdjustments).length > 0

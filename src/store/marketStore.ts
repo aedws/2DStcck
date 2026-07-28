@@ -184,6 +184,13 @@ import {
   type StoredIpoListing,
 } from "@/lib/market/dynamicListings";
 import {
+  applyDuePlayerCompanyMarketActions,
+  getPlayerCompanyMarketActions,
+  setPlayerCompanyMarketActions,
+  type PlayerCompanyMarketAction,
+  type PlayerCompanyMarketActionType,
+} from "@/lib/market/playerCompanyMarketActions";
+import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
   SINGLE_STOCK_COVERED_CALL_INTERVAL_DAYS,
@@ -216,6 +223,7 @@ import {
   declarePlayerCompanyDividend as declareDividendServer,
   type PlayerCompanyDividend,
 } from "@/lib/supabase/playerCompanyDividends";
+import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -364,6 +372,7 @@ import {
   optionExerciseCost,
   type CharacterStockOption,
 } from "@/lib/player/characterStockOptions";
+
 import {
   AMC_FEE_INTERVAL_DAYS,
   AMC_REBALANCE_WINDOW_DAYS,
@@ -435,6 +444,43 @@ import {
   recoverAssetManagerFromServerRecords,
   recoverPlayerCompanyFromServerRecords,
 } from "@/lib/player/serverEntityRecovery";
+
+async function registerListedPlayerCompanyMarketAction(
+  company: PlayerCompanyState,
+  actionType: PlayerCompanyMarketActionType,
+  shares: number,
+  priceCents: number,
+): Promise<
+  | { success: true; action?: PlayerCompanyMarketAction }
+  | { success: false; message: string }
+> {
+  if (company.status !== "listed" || !company.ipoListingStockId) {
+    return { success: true };
+  }
+  const requestId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const registered = await recordPlayerCompanyMarketAction({
+    requestId,
+    ticker: company.ticker,
+    stockId: company.ipoListingStockId,
+    actionType,
+    shares,
+    totalSharesBefore: company.totalShares,
+    publicSharesBefore: company.publicShares,
+    priceCents,
+  });
+  if (!registered.success) return registered;
+  setPlayerCompanyMarketActions([
+    ...getPlayerCompanyMarketActions(),
+    registered.action,
+  ]);
+  // RPC가 game_saves의 revision도 원자적으로 올렸으므로 revision 캐시를 즉시
+  // 새로 읽어 다음 자동 저장이 불필요한 충돌로 되돌아가지 않게 한다.
+  await loadGameSave();
+  return { success: true, action: registered.action };
+}
 
 // 시장은 항상 로컬 결정론으로 계산된다. Supabase는 로그인·지갑 저장·랭킹
 // (계정 레이어) 전용이며 별도 "서버 모드"는 없다.
@@ -680,11 +726,11 @@ interface MarketStore extends MarketSnapshot {
     tierId: string,
   ) => OrderResult;
   /** 신주 발행(공모주 증가·창업주 지분 희석, 순자산 중립). */
-  issuePlayerCompanyShares: (shares: number) => OrderResult;
+  issuePlayerCompanyShares: (shares: number) => Promise<OrderResult>;
   /** 자사주 매입(공모주를 장부가로 매입해 창업주 지분 편입, 현금 소모). */
-  buybackPlayerCompanyShares: (shares: number) => OrderResult;
+  buybackPlayerCompanyShares: (shares: number) => Promise<OrderResult>;
   /** 공모주 소각(유통 좌수·장부자본 감소, 순자산 중립). */
-  retirePlayerCompanyShares: (shares: number) => OrderResult;
+  retirePlayerCompanyShares: (shares: number) => Promise<OrderResult>;
   /** 회차(20거래일)당 배당률(0~0.5) 지정. */
   setPlayerCompanyDividendRate: (rate: number) => OrderResult;
   /** 배당 집행 — 순자산×배당률을 선 소각하고 배당 원장에 선언한다(상장 후). */
@@ -782,6 +828,10 @@ interface MarketStore extends MarketSnapshot {
   tickMarket: () => void;
   /** 관리자 즉시 IPO(동적 상장) 목록을 시장에 반영한다(코드 배포 없이 상장). */
   reconcileDynamicListings: (listings: StoredIpoListing[]) => void;
+  /** 서버 공통 플레이어 회사 기업행동 원장을 결정론 시장에 반영한다. */
+  reconcilePlayerCompanyMarketActions: (
+    actions: PlayerCompanyMarketAction[],
+  ) => void;
   /** Web Worker가 계산한 공통 시장 체크포인트를 지갑과 분리해 반영한다. */
   applyMarketCheckpoint: (checkpoint: MarketCheckpoint) => void;
   /** 주문 전·복원 직후 밀린 급여와 투자 분배금을 정산 */
@@ -4156,6 +4206,21 @@ export const useMarketStore = create<MarketStore>()(
         if (changed) set({ stocks });
       },
 
+      reconcilePlayerCompanyMarketActions: (actions) => {
+        setPlayerCompanyMarketActions(actions);
+        const state = get();
+        const stocks = state.stocks.map((stock) =>
+          applyDuePlayerCompanyMarketActions(stock, state.tick),
+        );
+        if (
+          stocks.some(
+            (stock, index) => stock !== state.stocks[index],
+          )
+        ) {
+          set({ stocks });
+        }
+      },
+
       applyMarketCheckpoint: (checkpoint) => {
         const hydrated = hydrateMarketCheckpoint(checkpoint);
         const checkpointStocks = replaceActivePumpStocks(
@@ -5464,7 +5529,7 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message };
       },
 
-      issuePlayerCompanyShares: (shares) => {
+      issuePlayerCompanyShares: async (shares) => {
         const state = get();
         const company = state.playerCompany;
         if (!company) {
@@ -5486,12 +5551,30 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company) {
           return { success: false, message: result.message };
         }
+        if (listed && !(await get().saveCloud())) {
+          return {
+            success: false,
+            message: "최신 계좌를 서버에 저장하지 못해 신주 발행을 중단했습니다.",
+          };
+        }
+        const registered = await registerListedPlayerCompanyMarketAction(
+          company,
+          "issue",
+          Math.floor(shares),
+          listed?.currentPrice ?? 0,
+        );
+        if (!registered.success) {
+          return { success: false, message: registered.message };
+        }
         set({ playerCompany: result.company });
-        useToastStore.getState().push(result.message, "info");
-        return { success: true, message: result.message };
+        const message = listed
+          ? `${result.message} · 희석 주가 반영이 공통 시장에 예약됐습니다.`
+          : result.message;
+        useToastStore.getState().push(message, "info");
+        return { success: true, message };
       },
 
-      buybackPlayerCompanyShares: (shares) => {
+      buybackPlayerCompanyShares: async (shares) => {
         const state = get();
         if (!state.playerCompany) {
           return { success: false, message: "설립한 회사가 없습니다." };
@@ -5513,8 +5596,25 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company || result.cash === undefined) {
           return { success: false, message: result.message };
         }
+        if (listed && !(await get().saveCloud())) {
+          return {
+            success: false,
+            message: "최신 계좌를 서버에 저장하지 못해 자사주 매입을 중단했습니다.",
+          };
+        }
+        const registered = await registerListedPlayerCompanyMarketAction(
+          company,
+          "buyback",
+          Math.floor(shares),
+          listed?.currentPrice ?? 0,
+        );
+        if (!registered.success) {
+          return { success: false, message: registered.message };
+        }
         const payment: CashPayment = {
-          id: `company-buyback-${result.company.id}-${now}`,
+          id: registered.action
+            ? `company-buyback-market-${registered.action.id}`
+            : `company-buyback-${result.company.id}-${now}`,
           kind: "company_capital",
           sourceId: result.company.id,
           ticker: result.company.ticker,
@@ -5527,12 +5627,15 @@ export const useMarketStore = create<MarketStore>()(
           playerCompany: result.company,
           cashPayments: [payment, ...state.cashPayments].slice(0, 200),
         });
-        useToastStore.getState().push(result.message, "success");
+        const message = listed
+          ? `${result.message} · 상승 주가 반영이 공통 시장에 예약됐습니다.`
+          : result.message;
+        useToastStore.getState().push(message, "success");
         playSound("cash");
-        return { success: true, message: result.message };
+        return { success: true, message };
       },
 
-      retirePlayerCompanyShares: (shares) => {
+      retirePlayerCompanyShares: async (shares) => {
         const state = get();
         const company = state.playerCompany;
         if (!company) {
@@ -5551,9 +5654,27 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company) {
           return { success: false, message: result.message };
         }
+        if (listed && !(await get().saveCloud())) {
+          return {
+            success: false,
+            message: "최신 계좌를 서버에 저장하지 못해 공모주 소각을 중단했습니다.",
+          };
+        }
+        const registered = await registerListedPlayerCompanyMarketAction(
+          company,
+          "retire",
+          Math.floor(shares),
+          listed?.currentPrice ?? 0,
+        );
+        if (!registered.success) {
+          return { success: false, message: registered.message };
+        }
         set({ playerCompany: result.company });
-        useToastStore.getState().push(result.message, "info");
-        return { success: true, message: result.message };
+        const message = listed
+          ? `${result.message} · 상승 주가 반영이 공통 시장에 예약됐습니다.`
+          : result.message;
+        useToastStore.getState().push(message, "info");
+        return { success: true, message };
       },
 
       setPlayerCompanyDividendRate: (rate) => {

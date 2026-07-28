@@ -12,6 +12,8 @@ export function applyDefinitionOverlay(stock: StockState): StockState {
     currentPrice: stock.currentPrice,
     shareMultiplier: stock.shareMultiplier,
     lastShareAdjustmentSession: stock.lastShareAdjustmentSession,
+    lastPlayerCompanyActionSequence:
+      stock.lastPlayerCompanyActionSequence,
     coveredCallPremiumReserve: stock.coveredCallPremiumReserve,
     navDistributionAdjustment: stock.navDistributionAdjustment,
     prevDayClose: stock.prevDayClose,
