@@ -1,4 +1,5 @@
 import { positionMark } from "@/lib/market/options";
+import { replayClosedTrades } from "@/lib/market/tradeReplay";
 import type {
   Holding,
   OptionPosition,
@@ -12,75 +13,9 @@ import type {
  * trades 배열은 최신순으로 저장되므로 뒤집어 처리한다.
  */
 export function computeRealizedPnl(trades: Trade[]): number {
-  const longs = new Map<string, { qty: number; avg: number }>();
-  const shorts = new Map<string, { qty: number; avg: number }>();
-  const options = new Map<
-    string,
-    { qty: number; avg: number; side: "long" | "short" }
-  >();
-  let realized = 0;
-
-  for (let i = trades.length - 1; i >= 0; i--) {
-    const t = trades[i];
-    if (t.type === "buy") {
-      const pos = longs.get(t.stockId) ?? { qty: 0, avg: 0 };
-      const newQty = pos.qty + t.quantity;
-      pos.avg =
-        newQty > 0 ? (pos.avg * pos.qty + t.price * t.quantity) / newQty : 0;
-      pos.qty = newQty;
-      longs.set(t.stockId, pos);
-    } else if (t.type === "sell") {
-      const pos = longs.get(t.stockId) ?? { qty: 0, avg: 0 };
-      const sellQty = Math.min(t.quantity, pos.qty);
-      realized += (t.price - pos.avg) * sellQty;
-      pos.qty -= sellQty;
-      if (pos.qty <= 0) {
-        pos.qty = 0;
-        pos.avg = 0;
-      }
-      longs.set(t.stockId, pos);
-    } else if (t.type === "short") {
-      const pos = shorts.get(t.stockId) ?? { qty: 0, avg: 0 };
-      const newQty = pos.qty + t.quantity;
-      pos.avg =
-        newQty > 0 ? (pos.avg * pos.qty + t.price * t.quantity) / newQty : 0;
-      pos.qty = newQty;
-      shorts.set(t.stockId, pos);
-    } else if (t.type === "cover") {
-      const pos = shorts.get(t.stockId) ?? { qty: 0, avg: 0 };
-      const coverQty = Math.min(t.quantity, pos.qty);
-      realized += (pos.avg - t.price) * coverQty;
-      pos.qty -= coverQty;
-      if (pos.qty <= 0) {
-        pos.qty = 0;
-        pos.avg = 0;
-      }
-      shorts.set(t.stockId, pos);
-    } else if (t.type === "option_buy" || t.type === "option_write") {
-      if (!t.optionId) continue;
-      const side = t.type === "option_buy" ? "long" : "short";
-      const pos = options.get(t.optionId) ?? { qty: 0, avg: 0, side };
-      const newQty = pos.qty + t.quantity;
-      pos.avg =
-        newQty > 0 ? (pos.avg * pos.qty + t.price * t.quantity) / newQty : 0;
-      pos.qty = newQty;
-      pos.side = side;
-      options.set(t.optionId, pos);
-    } else if (t.type === "option_close" || t.type === "option_expire") {
-      if (!t.optionId) continue;
-      const pos = options.get(t.optionId);
-      if (!pos) continue;
-      const closeQty = Math.min(t.quantity, pos.qty);
-      realized +=
-        (pos.side === "long" ? t.price - pos.avg : pos.avg - t.price) *
-        closeQty;
-      pos.qty -= closeQty;
-      if (pos.qty <= 0) options.delete(t.optionId);
-      else options.set(t.optionId, pos);
-    }
-  }
-
-  return Math.round(realized);
+  return Math.round(
+    replayClosedTrades(trades).reduce((sum, trade) => sum + trade.pnl, 0),
+  );
 }
 
 export function computeShortUnrealizedPnl(

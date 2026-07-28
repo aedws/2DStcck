@@ -114,6 +114,8 @@ export function processRecurringInvestments(
       price,
       quantity,
       now,
+      undefined,
+      stock.shareMultiplier ?? 1,
     );
     if (!isOrderSuccess(result)) {
       const updated = {

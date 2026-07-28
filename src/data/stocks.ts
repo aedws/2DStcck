@@ -494,13 +494,13 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     marketTags: ["식품"],
     initialPrice: 28000,
     volatility: 0.018,
-    drift: 0.0008,
+    drift: 0.0004,
     beta: 0.72,
-    maxDailyLossRate: 0.03,
+    maxDailyLossRate: 0.08,
     description:
-      "캬롯이 대표로 있는 농축산물 판매기업. 적은 비료로도 높은 수확량을 내며, 드물게 회사 농장에만 기록적인 대풍작이 발생해 공급 과잉을 부르기도 한다. 유보금을 두텁게 쌓아 주주환원에는 소극적이지만 하루 하락폭을 전일 종가 대비 3%로 방어하며 장기적으로 지수보다 소폭 높은 성장을 지향한다. 유저 종목 요청으로 상장.",
+      "캬롯이 대표로 있는 농축산물 판매기업. 적은 비료로도 높은 수확량을 내며, 드물게 회사 농장에만 기록적인 대풍작이 발생해 공급 과잉을 부르기도 한다. 유보금을 두텁게 쌓아 주주환원에는 소극적이며, 저변동 방어주 성격은 유지하되 과도한 호재 편향과 절대적인 하락 방어는 완화했다. 유저 종목 요청으로 상장.",
     eventBias: {
-      수확량: 3,
+      수확량: 1.25,
       대풍작: 2,
       실적: 2,
       스캔들: 0.5,
@@ -901,6 +901,27 @@ const CORE_DEFINITIONS: StockDefinition[] = [
       신제품: 3,
       실적: 3,
       행보: 2,
+    },
+  },
+  {
+    id: "militc",
+    ticker: "MILITC",
+    name: "밀리테크 인터내셔널 아머먼츠",
+    instrumentType: "company",
+    sector: "방산·치안",
+    subsector: "무기 제조·용병·군사 지원",
+    marketTags: ["방산", "치안", "기술"],
+    initialPrice: 96000,
+    volatility: 0.065,
+    drift: 0.0008,
+    beta: 1.45,
+    description:
+      "플레이어 @qprjsngls가 설립한 종합 방산 기업. 개인화기와 중화기, 군용 장비·차량, 사이버웨어를 제조하고 전투 자문·훈련·경비·용병 및 군사 지원 서비스를 함께 제공합니다. 지정학적 긴장과 국방 수요에는 강하지만 대형 계약 의존도와 무기 안전·민간 피해 논란에 민감합니다. 창업주 지분 100%로 IPO 승인을 받았습니다.",
+    eventBias: {
+      수주: 4,
+      방산: 4,
+      신제품: 3,
+      스캔들: 2,
     },
   },
 ];
@@ -1423,7 +1444,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     title: "캬롯 농장, 저비료 고수확 재배법 상용화",
     description:
       "적은 비료로 동일 면적에서 훨씬 많은 농축산물을 생산하는 재배법이 검증됐습니다. 원가 경쟁력과 장기 성장 기대가 높아집니다.",
-    impact: 0.55,
+    impact: 0.3,
   },
   {
     category: "company",
@@ -1559,5 +1580,23 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "취약 지역 의약품 무상 공급과 임직원 의료 봉사를 장기 프로그램으로 전환했습니다. 단기 비용보다 브랜드 신뢰와 장기 접근성 확대가 부각됩니다.",
     impact: 0.045,
+  },
+  {
+    category: "company",
+    companyId: "militc",
+    tag: "수주",
+    title: "밀리테크, 통합 방위체계 대형 수주",
+    description:
+      "개인화기·중화기·전투 차량과 훈련·보안 지원을 묶은 장기 계약을 따냈습니다. 제조와 군사 서비스 양쪽의 수주잔고가 동시에 늘어납니다.",
+    impact: 0.9,
+  },
+  {
+    category: "company",
+    companyId: "militc",
+    tag: "스캔들",
+    title: "밀리테크 장비 안전성·민간 피해 조사",
+    description:
+      "납품 장비와 사이버웨어의 안전성, 민간 피해 책임을 둘러싼 조사가 시작됐습니다. 계약 중단과 대규모 배상 위험이 함께 부각됩니다.",
+    impact: -1.05,
   },
 ];

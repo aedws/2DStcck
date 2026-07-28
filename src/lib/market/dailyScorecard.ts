@@ -1,14 +1,13 @@
 import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "@/lib/market/constants";
+import {
+  replayClosedTrades,
+  type ClosedTradeResult,
+} from "@/lib/market/tradeReplay";
 import type { Trade } from "@/lib/types/market";
 
 export type ScorecardGrade = "S" | "A" | "B" | "C" | "D" | "F";
 
-export interface ClosedTradeResult {
-  tradeId: string;
-  ticker: string;
-  timestamp: number;
-  pnl: number;
-}
+export type { ClosedTradeResult } from "@/lib/market/tradeReplay";
 
 export interface DailyScorecard {
   session: number;
@@ -25,91 +24,6 @@ export interface DailyScorecard {
   worstTrade: ClosedTradeResult | null;
   marginCalled: boolean;
   feedback: string;
-}
-
-function replayClosedTrades(trades: Trade[]): ClosedTradeResult[] {
-  const longs = new Map<string, { qty: number; avg: number }>();
-  const shorts = new Map<string, { qty: number; avg: number }>();
-  const options = new Map<string, { qty: number; avg: number; side: "long" | "short" }>();
-  const closed: ClosedTradeResult[] = [];
-
-  for (let index = trades.length - 1; index >= 0; index--) {
-    const trade = trades[index];
-    let pnl: number | null = null;
-
-    if (trade.type === "buy") {
-      const position = longs.get(trade.stockId) ?? { qty: 0, avg: 0 };
-      const nextQuantity = position.qty + trade.quantity;
-      position.avg = nextQuantity > 0
-        ? (position.avg * position.qty + trade.price * trade.quantity) / nextQuantity
-        : 0;
-      position.qty = nextQuantity;
-      longs.set(trade.stockId, position);
-    } else if (trade.type === "sell") {
-      const position = longs.get(trade.stockId) ?? { qty: 0, avg: 0 };
-      const quantity = Math.min(trade.quantity, position.qty);
-      if (quantity > 0) pnl = (trade.price - position.avg) * quantity;
-      position.qty -= quantity;
-      if (position.qty <= 0) {
-        position.qty = 0;
-        position.avg = 0;
-      }
-      longs.set(trade.stockId, position);
-    } else if (trade.type === "short") {
-      const position = shorts.get(trade.stockId) ?? { qty: 0, avg: 0 };
-      const nextQuantity = position.qty + trade.quantity;
-      position.avg = nextQuantity > 0
-        ? (position.avg * position.qty + trade.price * trade.quantity) / nextQuantity
-        : 0;
-      position.qty = nextQuantity;
-      shorts.set(trade.stockId, position);
-    } else if (trade.type === "cover") {
-      const position = shorts.get(trade.stockId) ?? { qty: 0, avg: 0 };
-      const quantity = Math.min(trade.quantity, position.qty);
-      if (quantity > 0) pnl = (position.avg - trade.price) * quantity;
-      position.qty -= quantity;
-      if (position.qty <= 0) {
-        position.qty = 0;
-        position.avg = 0;
-      }
-      shorts.set(trade.stockId, position);
-    } else if (trade.type === "option_buy" || trade.type === "option_write") {
-      if (!trade.optionId) continue;
-      const side = trade.type === "option_buy" ? "long" : "short";
-      const position = options.get(trade.optionId) ?? { qty: 0, avg: 0, side };
-      const nextQuantity = position.qty + trade.quantity;
-      position.avg = nextQuantity > 0
-        ? (position.avg * position.qty + trade.price * trade.quantity) / nextQuantity
-        : 0;
-      position.qty = nextQuantity;
-      position.side = side;
-      options.set(trade.optionId, position);
-    } else if (trade.type === "option_close" || trade.type === "option_expire") {
-      if (!trade.optionId) continue;
-      const position = options.get(trade.optionId);
-      if (!position) continue;
-      const quantity = Math.min(trade.quantity, position.qty);
-      if (quantity > 0) {
-        pnl = (position.side === "long"
-          ? trade.price - position.avg
-          : position.avg - trade.price) * quantity;
-      }
-      position.qty -= quantity;
-      if (position.qty <= 0) options.delete(trade.optionId);
-      else options.set(trade.optionId, position);
-    }
-
-    if (pnl !== null) {
-      closed.push({
-        tradeId: trade.id,
-        ticker: trade.ticker,
-        timestamp: trade.timestamp,
-        pnl: Math.round(pnl),
-      });
-    }
-  }
-
-  return closed;
 }
 
 function gradeFor(score: number): ScorecardGrade {

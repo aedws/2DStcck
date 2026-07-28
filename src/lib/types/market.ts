@@ -310,6 +310,8 @@ export interface Trade {
   /** 체결 대금의 정확한 정수 센트 문자열. */
   totalExact?: string;
   timestamp: number;
+  /** 체결 시점 종목의 누적 액면배수. 실현손익을 경제가 기준으로 재생한다. */
+  shareMultiplier?: number;
   /** 옵션 거래일 때 계약 식별·손익 재생에 사용한다. */
   optionId?: string;
   optionKind?: OptionKind;

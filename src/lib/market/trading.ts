@@ -47,6 +47,7 @@ export function executeBuy(
   quantity: number,
   timestamp: number,
   cashExact?: string,
+  shareMultiplier = 1,
 ): { cash: number; cashExact: string; holdings: Holding[]; trade: Trade } | OrderResult {
   if (!isValidShareQuantity(quantity)) {
     return { success: false, message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요." };
@@ -111,6 +112,7 @@ export function executeBuy(
     total,
     totalExact,
     timestamp,
+    shareMultiplier,
   };
 
   return {
@@ -134,6 +136,7 @@ export function executeSell(
   quantity: number,
   timestamp: number,
   cashExact?: string,
+  shareMultiplier = 1,
 ): { cash: number; cashExact: string; holdings: Holding[]; trade: Trade } | OrderResult {
   if (!isValidShareQuantity(quantity)) {
     return { success: false, message: "수량은 0.001주 이상, 소수점 6자리까지 입력해 주세요." };
@@ -179,6 +182,7 @@ export function executeSell(
     total,
     totalExact,
     timestamp,
+    shareMultiplier,
   };
 
   return {

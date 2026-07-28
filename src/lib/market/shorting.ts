@@ -23,6 +23,7 @@ function makeTrade(
   quantity: number,
   price: number,
   timestamp: number,
+  shareMultiplier: number,
 ): Trade {
   const quantityExact = normalizeExactQuantity(quantity);
   const totalExact = exactPositionValue(price, quantityExact);
@@ -37,6 +38,7 @@ function makeTrade(
     total: exactToNumber(totalExact),
     totalExact,
     timestamp,
+    shareMultiplier,
   };
 }
 
@@ -50,6 +52,7 @@ export function openShort(
   quantity: number,
   timestamp: number,
   cashExact?: string,
+  shareMultiplier = 1,
 ): ShortResult | OrderResult {
   if (quantity <= 0 || !Number.isInteger(quantity)) {
     return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
@@ -93,7 +96,15 @@ export function openShort(
     cash: exactToNumber(nextCashExact),
     cashExact: nextCashExact,
     shorts: next,
-    trade: makeTrade(stockId, ticker, "short", quantity, price, timestamp),
+    trade: makeTrade(
+      stockId,
+      ticker,
+      "short",
+      quantity,
+      price,
+      timestamp,
+      shareMultiplier,
+    ),
   };
 }
 
@@ -107,6 +118,7 @@ export function coverShort(
   quantity: number,
   timestamp: number,
   cashExact?: string,
+  shareMultiplier = 1,
 ): ShortResult | OrderResult {
   if (quantity <= 0 || !Number.isInteger(quantity)) {
     return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
@@ -136,7 +148,15 @@ export function coverShort(
     cash: exactToNumber(nextCashExact),
     cashExact: nextCashExact,
     shorts: next,
-    trade: makeTrade(stockId, ticker, "cover", quantity, price, timestamp),
+    trade: makeTrade(
+      stockId,
+      ticker,
+      "cover",
+      quantity,
+      price,
+      timestamp,
+      shareMultiplier,
+    ),
   };
 }
 

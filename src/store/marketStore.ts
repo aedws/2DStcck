@@ -1601,6 +1601,8 @@ function liquidatePositions(
     price,
     total: price * quantity,
     timestamp: now,
+    shareMultiplier:
+      stocks.find((stock) => stock.id === stockId)?.shareMultiplier ?? 1,
   });
   for (const h of holdings) {
     // 유저 ETF는 서버 원장에서만 안전하게 매도할 수 있다. 로컬 배열만 지우면
@@ -1805,6 +1807,8 @@ function applyLocalBuySell(
       price,
       quantity,
       Date.now(),
+      undefined,
+      stock.shareMultiplier ?? 1,
     );
     if (!isOrderSuccess(merged)) return merged;
     set({
@@ -1835,6 +1839,7 @@ function applyLocalBuySell(
     quantity,
     now,
     exactCashOf(state),
+    stock.shareMultiplier ?? 1,
   );
   if (!isOrderSuccess(result)) return result;
   const taxExact = combinedSecuritiesSaleTaxExact({
@@ -3173,6 +3178,8 @@ export const useMarketStore = create<MarketStore>()(
                       execPrice,
                       order.quantity,
                       now,
+                      undefined,
+                      stock.shareMultiplier ?? 1,
                     )
                   : { success: false, message: "매수여력이 부족합니다." };
               if (isOrderSuccess(result)) {
@@ -3195,6 +3202,7 @@ export const useMarketStore = create<MarketStore>()(
                 order.quantity,
                 now,
                 cashExact,
+                stock.shareMultiplier ?? 1,
               );
               if (isOrderSuccess(result)) {
                 const taxExact = combinedSecuritiesSaleTaxExact({
@@ -4697,6 +4705,7 @@ export const useMarketStore = create<MarketStore>()(
           quantity,
           now,
           exactCashOf(state),
+          stock.shareMultiplier ?? 1,
         );
         if (!isShortSuccess(result)) return result;
         const taxExact = computeProgressiveTaxExact(
@@ -4764,6 +4773,7 @@ export const useMarketStore = create<MarketStore>()(
           quantity,
           now,
           exactCashOf(state),
+          stock.shareMultiplier ?? 1,
         );
         if (!isShortSuccess(result)) return result;
         const taxExact = derivativeProfitTaxExact({
@@ -7292,6 +7302,7 @@ export const useMarketStore = create<MarketStore>()(
               total: traded.total,
               totalExact: traded.totalExact,
               timestamp: now,
+              shareMultiplier: traded.fund.shareMultiplier ?? 1,
             },
             ...state.trades,
           ].slice(0, 500) as Trade[],
@@ -7516,6 +7527,7 @@ export const useMarketStore = create<MarketStore>()(
               total: traded.total,
               totalExact: traded.totalExact,
               timestamp: now,
+              shareMultiplier: traded.fund.shareMultiplier ?? 1,
             },
             ...state.trades,
           ].slice(0, 500) as Trade[],

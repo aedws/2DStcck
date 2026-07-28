@@ -111,6 +111,7 @@ assert.deepEqual(
     "lcid",
     "levi",
     "miku",
+    "militc",
     "minori",
     "mksa",
     "monc",
@@ -191,7 +192,7 @@ assert.deepEqual(
   "미노리 용역 전용 사건이 다른 종목에 배정됨",
 );
 
-// 캬롯 농장: 7/25 12:00 KST 개장, 무배당 저변동 성장과 전일 대비 -3% 하한
+// 캬롯 농장: 무배당 저변동 성격은 유지하되 과도한 호재·절대 하한 완화
 const carrot = getCompanyDefinitions().find((stock) => stock.id === "carrot");
 assert.ok(carrot, "캬롯 농장 정의가 없음");
 const carrotListing = Date.UTC(2026, 6, 25, 3, 0);
@@ -200,9 +201,14 @@ assert.equal(carrot.sector, "식품·외식");
 assert.deepEqual(carrot.marketTags, ["식품"]);
 assert.equal(carrot.listingEpochMs, carrotListing);
 assert.equal(carrot.quarterlyDividend, undefined);
-assert.equal(carrot.maxDailyLossRate, 0.03);
+assert.equal(carrot.maxDailyLossRate, 0.08);
 assert.ok(carrot.volatility <= 0.02, "장기 투자형 저변동 성향이 필요함");
 assert.ok(carrot.drift > 0, "지수 대비 소폭 성장 성향이 필요함");
+assert.ok(carrot.drift <= 0.0005, "장기 성장 편향이 여전히 과도함");
+assert.ok(
+  (carrot.eventBias?.수확량 ?? Number.POSITIVE_INFINITY) <= 1.5,
+  "수확량 호재 선택 편향이 여전히 과도함",
+);
 assert.equal(isListed(carrot, carrotListing - 1), false);
 assert.equal(isListed(carrot, carrotListing), true);
 
@@ -211,6 +217,11 @@ const carrotBumperCrop = EVENT_TEMPLATES.find(
 );
 assert.ok(carrotBumperCrop, "캬롯 농장 대풍작 사건이 없음");
 assert.ok(carrotBumperCrop.impact <= -1, "대풍작 공급 과잉 충격이 부족함");
+const carrotHarvest = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "carrot" && template.tag === "수확량",
+);
+assert.ok(carrotHarvest, "캬롯 농장 수확량 사건이 없음");
+assert.ok(carrotHarvest.impact <= 0.35, "수확량 호재 충격이 여전히 과도함");
 const carrotState = createInitialStockState(carrot, carrotListing);
 const carrotFloor = calculateTickPrice(
   carrotState,
@@ -232,8 +243,8 @@ const carrotFloor = calculateTickPrice(
   () => 0.5,
 );
 assert.ok(
-  carrotFloor >= Math.round(carrotState.prevDayClose * 0.97),
-  "캬롯 농장 하루 -3% 하한이 지켜지지 않음",
+  carrotFloor >= Math.round(carrotState.prevDayClose * 0.92),
+  "캬롯 농장 완화된 하루 -8% 방어선이 지켜지지 않음",
 );
 
 // 아스나 유업: 7/25 15:00 KST 개장과 악재 1분 후 회사 호재
@@ -399,6 +410,31 @@ for (const [id, ticker, listingAt] of july26Slots) {
     );
   }
 }
+
+// 7/31 플레이어 회사 IPO: 밀리테크 인터내셔널 아머먼츠(MILITC)
+const militechListing = Date.UTC(2026, 6, 31, 9, 0);
+const militech = getCompanyDefinitions().find((item) => item.id === "militc");
+assert.ok(militech, "밀리테크 종목 정의가 없음");
+assert.equal(militech.ticker, "MILITC");
+assert.equal(militech.sector, "방산·치안");
+assert.equal(militech.listingEpochMs, militechListing);
+assert.equal(isListed(militech, militechListing - 1), false);
+assert.equal(isListed(militech, militechListing), true);
+for (const suffix of ["inverse", "inverse-2x", "leverage-2x"]) {
+  const derivative = STOCK_DEFINITIONS.find(
+    (item) => item.id === `militc-${suffix}`,
+  );
+  assert.ok(derivative, `MILITC ${suffix} 파생상품 정의가 없음`);
+  assert.equal(derivative.listingEpochMs, militechListing);
+}
+const militechContract = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "militc" && template.tag === "수주",
+);
+const militechInvestigation = EVENT_TEMPLATES.find(
+  (template) => template.companyId === "militc" && template.tag === "스캔들",
+);
+assert.ok(militechContract && militechContract.impact > 0);
+assert.ok(militechInvestigation && militechInvestigation.impact < 0);
 
 // 7/27 승인 요청: 이오리 소프트웨어(IORI) 15:30 KST 예약 상장과 전 파생상품 잠금 상속
 const ioriListing = Date.UTC(2026, 6, 27, 6, 30);

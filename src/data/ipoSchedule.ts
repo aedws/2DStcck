@@ -72,4 +72,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   koyuki: Date.UTC(2026, 6, 29, 12, 0),
   // 에이메스 엔터테인먼트(WWAM) — 2026-07-30 15:00 KST 개장 (= 06:00 UTC)
   ames: Date.UTC(2026, 6, 30, 6, 0),
+  // 밀리테크 인터내셔널 아머먼츠(MILITC) — 2026-07-31 18:00 KST 개장 (= 09:00 UTC)
+  militc: Date.UTC(2026, 6, 31, 9, 0),
 };

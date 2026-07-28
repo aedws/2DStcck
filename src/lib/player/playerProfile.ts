@@ -1,6 +1,7 @@
 import type { Trade } from "@/lib/types/market";
 import type { InvestmentSeasonState } from "@/lib/market/investmentSeasons";
 import type { InvestmentMasteryState } from "@/lib/market/investmentMastery";
+import { replayClosedTrades } from "@/lib/market/tradeReplay";
 
 export const ATTENDANCE_TIME_ZONE = "Asia/Seoul";
 export const ATTENDANCE_BASE_REWARD = 25_000;
@@ -108,106 +109,33 @@ export function claimAttendanceState(
 }
 
 export function buildTradingStats(trades: Trade[]): TradingStats {
-  const longs = new Map<string, { quantity: number; average: number }>();
-  const shorts = new Map<string, { quantity: number; average: number }>();
-  const options = new Map<
-    string,
-    { quantity: number; average: number; side: "long" | "short" }
-  >();
   let buyCount = 0;
   let sellCount = 0;
-  let closeCount = 0;
-  let winningCloses = 0;
   let turnover = 0;
-  let realizedPnl = 0;
 
-  for (let index = trades.length - 1; index >= 0; index--) {
-    const trade = trades[index];
+  for (const trade of trades) {
     turnover += Math.abs(trade.total);
-    if (trade.type === "buy") {
+    if (
+      trade.type === "buy" ||
+      trade.type === "short" ||
+      trade.type === "option_buy" ||
+      trade.type === "option_write"
+    ) {
       buyCount += 1;
-      const position = longs.get(trade.stockId) ?? { quantity: 0, average: 0 };
-      const nextQuantity = position.quantity + trade.quantity;
-      position.average =
-        nextQuantity > 0
-          ? (position.average * position.quantity + trade.price * trade.quantity) /
-            nextQuantity
-          : 0;
-      position.quantity = nextQuantity;
-      longs.set(trade.stockId, position);
-    } else if (trade.type === "sell") {
+    } else if (
+      trade.type === "sell" ||
+      trade.type === "cover" ||
+      trade.type === "option_close" ||
+      trade.type === "option_expire"
+    ) {
       sellCount += 1;
-      const position = longs.get(trade.stockId) ?? { quantity: 0, average: 0 };
-      const quantity = Math.min(position.quantity, trade.quantity);
-      const pnl = (trade.price - position.average) * quantity;
-      if (quantity > 0) {
-        closeCount += 1;
-        if (pnl > 0) winningCloses += 1;
-        realizedPnl += pnl;
-      }
-      position.quantity = Math.max(0, position.quantity - quantity);
-      longs.set(trade.stockId, position);
-    } else if (trade.type === "short") {
-      buyCount += 1;
-      const position = shorts.get(trade.stockId) ?? { quantity: 0, average: 0 };
-      const nextQuantity = position.quantity + trade.quantity;
-      position.average =
-        nextQuantity > 0
-          ? (position.average * position.quantity + trade.price * trade.quantity) /
-            nextQuantity
-          : 0;
-      position.quantity = nextQuantity;
-      shorts.set(trade.stockId, position);
-    } else if (trade.type === "cover") {
-      sellCount += 1;
-      const position = shorts.get(trade.stockId) ?? { quantity: 0, average: 0 };
-      const quantity = Math.min(position.quantity, trade.quantity);
-      const pnl = (position.average - trade.price) * quantity;
-      if (quantity > 0) {
-        closeCount += 1;
-        if (pnl > 0) winningCloses += 1;
-        realizedPnl += pnl;
-      }
-      position.quantity = Math.max(0, position.quantity - quantity);
-      shorts.set(trade.stockId, position);
-    } else if (trade.type === "option_buy" || trade.type === "option_write") {
-      buyCount += 1;
-      if (!trade.optionId) continue;
-      const side = trade.type === "option_buy" ? "long" : "short";
-      const position = options.get(trade.optionId) ?? {
-        quantity: 0,
-        average: 0,
-        side,
-      };
-      const nextQuantity = position.quantity + trade.quantity;
-      position.average =
-        nextQuantity > 0
-          ? (position.average * position.quantity + trade.price * trade.quantity) /
-            nextQuantity
-          : 0;
-      position.quantity = nextQuantity;
-      position.side = side;
-      options.set(trade.optionId, position);
-    } else if (trade.type === "option_close" || trade.type === "option_expire") {
-      sellCount += 1;
-      if (!trade.optionId) continue;
-      const position = options.get(trade.optionId);
-      if (!position) continue;
-      const quantity = Math.min(position.quantity, trade.quantity);
-      const pnl =
-        (position.side === "long"
-          ? trade.price - position.average
-          : position.average - trade.price) * quantity;
-      if (quantity > 0) {
-        closeCount += 1;
-        if (pnl > 0) winningCloses += 1;
-        realizedPnl += pnl;
-      }
-      position.quantity = Math.max(0, position.quantity - quantity);
-      if (position.quantity === 0) options.delete(trade.optionId);
-      else options.set(trade.optionId, position);
     }
   }
+
+  const closedTrades = replayClosedTrades(trades);
+  const closeCount = closedTrades.length;
+  const winningCloses = closedTrades.filter((trade) => trade.pnl > 0).length;
+  const realizedPnl = closedTrades.reduce((sum, trade) => sum + trade.pnl, 0);
 
   return {
     tradeCount: trades.length,
