@@ -25,11 +25,28 @@ function parseAction(
     priceCents: Number(row.price_cents),
     effectiveTick: Number(row.effective_tick),
     createdAt: String(row.created_at ?? ""),
+    ...(typeof row.decision_type === "string" && row.decision_type
+      ? { decisionType: row.decision_type }
+      : {}),
+    ...(typeof row.headline === "string" && row.headline
+      ? { headline: row.headline }
+      : {}),
+    ...(typeof row.description === "string" && row.description
+      ? { description: row.description }
+      : {}),
+    ...(Number.isFinite(Number(row.reputation_delta))
+      ? { reputationDelta: Number(row.reputation_delta) }
+      : {}),
+    ...(Number.isFinite(Number(row.earnings_growth_delta))
+      ? { earningsGrowthDelta: Number(row.earnings_growth_delta) }
+      : {}),
   };
   if (
     !action.id ||
     !Number.isSafeInteger(action.sequence) ||
-    !["issue", "buyback", "retire"].includes(action.actionType) ||
+    !["issue", "buyback", "retire", "board", "governance"].includes(
+      action.actionType,
+    ) ||
     !Number.isFinite(action.priceFactor) ||
     !Number.isSafeInteger(action.effectiveTick)
   ) {
@@ -59,7 +76,10 @@ export interface RecordPlayerCompanyMarketActionInput {
   requestId: string;
   ticker: string;
   stockId: string;
-  actionType: PlayerCompanyMarketActionType;
+  actionType: Extract<
+    PlayerCompanyMarketActionType,
+    "issue" | "buyback" | "retire"
+  >;
   shares: number;
   totalSharesBefore: number;
   publicSharesBefore: number;

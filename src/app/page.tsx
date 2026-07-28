@@ -10,6 +10,8 @@ import { PumpBanner } from "@/components/home/PumpBanner";
 import { AttendanceBanner } from "@/components/home/AttendanceBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
 import { HomeIpoBanner } from "@/components/home/HomeIpoBanner";
+import { InvestorCalendarCountdown } from "@/components/home/InvestorCalendarCountdown";
+import { ReturnInvestmentReport } from "@/components/home/ReturnInvestmentReport";
 import { SupportForms } from "@/components/market/SupportForms";
 import { LearningJourneyCard } from "@/components/home/LearningJourneyCard";
 import { MarketEraBanner } from "@/components/market/MarketEraBanner";
@@ -52,6 +54,8 @@ export default function MarketPage() {
           .filter((s) => s.sector !== "지수" && s.sector !== "선물")
           .sort((a, b) => getDayChangePercent(b) - getDayChangePercent(a))[0]
       : undefined;
+  const currentSession =
+    stocks[0]?.daySessionId ?? Math.floor(Date.now() / (60 * 60 * 1000));
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
@@ -61,6 +65,7 @@ export default function MarketPage() {
           onFinish={() => setEraTutorialSeen(true)}
         />
       )}
+      <ReturnInvestmentReport />
       <MarketOverview stocks={marketStocks} events={events} />
       {/* 국면·출석·IPO 안내를 한 밴드로 묶어 상단 정보 과밀을 줄인다. 각 배너는
           해당 없을 때 스스로 사라지므로 밴드는 필요한 것만 촘촘히 보여준다. */}
@@ -68,6 +73,9 @@ export default function MarketPage() {
         <MarketEraBanner />
         <AttendanceBanner />
         <HomeIpoBanner />
+        {mounted && (
+          <InvestorCalendarCountdown currentSession={currentSession} />
+        )}
       </div>
       <LearningJourneyCard />
       {/* 새내기(거래 3건 미만)에겐 시즌·연속사건·라이벌까지 담긴 작전 브리핑이

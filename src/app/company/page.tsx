@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
+import { PlayerCompanyBoardPanel } from "@/components/company/PlayerCompanyBoardPanel";
+import { PlayerCompanyGovernancePanel } from "@/components/company/PlayerCompanyGovernancePanel";
 import {
   COMPANY_TUTORIAL_STEPS,
   COMPANY_TUTORIAL_VERSION,
@@ -170,6 +172,13 @@ export default function CompanyPage() {
     playerCompany?.status === "listed"
       ? playerCompany.ipoListingStockId ?? ""
       : "";
+  const plannedDividendRate = playerCompany?.dividendRate ?? 0;
+  const plannedDividendTotal = Math.round(
+    Math.max(0, netWorth) * plannedDividendRate,
+  );
+  const plannedDividendPerShare = playerCompany
+    ? Math.floor(plannedDividendTotal / Math.max(1, playerCompany.totalShares))
+    : 0;
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -652,6 +661,7 @@ export default function CompanyPage() {
             </p>
           )}
         </section>
+        <PlayerCompanyGovernancePanel currentSession={currentSession} />
         <PublicCompanyDirectory companies={publicCompanies} />
       </div>
     );
@@ -850,15 +860,24 @@ export default function CompanyPage() {
           </div>
         </div>
         <div className="mt-4 border-t border-[var(--border)] pt-4">
-          <label className="mb-1 block text-[11px] text-[var(--muted)]">
-            회차(20거래일)당 배당률 % · 최대{" "}
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
+            <p className="text-sm font-black text-amber-200">이번 1회 배당 예산</p>
+            <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+              여기서 <b className="text-[var(--foreground)]">총자산</b>은 회사
+              자산이 아니라 창업주인 <b className="text-[var(--foreground)]">내 계좌의
+              현금·주식·ETF 등을 합친 전체 자산</b>입니다. 설정한 비율만큼의
+              현금이 내 계좌에서 즉시 빠져나가 배당 재원이 됩니다.
+            </p>
+          </div>
+          <label className="mb-1 mt-3 block text-[11px] text-[var(--muted)]">
+            내 계좌 총자산 중 이번에 배당할 비율 % · 최대{" "}
             {(PLAYER_COMPANY_MAX_DIVIDEND_RATE * 100).toFixed(0)}%
           </label>
           <div className="flex gap-2">
             <input
               inputMode="decimal"
               value={dividendPct}
-              placeholder={((playerCompany.dividendRate ?? 0) * 100).toFixed(1)}
+              placeholder={(plannedDividendRate * 100).toFixed(1)}
               onChange={(e) =>
                 setDividendPct(e.target.value.replace(/[^0-9.]/g, ""))
               }
@@ -872,33 +891,98 @@ export default function CompanyPage() {
               }}
               className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
             >
-              배당률 설정
+              1회 예산 저장
             </button>
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
-            현재 배당률 {((playerCompany.dividendRate ?? 0) * 100).toFixed(1)}%.
-            상장 후 ‘배당 집행’을 누르면 배당률 × 순자산 금액을 선 소각하고,
-            다음 배당일부터 보유 주주 전원이 좌수 비례로 지급받습니다.
-          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <SummaryCard
+              label="계산 기준: 내 계좌 총자산"
+              value={formatCompactMoney(netWorth)}
+            />
+            <SummaryCard
+              label="지금 내 현금에서 차감"
+              value={
+                plannedDividendRate > 0
+                  ? formatCompactMoney(plannedDividendTotal)
+                  : "-"
+              }
+            />
+            <SummaryCard
+              label="예상 좌당 배당"
+              value={
+                plannedDividendPerShare > 0
+                  ? formatPrice(plannedDividendPerShare)
+                  : "-"
+              }
+            />
+          </div>
+          <div className="mt-3 rounded-xl bg-[var(--background)] p-3 text-[11px] leading-relaxed text-[var(--muted)]">
+            <p>
+              <b className="text-[var(--foreground)]">자동 반복되지 않습니다.</b>{" "}
+              아래 버튼을 누를 때마다 배당 1건만 예약됩니다.
+            </p>
+            <p className="mt-1">
+              예약이 끝나면 설정값도 자동으로 0%로 돌아가므로, 한 번만 배당할
+              계획이라면 별도로 0%를 다시 입력할 필요가 없습니다.
+            </p>
+            <p className="mt-1">
+              예약된 재원은 다음 배당일부터 해당 회사 주주들에게 보유 좌수
+              비례로 지급됩니다. 창업주도 주식을 보유하고 있으면 같은 기준으로
+              배당을 받습니다.
+            </p>
+          </div>
+          {plannedDividendRate > 0 && cash < plannedDividendTotal && (
+            <p className="mt-2 rounded-xl bg-rose-400/10 p-3 text-xs font-bold text-rose-300">
+              내 계좌 현금이 {formatCompactMoney(plannedDividendTotal - cash)}
+              만큼 부족합니다. 총자산에 주식이 많아도 실제 차감은 현금으로만
+              가능합니다.
+            </p>
+          )}
           {playerCompany.status === "listed" ? (
             <button
               type="button"
-              disabled={declaring || !(playerCompany.dividendRate ?? 0)}
+              disabled={
+                declaring ||
+                plannedDividendRate <= 0 ||
+                cash < plannedDividendTotal
+              }
               onClick={() => {
+                if (
+                  !window.confirm(
+                    `내 계좌 현금 ${formatPrice(plannedDividendTotal)}를 이번 1회 배당 재원으로 사용하시겠습니까?\n\n예약 후 다음 배당은 자동 실행되지 않습니다.`,
+                  )
+                ) {
+                  return;
+                }
                 setDeclaring(true);
                 void declareDividend().finally(() => setDeclaring(false));
               }}
               className="mt-2 w-full rounded-xl bg-amber-500/90 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-40"
             >
-              {declaring ? "배당 선언 중…" : "배당 집행 (순자산 선 소각)"}
+              {declaring
+                ? "1회 배당 예약 중…"
+                : plannedDividendRate > 0
+                  ? `${formatCompactMoney(plannedDividendTotal)}로 1회 배당 예약`
+                  : "먼저 이번 배당 비율을 입력해 주세요"}
             </button>
           ) : (
             <p className="mt-2 text-[11px] text-[var(--muted)]">
-              배당 집행은 상장 완료 후 가능합니다.
+              1회 배당 예약은 상장 완료 후 가능합니다.
             </p>
           )}
         </div>
       </section>
+
+      {listedStockId && (
+        <PlayerCompanyBoardPanel
+          stockId={listedStockId}
+          currentSession={currentSession}
+        />
+      )}
+      <PlayerCompanyGovernancePanel
+        founderStockId={listedStockId || undefined}
+        currentSession={currentSession}
+      />
 
       {playerCompany.status === "listed" && (
         <section className="mb-5 rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">

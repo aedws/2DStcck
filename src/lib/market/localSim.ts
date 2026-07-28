@@ -35,7 +35,10 @@ import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
 import { getScheduledWarEventsForSession } from "@/lib/market/scheduledWar";
 import { getCorporateActionEventForSession } from "@/lib/market/corporateActions";
-import { applyDuePlayerCompanyMarketActions } from "@/lib/market/playerCompanyMarketActions";
+import {
+  applyDuePlayerCompanyMarketActions,
+  getPlayerCompanyDecisionEventsForSession,
+} from "@/lib/market/playerCompanyMarketActions";
 import { effectiveQuarterlyDividend } from "@/lib/market/shareholderPolicy";
 import type {
   Candle,
@@ -278,6 +281,13 @@ export function replayMarket(
       s.currentPrice = next;
       Object.assign(s, applyDuePlayerCompanyMarketActions(s, tick));
     }
+    for (const decisionEvent of getPlayerCompanyDecisionEventsForSession(
+      prevSession,
+    )) {
+      if (!events.some((event) => event.id === decisionEvent.id)) {
+        events = [...events, decisionEvent].slice(-50);
+      }
+    }
 
     // 2차: NAV ETF. 이 결과를 기초로 하는 레버리지 상품보다 먼저 갱신한다.
     for (const s of navEtfs) {
@@ -359,6 +369,13 @@ export function replayMarket(
         for (const earningsEvent of getEarningsEventsForSession(s)) {
           if (!events.some((event) => event.id === earningsEvent.id)) {
             events = [...events, earningsEvent].slice(-50);
+          }
+        }
+        for (const decisionEvent of getPlayerCompanyDecisionEventsForSession(
+          s,
+        )) {
+          if (!events.some((event) => event.id === decisionEvent.id)) {
+            events = [...events, decisionEvent].slice(-50);
           }
         }
         for (const crisisEvent of getCrisisEventsForSession(s)) {

@@ -4,9 +4,14 @@ import {
   SIM_TICK_MS,
 } from "@/lib/market/constants";
 import { generateOrderBook } from "@/lib/market/orderBook";
-import type { Candle, StockState } from "@/lib/types/market";
+import type { Candle, MarketEvent, StockState } from "@/lib/types/market";
 
-export type PlayerCompanyMarketActionType = "issue" | "buyback" | "retire";
+export type PlayerCompanyMarketActionType =
+  | "issue"
+  | "buyback"
+  | "retire"
+  | "board"
+  | "governance";
 
 export interface PlayerCompanyMarketAction {
   id: string;
@@ -23,6 +28,11 @@ export interface PlayerCompanyMarketAction {
   priceCents: number;
   effectiveTick: number;
   createdAt: string;
+  decisionType?: string;
+  headline?: string;
+  description?: string;
+  reputationDelta?: number;
+  earningsGrowthDelta?: number;
 }
 
 const MIN_ACTION_FACTOR = 0.85;
@@ -36,7 +46,9 @@ function validAction(action: PlayerCompanyMarketAction): boolean {
     Number.isSafeInteger(action.sequence) &&
     action.sequence > 0 &&
     Boolean(action.stockId) &&
-    ["issue", "buyback", "retire"].includes(action.actionType) &&
+    ["issue", "buyback", "retire", "board", "governance"].includes(
+      action.actionType,
+    ) &&
     Number.isFinite(action.priceFactor) &&
     action.priceFactor >= MIN_ACTION_FACTOR &&
     action.priceFactor <= MAX_ACTION_FACTOR &&
@@ -64,7 +76,10 @@ export function getPlayerCompanyMarketActions(): PlayerCompanyMarketAction[] {
 
 /** 서버 RPC와 같은 자본행동별 주가 계수. 한 번의 영향은 ±15%로 제한한다. */
 export function playerCompanyMarketActionFactor(
-  actionType: PlayerCompanyMarketActionType,
+  actionType: Extract<
+    PlayerCompanyMarketActionType,
+    "issue" | "buyback" | "retire"
+  >,
   shares: number,
   totalSharesBefore: number,
 ): number {
@@ -80,6 +95,44 @@ export function playerCompanyMarketActionFactor(
   }
   if (count >= total) return MAX_ACTION_FACTOR;
   return Math.min(MAX_ACTION_FACTOR, total / (total - count));
+}
+
+/** 이사회·주주총회 결과를 공통 뉴스 이벤트로 노출한다. */
+export function getPlayerCompanyDecisionEventsForSession(
+  session: number,
+): MarketEvent[] {
+  const sessionStartTick = Math.max(
+    0,
+    Math.floor(
+      (session * SESSION_DURATION_MS - MARKET_EPOCH_MS) / SIM_TICK_MS,
+    ),
+  );
+  const sessionEndTick =
+    sessionStartTick + SESSION_DURATION_MS / SIM_TICK_MS;
+  return marketActions
+    .filter(
+      (action) =>
+        (action.actionType === "board" ||
+          action.actionType === "governance") &&
+        action.effectiveTick >= sessionStartTick &&
+        action.effectiveTick < sessionEndTick,
+    )
+    .map((action) => ({
+      id: `player-company-decision-${action.id}`,
+      title:
+        action.headline ??
+        `${action.ticker} ${
+          action.actionType === "board" ? "분기 경영 결과" : "주주총회 결과"
+        }`,
+      description:
+        action.description ??
+        "플레이어 회사의 공통 경영 결과가 실적과 시장가에 반영됐습니다.",
+      affectedStockIds: [action.stockId],
+      impact: action.priceFactor - 1,
+      timestamp: MARKET_EPOCH_MS + action.effectiveTick * SIM_TICK_MS,
+      category: "company",
+      tag: action.actionType === "board" ? "분기 실적" : "주주총회",
+    }));
 }
 
 function scaleCandleAfterAction(

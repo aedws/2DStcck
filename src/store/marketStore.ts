@@ -447,7 +447,10 @@ import {
 
 async function registerListedPlayerCompanyMarketAction(
   company: PlayerCompanyState,
-  actionType: PlayerCompanyMarketActionType,
+  actionType: Extract<
+    PlayerCompanyMarketActionType,
+    "issue" | "buyback" | "retire"
+  >,
   shares: number,
   priceCents: number,
 ): Promise<
@@ -731,9 +734,9 @@ interface MarketStore extends MarketSnapshot {
   buybackPlayerCompanyShares: (shares: number) => Promise<OrderResult>;
   /** 공모주 소각(유통 좌수·장부자본 감소, 순자산 중립). */
   retirePlayerCompanyShares: (shares: number) => Promise<OrderResult>;
-  /** 회차(20거래일)당 배당률(0~0.5) 지정. */
+  /** 다음 1회 배당에 사용할 계좌 총자산 대비 예산 비율(0~0.5). */
   setPlayerCompanyDividendRate: (rate: number) => OrderResult;
-  /** 배당 집행 — 순자산×배당률을 선 소각하고 배당 원장에 선언한다(상장 후). */
+  /** 1회 배당 예약 — 계좌 총자산×예산 비율을 개인 현금에서 차감해 원장에 선언한다. */
   declarePlayerCompanyDividend: () => Promise<OrderResult>;
   /** 배당 원장에서 지급 개시된 배당을 보유 좌수 비례로 멱등 수령한다. */
   resolvePlayerCompanyDividends: (
@@ -5713,7 +5716,8 @@ export const useMarketStore = create<MarketStore>()(
         if (!(rate > 0)) {
           return { success: false, message: "먼저 배당률을 지정해 주세요." };
         }
-        // 배당률 × 순자산을 선 소각 재원으로 요구한다.
+        // 회사 전용 현금 계정이 없으므로 창업주 개인 계좌 총자산을 기준으로
+        // 1회 배당 예산을 계산하고, 실제 재원은 개인 현금에서 차감한다.
         const required = Math.round(rate * Math.max(0, state.getTotalAssets()));
         if (required <= 0) {
           return { success: false, message: "배당 금액이 0입니다." };
@@ -5721,7 +5725,7 @@ export const useMarketStore = create<MarketStore>()(
         if (state.cash < required) {
           return {
             success: false,
-            message: `배당 선 소각에 ${formatPrice(required)}가 필요합니다.`,
+            message: `이번 1회 배당 재원으로 내 계좌 현금 ${formatPrice(required)}가 필요합니다.`,
           };
         }
         const perShare = Math.floor(
@@ -5758,12 +5762,22 @@ export const useMarketStore = create<MarketStore>()(
           amount: -required,
           timestamp: now,
         };
+        const latest = get();
         set({
-          ...withExactCashDelta(get(), -required),
-          cashPayments: [burnPayment, ...get().cashPayments].slice(0, 200),
+          ...withExactCashDelta(latest, -required),
+          cashPayments: [burnPayment, ...latest.cashPayments].slice(0, 200),
+          // 배당은 자동 반복하지 않는다. 같은 비율로 실수 재집행하지 않도록
+          // 성공 즉시 다음 1회 예산을 0%로 되돌린다.
+          playerCompany: latest.playerCompany
+            ? {
+                ...latest.playerCompany,
+                dividendRate: 0,
+                lastActionAt: now,
+              }
+            : latest.playerCompany,
         });
         void get().saveCloud();
-        const message = `배당 선언 · ${formatPrice(required)} 선 소각, 좌당 ${formatPrice(perShare)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다.`;
+        const message = `1회 배당 예약 · 내 계좌 현금 ${formatPrice(required)} 차감, 좌당 ${formatPrice(perShare)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다. 다음 배당은 자동 실행되지 않습니다.`;
         useToastStore.getState().push(message, "success");
         playSound("cash");
         return { success: true, message };

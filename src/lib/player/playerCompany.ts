@@ -65,8 +65,10 @@ export interface PlayerCompanyState {
    * 회사는 다음 접속에서 좌당 장부가÷공모가 비율로 1회 보정(부족분 지급)한다.
    */
   founderSharesRebasedAt?: number;
-  /** 창업주가 지정한 회차(20거래일)당 배당률(0~0.5). 미설정이면 배당 없음. */
+  /** 창업주가 다음 1회 배당에 지정한 계좌 총자산 대비 예산 비율(0~0.5). */
   dividendRate?: number;
+  /** 이사회·주주총회 결과로 누적되는 회사 명성 보정치(-100~100). */
+  governanceReputation?: number;
 }
 
 export interface FoundPlayerCompanyInput {
@@ -149,7 +151,7 @@ export function playerCompanyBookPricePerShare(
   );
 }
 
-/** 배당률 상한 — 회차(20거래일)당 최대 50%. */
+/** 1회 배당 예산 비율 상한 — 계좌 총자산의 최대 50%. */
 export const PLAYER_COMPANY_MAX_DIVIDEND_RATE = 0.5;
 
 /**
@@ -261,7 +263,7 @@ export function retirePlayerCompanyShares(
   };
 }
 
-/** 배당률 지정 — 회차(20거래일)당 배당률(0~50%)을 설정한다. */
+/** 다음 1회 배당 예산 비율(계좌 총자산 대비 0~50%)을 설정한다. */
 export function setPlayerCompanyDividendRate(
   company: PlayerCompanyState,
   rate: number,
@@ -273,7 +275,7 @@ export function setPlayerCompanyDividendRate(
   const clamped = Math.min(PLAYER_COMPANY_MAX_DIVIDEND_RATE, rate);
   return {
     success: true,
-    message: `배당률을 ${(clamped * 100).toFixed(1)}%로 설정했습니다.`,
+    message: `다음 1회 배당 예산을 내 계좌 총자산의 ${(clamped * 100).toFixed(1)}%로 설정했습니다.`,
     company: { ...company, dividendRate: clamped, lastActionAt: now },
   };
 }
@@ -292,7 +294,11 @@ export function playerCompanyPrestige(
     burnScore +
     finiteInteger(company.fundedRounds) * 25 +
     finiteInteger(company.dilutionRounds) * 10 -
-    finiteInteger(company.refusedRounds) * 15;
+    finiteInteger(company.refusedRounds) * 15 +
+    Math.max(
+      -100,
+      Math.min(100, Number(company.governanceReputation) || 0),
+    );
   return Math.max(
     0,
     Math.min(PLAYER_COMPANY_MAX_PRESTIGE, Math.round(score)),
@@ -808,6 +814,14 @@ export function normalizePlayerCompany(
           dividendRate: Math.min(
             PLAYER_COMPANY_MAX_DIVIDEND_RATE,
             Number(source.dividendRate),
+          ),
+        }
+      : {}),
+    ...(Number.isFinite(Number(source.governanceReputation))
+      ? {
+          governanceReputation: Math.max(
+            -100,
+            Math.min(100, Number(source.governanceReputation)),
           ),
         }
       : {}),

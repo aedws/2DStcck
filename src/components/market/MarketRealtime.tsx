@@ -10,6 +10,7 @@ import type { StoredIpoListing } from "@/lib/market/dynamicListings";
 import {
   listPlayerCompanyMarketActions,
 } from "@/lib/supabase/playerCompanyMarketActions";
+import { resolveDuePlayerCompanyGovernance } from "@/lib/supabase/playerCompanyGovernance";
 import type { PlayerCompanyMarketAction } from "@/lib/market/playerCompanyMarketActions";
 
 const WORKER_CATCHUP_THRESHOLD = 250;
@@ -82,6 +83,7 @@ export function MarketRealtime() {
     };
 
     const refreshPlayerCompanyActions = async () => {
+      await resolveDuePlayerCompanyGovernance();
       const actions = await listPlayerCompanyMarketActions();
       playerCompanyActions = actions;
       useMarketStore

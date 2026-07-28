@@ -56,6 +56,7 @@ import {
 } from "@/lib/player/amcPortfolio";
 import { listedFundToAmcState } from "@/lib/supabase/amcListedFunds";
 import { calculateAccountInvestmentPerformance } from "@/lib/market/investmentSeasons";
+import { InvestorCalendarCountdown } from "@/components/home/InvestorCalendarCountdown";
 
 type HoldingSortKey =
   | "stock"
@@ -368,6 +369,11 @@ export default function PortfolioPage() {
   return (
     <>
       <h1 className="mb-6 text-2xl font-bold">포트폴리오</h1>
+
+      <InvestorCalendarCountdown
+        currentSession={currentSession}
+        expanded
+      />
 
       {recentMarginCall && (
         <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">

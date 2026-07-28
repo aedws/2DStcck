@@ -4,7 +4,8 @@ import { MARKET_EPOCH_MS, SESSION_DURATION_MS } from "@/lib/market/constants";
 import { seededRand } from "@/lib/market/engine";
 import type { MarketEvent, StockDefinition } from "@/lib/types/market";
 
-export const EARNINGS_INTERVAL_SESSIONS = 20;
+/** 24거래일(실시간 24시간)을 한 분기로 사용하는 공통 실적 주기. */
+export const EARNINGS_INTERVAL_SESSIONS = 24;
 const EPOCH_SESSION = Math.floor(MARKET_EPOCH_MS / SESSION_DURATION_MS);
 
 export type EarningsResult = "beat" | "inline" | "miss";

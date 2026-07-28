@@ -22,6 +22,7 @@ export const MODAL_PRIORITY = {
   onboarding: 10,
   serviceNotice: 20,
   bugResponse: 30,
+  returnInvestmentReport: 35,
   seasonCeremony: 40,
   firstTrade: 50,
   learningJourney: 60,
