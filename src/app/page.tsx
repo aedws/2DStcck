@@ -55,21 +55,23 @@ export default function MarketPage() {
       )}
       <ReturnInvestmentReport />
       <MarketOverview stocks={marketStocks} events={events} />
-      {/* 국면·출석·IPO 안내를 한 밴드로 묶어 상단 정보 과밀을 줄인다. 각 배너는
-          해당 없을 때 스스로 사라지므로 밴드는 필요한 것만 촘촘히 보여준다. */}
+      {/* 국면과 출석을 먼저 보여주고, 작전 브리핑을 출석판 바로 아래에 둔다. */}
       <div className="space-y-2 px-4 pt-3 md:px-5">
         <MarketEraBanner />
         <AttendanceBanner />
+      </div>
+      {/* 새내기(거래 3건 미만)에겐 시즌·연속사건·라이벌까지 담긴 작전 브리핑이
+          과부하다. 학습 여정 카드가 '첫 매수' 한 가지에 집중하도록 잠시 감춘다.
+          마운트 전엔 렌더하지 않아 새내기 화면에 깜빡임이 남지 않게 한다. */}
+      {mounted && trades.length >= 3 && <OperationBriefing />}
+      {/* IPO와 캘린더는 오늘의 작전 다음 순서에서 필요한 일정만 촘촘히 보여준다. */}
+      <div className="space-y-2 px-4 pt-2 md:px-5">
         <HomeIpoBanner />
         {mounted && (
           <InvestorCalendarCountdown currentSession={currentSession} />
         )}
       </div>
       <LearningJourneyCard />
-      {/* 새내기(거래 3건 미만)에겐 시즌·연속사건·라이벌까지 담긴 작전 브리핑이
-          과부하다. 학습 여정 카드가 '첫 매수' 한 가지에 집중하도록 잠시 감춘다.
-          마운트 전엔 렌더하지 않아 새내기 화면에 깜빡임이 남지 않게 한다. */}
-      {mounted && trades.length >= 3 && <OperationBriefing />}
       <PumpBanner pumps={pumpStocks} />
       {/* 운영용 문의·버그·건의는 항상 펼쳐두면 홈이 과밀해지므로 하단 접기로
           내려 필요할 때만 펼치게 한다. 개발자 상태 배너도 이 안에서 확인한다. */}
