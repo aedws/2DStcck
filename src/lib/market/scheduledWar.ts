@@ -188,6 +188,75 @@ const FACTION_NAME: Record<WarFaction, string> = {
   trinity: "트리니티",
 };
 
+export function scheduledWarFactionName(faction: WarFaction): string {
+  return FACTION_NAME[faction];
+}
+
+export type ScheduledWarRegionController = WarFaction | "contested";
+
+export interface ScheduledWarRegionDefinition {
+  id: string;
+  name: string;
+  icon: string;
+  strategicWeight: number;
+}
+
+export interface ScheduledWarRegionState extends ScheduledWarRegionDefinition {
+  controller: ScheduledWarRegionController;
+}
+
+interface ScheduledWarRegionSeed extends ScheduledWarRegionDefinition {
+  pressurePair: string;
+  mirrored: boolean;
+}
+
+/**
+ * 대전쟁 전역 18개 지역.
+ * 같은 pressurePair의 두 지역은 동일 가중치와 대칭 압력을 가져 개전 첫날 50:50을 보장한다.
+ */
+const SCHEDULED_WAR_REGION_SEEDS: readonly ScheduledWarRegionSeed[] = [
+  { id: "central-exchange", name: "중앙거래소", icon: "🏦", strategicWeight: 3, pressurePair: "core", mirrored: false },
+  { id: "industrial-belt", name: "북부공단", icon: "🏭", strategicWeight: 3, pressurePair: "core", mirrored: true },
+  { id: "rail-hub", name: "철도허브", icon: "🚉", strategicWeight: 3, pressurePair: "artery", mirrored: false },
+  { id: "academy-district", name: "학원지구", icon: "🏫", strategicWeight: 3, pressurePair: "artery", mirrored: true },
+  { id: "southern-port", name: "남부항만", icon: "⚓", strategicWeight: 2, pressurePair: "logistics", mirrored: false },
+  { id: "outer-airfield", name: "외곽비행장", icon: "🛩️", strategicWeight: 2, pressurePair: "logistics", mirrored: true },
+  { id: "energy-grid", name: "에너지지구", icon: "⚡", strategicWeight: 2, pressurePair: "utility", mirrored: false },
+  { id: "waterworks", name: "수원시설", icon: "💧", strategicWeight: 2, pressurePair: "utility", mirrored: true },
+  { id: "communications", name: "통신관제소", icon: "📡", strategicWeight: 2, pressurePair: "signals", mirrored: false },
+  { id: "broadcast-center", name: "방송송신소", icon: "📻", strategicWeight: 2, pressurePair: "signals", mirrored: true },
+  { id: "relief-hospital", name: "구호병원", icon: "🏥", strategicWeight: 2, pressurePair: "civil", mirrored: false },
+  { id: "commerce-quarter", name: "상업중심가", icon: "🏬", strategicWeight: 2, pressurePair: "civil", mirrored: true },
+  { id: "western-supply", name: "서부보급로", icon: "🚚", strategicWeight: 1, pressurePair: "supply", mirrored: false },
+  { id: "warehouse-zone", name: "창고지대", icon: "📦", strategicWeight: 1, pressurePair: "supply", mirrored: true },
+  { id: "grand-bridge", name: "대교검문소", icon: "🌉", strategicWeight: 1, pressurePair: "frontier", mirrored: false },
+  { id: "mountain-fort", name: "산악요새", icon: "⛰️", strategicWeight: 1, pressurePair: "frontier", mirrored: true },
+  { id: "underground-route", name: "지하물류망", icon: "🚇", strategicWeight: 1, pressurePair: "covert", mirrored: false },
+  { id: "outer-gate", name: "외곽관문", icon: "🚧", strategicWeight: 1, pressurePair: "covert", mirrored: true },
+];
+
+const SCHEDULED_WAR_PRESSURE_PAIRS = [
+  ...new Set(SCHEDULED_WAR_REGION_SEEDS.map((region) => region.pressurePair)),
+].sort(
+  (left, right) =>
+    deterministicUnit(`gt-war-region-order:${WAR_START_SESSION}:${left}`) -
+    deterministicUnit(`gt-war-region-order:${WAR_START_SESSION}:${right}`),
+);
+
+function scheduledWarRegionPairPressure(pair: string): number {
+  const index = SCHEDULED_WAR_PRESSURE_PAIRS.indexOf(pair);
+  const lastIndex = Math.max(1, SCHEDULED_WAR_PRESSURE_PAIRS.length - 1);
+  return 0.06 + (index / lastIndex) * 0.38;
+}
+
+export const SCHEDULED_WAR_REGIONS: readonly ScheduledWarRegionDefinition[] =
+  SCHEDULED_WAR_REGION_SEEDS.map((region) => ({
+    id: region.id,
+    name: region.name,
+    icon: region.icon,
+    strategicWeight: region.strategicWeight,
+  }));
+
 export interface ActiveScheduledWar {
   phase: ScheduledWarPhase;
   phaseIndex: number;
@@ -196,6 +265,174 @@ export interface ActiveScheduledWar {
   sessionsLeft: number;
   winner: WarFaction;
   loser: WarFaction;
+}
+
+export interface ScheduledWarFrontline {
+  gehennaControl: number;
+  trinityControl: number;
+  leader: WarFaction | null;
+  regions: ScheduledWarRegionState[];
+  gehennaRegions: number;
+  trinityRegions: number;
+  contestedRegions: number;
+  headline: string;
+  situation: string;
+}
+
+function winnerControlForPhase(active: ActiveScheduledWar): number {
+  const progress =
+    active.phase.duration <= 1
+      ? 1
+      : active.phaseSession / (active.phase.duration - 1);
+  switch (active.phase.id) {
+    case "outbreak":
+      return 50 + progress * 5;
+    case "fullwar":
+      return 56 + progress * 8;
+    case "stalemate":
+      return [63, 60, 65][active.phaseSession] ?? 63;
+    case "armistice":
+      return 70 + progress * 10;
+    case "rebuild":
+      return 78 - progress * 3;
+    default:
+      return 50;
+  }
+}
+
+function contestedBandForPhase(active: ActiveScheduledWar): number {
+  switch (active.phase.id) {
+    case "outbreak":
+      return 0.14;
+    case "fullwar":
+      return 0.1;
+    case "stalemate":
+      return 0.16;
+    case "armistice":
+      return 0.06;
+    case "rebuild":
+      return 0.04;
+    default:
+      return 0.1;
+  }
+}
+
+function getScheduledWarRegions(
+  active: ActiveScheduledWar,
+): ScheduledWarRegionState[] {
+  const target = winnerControlForPhase(active) / 100;
+  const halfBand = contestedBandForPhase(active) / 2;
+  return SCHEDULED_WAR_REGION_SEEDS.map((seed) => {
+    const pairPressure = scheduledWarRegionPairPressure(seed.pressurePair);
+    const pressure = seed.mirrored ? 1 - pairPressure : pairPressure;
+    const controller: ScheduledWarRegionController =
+      pressure < target - halfBand
+        ? active.winner
+        : pressure > target + halfBand
+          ? active.loser
+          : "contested";
+    return {
+      id: seed.id,
+      name: seed.name,
+      icon: seed.icon,
+      strategicWeight: seed.strategicWeight,
+      controller,
+    };
+  });
+}
+
+/** 홈 전쟁 현황판에 표시할 결정론적 지역 점령·상황·속보. */
+export function getScheduledWarFrontline(
+  active: ActiveScheduledWar,
+): ScheduledWarFrontline {
+  const regions = getScheduledWarRegions(active);
+  const totalWeight = regions.reduce(
+    (sum, region) => sum + region.strategicWeight,
+    0,
+  );
+  const gehennaWeight = regions.reduce(
+    (sum, region) =>
+      sum +
+      (region.controller === "gehenna"
+        ? region.strategicWeight
+        : region.controller === "contested"
+          ? region.strategicWeight / 2
+          : 0),
+    0,
+  );
+  const gehennaControl = (gehennaWeight / totalWeight) * 100;
+  const trinityControl = 100 - gehennaControl;
+  const leader: WarFaction | null =
+    Math.abs(gehennaControl - trinityControl) < 0.5
+      ? null
+      : gehennaControl > trinityControl
+        ? "gehenna"
+        : "trinity";
+  const gehennaRegions = regions.filter(
+    (region) => region.controller === "gehenna",
+  ).length;
+  const trinityRegions = regions.filter(
+    (region) => region.controller === "trinity",
+  ).length;
+  const contestedRegions = regions.length - gehennaRegions - trinityRegions;
+  const winnerName = FACTION_NAME[active.winner];
+  const loserName = FACTION_NAME[active.loser];
+  const winnerRegions =
+    active.winner === "gehenna" ? gehennaRegions : trinityRegions;
+  const loserRegions =
+    active.loser === "gehenna" ? gehennaRegions : trinityRegions;
+  const focusRegion =
+    regions.find((region) => region.controller === "contested") ??
+    regions.find((region) => region.controller === active.winner) ??
+    regions[0];
+  const shared = {
+    gehennaControl,
+    trinityControl,
+    leader,
+    regions,
+    gehennaRegions,
+    trinityRegions,
+    contestedRegions,
+  };
+
+  switch (active.phase.id) {
+    case "outbreak":
+      return {
+        ...shared,
+        headline: `양측 총동원령… ${focusRegion.name} 등 전역에서 동시 교전`,
+        situation: `게헨나 ${gehennaRegions}곳, 트리니티 ${trinityRegions}곳을 확보했고 ${contestedRegions}곳에서 교전 중입니다. 전역 세션에 따라 모든 플레이어에게 같은 점령 상황이 표시됩니다.`,
+      };
+    case "fullwar":
+      return {
+        ...shared,
+        headline: `${winnerName}, ${focusRegion.name} 공방전에서 주도권 확보`,
+        situation: `${winnerName}가 ${winnerRegions}개 지역을 점령해 ${loserName}의 ${loserRegions}개 지역을 압박하고 있습니다. ${contestedRegions}개 교전 지역을 중심으로 방산·식품·의료 수요가 늘어납니다.`,
+      };
+    case "stalemate":
+      return {
+        ...shared,
+        headline: `${focusRegion.name} 교전 지속… 휴전 협상과 국지전 교차`,
+        situation: `${winnerName} ${winnerRegions}곳, ${loserName} ${loserRegions}곳 점령 상태에서 ${contestedRegions}곳의 소유권이 흔들리고 있습니다. 전선 변동성이 최고조입니다.`,
+      };
+    case "armistice":
+      return {
+        ...shared,
+        headline: `${winnerName} 승리… ${loserName} 점령지에서 단계적 철수`,
+        situation: `정전 협정이 체결됐습니다. ${winnerName}는 ${winnerRegions}개 지역을 확보했고 ${loserName}는 ${loserRegions}개 지역으로 후퇴했습니다. 방산 프리미엄이 빠지고 민간 산업이 재평가됩니다.`,
+      };
+    case "rebuild":
+      return {
+        ...shared,
+        headline: "전후 복구 착수… 교통·생산시설 단계적 정상화",
+        situation: `${winnerName}가 확보한 ${winnerRegions}개 지역을 중심으로 전후 질서가 자리 잡고 있습니다. ${contestedRegions}개 지역의 행정권을 정리하며 재건 산업으로 자금이 이동합니다.`,
+      };
+    default:
+      return {
+        ...shared,
+        headline: "게-트 대전쟁 전황 갱신",
+        situation: active.phase.description,
+      };
+  }
 }
 
 /** 해당 세션의 진행 중 전쟁 국면(없으면 null). */

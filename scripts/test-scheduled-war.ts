@@ -11,7 +11,9 @@ import {
   WAR_LOSER,
   SCHEDULED_WAR_DURATION_SESSIONS,
   SCHEDULED_WAR_PHASES,
+  SCHEDULED_WAR_REGIONS,
   getActiveScheduledWar,
+  getScheduledWarFrontline,
   scheduledWarReturnForStock,
   getScheduledWarEventsForSession,
 } from "../src/lib/market/scheduledWar";
@@ -33,6 +35,80 @@ assert.equal(
 assert.ok(
   WAR_WINNER !== WAR_LOSER && ["gehenna", "trinity"].includes(WAR_WINNER),
   "승/패 진영이 결정론적으로 갈린다",
+);
+assert.equal(SCHEDULED_WAR_REGIONS.length, 18, "대전쟁 전역은 18개 지역");
+assert.equal(
+  new Set(SCHEDULED_WAR_REGIONS.map((region) => region.id)).size,
+  SCHEDULED_WAR_REGIONS.length,
+  "지역 ID는 중복되지 않는다",
+);
+
+// ── 홈 전황판: 점유율은 항상 100%, 전 계정에서 세션별로 동일 ──
+const regionalSnapshots = new Set<string>();
+for (
+  let session = WAR_START_SESSION;
+  session < WAR_START_SESSION + SCHEDULED_WAR_DURATION_SESSIONS;
+  session++
+) {
+  const active = getActiveScheduledWar(session)!;
+  const frontline = getScheduledWarFrontline(active);
+  assert.equal(
+    Math.round((frontline.gehennaControl + frontline.trinityControl) * 1_000),
+    100_000,
+    "진영 점유율 합계는 100%",
+  );
+  assert.ok(
+    frontline.gehennaControl >= 20 && frontline.gehennaControl <= 80,
+    "게헨나 점유율 표시 범위",
+  );
+  assert.equal(
+    frontline.regions.length,
+    SCHEDULED_WAR_REGIONS.length,
+    "모든 전쟁 지역 표시",
+  );
+  assert.equal(
+    frontline.gehennaRegions +
+      frontline.trinityRegions +
+      frontline.contestedRegions,
+    SCHEDULED_WAR_REGIONS.length,
+    "지역 상태 합계",
+  );
+  assert.deepEqual(
+    getScheduledWarFrontline(active).regions,
+    frontline.regions,
+    "같은 전역 세션은 모든 호출에서 동일한 점령 상황",
+  );
+  regionalSnapshots.add(
+    frontline.regions.map((region) => region.controller).join(","),
+  );
+  assert.ok(frontline.headline.length > 0 && frontline.situation.length > 0);
+}
+assert.ok(regionalSnapshots.size >= 4, "전쟁 진행에 따라 지역 점령 상황이 변화");
+assert.equal(
+  getScheduledWarFrontline(getActiveScheduledWar(WAR_START_SESSION)!).leader,
+  null,
+  "개전 첫 거래일은 백중세",
+);
+assert.equal(
+  getScheduledWarFrontline(
+    getActiveScheduledWar(WAR_START_SESSION + 3)!,
+  ).leader,
+  WAR_WINNER,
+  "전면전부터 결정론적 우세 진영 표시",
+);
+const finalFrontline = getScheduledWarFrontline(
+  getActiveScheduledWar(
+    WAR_START_SESSION + SCHEDULED_WAR_DURATION_SESSIONS - 1,
+  )!,
+);
+assert.ok(
+  (WAR_WINNER === "gehenna"
+    ? finalFrontline.gehennaRegions
+    : finalFrontline.trinityRegions) >
+    (WAR_LOSER === "gehenna"
+      ? finalFrontline.gehennaRegions
+      : finalFrontline.trinityRegions),
+  "종전 뒤 승리 진영이 더 많은 지역을 점령",
 );
 
 const stock = (over: Partial<StockDefinition>): StockDefinition =>
