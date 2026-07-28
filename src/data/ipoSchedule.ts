@@ -74,4 +74,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   ames: Date.UTC(2026, 6, 30, 6, 0),
   // 밀리테크 인터내셔널 아머먼츠(MILITC) — 2026-07-31 18:00 KST 개장 (= 09:00 UTC)
   militc: Date.UTC(2026, 6, 31, 9, 0),
+  // 이스마엘 해운(ISML) — 2026-08-01 15:00 KST 개장 (= 06:00 UTC)
+  ishmael: Date.UTC(2026, 7, 1, 6, 0),
 };

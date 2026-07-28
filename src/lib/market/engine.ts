@@ -61,6 +61,7 @@ import {
   getActiveScheduledWar,
   scheduledWarReturnForStock,
 } from "@/lib/market/scheduledWar";
+import { belowInitialPriceBuybackReturn } from "@/lib/market/shareholderPolicy";
 import { getMarketEra } from "@/lib/market/marketEras";
 import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
 import { strategyFilterLabel } from "@/lib/market/taxonomy";
@@ -301,6 +302,7 @@ export function calculateTickPrice(
     now,
     dtSeconds,
   );
+  const buybackSupport = belowInitialPriceBuybackReturn(stock, dtSeconds);
 
   const changeRate =
     stock.drift * DRIFT_TIME_SCALE * dtSeconds +
@@ -311,6 +313,7 @@ export function calculateTickPrice(
     crisisReturn +
     warReturn +
     secularGrowthSupport +
+    buybackSupport +
     trend +
     shock +
     eventImpact *

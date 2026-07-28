@@ -600,6 +600,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "신곡 공개합니다. 이번엔 발매가 안 늦었죠?",
     ],
   },
+  {
+    characterId: "chr_ishmael",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "파도와 바람은 계산할 수 있어요. 가장 빠르고 안전한 항로로 갑니다.",
+      "같은 연료라면 더 멀리, 더 빠르게. 그게 항해사의 실력입니다.",
+    ],
+  },
+  {
+    characterId: "chr_ishmael",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "항로가 막혔다면 다시 그리면 됩니다. 당황할 시간은 없어요.",
+      "일정은 늦어져도 배와 사람은 지켜야 합니다. 우회로를 찾겠습니다.",
+    ],
+  },
+  {
+    characterId: "chr_ishmael",
+    tag: "유가 방어",
+    direction: "positive",
+    quotes: [
+      "연료값이 올라도 항로는 남아 있어요. 낭비되는 한 해리부터 줄이죠.",
+    ],
+  },
+  {
+    characterId: "chr_ishmael",
+    tag: "항만 차질",
+    direction: "negative",
+    quotes: [
+      "정박할 곳이 없다면 다음 항구로 갑니다. 화물과 승객부터 지키죠.",
+    ],
+  },
 ];
 
 /**

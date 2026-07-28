@@ -29,6 +29,8 @@ export interface StoredIpoListing {
   beta: number;
   /** 분기 주당 배당금(센트). */
   quarterlyDividend?: number;
+  suspendDividendBelowInitialPrice?: boolean;
+  belowInitialPriceBuybackSupportPerSession?: number;
   description?: string;
   logo?: string;
   /** 상장 시각(ms, UTC). */
@@ -65,6 +67,17 @@ export function normalizeStoredIpoListing(
     drift: clamp(Number(input.drift), -0.005, 0.005, 0.0006),
     beta: clamp(Number(input.beta), 0, 3, 1),
     quarterlyDividend: Math.max(0, Math.round(Number(input.quarterlyDividend) || 0)) || undefined,
+    suspendDividendBelowInitialPrice:
+      input.suspendDividendBelowInitialPrice === true || undefined,
+    belowInitialPriceBuybackSupportPerSession:
+      input.suspendDividendBelowInitialPrice === true
+        ? clamp(
+            Number(input.belowInitialPriceBuybackSupportPerSession),
+            0,
+            0.2,
+            0.04,
+          )
+        : undefined,
     description: input.description?.trim().slice(0, 400) || undefined,
     logo: input.logo?.trim().slice(0, 300) || undefined,
     listingEpochMs,
@@ -85,6 +98,10 @@ export function ipoListingToDefinition(listing: StoredIpoListing): StockDefiniti
     drift: listing.drift,
     beta: listing.beta,
     quarterlyDividend: listing.quarterlyDividend,
+    suspendDividendBelowInitialPrice:
+      listing.suspendDividendBelowInitialPrice,
+    belowInitialPriceBuybackSupportPerSession:
+      listing.belowInitialPriceBuybackSupportPerSession,
     description: listing.description,
     logo: listing.logo,
     listingEpochMs: listing.listingEpochMs,

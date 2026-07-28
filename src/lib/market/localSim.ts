@@ -36,6 +36,7 @@ import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
 import { getScheduledWarEventsForSession } from "@/lib/market/scheduledWar";
 import { getCorporateActionEventForSession } from "@/lib/market/corporateActions";
 import { applyDuePlayerCompanyMarketActions } from "@/lib/market/playerCompanyMarketActions";
+import { effectiveQuarterlyDividend } from "@/lib/market/shareholderPolicy";
 import type {
   Candle,
   MarketEvent,
@@ -392,8 +393,8 @@ export function replayMarket(
               ccInterval,
             );
           }
-          if (divDue && (stock.quarterlyDividend ?? 0) > 0) {
-            amount += Math.round(stock.quarterlyDividend ?? 0);
+          if (divDue) {
+            amount += effectiveQuarterlyDividend(stock);
           }
           if (amount <= 0) continue;
 

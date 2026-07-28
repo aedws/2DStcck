@@ -924,6 +924,32 @@ const CORE_DEFINITIONS: StockDefinition[] = [
       스캔들: 2,
     },
   },
+  {
+    id: "ishmael",
+    ticker: "ISML",
+    name: "이스마엘 해운",
+    instrumentType: "company",
+    sector: "산업재",
+    subsector: "종합 해운·물류",
+    marketTags: ["물류", "운송", "에너지"],
+    initialPrice: 72000,
+    volatility: 0.028,
+    drift: 0.00065,
+    beta: 0.82,
+    quarterlyDividend: 480,
+    suspendDividendBelowInitialPrice: true,
+    belowInitialPriceBuybackSupportPerSession: 0.06,
+    description:
+      "이스마엘이 이끄는 종합 해운사. 숙련된 항해술과 인력·AI 항로 최적화로 동종사보다 평균 운송시간을 약 5% 줄여 연료비 상승과 긴급 항로 변경에 강합니다. 안정적인 분기 배당을 지급하되 주가가 공모가 아래로 내려가면 배당을 잠시 멈추고 같은 재원을 자사주 매입·소각에 투입해 장기 주주가치를 방어합니다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "항로 최적화": 4,
+      "유가 방어": 3,
+      수주: 3,
+      실적: 2,
+      "항만 차질": 2,
+    },
+    ceoId: "chr_ishmael",
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -1598,5 +1624,32 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "납품 장비와 사이버웨어의 안전성, 민간 피해 책임을 둘러싼 조사가 시작됐습니다. 계약 중단과 대규모 배상 위험이 함께 부각됩니다.",
     impact: -1.05,
+  },
+  {
+    category: "company",
+    companyId: "ishmael",
+    tag: "항로 최적화",
+    title: "이스마엘 해운, AI·숙련 항해사 통합 항로 5% 단축",
+    description:
+      "기상·조류 데이터와 숙련 항해사의 판단을 결합한 새 운항 체계가 같은 연료로 평균 운송시간을 5% 줄였습니다. 화물 회전율과 여객 정시성이 함께 개선됩니다.",
+    impact: 0.9,
+  },
+  {
+    category: "company",
+    companyId: "ishmael",
+    tag: "유가 방어",
+    title: "유가 급등에도 이스마엘 해운 운임 경쟁력 유지",
+    description:
+      "경쟁 해운사들이 유류할증료를 올리는 동안 최적 항로와 저속·고속 운항 조합으로 원가 상승을 흡수했습니다. 장기 화주 계약이 이스마엘 해운으로 이동합니다.",
+    impact: 0.75,
+  },
+  {
+    category: "company",
+    companyId: "ishmael",
+    tag: "항만 차질",
+    title: "핵심 항만 봉쇄, 이스마엘 해운 선복 회전 지연",
+    description:
+      "예상 밖의 항만 봉쇄와 적체로 대체 항로까지 포화됐습니다. 우회 운항 비용과 여객 일정 취소가 겹치며 단기 실적 우려가 커집니다.",
+    impact: -0.85,
   },
 ];

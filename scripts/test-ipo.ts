@@ -32,6 +32,10 @@ import {
 import { stockHref } from "../src/lib/ui/stockLink";
 import { getCharacterGuideline } from "../src/lib/market/marketGuidelines";
 import {
+  belowInitialPriceBuybackReturn,
+  effectiveQuarterlyDividend,
+} from "../src/lib/market/shareholderPolicy";
+import {
   getMarketEra,
   MARKET_ERA_SESSIONS,
   MARKET_ERA_START_SESSION,
@@ -106,6 +110,7 @@ assert.deepEqual(
     "htcl",
     "ifrit",
     "iori",
+    "ishmael",
     "jbinv",
     "koyuki",
     "lcid",
@@ -435,6 +440,71 @@ const militechInvestigation = EVENT_TEMPLATES.find(
 );
 assert.ok(militechContract && militechContract.impact > 0);
 assert.ok(militechInvestigation && militechInvestigation.impact < 0);
+
+// 8/1 이스마엘 해운: 안정 배당과 공모가 하회 시 배당 중지·자사주 매입 방어
+const ishmaelListing = Date.UTC(2026, 7, 1, 6, 0);
+const ishmael = getCompanyDefinitions().find((item) => item.id === "ishmael");
+assert.ok(ishmael, "이스마엘 해운 종목 정의가 없음");
+assert.equal(ishmael.ticker, "ISML");
+assert.equal(ishmael.sector, "산업재");
+assert.equal(ishmael.ceoId, "chr_ishmael");
+assert.equal(ishmael.listingEpochMs, ishmaelListing);
+assert.equal(isListed(ishmael, ishmaelListing - 1), false);
+assert.equal(isListed(ishmael, ishmaelListing), true);
+assert.ok((ishmael.quarterlyDividend ?? 0) > 0, "안정 배당 설정이 없음");
+assert.equal(ishmael.suspendDividendBelowInitialPrice, true);
+assert.ok(
+  (ishmael.belowInitialPriceBuybackSupportPerSession ?? 0) > 0,
+  "공모가 하회 자사주 매입 방어가 없음",
+);
+
+const ishmaelAtIpo = createInitialStockState(ishmael, ishmaelListing);
+assert.equal(
+  effectiveQuarterlyDividend(ishmaelAtIpo),
+  ishmael.quarterlyDividend,
+  "공모가 이상에서 배당이 중단됨",
+);
+const ishmaelBelowIpo = {
+  ...ishmaelAtIpo,
+  currentPrice: Math.round(ishmael.initialPrice * 0.9),
+};
+assert.equal(
+  effectiveQuarterlyDividend(ishmaelBelowIpo),
+  0,
+  "공모가 아래에서 현금배당이 계속 지급됨",
+);
+assert.ok(
+  belowInitialPriceBuybackReturn(ishmaelBelowIpo, SESSION_DURATION_MS / 1_000) >
+    0,
+  "배당 중지 재원이 자사주 매입 지지로 전환되지 않음",
+);
+assert.equal(
+  belowInitialPriceBuybackReturn(ishmaelAtIpo, SESSION_DURATION_MS / 1_000),
+  0,
+  "공모가 이상에서도 자사주 매입 방어가 상시 작동함",
+);
+for (const suffix of [
+  "inverse",
+  "inverse-2x",
+  "leverage-2x",
+  "covered-call",
+]) {
+  const derivative = STOCK_DEFINITIONS.find(
+    (item) => item.id === `ishmael-${suffix}`,
+  );
+  assert.ok(derivative, `ISML ${suffix} 파생상품 정의가 없음`);
+  assert.equal(derivative.listingEpochMs, ishmaelListing);
+}
+const ishmaelRoute = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ishmael" && template.tag === "항로 최적화",
+);
+const ishmaelPort = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ishmael" && template.tag === "항만 차질",
+);
+assert.ok(ishmaelRoute && ishmaelRoute.impact > 0);
+assert.ok(ishmaelPort && ishmaelPort.impact < 0);
 
 // 7/27 승인 요청: 이오리 소프트웨어(IORI) 15:30 KST 예약 상장과 전 파생상품 잠금 상속
 const ioriListing = Date.UTC(2026, 6, 27, 6, 30);

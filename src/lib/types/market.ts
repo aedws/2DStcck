@@ -111,6 +111,16 @@ export interface StockDefinition {
   coveredCallDistributionIntervalDays?: number;
   /** 일반 주식·ETF의 분기 주당 배당금(센트). 60거래일마다 지급한다. */
   quarterlyDividend?: number;
+  /**
+   * 공모가 아래에서는 현금배당을 멈추고 같은 재원을 자사주 매입에 쓰는 정책.
+   * 배당 정산은 중단되고 가격 엔진의 하방 매입 압력이 활성화된다.
+   */
+  suspendDividendBelowInitialPrice?: boolean;
+  /**
+   * 공모가 하회 시 한 거래일(1시간) 기준 최대 자사주 매입 지지율(0~1).
+   * 공모가와의 괴리가 10%에 가까워질수록 설정값 전체가 적용된다.
+   */
+  belowInitialPriceBuybackSupportPerSession?: number;
   /** 전일 종가 대비 하루 최대 하락률(0~1). 지정 종목의 하방 방어 규칙에 사용한다. */
   maxDailyLossRate?: number;
   /**
