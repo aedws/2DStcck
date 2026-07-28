@@ -43,6 +43,7 @@
     "test:amc-listing": "tsx scripts/test-amc-etf-listing-requests.ts",
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:market-eras": "tsx scripts/test-market-eras.ts",
+    "test:feedback-rewards": "tsx scripts/test-feedback-rewards.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",
     "test:exact-amount": "tsx scripts/test-exact-amount.ts",
     "test:balance": "tsx scripts/test-economic-balance.ts",

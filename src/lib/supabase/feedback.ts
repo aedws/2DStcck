@@ -29,7 +29,7 @@ export const FEEDBACK_REWARD_CENTS = 5_000_000;
  * 특수 요청 카테고리 — 일반 피드백과 같은 `feedback` 테이블을 쓰되,
  * 채택(done) 시 지갑 효과가 다르다.
  * - 캐릭터 대사 요청: 채택 시 +$50,000 보상.
- * - 국면 추가 요청: 승인 시 $100,000 소모(차감).
+ * - 국면 추가 요청: 신청 무료, 반영 완료 시 +$1,000,000 보상.
  */
 export const CHARACTER_DIALOGUE_CATEGORY = "캐릭터 대사 요청";
 export const MARKET_PHASE_CATEGORY = "국면 추가 요청";
@@ -38,8 +38,8 @@ export const DEX_REFLECTION_CATEGORY = "도감 반영 요청";
 /** 이사(신뢰도 위촉)가 낸 전용 뉴스 요청 — 채택 시 도감에 노출, 시세 영향·지갑 효과 없음. */
 export const DIRECTOR_NEWS_CATEGORY = "이사 뉴스 요청";
 
-/** 국면 추가 요청 승인 시 신청자에게서 차감하는 비용(센트) — $100,000. */
-export const MARKET_PHASE_REQUEST_COST_CENTS = 10_000_000;
+/** 국면 추가 요청 반영 완료 보상(센트) — 기존 $100,000 비용의 10배. */
+export const MARKET_PHASE_REWARD_CENTS = 100_000_000;
 
 /** 특수 요청(캐릭터 대사·국면 추가) 카테고리인지. */
 export function isContentRequestCategory(
@@ -196,8 +196,7 @@ export async function listDirectorNews(
 
 /**
  * 처리 결과별 지갑 효과(센트, 부호 있음). 양수 지급·음수 차감·0 무효과.
- * - 국면 추가 요청: 신청 시 선 회수하므로 채택(done)엔 효과 없음(0),
- *   반려(declined) 시 신청 비용을 환불한다(+cost).
+ * - 국면 추가 요청: 채택(done) 시 전용 보상(+reward), 반려는 0.
  * - 캐릭터 대사·일반 피드백: 채택(done) 시 보상 지급(+reward), 반려는 0.
  */
 export function feedbackResponseEffectCents(
@@ -205,7 +204,7 @@ export function feedbackResponseEffectCents(
   status: FeedbackStatus,
 ): number {
   if (category === MARKET_PHASE_CATEGORY) {
-    return status === "declined" ? MARKET_PHASE_REQUEST_COST_CENTS : 0;
+    return status === "done" ? MARKET_PHASE_REWARD_CENTS : 0;
   }
   // 도감 반영·이사 뉴스 요청은 지갑 효과 없이 도감 노출만 한다.
   if (

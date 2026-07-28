@@ -88,9 +88,15 @@ export default function HistoryPage() {
                                               : payment.kind === "corporate_tax"
                                                 ? "법인세"
                                         : payment.kind === "content_request"
-                                          ? payment.amount >= 0
-                                            ? "국면 요청 반려 환불"
-                                            : "국면 추가 요청 비용"
+                                          ? payment.sourceId ===
+                                            "market-phase-policy-refund"
+                                            ? "기존 국면 요청 비용 환급"
+                                            : payment.sourceId ===
+                                                "market-phase-reward"
+                                              ? "국면 추가 채택 보상"
+                                              : payment.amount >= 0
+                                                ? "국면 요청 반려 환불"
+                                                : "국면 추가 요청 비용"
                                         : payment.kind === "dividend_tax"
                                           ? "배당 원천징수세"
                                         : payment.kind === "pump_surveillance_tax"

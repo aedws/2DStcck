@@ -48,6 +48,7 @@ import {
   updateFeedback,
   FEEDBACK_STATUS_LABEL,
   FEEDBACK_REWARD_CENTS,
+  MARKET_PHASE_REWARD_CENTS,
   CHARACTER_DIALOGUE_CATEGORY,
   MARKET_PHASE_CATEGORY,
   DEX_REFLECTION_CATEGORY,
@@ -1375,8 +1376,9 @@ export default function AdminPage() {
                               ✓ 회신 전송됨 · {FEEDBACK_STATUS_LABEL[r.status]}
                             </span>
                           ) : r.category === MARKET_PHASE_CATEGORY ? (
-                            <span className="text-[10px] text-amber-400">
-                              반영 완료=비용 소모 · 반려 시 신청 비용 환불
+                            <span className="text-[10px] text-emerald-400">
+                              반영 완료 시 자동 보상{" "}
+                              {formatPrice(MARKET_PHASE_REWARD_CENTS)}
                             </span>
                           ) : r.category === DEX_REFLECTION_CATEGORY ? (
                             <span className="text-[10px] text-sky-400">
@@ -1413,7 +1415,7 @@ export default function AdminPage() {
                               className="rounded-lg bg-emerald-500/90 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-40"
                             >
                               {r.category === MARKET_PHASE_CATEGORY
-                                ? "✅ 반영 완료(비용 소모)"
+                                ? "✅ 반영 완료 + $1M 보상"
                                 : r.category === DEX_REFLECTION_CATEGORY
                                   ? "✅ 도감 등재"
                                   : "✅ 반영 완료 + 보상·회신"}

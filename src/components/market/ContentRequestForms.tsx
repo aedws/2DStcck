@@ -11,7 +11,7 @@ import {
   CHARACTER_DIALOGUE_CATEGORY,
   DEX_REFLECTION_CATEGORY,
   FEEDBACK_REWARD_CENTS,
-  MARKET_PHASE_REQUEST_COST_CENTS,
+  MARKET_PHASE_REWARD_CENTS,
 } from "@/lib/supabase/feedback";
 import { formatPrice } from "@/lib/market/engine";
 import { getCompanyDefinitions } from "@/data/stocks";
@@ -58,8 +58,8 @@ const TABS: Array<{
     needsCharacter: false,
     intro:
       "새로운 시장 국면(예: 특정 섹터 랠리, 유동성 위기 등)을 제안해 주세요. 국면의 성격과 종목에 미치는 영향을 적어주면 좋아요.",
-    reward: `⚠️ 신청 시 ${formatPrice(MARKET_PHASE_REQUEST_COST_CENTS)} 선 회수 · 반려되면 전액 환불`,
-    rewardTone: "rose",
+    reward: `🎁 반영 완료 시 보상 ${formatPrice(MARKET_PHASE_REWARD_CENTS)} 지급 · 신청 무료`,
+    rewardTone: "emerald",
     titlePlaceholder: "어떤 국면인가요? (필수 · 한 줄 요약)",
     bodyPlaceholder:
       "국면의 성격, 지속 기간, 종목·섹터에 미치는 영향을 적어주세요.",
@@ -82,7 +82,7 @@ const TABS: Array<{
  * 유저가 캐릭터 대사·새 시장 국면을 요청하는 폼(탭 2개).
  * 제출은 무료이며 지갑 효과는 운영자 채택·승인 시 적용된다.
  * - 캐릭터 대사 채택: +$50,000 보상
- * - 국면 추가 승인: $100,000 소모(차감)
+ * - 국면 추가 반영 완료: +$1,000,000 보상
  */
 export function ContentRequestForms() {
   const push = useToastStore((s) => s.push);

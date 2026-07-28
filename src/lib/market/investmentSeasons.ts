@@ -637,8 +637,8 @@ export function seasonExternalCashTotal(cashPayments: CashPayment[]): number {
         // 계정 조정까지 제외하면 차감된 금액이 다시 투자 수익으로 잡힌다.
         return sum + Math.max(0, payment.amount);
       }
-      // 콘텐츠 요청(캐릭터 대사 보상·국면 추가 비용)은 부호와 무관하게 외부 흐름으로
-      // 처리해 투자 성과에서 제외한다. 음수(비용)도 투자 손실로 잡히지 않는다.
+      // 콘텐츠 요청(캐릭터 대사·국면 추가 채택 보상)은 외부 흐름으로 처리해
+      // 투자 성과에서 제외한다. 구버전 국면 요청 비용·환불 기록도 호환한다.
       if (payment.kind === "content_request") {
         return sum + payment.amount;
       }

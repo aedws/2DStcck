@@ -361,7 +361,7 @@ export type CashPaymentKind =
   | "pump_surveillance_tax"
   // 노동 소득(미니게임) — 시즌·투자 성과 평가에서 제외되는 외생 소득.
   | "minigame"
-  // 캐릭터 대사 요청 채택 보상(+)·국면 추가 요청 승인 비용(−). 투자와 무관해 시즌 제외.
+  // 캐릭터 대사·국면 추가 요청 채택 보상(+). 투자와 무관해 시즌 제외.
   | "content_request"
   // 버그 수정 보상(운영 지급) — 투자 성과가 아니므로 시즌·랭킹에서 제외한다.
   | "compensation";

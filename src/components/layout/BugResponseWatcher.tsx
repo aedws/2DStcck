@@ -32,7 +32,7 @@ interface QueuedResponse {
   title: string;
   statusLabel: string;
   reward: boolean; // 보상 지급 여부
-  rewardCents: number; // 부호 있음. 음수는 요청 비용 차감(국면 추가).
+  rewardCents: number;
   category: string | null; // 피드백 특수 요청 구분용
   message: string | null;
 }
@@ -171,20 +171,18 @@ export function BugResponseWatcher() {
   const isDialogue =
     current.source === "feedback" &&
     current.category === CHARACTER_DIALOGUE_CATEGORY;
-  // 국면 추가 요청 반려 — 선 회수한 신청 비용을 환불한다(양수).
-  const phaseRefund = isPhase && current.rewardCents > 0;
-  // 국면 추가 요청 반영 완료 — 신청 시 이미 회수했으므로 지갑 변동 없음.
-  const phaseApproved = isPhase && current.rewardCents === 0;
+  const phaseRewarded = isPhase && current.rewardCents > 0;
+  const phaseDeclined = isPhase && current.rewardCents === 0;
   const dismiss = () => setQueue((prev) => prev.slice(1));
 
   const heading = isCompany
     ? "회사 설립 허가 반려"
     : isStock
       ? "IPO 신청 반려 — 비용 환불"
-      : phaseRefund
-        ? "새 국면 요청 반려 — 비용 환불"
-        : phaseApproved
-          ? "새 시장 국면 반영 완료"
+      : phaseRewarded
+        ? "새 시장 국면 반영 완료 — 보상 지급"
+        : phaseDeclined
+          ? "새 국면 요청 반려"
           : rewarded
             ? isBug
               ? "버그 수정 완료 — 보상 지급"
@@ -211,10 +209,10 @@ export function BugResponseWatcher() {
     ? "반려 사유를 확인해 주세요. 내용을 수정한 뒤 다시 허가 신청할 수 있습니다."
     : isStock
       ? "반려 사유를 확인해 주세요. 사용한 IPO 신청 비용은 전액 돌려드렸습니다."
-      : phaseRefund
-        ? "요청하신 국면은 반영되지 않아 신청 비용을 전액 돌려드렸어요."
-        : phaseApproved
-          ? "요청하신 새 국면이 반영됐습니다. 신청 비용으로 게임을 키워 주셔서 고맙습니다."
+      : phaseRewarded
+        ? "요청하신 새 국면이 반영됐습니다. 멋진 아이디어를 제안해 주셔서 고맙습니다."
+        : phaseDeclined
+          ? "요청하신 국면은 이번에는 반영하지 않기로 했습니다. 회신 내용을 확인해 주세요."
           : rewarded
             ? isBug
               ? "제보해 주셔서 고맙습니다. 여러분의 제보가 게임을 더 단단하게 만듭니다."
@@ -235,7 +233,7 @@ export function BugResponseWatcher() {
         <h2 className="mt-3 text-lg font-bold">{heading}</h2>
         <span
           className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            (rewarded || phaseApproved) && !isStock && !isCompany
+            rewarded && !isStock && !isCompany
               ? "bg-emerald-500/15 text-emerald-400"
               : "bg-rose-500/15 text-rose-400"
           }`}
@@ -252,8 +250,8 @@ export function BugResponseWatcher() {
             <p className="text-[11px] text-[var(--muted)]">
               {isStock
                 ? "IPO 신청 비용 환불"
-                : phaseRefund
-                  ? "국면 요청 비용 환불"
+                : phaseRewarded
+                  ? "국면 추가 채택 보상"
                   : isBug
                     ? "제보 보상"
                     : isDialogue
