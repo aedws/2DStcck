@@ -1992,6 +1992,12 @@ export const useMarketStore = create<MarketStore>()(
         if (!stock || stock.sector === "지수" || stock.sector === "선물") {
           return { success: false, message: "이 종목은 모으기를 설정할 수 없습니다." };
         }
+        if (!isListed(stock)) {
+          return {
+            success: false,
+            message: "상장 전 종목은 주식 모으기를 설정할 수 없습니다.",
+          };
+        }
         if (!Number.isFinite(amount) || Math.round(amount) < MIN_RECURRING_AMOUNT) {
           return { success: false, message: "모으기 금액은 회차당 $1 이상이어야 합니다." };
         }

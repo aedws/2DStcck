@@ -40,6 +40,7 @@ import {
   MARKET_ERA_SESSIONS,
   MARKET_ERA_START_SESSION,
 } from "../src/lib/market/marketEras";
+import { processRecurringInvestments } from "../src/lib/market/recurringInvestments";
 
 const now = 1_000_000_000_000;
 
@@ -451,6 +452,51 @@ assert.equal(ishmael.ceoId, "chr_ishmael");
 assert.equal(ishmael.listingEpochMs, ishmaelListing);
 assert.equal(isListed(ishmael, ishmaelListing - 1), false);
 assert.equal(isListed(ishmael, ishmaelListing), true);
+const ishmaelState = createInitialStockState(ishmael, ishmaelListing - 1);
+const preListingRecurring = processRecurringInvestments(
+  [{
+    id: "ishmael-pre-listing-recurring",
+    stockId: ishmael.id,
+    amount: 100_000,
+    intervalSessions: 1,
+    nextSession: 1,
+    enabled: true,
+    createdAt: 0,
+  }],
+  1_000_000,
+  [],
+  [],
+  [ishmaelState],
+  1,
+  ishmaelListing - 1,
+);
+assert.equal(preListingRecurring.filledPlans.length, 0);
+assert.equal(preListingRecurring.failedPlans.length, 1);
+assert.equal(preListingRecurring.trades.length, 0);
+assert.equal(preListingRecurring.cash, 1_000_000);
+assert.equal(preListingRecurring.holdings.length, 0);
+assert.equal(preListingRecurring.plans[0]?.lastStatus, "unavailable");
+
+const listedRecurring = processRecurringInvestments(
+  [{
+    id: "ishmael-listed-recurring",
+    stockId: ishmael.id,
+    amount: 100_000,
+    intervalSessions: 1,
+    nextSession: 1,
+    enabled: true,
+    createdAt: 0,
+  }],
+  1_000_000,
+  [],
+  [],
+  [ishmaelState],
+  1,
+  ishmaelListing,
+);
+assert.equal(listedRecurring.filledPlans.length, 1);
+assert.equal(listedRecurring.failedPlans.length, 0);
+assert.equal(listedRecurring.trades.length, 1);
 assert.ok((ishmael.quarterlyDividend ?? 0) > 0, "안정 배당 설정이 없음");
 assert.equal(ishmael.suspendDividendBelowInitialPrice, true);
 assert.ok(

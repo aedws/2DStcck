@@ -5,6 +5,7 @@ import type {
   Trade,
 } from "@/lib/types/market";
 import { getMarketBuyPrice } from "@/lib/market/engine";
+import { isListed } from "@/lib/market/ipo";
 import {
   executeBuy,
   isOrderSuccess,
@@ -79,7 +80,12 @@ export function processRecurringInvestments(
 
     const nextSession = nextDueSession(plan, currentSession);
     const stock = byId.get(plan.stockId);
-    if (!stock || stock.sector === "지수" || stock.sector === "선물") {
+    if (
+      !stock ||
+      stock.sector === "지수" ||
+      stock.sector === "선물" ||
+      !isListed(stock, now)
+    ) {
       const updated = {
         ...plan,
         nextSession,
