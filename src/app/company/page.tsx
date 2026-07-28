@@ -36,6 +36,17 @@ import {
 } from "@/lib/supabase/publicPlayerCompanies";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { sessionEta } from "@/lib/market/sessionTime";
+import {
+  LONG_TERM_SHAREHOLDER_SESSIONS,
+  SHAREHOLDER_LETTER_BODY_MAX_LENGTH,
+  SHAREHOLDER_LETTER_COOLDOWN_SESSIONS,
+  SHAREHOLDER_LETTER_TITLE_MAX_LENGTH,
+} from "@/lib/player/shareholderLetters";
+import {
+  getShareholderLetterStatus,
+  sendShareholderLetter,
+  type ShareholderLetterStatus,
+} from "@/lib/supabase/shareholderLetters";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -121,6 +132,11 @@ export default function CompanyPage() {
   const [manageQty, setManageQty] = useState("1000");
   const [dividendPct, setDividendPct] = useState("");
   const [declaring, setDeclaring] = useState(false);
+  const [shareholderLetterTitle, setShareholderLetterTitle] = useState("");
+  const [shareholderLetterBody, setShareholderLetterBody] = useState("");
+  const [shareholderLetterStatus, setShareholderLetterStatus] =
+    useState<ShareholderLetterStatus | null>(null);
+  const [sendingShareholderLetter, setSendingShareholderLetter] = useState(false);
   const [capitalAction, setCapitalAction] = useState<
     "issue" | "buyback" | "retire" | null
   >(null);
@@ -150,6 +166,10 @@ export default function CompanyPage() {
   const netWorth = getTotalAssets();
   const foundingCost = playerCompanyFoundingCost(netWorth);
   const currentSession = Math.floor(now / SESSION_DURATION_MS);
+  const listedStockId =
+    playerCompany?.status === "listed"
+      ? playerCompany.ipoListingStockId ?? ""
+      : "";
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -180,6 +200,25 @@ export default function CompanyPage() {
     const interval = window.setInterval(refresh, 30_000);
     return () => window.clearInterval(interval);
   }, [userId, cloudSyncReady, refreshFoundationRequests]);
+
+  const refreshShareholderLetterStatus = useCallback(async () => {
+    if (!userId || !cloudSyncReady || !listedStockId) {
+      setShareholderLetterStatus(null);
+      return;
+    }
+    setShareholderLetterStatus(await getShareholderLetterStatus(listedStockId));
+  }, [userId, cloudSyncReady, listedStockId]);
+
+  useEffect(() => {
+    if (!listedStockId) {
+      setShareholderLetterStatus(null);
+      return;
+    }
+    const refresh = () => void refreshShareholderLetterStatus();
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    return () => window.clearInterval(interval);
+  }, [listedStockId, refreshShareholderLetterStatus]);
 
   useEffect(() => {
     if (!playerCompany || playerCompany.status !== "active") return;
@@ -350,6 +389,31 @@ export default function CompanyPage() {
           : await retireShares(quantity);
     setMessage(result.message);
     setCapitalAction(null);
+  };
+
+  const handleShareholderLetter = async () => {
+    if (!listedStockId || sendingShareholderLetter) return;
+    const eligibleCount = shareholderLetterStatus?.eligibleCount ?? 0;
+    if (
+      !window.confirm(
+        `현재 장기보유 주주 ${eligibleCount.toLocaleString()}명에게 CEO 서한을 보낼까요?\n발송 후 ${SHAREHOLDER_LETTER_COOLDOWN_SESSIONS}거래일 동안 새 서한을 보낼 수 없습니다.`,
+      )
+    ) {
+      return;
+    }
+    setSendingShareholderLetter(true);
+    const result = await sendShareholderLetter({
+      stockId: listedStockId,
+      title: shareholderLetterTitle,
+      body: shareholderLetterBody,
+    });
+    setMessage(result.message);
+    if (result.success) {
+      setShareholderLetterTitle("");
+      setShareholderLetterBody("");
+      await refreshShareholderLetterStatus();
+    }
+    setSendingShareholderLetter(false);
   };
 
   const formLocked = Boolean(activeFoundationRequest);
@@ -835,6 +899,91 @@ export default function CompanyPage() {
           )}
         </div>
       </section>
+
+      {playerCompany.status === "listed" && (
+        <section className="mb-5 rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-cyan-300">주주 관계</p>
+              <h2 className="mt-1 text-lg font-black">장기주주 CEO 서한</h2>
+            </div>
+            <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
+              {shareholderLetterStatus
+                ? `대상 ${shareholderLetterStatus.eligibleCount.toLocaleString()}명`
+                : "대상 확인 중"}
+            </span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+            서버 저장 기준으로 보통주 1주 이상을 {LONG_TERM_SHAREHOLDER_SESSIONS}
+            거래일 연속 보유한 주주에게 메시지 탭으로 전달합니다. 수신자 명단은
+            공개되지 않으며 발송 당시 대상이 고정됩니다.
+          </p>
+          <div className="mt-4 space-y-2">
+            <input
+              value={shareholderLetterTitle}
+              maxLength={SHAREHOLDER_LETTER_TITLE_MAX_LENGTH}
+              onChange={(event) => setShareholderLetterTitle(event.target.value)}
+              placeholder="서한 제목"
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-cyan-400"
+            />
+            <textarea
+              value={shareholderLetterBody}
+              maxLength={SHAREHOLDER_LETTER_BODY_MAX_LENGTH}
+              onChange={(event) => setShareholderLetterBody(event.target.value)}
+              placeholder="장기보유 주주에게 전할 경영 현황과 감사 인사를 작성해 주세요."
+              rows={5}
+              className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm leading-relaxed outline-none focus:border-cyan-400"
+            />
+            <div className="flex items-center justify-between gap-3 text-[11px] text-[var(--muted)]">
+              <span>외부 링크는 넣을 수 없습니다.</span>
+              <span>
+                {Array.from(shareholderLetterBody).length}/
+                {SHAREHOLDER_LETTER_BODY_MAX_LENGTH}
+              </span>
+            </div>
+          </div>
+          {!shareholderLetterStatus?.canSend &&
+            shareholderLetterStatus &&
+            shareholderLetterStatus.eligibleCount > 0 && (
+              <p className="mt-3 rounded-xl bg-amber-400/10 p-3 text-xs text-amber-200">
+                다음 발송까지{" "}
+                {Math.max(
+                  0,
+                  shareholderLetterStatus.nextSendSession - currentSession,
+                )}
+                거래일 ·{" "}
+                {
+                  sessionEta(
+                    Math.max(
+                      0,
+                      shareholderLetterStatus.nextSendSession - currentSession,
+                    ),
+                    now,
+                  ).countdown
+                }
+              </p>
+            )}
+          <button
+            type="button"
+            disabled={
+              sendingShareholderLetter ||
+              !shareholderLetterStatus?.canSend ||
+              !shareholderLetterTitle.trim() ||
+              !shareholderLetterBody.trim()
+            }
+            onClick={() => void handleShareholderLetter()}
+            className="mt-3 w-full rounded-xl bg-cyan-500 py-2.5 text-sm font-black text-slate-950 transition hover:bg-cyan-400 disabled:bg-[var(--border)] disabled:text-[var(--muted)]"
+          >
+            {sendingShareholderLetter
+              ? "서한 발송 중…"
+              : !shareholderLetterStatus
+                ? "발송 상태 확인 중"
+                : shareholderLetterStatus.eligibleCount
+                  ? `${shareholderLetterStatus.eligibleCount.toLocaleString()}명에게 서한 보내기`
+                  : "장기보유 대상 주주 없음"}
+          </button>
+        </section>
+      )}
 
       <section className="rounded-3xl border border-violet-400/30 bg-violet-400/5 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">

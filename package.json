@@ -33,6 +33,7 @@
     "test:taxonomy": "tsx scripts/test-market-taxonomy.ts",
     "test:company": "tsx scripts/test-player-company.ts",
     "test:company-market-actions": "tsx scripts/test-player-company-market-actions.ts",
+    "test:shareholder-letters": "tsx scripts/test-shareholder-letters.ts",
     "test:company-foundation": "tsx scripts/test-company-foundation-requests.ts",
     "test:averaging": "tsx scripts/test-averaging-calculator.ts",
     "test:amc": "tsx scripts/test-asset-manager.ts",

@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { getCharacterMessages } from "@/lib/market/characterMessages";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getCharacterMessages,
+  type CharacterMessage,
+} from "@/lib/market/characterMessages";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
 import { formatTradeTime } from "@/lib/market/engine";
+import {
+  listMyShareholderLetters,
+  markAllShareholderLettersRead,
+  markShareholderLetterRead,
+  type ShareholderLetter,
+} from "@/lib/supabase/shareholderLetters";
 import { useMarketStore } from "@/store/marketStore";
 
 const KIND_LABEL = {
@@ -12,37 +21,121 @@ const KIND_LABEL = {
   earnings: "실적 힌트",
   mission: "의뢰 답장",
   relationship: "관계 알림",
+  shareholder_letter: "CEO 주주서한",
 } as const;
+
+interface InboxMessage extends CharacterMessage {
+  isRead: boolean;
+  shareholderLetterId?: string;
+}
 
 export default function CharacterMessagesPage() {
   useMarketStore((state) => state.tick);
   const progress = useMarketStore((state) => state.characterProgress);
   const missionHistory = useMarketStore((state) => state.missionHistory);
+  const userId = useMarketStore((state) => state.userId);
+  const cloudSyncReady = useMarketStore((state) => state.cloudSyncReady);
   const readIds = useMarketStore((state) => state.readCharacterMessageIds);
   const markRead = useMarketStore((state) => state.markCharacterMessageRead);
   const markAllRead = useMarketStore((state) => state.markAllCharacterMessagesRead);
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [shareholderLetters, setShareholderLetters] = useState<ShareholderLetter[]>([]);
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
-  const messages = useMemo(
+  const characterMessages = useMemo(
     () => getCharacterMessages({ progress, missionHistory, currentSession }),
     [progress, missionHistory, currentSession],
   );
   const readSet = useMemo(() => new Set(readIds), [readIds]);
-  const unread = messages.filter((message) => !readSet.has(message.id));
+
+  useEffect(() => {
+    if (!userId || !cloudSyncReady) {
+      setShareholderLetters([]);
+      return;
+    }
+    let active = true;
+    const refresh = () =>
+      void listMyShareholderLetters().then((letters) => {
+        if (active) setShareholderLetters(letters);
+      });
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [userId, cloudSyncReady]);
+
+  const messages = useMemo<InboxMessage[]>(() => {
+    const characterInbox = characterMessages.map((message) => ({
+      ...message,
+      isRead: readSet.has(message.id),
+    }));
+    const shareholderInbox = shareholderLetters.map((letter) => {
+      const createdAt = new Date(letter.createdAt).getTime();
+      return {
+        id: `shareholder-letter-${letter.id}`,
+        characterId: "",
+        companyId: letter.stockId,
+        sender: `${letter.companyName} CEO`,
+        emoji: "🏢",
+        kind: "shareholder_letter" as const,
+        title: letter.title,
+        body: letter.body,
+        timestamp: Number.isFinite(createdAt)
+          ? createdAt
+          : letter.sentSession * SESSION_DURATION_MS,
+        href: `/stock/${letter.stockId}`,
+        isRead: Boolean(letter.readAt),
+        shareholderLetterId: letter.id,
+      };
+    });
+    return [...characterInbox, ...shareholderInbox]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 200);
+  }, [characterMessages, readSet, shareholderLetters]);
+
+  const unread = messages.filter((message) => !message.isRead);
   const visible = unreadOnly ? unread : messages;
+
+  const handleMessageRead = (message: InboxMessage) => {
+    if (!message.shareholderLetterId) {
+      markRead(message.id);
+      return;
+    }
+    const letterId = message.shareholderLetterId;
+    setShareholderLetters((letters) =>
+      letters.map((letter) =>
+        letter.id === letterId
+          ? { ...letter, readAt: letter.readAt ?? new Date().toISOString() }
+          : letter,
+      ),
+    );
+    void markShareholderLetterRead(letterId);
+  };
+
+  const handleAllRead = () => {
+    markAllRead(characterMessages.map((message) => message.id));
+    setShareholderLetters((letters) =>
+      letters.map((letter) => ({
+        ...letter,
+        readAt: letter.readAt ?? new Date().toISOString(),
+      })),
+    );
+    void markAllShareholderLettersRead();
+  };
 
   return (
     <div className="mx-auto max-w-3xl pb-20">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">💬 캐릭터 메시지</h1>
+          <h1 className="text-2xl font-bold">💬 메시지</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            비공개 사건 단서, 실적 힌트와 의뢰 답장을 확인합니다.
+            캐릭터 알림과 보유 회사 CEO가 보낸 주주서한을 확인합니다.
           </p>
         </div>
         {unread.length > 0 && (
           <button
-            onClick={() => markAllRead(messages.map((message) => message.id))}
+            onClick={handleAllRead}
             className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-semibold hover:border-[var(--accent)]"
           >
             모두 읽음
@@ -72,18 +165,18 @@ export default function CharacterMessagesPage() {
             {unreadOnly ? "새 메시지가 없습니다" : "아직 도착한 메시지가 없습니다"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            캐릭터 호감도 30을 달성하거나 투자 의뢰를 완료하면 메시지가 도착합니다.
+            캐릭터 관계를 쌓거나 플레이어 회사 주식을 장기보유하면 메시지가 도착합니다.
           </p>
         </div>
       ) : (
         <ul className="space-y-2.5">
           {visible.map((message) => {
-            const isUnread = !readSet.has(message.id);
+            const isUnread = !message.isRead;
             return (
               <li key={message.id}>
                 <Link
                   href={message.href}
-                  onClick={() => markRead(message.id)}
+                  onClick={() => handleMessageRead(message)}
                   className={`block rounded-2xl border p-4 transition hover:border-[var(--accent)] ${isUnread ? "border-[var(--accent)]/40 bg-[var(--accent)]/5" : "border-[var(--border)] bg-[var(--surface)]"}`}
                 >
                   <div className="flex items-start gap-3">
@@ -102,7 +195,7 @@ export default function CharacterMessagesPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-sm font-semibold">{message.title}</p>
-                      <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{message.body}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-[var(--muted)]">{message.body}</p>
                     </div>
                   </div>
                 </Link>

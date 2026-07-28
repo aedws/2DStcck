@@ -13,7 +13,12 @@ import type {
   InvestmentMissionHistory,
 } from "@/lib/types/market";
 
-export type CharacterMessageKind = "clue" | "earnings" | "mission" | "relationship";
+export type CharacterMessageKind =
+  | "clue"
+  | "earnings"
+  | "mission"
+  | "relationship"
+  | "shareholder_letter";
 
 export interface CharacterMessage {
   id: string;
