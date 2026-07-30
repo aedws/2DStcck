@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { PlayerCompanyBoardPanel } from "@/components/company/PlayerCompanyBoardPanel";
 import { PlayerCompanyGovernancePanel } from "@/components/company/PlayerCompanyGovernancePanel";
+import { PlayerCompanyOwnershipPanel } from "@/components/company/PlayerCompanyOwnershipPanel";
 import { PlayerCompanyStrategyPanel } from "@/components/company/PlayerCompanyStrategyPanel";
 import {
   COMPANY_TUTORIAL_STEPS,
@@ -50,6 +51,7 @@ import {
   sendShareholderLetter,
   type ShareholderLetterStatus,
 } from "@/lib/supabase/shareholderLetters";
+import { exactOwnershipPercent } from "@/lib/supabase/playerCompanyOwnership";
 import { useMarketStore } from "@/store/marketStore";
 import { useSettingsStore } from "@/store/settingsStore";
 
@@ -81,6 +83,15 @@ export default function CompanyPage() {
       ? state.stocks.find(
           (s) => s.id === state.playerCompany!.ipoListingStockId,
         )?.currentPrice
+      : undefined,
+  );
+  const listedFounderHolding = useMarketStore((state) =>
+    state.playerCompany?.status === "listed" &&
+    state.playerCompany.ipoListingStockId
+      ? state.holdings.find(
+          (holding) =>
+            holding.stockId === state.playerCompany!.ipoListingStockId,
+        )
       : undefined,
   );
   const cash = useMarketStore((state) => state.cash);
@@ -173,6 +184,9 @@ export default function CompanyPage() {
     playerCompany?.status === "listed"
       ? playerCompany.ipoListingStockId ?? ""
       : "";
+  const listedFounderQuantityExact =
+    listedFounderHolding?.quantityExact ??
+    String(listedFounderHolding?.quantity ?? 0);
   const plannedDividendRate = playerCompany?.dividendRate ?? 0;
   const plannedDividendTotal = Math.round(
     Math.max(0, netWorth) * plannedDividendRate,
@@ -241,15 +255,22 @@ export default function CompanyPage() {
 
   const companyStats = useMemo(() => {
     if (!playerCompany) return null;
+    const ownership =
+      playerCompany.status === "listed"
+        ? exactOwnershipPercent(
+            listedFounderQuantityExact,
+            playerCompany.totalShares,
+          ) / 100
+        : playerCompanyFounderOwnership(playerCompany);
     return {
       prestige: playerCompanyPrestige(playerCompany),
       level: playerCompanyLevel(playerCompany),
-      ownership: playerCompanyFounderOwnership(playerCompany),
+      ownership,
       resolvedRounds:
         playerCompany.fundedRounds + playerCompany.dilutionRounds,
       ipoReady: isPlayerCompanyIpoReady(playerCompany),
     };
-  }, [playerCompany]);
+  }, [listedFounderQuantityExact, playerCompany]);
 
   const activeFoundationRequest = useMemo(() => {
     if (!foundationRequests?.length) return null;
@@ -715,7 +736,11 @@ export default function CompanyPage() {
           value={formatCompactMoney(playerCompany.cumulativeCapitalBurned)}
         />
         <SummaryCard
-          label="창업주 지분"
+          label={
+            playerCompany.status === "listed"
+              ? "실제 창업주 지분"
+              : "창업주 지분"
+          }
           value={`${(stats.ownership * 100).toFixed(2)}%`}
         />
         <SummaryCard
@@ -802,19 +827,28 @@ export default function CompanyPage() {
         </section>
       )}
 
-      <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
-        <h2 className="text-lg font-bold">주주 구성</h2>
-        <div className="mt-4 h-4 overflow-hidden rounded-full bg-cyan-500/30">
-          <div
-            className="h-full bg-amber-400"
-            style={{ width: `${stats.ownership * 100}%` }}
-          />
-        </div>
-        <div className="mt-2 flex justify-between text-xs text-[var(--muted)]">
-          <span>창업주 {playerCompany.founderShares.toLocaleString()}주</span>
-          <span>NPC 시장 {playerCompany.publicShares.toLocaleString()}주</span>
-        </div>
-      </section>
+      {playerCompany.status === "listed" && listedStockId ? (
+        <PlayerCompanyOwnershipPanel
+          stockId={listedStockId}
+          localFounderQuantityExact={listedFounderQuantityExact}
+          totalSharesExact={String(playerCompany.totalShares)}
+          currentSession={currentSession}
+        />
+      ) : (
+        <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
+          <h2 className="text-lg font-bold">상장 전 주주 구성</h2>
+          <div className="mt-4 h-4 overflow-hidden rounded-full bg-cyan-500/30">
+            <div
+              className="h-full bg-amber-400"
+              style={{ width: `${stats.ownership * 100}%` }}
+            />
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-[var(--muted)]">
+            <span>창업주 {playerCompany.founderShares.toLocaleString()}주</span>
+            <span>NPC 시장 {playerCompany.publicShares.toLocaleString()}주</span>
+          </div>
+        </section>
+      )}
 
       <section className="mb-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-bold">자본 관리</h2>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
+import { normalizeExactQuantity } from "@/lib/market/exactAmount";
 
 export const PLAYER_COMPANY_QUARTER_SESSIONS = 24;
 export const PLAYER_COMPANY_LONG_TERM_VOTE_SESSIONS = 90;
@@ -46,7 +47,7 @@ export interface PlayerCompanyGovernanceProposal {
   yesWeight: number;
   noWeight: number;
   eligible: boolean;
-  votingWeight: number;
+  votingWeightExact: string;
   isFounder: boolean;
   myVote: "yes" | "no" | null;
   reputationDelta?: number;
@@ -137,7 +138,7 @@ function parseProposal(
     yesWeight: number(row.yes_weight),
     noWeight: number(row.no_weight),
     eligible: Boolean(row.eligible),
-    votingWeight: number(row.voting_weight),
+    votingWeightExact: normalizeExactQuantity(row.voting_weight),
     isFounder: Boolean(row.is_founder),
     myVote: rawVote === "yes" || rawVote === "no" ? rawVote : null,
     ...(Number.isFinite(Number(row.reputation_delta))

@@ -38,6 +38,7 @@
     "test:company-governance": "tsx scripts/test-player-company-governance.ts",
     "test:company-dividend": "tsx scripts/test-player-company-dividend.ts",
     "test:company-management": "tsx scripts/test-player-company-management.ts",
+    "test:company-ownership": "tsx scripts/test-player-company-ownership.ts",
     "test:investor-calendar": "tsx scripts/test-investor-calendar.ts",
     "test:mobile-format": "tsx scripts/test-mobile-number-format.ts",
     "test:shareholder-letters": "tsx scripts/test-shareholder-letters.ts",

@@ -9,6 +9,7 @@ import {
   type PlayerCompanyGovernanceProposal,
   type PlayerCompanyProposalType,
 } from "@/lib/supabase/playerCompanyGovernance";
+import { formatExactShareQuantity } from "@/lib/supabase/playerCompanyOwnership";
 
 const PROPOSAL_LABEL: Record<PlayerCompanyProposalType, string> = {
   dividend: "다음 1회 배당 예산",
@@ -92,7 +93,8 @@ export function PlayerCompanyGovernancePanel({
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
           창업주와 {PLAYER_COMPANY_LONG_TERM_VOTE_SESSIONS}거래일 이상 연속
           보유한 장기 주주가 지분 가중 투표권을 행사합니다. 결과는 공통 주가와
-          회사 명성에 반영됩니다.
+          회사 명성에 반영됩니다. 창업주 투표권도 회사 장부가 아닌 실제 계좌
+          보유주식 수로 계산됩니다.
         </p>
         <p className="mt-2 rounded-xl bg-cyan-400/10 p-3 text-[11px] leading-relaxed text-cyan-200">
           행동주의 안건인 CEO 교체·비핵심 자산 매각도 같은 주주총회에서
@@ -179,7 +181,9 @@ export function PlayerCompanyGovernancePanel({
                   }`}
                 >
                   {proposal.eligible
-                    ? `투표권 ${proposal.votingWeight.toLocaleString()}주`
+                    ? `실제 투표권 ${formatExactShareQuantity(
+                        proposal.votingWeightExact,
+                      )}주`
                     : "장기 보유 요건 미충족"}
                 </span>
               </div>
