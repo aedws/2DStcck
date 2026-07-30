@@ -188,6 +188,34 @@ function getActiveEventImpact(
   return impact;
 }
 
+function isMinimumPriceFloorSuspended(
+  stock: StockState,
+  events: MarketEvent[],
+  now: number,
+  crisis: ReturnType<typeof getActiveMarketCrisis>,
+  era: ReturnType<typeof getMarketEra>,
+): boolean {
+  if (crisis) return true;
+  if (
+    era.boomBubble?.phase === "crash" ||
+    era.boomBubble?.phase === "decline" ||
+    era.economyAsUsual?.phase === "active"
+  ) {
+    return true;
+  }
+  const bypassTags = stock.minimumPriceFloorBypassEventTags ?? [];
+  return bypassTags.length > 0 && events.some((event) => {
+    const elapsed = now - event.timestamp;
+    return (
+      elapsed >= 0 &&
+      elapsed < 90_000 &&
+      event.affectedStockIds.includes(stock.id) &&
+      typeof event.tag === "string" &&
+      bypassTags.includes(event.tag)
+    );
+  });
+}
+
 /**
  * Keeps the broad benchmarks on a rising long-run path while preserving normal
  * corrections. Support only activates below the compound-growth baseline, so
@@ -335,21 +363,38 @@ export function calculateTickPrice(
       dtSeconds +
     noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
-  const roundedPrice = Math.max(Math.round(nextPrice), 100);
+  let guardedPrice = Math.max(Math.round(nextPrice), 100);
   if (
-    stock.maxDailyLossRate === undefined ||
-    isEconomyAsUsualDownsideFloorSuspended(era, session, stock)
+    stock.maxDailyLossRate !== undefined &&
+    !isEconomyAsUsualDownsideFloorSuspended(era, session, stock)
   ) {
-    return roundedPrice;
+    const lossRate = Math.min(1, Math.max(0, stock.maxDailyLossRate));
+    const sessionOpenReference =
+      stock.daySessionId !== undefined && stock.daySessionId !== session
+        ? stock.currentPrice
+        : stock.prevDayClose;
+    const dailyFloor = Math.round(sessionOpenReference * (1 - lossRate));
+    guardedPrice = Math.max(guardedPrice, dailyFloor, 100);
   }
 
-  const lossRate = Math.min(1, Math.max(0, stock.maxDailyLossRate));
-  const sessionOpenReference =
-    stock.daySessionId !== undefined && stock.daySessionId !== session
-      ? stock.currentPrice
-      : stock.prevDayClose;
-  const dailyFloor = Math.round(sessionOpenReference * (1 - lossRate));
-  return Math.max(roundedPrice, dailyFloor, 100);
+  const minimumRatio = Math.min(
+    1,
+    Math.max(0, stock.minimumPriceRatio ?? 0),
+  );
+  if (
+    minimumRatio > 0 &&
+    !isMinimumPriceFloorSuspended(stock, events, now, crisis, era)
+  ) {
+    const adjustedIpoPrice =
+      stock.initialPrice /
+      Math.max(stock.shareMultiplier ?? 1, MIN_SHARE_MULTIPLIER);
+    guardedPrice = Math.max(
+      guardedPrice,
+      Math.round(adjustedIpoPrice * minimumRatio),
+      100,
+    );
+  }
+  return guardedPrice;
 }
 
 /** 30초봉 6시간, 일봉 약 5게임년을 보존한다. */

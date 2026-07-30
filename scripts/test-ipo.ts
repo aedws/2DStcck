@@ -113,6 +113,7 @@ assert.deepEqual(
     "iori",
     "ishmael",
     "jbinv",
+    "jbinvb",
     "koyuki",
     "lcid",
     "levi",
@@ -121,10 +122,12 @@ assert.deepEqual(
     "minori",
     "mksa",
     "monc",
+    "nacm",
     "nagusa",
     "nexr",
     "nkcl",
     "pghg",
+    "shupang",
     "speedwagon",
     "tehty",
     "udnge",
@@ -132,6 +135,71 @@ assert.deepEqual(
     "yakumo",
     "yisang",
   ],
+);
+
+// 8/3 IPO 3건: 플레이어 금융사 2곳과 슈팡특송
+const august3Slots = [
+  ["jbinvb", "JBINVB", Date.UTC(2026, 7, 3, 3, 0)],
+  ["shupang", "SHPG", Date.UTC(2026, 7, 3, 6, 0)],
+  ["nacm", "NACM", Date.UTC(2026, 7, 3, 9, 0)],
+] as const;
+for (const [id, ticker, listingAt] of august3Slots) {
+  const stock = getCompanyDefinitions().find((item) => item.id === id);
+  assert.ok(stock, `${ticker} 종목 정의가 없음`);
+  assert.equal(stock.ticker, ticker);
+  assert.equal(stock.listingEpochMs, listingAt);
+  assert.equal(isListed(stock, listingAt - 1), false);
+  assert.equal(isListed(stock, listingAt), true);
+  for (const suffix of ["inverse", "inverse-2x", "leverage-2x"]) {
+    const derivative = STOCK_DEFINITIONS.find(
+      (item) => item.id === `${id}-${suffix}`,
+    );
+    assert.ok(derivative, `${ticker} ${suffix} 파생상품 정의가 없음`);
+    assert.equal(derivative.listingEpochMs, listingAt);
+  }
+}
+
+const shupang = getCompanyDefinitions().find((item) => item.id === "shupang");
+assert.ok(shupang);
+assert.equal(shupang.minimumPriceRatio, 0.5);
+const shupangState = {
+  ...createInitialStockState(shupang, shupang.listingEpochMs),
+  currentPrice: Math.round(shupang.initialPrice * 0.4),
+  prevDayClose: Math.round(shupang.initialPrice * 0.4),
+  dayOpen: Math.round(shupang.initialPrice * 0.4),
+};
+const shupangFloor = calculateTickPrice(
+  shupangState,
+  [],
+  shupang.listingEpochMs! + 1_000,
+  0,
+  10,
+  () => 0.5,
+);
+assert.ok(
+  shupangFloor >= shupang.initialPrice * 0.5,
+  "슈팡특송 평시 공모가 50% 하한이 지켜지지 않음",
+);
+const shupangFuelShock = calculateTickPrice(
+  shupangState,
+  [{
+    id: "shupang-fuel-test",
+    title: "연료비 급등",
+    description: "평시 하한 해제",
+    category: "company",
+    tag: "연료비 급등",
+    impact: -100,
+    affectedStockIds: ["shupang"],
+    timestamp: shupang.listingEpochMs!,
+  }],
+  shupang.listingEpochMs! + 1_000,
+  0,
+  10,
+  () => 0.5,
+);
+assert.ok(
+  shupangFuelShock < shupang.initialPrice * 0.5,
+  "연료비 급등 사건 중에는 슈팡특송 평시 하한이 해제되어야 함",
 );
 for (const ipo of scheduledIpos) {
   const listingTick = listingTickOf(ipo);

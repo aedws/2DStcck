@@ -77,7 +77,7 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  자사주 매입 지지로 전환하는 주주환원 정책과 전용 해운 사건을 추가한다.
  *  v52: 스피드웨건 오일(SPWO)을 8/2 예약 상장하고 석유 탐사·비축유 사건을
  *  추가한다. 종목 구성 변경으로 전체 재생성한다. */
-export const MARKET_SIM_VERSION = 52;
+export const MARKET_SIM_VERSION = 53;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

@@ -196,6 +196,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "과거 '플릿 스노우플러프'라는 예명으로 활동한 싱어송라이터. 대부분의 곡을 직접 작사·작곡해 외부 권리 관계가 단순하지만, 대표가 여러 사업에 직접 관여하는 탓에 신곡 발매가 늦어지는 불안 요소가 있다. 유저 종목 요청으로 상장.",
     emoji: "🎼",
   },
+  {
+    id: "chr_shupang",
+    name: "슈팡",
+    title: "슈팡특송 대표",
+    traits: ["신속", "낙천적", "현금중시"],
+    bio: "누구보다 빠른 긴급 배송을 내세워 특송 시장을 개척한 물류 기업가. 높은 연료비에도 배송 속도를 늦추지 않으며, 호황기에 번 현금을 두텁게 쌓아 다음 불황과 주가 하락을 대비한다.",
+    emoji: "📦",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

@@ -973,6 +973,77 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_ishmael",
   },
+  {
+    id: "jbinvb",
+    ticker: "JBINVB",
+    name: "JB투자은행",
+    instrumentType: "company",
+    sector: "금융",
+    subsector: "사모신용·종합금융",
+    marketTags: ["금융", "증권", "보험", "신용"],
+    initialPrice: 240000,
+    volatility: 0.052,
+    drift: 0.00065,
+    beta: 1.38,
+    quarterlyDividend: 720,
+    description:
+      "플레이어 @warning이 설립한 주붕투자증권의 금융 자회사. 사모신용을 중심으로 사모펀드·헤지펀드·벤처캐피탈을 운용하며 보험, 신용카드, 할부금융 자회사를 함께 거느립니다. 누적 소각 $1.06T, 창업주 지분 100%, 회사 프레스티지 500으로 IPO 승인을 받았습니다.",
+    eventBias: {
+      "사모신용": 4,
+      "벤처 엑시트": 3,
+      금융: 3,
+      신용: 3,
+      실적: 2,
+    },
+  },
+  {
+    id: "shupang",
+    ticker: "SHPG",
+    name: "슈팡특송",
+    instrumentType: "company",
+    sector: "산업재",
+    subsector: "긴급 특송·종합물류",
+    marketTags: ["물류", "운송", "에너지", "경기민감"],
+    initialPrice: 68000,
+    volatility: 0.042,
+    drift: 0.00072,
+    beta: 1.18,
+    quarterlyDividend: 360,
+    minimumPriceRatio: 0.5,
+    minimumPriceFloorBypassEventTags: ["연료비 급등", "특송 수요 붕괴"],
+    description:
+      "슈팡이 이끄는 긴급 특송·종합물류 기업. 높은 유류비를 감수하고도 빠른 배송망으로 특송 시장을 선도하며, 호황기 잉여현금흐름의 약 75%를 비축해 평시 주가를 공모가의 50% 이상으로 방어합니다. 다만 시장 위기·버블 붕괴·연료비 급등·특송 수요 붕괴 때에는 이 방어선도 해제됩니다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "긴급 특송": 4,
+      "현금 비축": 3,
+      "연료비 급등": 3,
+      "특송 수요 붕괴": 2,
+      실적: 2,
+    },
+    ceoId: "chr_shupang",
+  },
+  {
+    id: "nacm",
+    ticker: "NACM",
+    name: "NatsumeAnan Capital Management",
+    instrumentType: "company",
+    sector: "금융",
+    subsector: "고빈도 파생·자산운용",
+    marketTags: ["금융", "증권", "파생", "성장"],
+    initialPrice: 1250000,
+    volatility: 0.11,
+    drift: 0.00045,
+    beta: 1.75,
+    description:
+      "플레이어 @natsume_anan이 설립한 초고위험 자산운용사. 고빈도 파생상품 트레이딩과 투매 구간 포착, 초고변동성 상품 투기를 전문으로 하며, 반복 수익 가능성과 단 한 번의 파산 위험을 함께 안고 있습니다. 누적 소각 자본과 창업주 지분 100%, 회사 프레스티지 500을 반영해 고가·초고변동 IPO로 승인했습니다.",
+    eventBias: {
+      "파생 적중": 4,
+      "투매 포착": 4,
+      "포지션 청산": 3,
+      "파산 위기": 3,
+      실적: 2,
+    },
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -1701,5 +1772,104 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "예상 밖의 항만 봉쇄와 적체로 대체 항로까지 포화됐습니다. 우회 운항 비용과 여객 일정 취소가 겹치며 단기 실적 우려가 커집니다.",
     impact: -0.85,
+  },
+  {
+    category: "company",
+    companyId: "jbinvb",
+    tag: "사모신용",
+    title: "JB투자은행, 사모신용 포트폴리오 수익 확대",
+    description:
+      "기업 직접대출과 구조화 신용 포트폴리오의 이자 수익이 예상치를 웃돌았습니다. 보험·카드 자회사 실적까지 받쳐 주며 종합금융 수익성이 높아집니다.",
+    impact: 0.9,
+  },
+  {
+    category: "company",
+    companyId: "jbinvb",
+    tag: "벤처 엑시트",
+    title: "JB투자은행, 벤처 투자 대형 엑시트",
+    description:
+      "초기 투자 기업의 인수합병이 성사돼 벤처캐피탈 부문에서 대규모 회수 이익을 기록했습니다.",
+    impact: 0.75,
+  },
+  {
+    category: "company",
+    companyId: "jbinvb",
+    tag: "신용",
+    title: "JB투자은행, 사모신용 부실·보험 손해율 동반 상승",
+    description:
+      "직접대출 연체와 보험 자회사 손해율이 동시에 높아졌습니다. 펀드 환매 요구까지 겹치며 유동성 부담이 커집니다.",
+    impact: -1,
+  },
+  {
+    category: "company",
+    companyId: "shupang",
+    tag: "긴급 특송",
+    title: "슈팡특송, 긴급 배송 수요 폭증",
+    description:
+      "일반 물류망이 처리하지 못한 긴급 화물이 슈팡특송으로 몰렸습니다. 높은 운임에도 빠른 배송이 선택되며 가동률과 현금흐름이 함께 개선됩니다.",
+    impact: 0.95,
+  },
+  {
+    category: "company",
+    companyId: "shupang",
+    tag: "현금 비축",
+    title: "슈팡특송, 호황기 잉여현금 75% 비축",
+    description:
+      "경영진이 잉여현금흐름 대부분을 유보해 운송망 투자와 다음 불황의 주가 방어 재원을 확보했습니다.",
+    impact: 0.55,
+  },
+  {
+    category: "company",
+    companyId: "shupang",
+    tag: "연료비 급등",
+    title: "연료비 급등, 슈팡특송 배송 원가 비상",
+    description:
+      "항공·육상 운송 연료 가격이 급등하며 긴급 배송의 높은 운임으로도 비용 상승을 흡수하기 어려워졌습니다. 평시 주가 방어선이 일시 해제됩니다.",
+    impact: -1.25,
+  },
+  {
+    category: "company",
+    companyId: "shupang",
+    tag: "특송 수요 붕괴",
+    title: "긴급 특송 수요 붕괴, 슈팡특송 가동률 급락",
+    description:
+      "경기 충격으로 고가 긴급 배송 주문이 급감했습니다. 비축 현금에도 불구하고 물류망 고정비 부담이 커져 평시 주가 방어선이 일시 해제됩니다.",
+    impact: -1.4,
+  },
+  {
+    category: "company",
+    companyId: "nacm",
+    tag: "파생 적중",
+    title: "NACM, 초고변동 파생 포지션 적중",
+    description:
+      "고빈도 파생 포지션이 연속으로 맞아떨어지며 운용 수익이 폭증했습니다. 위험 노출만큼 큰 보상이 실적에 반영됩니다.",
+    impact: 1.35,
+  },
+  {
+    category: "company",
+    companyId: "nacm",
+    tag: "투매 포착",
+    title: "NACM, 시장 투매 구간 역방향 매매 성공",
+    description:
+      "강제 청산 물량을 빠르게 받아 낸 뒤 반등 구간에서 포지션을 정리해 대규모 트레이딩 이익을 기록했습니다.",
+    impact: 1.1,
+  },
+  {
+    category: "company",
+    companyId: "nacm",
+    tag: "포지션 청산",
+    title: "NACM, 파생 증거금 부족으로 포지션 강제 청산",
+    description:
+      "초고변동 상품이 예상과 반대로 움직여 증거금이 부족해졌습니다. 연쇄 강제 청산이 발생하며 운용 자본이 크게 훼손됐습니다.",
+    impact: -1.45,
+  },
+  {
+    category: "company",
+    companyId: "nacm",
+    tag: "파산 위기",
+    title: "NACM, 단 한 번의 파산 위험 현실화",
+    description:
+      "여러 번의 수익을 한 번에 되돌릴 수 있는 꼬리위험이 발생했습니다. 거래 상대방이 추가 담보를 요구하며 존속 가능성까지 흔들립니다.",
+    impact: -1.75,
   },
 ];

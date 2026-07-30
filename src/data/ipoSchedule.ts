@@ -78,4 +78,10 @@ export const IPO_SCHEDULE: Record<string, number> = {
   ishmael: Date.UTC(2026, 7, 1, 6, 0),
   // 스피드웨건 오일(SPWO) — 2026-08-02 18:00 KST 개장 (= 09:00 UTC)
   speedwagon: Date.UTC(2026, 7, 2, 9, 0),
+  // JB투자은행(JBINVB) — 2026-08-03 12:00 KST 개장 (= 03:00 UTC) · 플레이어 회사 IPO
+  jbinvb: Date.UTC(2026, 7, 3, 3, 0),
+  // 슈팡특송(SHPG) — 2026-08-03 15:00 KST 개장 (= 06:00 UTC)
+  shupang: Date.UTC(2026, 7, 3, 6, 0),
+  // NatsumeAnan Capital Management(NACM) — 2026-08-03 18:00 KST 개장 (= 09:00 UTC) · 플레이어 회사 IPO
+  nacm: Date.UTC(2026, 7, 3, 9, 0),
 };

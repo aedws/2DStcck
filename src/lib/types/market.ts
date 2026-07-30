@@ -124,6 +124,13 @@ export interface StockDefinition {
   /** 전일 종가 대비 하루 최대 하락률(0~1). 지정 종목의 하방 방어 규칙에 사용한다. */
   maxDailyLossRate?: number;
   /**
+   * 액면조정된 공모가 대비 평시 절대 하한(0~1).
+   * 시장 위기·버블 붕괴와 아래 예외 사건이 활성화된 동안에는 하한을 해제한다.
+   */
+  minimumPriceRatio?: number;
+  /** 평시 절대 하한을 일시 해제하는 회사 사건 태그. */
+  minimumPriceFloorBypassEventTags?: string[];
+  /**
    * IPO 상장 예정 시각(ms). 설정 시 이 시각 전에는 상장 전(비거래·비노출)이며
    * IPO 탭에 카운트다운으로만 보인다. 이 시각부터 공모가(initialPrice)로 개장해
    * 결정론 시뮬레이션에 참여한다. 비우면 기원점부터 상장된 것으로 본다.

@@ -21,6 +21,7 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
       "신규 비공개 경제위기 국면 ‘경제대그냥’을 추가했습니다. 겉으로는 기존 시황처럼 움직이지만 5거래일 뒤부터 10거래일마다 전역 공통 비공개 판정을 거치며, 위기가 선택되면 4거래일 뒤 시장에 반영됩니다. (@gudokza111)",
       "발생 가능한 위기는 유동성 가뭄·거대한 사기·갑작스러운 뱅크런·사모신용 위기 네 가지입니다. 위기 이름은 공개하지 않고 금리·감사·지급불능·사모펀드 뉴스를 통해 추론하게 하며 모든 계정은 동일한 판정과 시세를 봅니다.",
       "위기별로 전 종목 긴축 충격, 특정 비금융 업종과 금융사의 배당 제한·폭락, 금융권 전염과 생존 기업 반등, 금융·기술·성장주 중심 사모신용 붕괴를 실제 가격 경로에 반영했습니다.",
+      "신규 IPO 3건을 8월 3일 순차 상장합니다. JB투자은행(JBINVB)은 사모신용·종합금융, 슈팡특송(SHPG)은 평시 공모가 50% 하한과 위기 예외, NACM은 고빈도 파생 중심 초고변동성을 반영했습니다. (@warning, @gudokza111, @natsume_anan)",
     ],
     intent:
       "정답을 국면 이름으로 먼저 알려주지 않고 뉴스와 가격 흐름을 읽어 위기의 성격을 추론하게 하되, 전역 공통 시드로 경쟁의 공정성과 시세 동기화를 유지했습니다.",
@@ -293,6 +294,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-07-31",
+    tag: "신규",
+    title: "8월 3일 신규 IPO 3종 순차 상장",
+    detail:
+      "JB투자은행(JBINVB)은 12:00 KST, 슈팡특송(SHPG)은 15:00 KST, NatsumeAnan Capital Management(NACM)은 18:00 KST에 상장합니다. 개장 전에는 공모가 고정·거래 불가를 유지합니다. JBINVB에는 사모신용·종합금융 사건, NACM에는 고빈도 파생의 대형 수익과 파산 위험을 반영했습니다. SHPG는 호황기 현금 비축으로 평시 공모가 50% 하한을 지키지만 시장 위기·버블 붕괴·연료비 급등·특송 수요 붕괴 때에는 하한이 해제됩니다. (@warning, @gudokza111, @natsume_anan)",
+  },
   {
     date: "2026-07-31",
     tag: "신규",
