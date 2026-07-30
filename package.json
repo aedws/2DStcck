@@ -46,6 +46,7 @@
     "test:market-bootstrap": "tsx scripts/test-market-bootstrap.ts",
     "test:market-eras": "tsx scripts/test-market-eras.ts",
     "test:economy-as-usual": "tsx scripts/test-economy-as-usual.ts",
+    "test:institutional-liquidity": "tsx scripts/test-institutional-liquidity.ts",
     "test:energy-crisis": "tsx scripts/test-energy-crisis.ts",
     "test:feedback-rewards": "tsx scripts/test-feedback-rewards.ts",
     "test:account-cache": "tsx scripts/test-account-cache.ts",

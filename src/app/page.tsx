@@ -6,7 +6,7 @@ import { PumpBanner } from "@/components/home/PumpBanner";
 import { AttendanceBanner } from "@/components/home/AttendanceBanner";
 import { OperationBriefing } from "@/components/home/OperationBriefing";
 import { HomeIpoBanner } from "@/components/home/HomeIpoBanner";
-import { InvestorCalendarCountdown } from "@/components/home/InvestorCalendarCountdown";
+import { InstitutionalLiquidityPanel } from "@/components/home/InstitutionalLiquidityPanel";
 import { ReturnInvestmentReport } from "@/components/home/ReturnInvestmentReport";
 import { SupportForms } from "@/components/market/SupportForms";
 import { LearningJourneyCard } from "@/components/home/LearningJourneyCard";
@@ -42,9 +42,6 @@ export default function MarketPage() {
     [stocks],
   );
 
-  const currentSession =
-    stocks[0]?.daySessionId ?? Math.floor(Date.now() / (60 * 60 * 1000));
-
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
       {showEraTutorial && (
@@ -67,9 +64,7 @@ export default function MarketPage() {
       {/* IPO와 캘린더는 오늘의 작전 다음 순서에서 필요한 일정만 촘촘히 보여준다. */}
       <div className="space-y-2 px-4 pt-2 md:px-5">
         <HomeIpoBanner />
-        {mounted && (
-          <InvestorCalendarCountdown currentSession={currentSession} />
-        )}
+        {mounted && <InstitutionalLiquidityPanel />}
       </div>
       <LearningJourneyCard />
       <PumpBanner pumps={pumpStocks} />

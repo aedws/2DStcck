@@ -349,6 +349,8 @@ export type CashPaymentKind =
   | "preferred_dividend"
   // 플레이어 회사 설립·자본 확충으로 영구 소각한 현금.
   | "company_capital"
+  // 공동 유동성 위기 진화를 위해 서버 공통 원장에 투입한 현금.
+  | "liquidity_contribution"
   // 자산운용사 설립·시드 소각.
   | "amc_capital"
   // 유저 ETF 운용료 수입 (NAV 차감분).

@@ -69,6 +69,11 @@ import {
 } from "@/lib/market/economyAsUsual";
 import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
 import { strategyFilterLabel } from "@/lib/market/taxonomy";
+import {
+  liquidityRescueReturn,
+  resolvedLiquidityInterventionAt,
+  simTickAtTime,
+} from "@/lib/market/liquidityInterventions";
 
 /** 사인파 추세 주기 (15분) */
 const MARKET_TREND_PERIOD_MS = 900_000;
@@ -278,6 +283,10 @@ export function calculateTickPrice(
   const cycle = getMarketCycleAtSession(session);
   const crisis = getActiveMarketCrisis(session);
   const war = getActiveScheduledWar(session);
+  const liquidityIntervention = resolvedLiquidityInterventionAt(
+    session,
+    simTickAtTime(now),
+  );
   // 전역 시장 국면(에라)과 캐릭터 운영 지침. 국면 시작 전이면 배율 1·편향 0이라
   // 결과가 완전히 동일하다(과거 바이트 동일 → 버전 bump 불필요).
   const era = getMarketEra(session);
@@ -290,9 +299,11 @@ export function calculateTickPrice(
       0.45,
       regime.volatilityMultiplier *
         cycle.volatilityMultiplier *
-        (crisis?.phase.volatilityMultiplier ?? 1) *
+        (liquidityIntervention
+          ? 1
+          : (crisis?.phase.volatilityMultiplier ?? 1)) *
         (war?.phase.volatilityMultiplier ?? 1) *
-        era.volMul *
+        (liquidityIntervention ? 1 : era.volMul) *
         guideline.volMul,
     ),
   );
@@ -335,6 +346,19 @@ export function calculateTickPrice(
     stock,
     dtSeconds,
   );
+  // 공동 유동성 투입이 성공한 순간부터 해당 위기의 강제 매도·신용 경색 하방은
+  // 중단한다. 정상적인 기업별 악재와 전쟁·경기 국면은 그대로 유지한다.
+  const resolvedCrisisReturn = liquidityIntervention
+    ? Math.max(0, crisisReturn)
+    : crisisReturn;
+  const resolvedEconomyAsUsualReturn = liquidityIntervention
+    ? Math.max(0, economyAsUsualReturn)
+    : economyAsUsualReturn;
+  const rescueReturn = liquidityRescueReturn(
+    liquidityIntervention,
+    session,
+    dtSeconds,
+  );
   const secularGrowthSupport = calculateSecularGrowthSupport(
     stock,
     now,
@@ -348,9 +372,10 @@ export function calculateTickPrice(
     beta * guideline.driftPerSecond * dtSeconds +
     regimeReturn +
     cycleReturn +
-    crisisReturn +
+    resolvedCrisisReturn +
     warReturn +
-    economyAsUsualReturn +
+    resolvedEconomyAsUsualReturn +
+    rescueReturn +
     secularGrowthSupport +
     buybackSupport +
     trend +

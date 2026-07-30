@@ -149,4 +149,20 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: "🎼",
     check: (c) => c.heldCharacterCount <= 3 && c.topThreeCharacterShare >= 0.75,
   },
+  {
+    id: "market_firefighter",
+    title: "시장의 소방수",
+    detail: "개인 자본 투입에 참여해 유동성 위기를 진화했습니다.",
+    emoji: "🚒",
+    // 공동 서버 원장이 성공 시 직접 해금한다.
+    check: () => false,
+  },
+  {
+    id: "great_capitalist",
+    title: "위대한 자본가",
+    detail: "유동성 위기 진화에 가장 많은 자본을 투입했습니다.",
+    emoji: "🏛️",
+    // 공동 서버 원장이 위기별 최대 기여자에게 직접 해금한다.
+    check: () => false,
+  },
 ];

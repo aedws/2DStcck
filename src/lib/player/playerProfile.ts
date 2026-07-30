@@ -33,6 +33,7 @@ export interface PlayerTitleContext {
   mastery: InvestmentMasteryState;
   /** 최애(호감 만렙) 관계 수 — 수집 메타 진척도. */
   favoriteCount: number;
+  achievements: string[];
 }
 
 export interface PlayerTitleDefinition {
@@ -52,6 +53,8 @@ export const PLAYER_TITLES: PlayerTitleDefinition[] = [
   { id: "wealth", name: "자산 설계자", emoji: "💎", condition: "순자산 2배 달성", unlocked: (c) => c.initialCash > 0 && c.netWorth >= c.initialCash * 2 },
   { id: "collector", name: "캐릭터 수집가", emoji: "🎭", condition: "최애 관계 3명", unlocked: (c) => c.favoriteCount >= 3 },
   { id: "patron", name: "인망의 오너", emoji: "👑", condition: "최애 관계 10명", unlocked: (c) => c.favoriteCount >= 10 },
+  { id: "market_firefighter", name: "시장의 소방수", emoji: "🚒", condition: "공동 자본 투입으로 유동성 위기 진화", unlocked: (c) => c.achievements.includes("market_firefighter") },
+  { id: "great_capitalist", name: "위대한 자본가", emoji: "🏛️", condition: "유동성 위기 진화의 최대 기여자", unlocked: (c) => c.achievements.includes("great_capitalist") },
 ];
 
 export function koreaDateKey(now = Date.now()): string {

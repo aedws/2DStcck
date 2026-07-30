@@ -224,6 +224,14 @@ import {
   type PlayerCompanyDividend,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
+import {
+  contributeLiquidityIntervention,
+} from "@/lib/supabase/liquidityInterventions";
+import type { LiquidityCrisisOpportunity } from "@/lib/market/liquidityCrisis";
+import {
+  setLiquidityInterventions,
+  type LiquidityInterventionState,
+} from "@/lib/market/liquidityInterventions";
 import { useToastStore } from "@/store/toastStore";
 import { playSound } from "@/lib/ui/sound";
 import {
@@ -832,6 +840,15 @@ interface MarketStore extends MarketSnapshot {
   reconcilePlayerCompanyMarketActions: (
     actions: PlayerCompanyMarketAction[],
   ) => void;
+  /** 서버 공통 유동성 개입 결과를 모든 클라이언트의 결정론 시장에 연결한다. */
+  liquidityInterventions: LiquidityInterventionState[];
+  reconcileLiquidityInterventions: (
+    interventions: LiquidityInterventionState[],
+  ) => void;
+  contributeLiquidityCapital: (
+    opportunity: LiquidityCrisisOpportunity,
+    amountCentsExact: string,
+  ) => Promise<OrderResult>;
   /** Web Worker가 계산한 공통 시장 체크포인트를 지갑과 분리해 반영한다. */
   applyMarketCheckpoint: (checkpoint: MarketCheckpoint) => void;
   /** 주문 전·복원 직후 밀린 급여와 투자 분배금을 정산 */
@@ -905,6 +922,7 @@ function createInitialState(): MarketSnapshot & {
   playerCompany: PlayerCompanyState | null;
   assetManager: AssetManagerState | null;
   listedAmcFunds: ListedAmcFund[];
+  liquidityInterventions: LiquidityInterventionState[];
 } {
   const now = Date.now();
   const initialMarket = hydrateMarketCheckpoint(getBundledMarketCheckpoint());
@@ -944,6 +962,7 @@ function createInitialState(): MarketSnapshot & {
     cashPayments: [],
     stocks: initialMarket.stocks,
     events: initialMarket.events,
+    liquidityInterventions: [],
     userId: null,
     isReady: false,
     accountResetAt: 0,
@@ -2124,6 +2143,7 @@ export const useMarketStore = create<MarketStore>()(
           seasonState: state.investmentSeason,
           mastery: state.investmentMastery,
           favoriteCount: countFavoriteRelationships(state.characterProgress),
+          achievements: state.achievements,
         });
         // 정적 업적 칭호 또는 이사 칭호(신뢰도 위촉)를 해금 대상으로 인정한다.
         const directorCharId = parseDirectorTitleId(titleId);
@@ -4224,6 +4244,77 @@ export const useMarketStore = create<MarketStore>()(
         ) {
           set({ stocks });
         }
+      },
+
+      reconcileLiquidityInterventions: (interventions) => {
+        setLiquidityInterventions(interventions);
+        set({ liquidityInterventions: interventions });
+      },
+
+      contributeLiquidityCapital: async (
+        opportunity,
+        amountCentsExact,
+      ) => {
+        const requestId = crypto.randomUUID();
+        const response = await contributeLiquidityIntervention(
+          opportunity,
+          amountCentsExact,
+          requestId,
+        );
+        if (!response.success) return response;
+
+        // RPC가 서버 지갑 revision을 올렸으므로 다음 자동 저장이 구버전으로
+        // 충돌하지 않게 revision 캐시를 먼저 동기화한다.
+        await loadGameSave();
+        const result = response.result;
+        const amountDollarsExact = (
+          BigInt(amountCentsExact) / 100n
+        ).toString();
+        const payment: CashPayment = {
+          id: `liquidity-${requestId}`,
+          kind: "liquidity_contribution",
+          sourceId: opportunity.crisisKey,
+          dueSession: Math.floor(Date.now() / SESSION_DURATION_MS),
+          amount: -exactToNumber(amountDollarsExact),
+          amountExact: `-${amountDollarsExact}`,
+          timestamp: Date.now(),
+        };
+        const intervention: LiquidityInterventionState = {
+          crisisKey: result.crisisKey,
+          kind: result.kind,
+          startSession: result.startSession,
+          endSession: result.endSession,
+          resolved: result.resolved,
+          ...(result.effectiveTick !== undefined
+            ? { effectiveTick: result.effectiveTick }
+            : {}),
+        };
+        const current = get();
+        const interventions = [
+          ...current.liquidityInterventions.filter(
+            (item) => item.crisisKey !== intervention.crisisKey,
+          ),
+          intervention,
+        ];
+        setLiquidityInterventions(interventions);
+        set({
+          cash: exactToNumber(result.cashExact),
+          cashExact: result.cashExact,
+          cashPayments: [
+            payment,
+            ...current.cashPayments.filter(
+              (item) => item.id !== payment.id,
+            ),
+          ].slice(0, 50),
+          achievements: result.achievementIds,
+          liquidityInterventions: interventions,
+        });
+        return {
+          success: true,
+          message: result.resolved
+            ? "필요 자본이 모였습니다. 15초 뒤 유동성 위기 진화가 시장에 반영됩니다."
+            : "공동 유동성 원장에 자본을 투입했습니다.",
+        };
       },
 
       applyMarketCheckpoint: (checkpoint) => {

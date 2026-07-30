@@ -12,12 +12,15 @@ import {
 } from "@/lib/supabase/playerCompanyMarketActions";
 import { resolveDuePlayerCompanyGovernance } from "@/lib/supabase/playerCompanyGovernance";
 import type { PlayerCompanyMarketAction } from "@/lib/market/playerCompanyMarketActions";
+import { listPublicLiquidityInterventions } from "@/lib/supabase/liquidityInterventions";
+import type { LiquidityInterventionState } from "@/lib/market/liquidityInterventions";
 
 const WORKER_CATCHUP_THRESHOLD = 250;
 /** 관리자 즉시 IPO 목록 폴링 주기(3분) — 새 상장이 곧 모든 클라이언트에 반영되게. */
 const IPO_LISTING_POLL_MS = 180_000;
 /** 기업행동은 최소 15초 뒤 실행되므로 5초 폴링으로 모든 활성 탭이 미리 받는다. */
 const COMPANY_ACTION_POLL_MS = 5_000;
+const LIQUIDITY_INTERVENTION_POLL_MS = 5_000;
 
 export function MarketRealtime() {
   const tickMarket = useMarketStore((s) => s.tickMarket);
@@ -31,6 +34,7 @@ export function MarketRealtime() {
     // 워커 리플레이에도 넘겨야 결정론이 유지되는 활성 동적 상장 목록.
     let dynamicListings: StoredIpoListing[] = [];
     let playerCompanyActions: PlayerCompanyMarketAction[] = [];
+    let liquidityInterventions: LiquidityInterventionState[] = [];
     let remoteInputsReady = false;
 
     const advance = () => {
@@ -57,6 +61,9 @@ export function MarketRealtime() {
           tickMarket();
           // 워커 체크포인트에는 동적 상장이 반영돼 있지 않을 수 있어 재조정한다.
           useMarketStore.getState().reconcileDynamicListings(dynamicListings);
+          useMarketStore
+            .getState()
+            .reconcileLiquidityInterventions(liquidityInterventions);
         };
         worker.onerror = () => {
           workerRunning = false;
@@ -69,6 +76,7 @@ export function MarketRealtime() {
           targetTick,
           dynamicListings,
           playerCompanyActions,
+          liquidityInterventions,
         });
         return;
       }
@@ -91,11 +99,20 @@ export function MarketRealtime() {
         .reconcilePlayerCompanyMarketActions(actions);
     };
 
+    const refreshLiquidityInterventions = async () => {
+      const interventions = await listPublicLiquidityInterventions();
+      liquidityInterventions = interventions;
+      useMarketStore
+        .getState()
+        .reconcileLiquidityInterventions(interventions);
+    };
+
     // 서버 시장 입력을 먼저 받은 뒤 공통 시장 시각까지 따라잡는다. 기업행동 원장을
     // 받기 전에 틱을 넘겨 과거 행동을 놓치는 경로를 차단한다.
     void Promise.all([
       refreshListings(),
       refreshPlayerCompanyActions(),
+      refreshLiquidityInterventions(),
     ]).finally(() => {
       remoteInputsReady = true;
       advance();
@@ -106,10 +123,15 @@ export function MarketRealtime() {
       () => void refreshPlayerCompanyActions(),
       COMPANY_ACTION_POLL_MS,
     );
+    const liquidityInterventionId = setInterval(
+      () => void refreshLiquidityInterventions(),
+      LIQUIDITY_INTERVENTION_POLL_MS,
+    );
     return () => {
       clearInterval(id);
       clearInterval(listingId);
       clearInterval(companyActionId);
+      clearInterval(liquidityInterventionId);
       worker?.terminate();
     };
   }, [applyMarketCheckpoint, tickMarket]);

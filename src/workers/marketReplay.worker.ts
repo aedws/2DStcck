@@ -12,6 +12,10 @@ import {
   setPlayerCompanyMarketActions,
   type PlayerCompanyMarketAction,
 } from "@/lib/market/playerCompanyMarketActions";
+import {
+  setLiquidityInterventions,
+  type LiquidityInterventionState,
+} from "@/lib/market/liquidityInterventions";
 
 const WORKER_BATCH_TICKS = 30_000;
 
@@ -20,6 +24,7 @@ self.onmessage = (
     targetTick: number;
     dynamicListings?: StoredIpoListing[];
     playerCompanyActions?: PlayerCompanyMarketAction[];
+    liquidityInterventions?: LiquidityInterventionState[];
   }>,
 ) => {
   const targetTick = Math.max(0, Math.floor(event.data.targetTick));
@@ -27,6 +32,7 @@ self.onmessage = (
   // 포함하려면 메인 스레드가 넘긴 활성 목록을 리플레이 전에 등록해야 한다.
   setDynamicListingDefs(event.data.dynamicListings ?? [], BUNDLED_STOCK_IDS);
   setPlayerCompanyMarketActions(event.data.playerCompanyActions ?? []);
+  setLiquidityInterventions(event.data.liquidityInterventions ?? []);
   const base = hydrateMarketCheckpoint(getBundledMarketCheckpoint());
   let stocks = base.stocks;
   let events = base.events;

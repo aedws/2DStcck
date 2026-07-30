@@ -77,6 +77,7 @@ export default function ProfilePage() {
     seasonState: investmentSeason,
     mastery: investmentMastery,
     favoriteCount: countFavoriteRelationships(characterProgress),
+    achievements,
   };
   const unlocked = new Set(
     unlockedPlayerTitles(titleContext).map((title) => title.id),

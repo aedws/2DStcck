@@ -43,6 +43,7 @@ import {
   applyDuePlayerCompanyMarketActions,
   getPlayerCompanyDecisionEventsForSession,
 } from "@/lib/market/playerCompanyMarketActions";
+import { getLiquidityResolutionEventsForTick } from "@/lib/market/liquidityInterventions";
 import { effectiveQuarterlyDividend } from "@/lib/market/shareholderPolicy";
 import type {
   Candle,
@@ -295,6 +296,14 @@ export function replayMarket(
     for (const economyEvent of getEconomyAsUsualEventsForSession(prevSession)) {
       if (!events.some((event) => event.id === economyEvent.id)) {
         events = [...events, economyEvent].slice(-50);
+      }
+    }
+    for (const resolutionEvent of getLiquidityResolutionEventsForTick(
+      tick - 1,
+      tick,
+    )) {
+      if (!events.some((event) => event.id === resolutionEvent.id)) {
+        events = [...events, resolutionEvent].slice(-50);
       }
     }
 
