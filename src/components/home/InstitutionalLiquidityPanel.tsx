@@ -63,7 +63,7 @@ export function InstitutionalLiquidityPanel() {
     () => wallStreetForecast(session, stocks),
     [session, stocks],
   );
-  const burry = useMemo(() => burryForecast(session), [session]);
+  const burry = useMemo(() => burryForecast(session, stocks), [session, stocks]);
   const stockById = useMemo(
     () => new Map(stocks.map((stock) => [stock.id, stock])),
     [stocks],
@@ -228,11 +228,11 @@ export function InstitutionalLiquidityPanel() {
 
             <article className="rounded-xl border border-blue-500/20 bg-blue-500/[0.05] p-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-blue-300">🏙️ 월가</h3>
+                <h3 className="font-bold text-blue-300">🏙️ JP모건 · 월가</h3>
                 <span className="text-[10px] text-blue-400">적중률 80%</span>
               </div>
               <p className="mt-1 text-[11px] text-[var(--muted)]">
-                유동성 위기 목표액의 18%를 자동 투입
+                이른 고평가로 스프레드를 선점 · 목표액 18% 자동 투입
               </p>
               <div className="mt-3 rounded-lg bg-black/20 p-2.5">
                 <p className="text-xs text-[var(--muted)]">
@@ -264,7 +264,7 @@ export function InstitutionalLiquidityPanel() {
                 <span className="text-[10px] text-amber-400">적중률 1%</span>
               </div>
               <p className="mt-1 text-[11px] text-[var(--muted)]">
-                개발자 편향 · 버리 헤이터 설정
+                좋은 기업도 상방이 남은 구간부터 숏 · 개발자 편향
               </p>
               <div className="mt-3 rounded-lg bg-black/20 p-2.5">
                 <p className="text-xs text-[var(--muted)]">
@@ -278,6 +278,14 @@ export function InstitutionalLiquidityPanel() {
                 <p className="mt-2 text-[11px] leading-4 text-[var(--muted)]">
                   신호는 100회 중 1회만 실제 미래와 일치합니다.
                 </p>
+                {burry.featuredStockIds.length > 0 && (
+                  <p className="mt-2 truncate text-[11px] text-amber-300">
+                    숏 주시:{" "}
+                    {burry.featuredStockIds
+                      .map((id) => stockById.get(id)?.ticker ?? id)
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
             </article>
           </div>

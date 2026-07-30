@@ -2,7 +2,10 @@
  * 애널리스트 리포트 회귀 테스트 — 결정론적 적정가치 기반 목표주가·투자의견·근거.
  */
 import assert from "node:assert";
-import { computeAnalystRating } from "../src/lib/market/analystRating";
+import {
+  computeAnalystDeskOpinions,
+  computeAnalystRating,
+} from "../src/lib/market/analystRating";
 
 const base = {
   instrumentType: "company" as const,
@@ -78,6 +81,28 @@ const dividend = computeAnalystRating(
 assert.ok(
   dividend?.reasons.some((r) => r.includes("배당")),
   "배당 종목은 배당 근거 포함",
+);
+
+const desks = computeAnalystDeskOpinions(
+  { ...base, currentPrice: Math.round(fair * 0.7) },
+  now,
+);
+assert.equal(desks.length, 6, "기관별 의견 6종");
+const burry = desks.find((desk) => desk.id === "michael-burry");
+assert.equal(burry?.opinion, "strong_sell", "버리는 상방 여력과 무관하게 숏");
+assert.ok(
+  (burry?.upside ?? 0) < 0,
+  "버리 목표가는 현재가보다 낮아야 한다",
+);
+const jpMorgan = desks.find((desk) => desk.id === "jp-morgan");
+assert.ok(
+  (jpMorgan?.targetPrice ?? 0) > under.targetPrice,
+  "JP모건은 컨센서스보다 이르고 높은 목표가를 제시",
+);
+assert.equal(
+  new Set(desks.map((desk) => desk.targetPrice)).size,
+  desks.length,
+  "기관별 목표가가 획일적이지 않아야 한다",
 );
 
 console.log(

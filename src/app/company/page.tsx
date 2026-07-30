@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { PlayerCompanyBoardPanel } from "@/components/company/PlayerCompanyBoardPanel";
 import { PlayerCompanyGovernancePanel } from "@/components/company/PlayerCompanyGovernancePanel";
+import { PlayerCompanyInsolvencyPanel } from "@/components/company/PlayerCompanyInsolvencyPanel";
 import { PlayerCompanyOwnershipPanel } from "@/components/company/PlayerCompanyOwnershipPanel";
 import { PlayerCompanyStrategyPanel } from "@/components/company/PlayerCompanyStrategyPanel";
 import {
@@ -683,6 +684,7 @@ export default function CompanyPage() {
             </p>
           )}
         </section>
+        <PlayerCompanyInsolvencyPanel currentSession={currentSession} />
         <PlayerCompanyGovernancePanel currentSession={currentSession} />
         <PublicCompanyDirectory companies={publicCompanies} />
       </div>
@@ -748,6 +750,11 @@ export default function CompanyPage() {
           value={`${playerCompany.totalShares.toLocaleString()}주`}
         />
       </section>
+
+      <PlayerCompanyInsolvencyPanel
+        founderStockId={listedStockId || undefined}
+        currentSession={currentSession}
+      />
 
       <PlayerCompanyStrategyPanel
         company={playerCompany}

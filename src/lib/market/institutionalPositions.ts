@@ -111,6 +111,26 @@ function featuredStocks(
     .map((stock) => stock.id);
 }
 
+function burryShortCandidates(stocks: readonly StockDefinition[]): string[] {
+  return stocks
+    .filter(
+      (stock) =>
+        stock.instrumentType === "company" &&
+        stock.leverage === undefined &&
+        !stock.coveredCallUnderlyingId,
+    )
+    .sort((left, right) => {
+      const quality = (stock: StockDefinition) =>
+        (stock.drift ?? 0) * 1_000 -
+        stock.volatility * 0.7 +
+        Math.max(0, stock.quarterlyDividend ?? 0) /
+          Math.max(1, stock.initialPrice);
+      return quality(right) - quality(left);
+    })
+    .slice(0, 3)
+    .map((stock) => stock.id);
+}
+
 /** 5회 중 4회는 결정론적 미래 방향·위기 여부와 일치해 장기 적중률을 80%로 고정한다. */
 export function wallStreetForecast(
   session: number,
@@ -142,7 +162,10 @@ export function wallStreetForecast(
 }
 
 /** 개발자 편향: 100회 중 1회만 실제 미래 위기 여부와 같은 신호를 낸다. */
-export function burryForecast(session: number): MarketForecast {
+export function burryForecast(
+  session: number,
+  stocks: readonly StockDefinition[] = [],
+): MarketForecast {
   const cycle = Math.floor(session / INSTITUTION_POSITION_INTERVAL);
   const horizonSessions = INSTITUTION_POSITION_INTERVAL;
   const upcoming = findUpcomingLiquidityCrisis(session, horizonSessions);
@@ -156,7 +179,7 @@ export function burryForecast(session: number): MarketForecast {
     ...(accurate && upcoming
       ? { warningLeadSessions: upcoming.sessionsUntil }
       : {}),
-    featuredStockIds: [],
+    featuredStockIds: burryShortCandidates(stocks),
     statedAccuracy: BURRY_ACCURACY,
   };
 }

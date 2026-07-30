@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { formatPrice } from "@/lib/market/engine";
 import {
+  computeAnalystDeskOpinions,
   computeAnalystRating,
   type AnalystOpinion,
 } from "@/lib/market/analystRating";
@@ -22,6 +23,10 @@ const SEGMENTS: { opinion: AnalystOpinion; label: string; color: string }[] = [
  */
 export function AnalystPanel({ stock }: { stock: StockState }) {
   const rating = useMemo(() => computeAnalystRating(stock), [stock]);
+  const deskOpinions = useMemo(
+    () => computeAnalystDeskOpinions(stock),
+    [stock],
+  );
   if (!rating) return null;
   const upsidePct = rating.upside * 100;
   const upColor =
@@ -89,6 +94,56 @@ export function AnalystPanel({ stock }: { stock: StockState }) {
           ))}
         </ul>
       )}
+      <div className="mt-4 border-t border-[var(--border)] pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold">기관별 시각</p>
+          <span className="text-[9px] text-[var(--muted)]">
+            서로 다른 철학·시간축
+          </span>
+        </div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {deskOpinions.map((desk) => {
+            const deskUpside = desk.upside * 100;
+            const opinionColor =
+              desk.opinion === "strong_buy" || desk.opinion === "buy"
+                ? "text-emerald-400"
+                : desk.opinion === "strong_sell" || desk.opinion === "sell"
+                  ? "text-rose-400"
+                  : "text-slate-300";
+            return (
+              <article
+                key={desk.id}
+                className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--background)]/55 p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold">{desk.name}</p>
+                    <p className="mt-0.5 text-[9px] text-[var(--muted)]">
+                      {desk.lens}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 text-[10px] font-bold ${opinionColor}`}>
+                    {desk.label}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] font-semibold tabular-nums">
+                  목표 {formatPrice(desk.targetPrice)}{" "}
+                  <span className={opinionColor}>
+                    ({deskUpside >= 0 ? "+" : ""}
+                    {deskUpside.toFixed(1)}%)
+                  </span>
+                </p>
+                <p className="mt-2 text-[10px] leading-4 text-[var(--muted)]">
+                  {desk.thesis}
+                </p>
+                <p className="mt-2 text-[9px] leading-4 text-[var(--muted)]/75">
+                  {desk.disclosure}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
       <p className="mt-2 text-[9px] leading-relaxed text-[var(--muted)]">
         적정가치·목표주가는 종목의 장기 성장 경로를 기준으로 산정한 추정치이며 투자
         권유가 아닙니다.
