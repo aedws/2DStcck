@@ -63,6 +63,10 @@ import {
 } from "@/lib/market/scheduledWar";
 import { belowInitialPriceBuybackReturn } from "@/lib/market/shareholderPolicy";
 import { getMarketEra } from "@/lib/market/marketEras";
+import {
+  economyAsUsualReturnForStock,
+  isEconomyAsUsualDownsideFloorSuspended,
+} from "@/lib/market/economyAsUsual";
 import { getGuidelineModifiers } from "@/lib/market/marketGuidelines";
 import { strategyFilterLabel } from "@/lib/market/taxonomy";
 
@@ -297,6 +301,12 @@ export function calculateTickPrice(
   const warReturn = war
     ? scheduledWarReturnForStock(war, stock, dtSeconds)
     : 0;
+  const economyAsUsualReturn = economyAsUsualReturnForStock(
+    era,
+    session,
+    stock,
+    dtSeconds,
+  );
   const secularGrowthSupport = calculateSecularGrowthSupport(
     stock,
     now,
@@ -312,6 +322,7 @@ export function calculateTickPrice(
     cycleReturn +
     crisisReturn +
     warReturn +
+    economyAsUsualReturn +
     secularGrowthSupport +
     buybackSupport +
     trend +
@@ -325,7 +336,12 @@ export function calculateTickPrice(
     noise;
   const nextPrice = stock.currentPrice * (1 + changeRate);
   const roundedPrice = Math.max(Math.round(nextPrice), 100);
-  if (stock.maxDailyLossRate === undefined) return roundedPrice;
+  if (
+    stock.maxDailyLossRate === undefined ||
+    isEconomyAsUsualDownsideFloorSuspended(era, session, stock)
+  ) {
+    return roundedPrice;
+  }
 
   const lossRate = Math.min(1, Math.max(0, stock.maxDailyLossRate));
   const sessionOpenReference =

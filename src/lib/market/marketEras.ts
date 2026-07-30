@@ -20,7 +20,8 @@ export type MarketEraArchetypeId =
   | "calm"
   | "recovery"
   | "choppy"
-  | "boom-bubble";
+  | "boom-bubble"
+  | "economy-as-usual";
 
 export type BoomBubbleOutcome = "boom" | "bubble";
 export type BoomBubblePhase =
@@ -39,6 +40,26 @@ export interface BoomBubbleEraState {
   sidewaysEndSession: number;
   /** 횡보가 끝나 가격으로 결과가 드러난 뒤에만 채운다. */
   outcome?: BoomBubbleOutcome;
+}
+
+export type EconomyAsUsualScenarioId =
+  | "liquidity-drought"
+  | "giant-fraud"
+  | "bank-run"
+  | "private-credit";
+export type EconomyAsUsualPhase = "cover" | "warning" | "active";
+
+export interface EconomyAsUsualEraState {
+  phase: EconomyAsUsualPhase;
+  coverArchetypeId: Exclude<
+    MarketEraArchetypeId,
+    "neutral" | "boom-bubble" | "economy-as-usual"
+  >;
+  decisionSessions: number[];
+  /** UI에는 노출하지 않는 전역 공통 판정 결과다. */
+  hiddenScenarioId?: EconomyAsUsualScenarioId;
+  triggerDecisionSession?: number;
+  crisisStartSession?: number;
 }
 
 interface EraArchetype {
@@ -71,12 +92,28 @@ const BOOM_BUBBLE_ARCHETYPE: EraArchetype = {
   driftBiasPerSession: 0.012,
 };
 
+const ECONOMY_AS_USUAL_ARCHETYPE: EraArchetype = {
+  id: "economy-as-usual",
+  name: "경제대그냥",
+  emoji: "🏦",
+  volMul: 1,
+  trendMul: 1,
+  driftBiasPerSession: 0,
+};
+
 /** 국면 길이(거래일). 시즌(20)의 배수라 이후 시즌 정렬과 맞물린다. */
 export const MARKET_ERA_SESSIONS = 60;
 /** 최초 신규 복합 국면. 2026-07-31 09:00 KST 시작, 기존 과거 에라는 불변. */
 export const BOOM_BUBBLE_FIRST_ERA_INDEX = 6;
 /** 이후 기존 국면 일곱 개마다 한 번씩 다시 등장한다. */
 export const BOOM_BUBBLE_ERA_INTERVAL = 7;
+/** 비공개 경제위기 국면은 전쟁 종료 뒤인 2026-08-05 09:00 KST에 처음 시작한다. */
+export const ECONOMY_AS_USUAL_FIRST_ERA_INDEX = 8;
+/** 대호황·버블과 겹치지 않는 별도 7국면 주기다. */
+export const ECONOMY_AS_USUAL_ERA_INTERVAL = 7;
+export const ECONOMY_AS_USUAL_FIRST_DECISION_OFFSET = 5;
+export const ECONOMY_AS_USUAL_DECISION_INTERVAL = 10;
+export const ECONOMY_AS_USUAL_CRISIS_DELAY = 4;
 export const BOOM_BUBBLE_SIDEWAYS_SESSIONS = Math.round(
   MARKET_ERA_SESSIONS * 0.2,
 );
@@ -107,6 +144,7 @@ export interface MarketEra {
   startSession: number;
   endSession: number;
   boomBubble?: BoomBubbleEraState;
+  economyAsUsual?: EconomyAsUsualEraState;
 }
 
 const NEUTRAL_ERA: MarketEra = {
@@ -138,11 +176,72 @@ function archetypeForEra(index: number): EraArchetype {
   ) {
     return BOOM_BUBBLE_ARCHETYPE;
   }
+  if (
+    index >= ECONOMY_AS_USUAL_FIRST_ERA_INDEX &&
+    (index - ECONOMY_AS_USUAL_FIRST_ERA_INDEX) %
+      ECONOMY_AS_USUAL_ERA_INTERVAL ===
+      0
+  ) {
+    return ECONOMY_AS_USUAL_ARCHETYPE;
+  }
   const pick = hashIndex(index, ARCHETYPES.length);
   if (index > 0 && pick === hashIndex(index - 1, ARCHETYPES.length)) {
     return ARCHETYPES[(pick + 1) % ARCHETYPES.length];
   }
   return ARCHETYPES[pick];
+}
+
+function economyAsUsualState(
+  index: number,
+  session: number,
+  startSession: number,
+): EconomyAsUsualEraState {
+  const cover = ARCHETYPES[hashIndex(index * 73 + 19, ARCHETYPES.length)];
+  const decisionSessions: number[] = [];
+  for (
+    let offset = ECONOMY_AS_USUAL_FIRST_DECISION_OFFSET;
+    offset <=
+    MARKET_ERA_SESSIONS - ECONOMY_AS_USUAL_CRISIS_DELAY - 5;
+    offset += ECONOMY_AS_USUAL_DECISION_INTERVAL
+  ) {
+    decisionSessions.push(startSession + offset);
+  }
+
+  // 요청 확률: 10거래일 / 국면 60거래일 × 50% = 판정 1회당 1/12.
+  const triggerDecisionSession = decisionSessions.find(
+    (decisionSession, decisionIndex) =>
+      hashIndex(index * 101 + decisionIndex * 37 + 71, 12) === 0,
+  );
+  if (triggerDecisionSession === undefined) {
+    return {
+      phase: "cover",
+      coverArchetypeId: cover.id as EconomyAsUsualEraState["coverArchetypeId"],
+      decisionSessions,
+    };
+  }
+
+  const crisisStartSession =
+    triggerDecisionSession + ECONOMY_AS_USUAL_CRISIS_DELAY;
+  const scenarioIds: EconomyAsUsualScenarioId[] = [
+    "liquidity-drought",
+    "giant-fraud",
+    "bank-run",
+    "private-credit",
+  ];
+  return {
+    phase:
+      session < triggerDecisionSession
+        ? "cover"
+        : session < crisisStartSession
+          ? "warning"
+          : "active",
+    coverArchetypeId: cover.id as EconomyAsUsualEraState["coverArchetypeId"],
+    decisionSessions,
+    hiddenScenarioId:
+      scenarioIds[hashIndex(index * 101 + triggerDecisionSession + 89, 4)],
+    triggerDecisionSession,
+    crisisStartSession,
+  };
 }
 
 function boomBubbleTiming(index: number, startSession: number) {
@@ -246,19 +345,38 @@ export function getMarketEra(session: number): MarketEra {
     arch.id === "boom-bubble"
       ? boomBubbleModifiers(index, session, startSession)
       : null;
+  const economyAsUsual =
+    arch.id === "economy-as-usual"
+      ? economyAsUsualState(index, session, startSession)
+      : null;
+  const cover =
+    economyAsUsual && economyAsUsual.phase !== "active"
+      ? ARCHETYPES.find(
+          (candidate) => candidate.id === economyAsUsual.coverArchetypeId,
+        )
+      : null;
   return {
     index,
     archetypeId: arch.id,
     name: boomBubble?.name ?? arch.name,
     emoji: arch.emoji,
-    volMul: boomBubble?.volMul ?? arch.volMul,
-    trendMul: boomBubble?.trendMul ?? arch.trendMul,
+    volMul:
+      boomBubble?.volMul ??
+      cover?.volMul ??
+      (economyAsUsual?.phase === "active" ? 1.55 : arch.volMul),
+    trendMul:
+      boomBubble?.trendMul ??
+      cover?.trendMul ??
+      (economyAsUsual?.phase === "active" ? 1.25 : arch.trendMul),
     driftPerSecond:
-      (boomBubble?.driftBiasPerSession ?? arch.driftBiasPerSession) /
+      (boomBubble?.driftBiasPerSession ??
+        cover?.driftBiasPerSession ??
+        arch.driftBiasPerSession) /
       (SESSION_DURATION_MS / 1000),
     startSession,
     endSession: startSession + MARKET_ERA_SESSIONS,
     boomBubble: boomBubble?.state,
+    economyAsUsual: economyAsUsual ?? undefined,
   };
 }
 

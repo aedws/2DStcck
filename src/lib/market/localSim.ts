@@ -34,6 +34,10 @@ import { getStoryEventForSession } from "@/lib/market/storyArcs";
 import { getEarningsEventsForSession } from "@/lib/market/earningsCalendar";
 import { getCrisisEventsForSession } from "@/lib/market/marketCrises";
 import { getScheduledWarEventsForSession } from "@/lib/market/scheduledWar";
+import {
+  getEconomyAsUsualEventsForSession,
+  isEconomyAsUsualDividendRestricted,
+} from "@/lib/market/economyAsUsual";
 import { getCorporateActionEventForSession } from "@/lib/market/corporateActions";
 import {
   applyDuePlayerCompanyMarketActions,
@@ -288,6 +292,11 @@ export function replayMarket(
         events = [...events, decisionEvent].slice(-50);
       }
     }
+    for (const economyEvent of getEconomyAsUsualEventsForSession(prevSession)) {
+      if (!events.some((event) => event.id === economyEvent.id)) {
+        events = [...events, economyEvent].slice(-50);
+      }
+    }
 
     // 2차: NAV ETF. 이 결과를 기초로 하는 레버리지 상품보다 먼저 갱신한다.
     for (const s of navEtfs) {
@@ -388,6 +397,11 @@ export function replayMarket(
             events = [...events, warEvent].slice(-50);
           }
         }
+        for (const economyEvent of getEconomyAsUsualEventsForSession(s)) {
+          if (!events.some((event) => event.id === economyEvent.id)) {
+            events = [...events, economyEvent].slice(-50);
+          }
+        }
 
         const sinceEpoch = s - EPOCH_SESSION;
         if (sinceEpoch <= 0) continue;
@@ -410,7 +424,7 @@ export function replayMarket(
               ccInterval,
             );
           }
-          if (divDue) {
+          if (divDue && !isEconomyAsUsualDividendRestricted(s, stock)) {
             amount += effectiveQuarterlyDividend(stock);
           }
           if (amount <= 0) continue;

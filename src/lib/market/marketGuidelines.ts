@@ -66,6 +66,7 @@ const ERA_AFFINITY: Record<string, Partial<Weights>> = {
   recovery: { aggressive: 3, shareholder: 1 },
   choppy: { neutral: 3, management: 1 },
   "boom-bubble": { neutral: 3, defensive: 1 },
+  "economy-as-usual": { defensive: 3, neutral: 1 },
 };
 
 const traitWeightCache = new Map<string, Weights>();

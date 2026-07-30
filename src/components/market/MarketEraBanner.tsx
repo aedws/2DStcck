@@ -37,6 +37,7 @@ export function MarketEraBanner() {
 
   const left = Math.max(0, era.endSession - session);
   const boomBubble = era.boomBubble;
+  const economyAsUsual = era.economyAsUsual;
   const phaseText =
     boomBubble?.phase === "sideways"
       ? "횡보 관망 · 판정 비공개"
@@ -48,7 +49,13 @@ export function MarketEraBanner() {
             ? "버블 판정 · 하락 지속"
             : boomBubble
               ? "강한 상승 · 호황/버블 판정 비공개"
-              : null;
+              : economyAsUsual?.phase === "active"
+                ? "경제 이상 징후 확산 · 위기 종류 비공개"
+                : economyAsUsual?.phase === "warning"
+                  ? "비공개 판정 발생 · 4거래일 뒤 시장 반영"
+                  : economyAsUsual
+                    ? "겉보기 시황 유지 · 경제위기 판정 비공개"
+                    : null;
   return (
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-violet-400/25 bg-violet-500/10 px-4 py-2.5 text-sm">
       <span className="min-w-0">

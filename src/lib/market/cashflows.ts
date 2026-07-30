@@ -24,6 +24,7 @@ import {
   settleSalary,
 } from "@/lib/market/salary";
 import { effectiveQuarterlyDividend } from "@/lib/market/shareholderPolicy";
+import { isEconomyAsUsualDividendRestricted } from "@/lib/market/economyAsUsual";
 import { computeProgressiveTaxExact, makeTaxPayment } from "@/lib/market/taxes";
 
 const MAX_CASH_PAYMENTS = 50;
@@ -287,7 +288,9 @@ export function settleLocalCashflows(
 
   for (const dueSession of quarterly.dueSessions) {
     const dividendStocks = stocks.filter(
-      (candidate) => effectiveQuarterlyDividend(candidate) > 0,
+      (candidate) =>
+        effectiveQuarterlyDividend(candidate) > 0 &&
+        !isEconomyAsUsualDividendRestricted(dueSession, candidate),
     );
     for (const stock of dividendStocks) {
       const amountPerShare = effectiveQuarterlyDividend(stock);
