@@ -28,6 +28,9 @@ function CloudSaveSync() {
   const saveCloud = useMarketStore((s) => s.saveCloud);
   const syncLeaderboardNow = useMarketStore((s) => s.syncLeaderboardNow);
   const settleCashflows = useMarketStore((s) => s.settleCashflows);
+  const processRegularCompanyDividend = useMarketStore(
+    (s) => s.processDuePlayerCompanyRegularDividend,
+  );
 
   // 로그인 상태 추적 + 로그인 시 저장분 로드.
   // onAuthStateChange는 구독 즉시 INITIAL_SESSION을 한 번 발생시키므로 별도의
@@ -87,6 +90,7 @@ function CloudSaveSync() {
             await refreshListedAmcFunds();
             setCloudSyncReady(true);
             await saveCloud();
+            await processRegularCompanyDividend();
           })();
         }, 0);
       },
@@ -101,6 +105,7 @@ function CloudSaveSync() {
     saveCloud,
     settleCashflows,
     applyTargetedAccountReset,
+    processRegularCompanyDividend,
   ]);
 
   // 지갑 변경 시 디바운스 저장 (로그인 상태에서만).
@@ -209,6 +214,20 @@ function CloudSaveSync() {
     }, 60_000);
     return () => window.clearInterval(id);
   }, [refreshListedAmcFunds]);
+
+  // 플레이어 회사 정기배당은 회사 페이지를 열지 않아도 접속 중 만기 회차를
+  // 자동 예약한다. 스토어 내부 잠금과 서버 배당일 unique 키가 중복 차감을 막는다.
+  useEffect(() => {
+    const settle = () => {
+      const state = useMarketStore.getState();
+      if (state.userId && state.cloudSyncReady) {
+        void processRegularCompanyDividend();
+      }
+    };
+    settle();
+    const id = window.setInterval(settle, 60_000);
+    return () => window.clearInterval(id);
+  }, [processRegularCompanyDividend]);
 
   // 거래가 없어도 공개 랭킹 스냅샷과 주간 수익률을 1분마다 갱신한다.
   // 지갑 저장과 분리해 500건 거래 JSON을 주기적으로 재업로드하지 않는다.

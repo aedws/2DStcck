@@ -15,10 +15,13 @@ const PROPOSAL_LABEL: Record<PlayerCompanyProposalType, string> = {
   issue: "유상증자",
   retire: "자사주 소각",
   expansion: "사업 확장",
+  ceo_change: "CEO 교체 요구",
+  asset_sale: "비핵심 자산 매각",
 };
 
 function valueLabel(proposal: PlayerCompanyGovernanceProposal) {
   if (proposal.proposalType === "expansion") return "신사업 진출";
+  if (proposal.proposalType === "ceo_change") return "경영진 교체";
   return `${(proposal.proposedValue * 100).toFixed(1)}%`;
 }
 
@@ -63,7 +66,10 @@ export function PlayerCompanyGovernancePanel({
     const result = await createPlayerCompanyGovernanceProposal({
       stockId: founderStockId,
       proposalType,
-      proposedValue: proposalType === "expansion" ? 1 : proposedValue / 100,
+      proposedValue:
+        proposalType === "expansion" || proposalType === "ceo_change"
+          ? 1
+          : proposedValue / 100,
     });
     setMessage(result.message);
     if (result.success) await refresh();
@@ -88,6 +94,11 @@ export function PlayerCompanyGovernancePanel({
           보유한 장기 주주가 지분 가중 투표권을 행사합니다. 결과는 공통 주가와
           회사 명성에 반영됩니다.
         </p>
+        <p className="mt-2 rounded-xl bg-cyan-400/10 p-3 text-[11px] leading-relaxed text-cyan-200">
+          행동주의 안건인 CEO 교체·비핵심 자산 매각도 같은 주주총회에서
+          표결합니다. 가결 시 경영 전환 또는 자산 효율화 효과가, 부결 시
+          주주 갈등과 신뢰 하락이 공통 시장에 반영됩니다.
+        </p>
       </div>
 
       {founderStockId && (
@@ -105,9 +116,11 @@ export function PlayerCompanyGovernancePanel({
               </option>
             ))}
           </select>
-          {proposalType === "expansion" ? (
+          {proposalType === "expansion" || proposalType === "ceo_change" ? (
             <div className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted)]">
-              신사업 진출안
+              {proposalType === "expansion"
+                ? "신사업 진출안"
+                : "행동주의 주주 경영진 교체안"}
             </div>
           ) : (
             <label className="flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm">

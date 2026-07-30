@@ -1,5 +1,10 @@
 import { COMPANY_SECTOR_ORDER } from "@/lib/market/taxonomy";
 import type { Holding, StockState } from "@/lib/types/market";
+import {
+  createPlayerCompanyManagement,
+  normalizePlayerCompanyManagement,
+  type PlayerCompanyManagementState,
+} from "@/lib/player/playerCompanyManagement";
 
 export const PLAYER_COMPANY_MIN_NET_WORTH = 100_000_000_000; // $1B
 export const PLAYER_COMPANY_FOUNDING_RATE = 0.2;
@@ -69,6 +74,8 @@ export interface PlayerCompanyState {
   dividendRate?: number;
   /** 이사회·주주총회 결과로 누적되는 회사 명성 보정치(-100~100). */
   governanceReputation?: number;
+  /** 회사 고유 현금·부채·가이던스·공급망·인재를 묶은 분기 경영 상태. */
+  management?: PlayerCompanyManagementState;
 }
 
 export interface FoundPlayerCompanyInput {
@@ -402,6 +409,14 @@ export function foundPlayerCompany(
     pendingCapitalCall: null,
     lastActionAt: now,
   };
+  company.management = createPlayerCompanyManagement({
+    companyId: company.id,
+    ticker: company.ticker,
+    sector: company.sector,
+    capital: company.cumulativeCapitalBurned,
+    reputation: 0,
+    currentSession,
+  });
 
   return {
     success: true,
@@ -739,7 +754,7 @@ export function normalizePlayerCompany(
         }
       : null;
 
-  return {
+  const normalized: PlayerCompanyState = {
     id:
       typeof source.id === "string" && source.id
         ? source.id
@@ -826,4 +841,13 @@ export function normalizePlayerCompany(
         }
       : {}),
   };
+  normalized.management = normalizePlayerCompanyManagement(source.management, {
+    companyId: normalized.id,
+    ticker: normalized.ticker,
+    sector: normalized.sector,
+    capital: normalized.cumulativeCapitalBurned,
+    reputation: normalized.governanceReputation ?? 0,
+    currentSession: Math.floor(Date.now() / 3_600_000),
+  });
+  return normalized;
 }

@@ -15,7 +15,9 @@ export type PlayerCompanyProposalType =
   | "dividend"
   | "issue"
   | "retire"
-  | "expansion";
+  | "expansion"
+  | "ceo_change"
+  | "asset_sale";
 
 export interface PlayerCompanyBoardDecision {
   id: string;
@@ -109,7 +111,14 @@ function parseProposal(
   if (
     !id ||
     !stockId ||
-    !["dividend", "issue", "retire", "expansion"].includes(proposalType) ||
+    ![
+      "dividend",
+      "issue",
+      "retire",
+      "expansion",
+      "ceo_change",
+      "asset_sale",
+    ].includes(proposalType) ||
     !["open", "passed", "rejected"].includes(status)
   ) {
     return null;

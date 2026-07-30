@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { PlayerCompanyBoardPanel } from "@/components/company/PlayerCompanyBoardPanel";
 import { PlayerCompanyGovernancePanel } from "@/components/company/PlayerCompanyGovernancePanel";
+import { PlayerCompanyStrategyPanel } from "@/components/company/PlayerCompanyStrategyPanel";
 import {
   COMPANY_TUTORIAL_STEPS,
   COMPANY_TUTORIAL_VERSION,
@@ -723,6 +724,11 @@ export default function CompanyPage() {
         />
       </section>
 
+      <PlayerCompanyStrategyPanel
+        company={playerCompany}
+        currentSession={currentSession}
+      />
+
       {call && (
         <section className="mb-5 rounded-3xl border border-amber-400/40 bg-amber-400/5 p-5">
           <p className="text-xs font-bold text-amber-300">정기 자본 확충</p>
@@ -861,7 +867,9 @@ export default function CompanyPage() {
         </div>
         <div className="mt-4 border-t border-[var(--border)] pt-4">
           <div className="rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
-            <p className="text-sm font-black text-amber-200">이번 1회 배당 예산</p>
+            <p className="text-sm font-black text-amber-200">
+              특별배당 · 이번 1회 배당 예산
+            </p>
             <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
               여기서 <b className="text-[var(--foreground)]">총자산</b>은 회사
               자산이 아니라 창업주인 <b className="text-[var(--foreground)]">내 계좌의

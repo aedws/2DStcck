@@ -224,6 +224,7 @@ import {
 } from "@/lib/supabase/feedback";
 import {
   declarePlayerCompanyDividend as declareDividendServer,
+  hasPlayerCompanyDividend,
   type PlayerCompanyDividend,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
@@ -377,6 +378,10 @@ import {
   type FoundPlayerCompanyInput,
   type PlayerCompanyState,
 } from "@/lib/player/playerCompany";
+import {
+  markPlayerCompanyRegularDividendResult,
+  type PlayerCompanyManagementState,
+} from "@/lib/player/playerCompanyManagement";
 import {
   reconcileCharacterStockOptions,
   normalizeCharacterStockOptions,
@@ -745,6 +750,13 @@ interface MarketStore extends MarketSnapshot {
   retirePlayerCompanyShares: (shares: number) => Promise<OrderResult>;
   /** 다음 1회 배당에 사용할 계좌 총자산 대비 예산 비율(0~0.5). */
   setPlayerCompanyDividendRate: (rate: number) => OrderResult;
+  /** 회사 재무·가이던스·공급망·인재 상태를 저장한다. */
+  updatePlayerCompanyManagement: (
+    management: PlayerCompanyManagementState,
+    reputationDelta?: number,
+  ) => OrderResult;
+  /** 접속 시 만기가 된 정기배당을 한 번만 실제 주주 배당 원장에 예약한다. */
+  processDuePlayerCompanyRegularDividend: () => Promise<OrderResult>;
   /** 1회 배당 예약 — 계좌 총자산×예산 비율을 개인 현금에서 차감해 원장에 선언한다. */
   declarePlayerCompanyDividend: () => Promise<OrderResult>;
   /** 배당 원장에서 지급 개시된 배당을 보유 좌수 비례로 멱등 수령한다. */
@@ -1953,6 +1965,8 @@ function applyLocalBuySell(
     message: `${label} (${formatPrice(price)})`,
   };
 }
+
+let playerCompanyRegularDividendProcessing = false;
 
 export const useMarketStore = create<MarketStore>()(
   persist(
@@ -5798,6 +5812,126 @@ export const useMarketStore = create<MarketStore>()(
         set({ playerCompany: result.company });
         useToastStore.getState().push(result.message, "success");
         return { success: true, message: result.message };
+      },
+
+      updatePlayerCompanyManagement: (management, reputationDelta = 0) => {
+        const state = get();
+        if (!state.playerCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        set({
+          playerCompany: {
+            ...state.playerCompany,
+            management,
+            governanceReputation: Math.max(
+              -100,
+              Math.min(
+                100,
+                (state.playerCompany.governanceReputation ?? 0) +
+                  Math.round(reputationDelta),
+              ),
+            ),
+            lastActionAt: Date.now(),
+          },
+        });
+        return { success: true, message: "회사 경영 상태를 저장했습니다." };
+      },
+
+      processDuePlayerCompanyRegularDividend: async () => {
+        const state = get();
+        const company = state.playerCompany;
+        const management = company?.management;
+        if (!company || !management) {
+          return { success: false, message: "회사 경영 상태가 없습니다." };
+        }
+        const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
+        if (
+          company.status !== "listed" ||
+          !company.ipoListingStockId ||
+          !management.regularDividendEnabled ||
+          management.regularDividendRate <= 0 ||
+          currentSession < management.nextRegularDividendSession
+        ) {
+          return { success: false, message: "지금 실행할 정기배당이 없습니다." };
+        }
+        if (playerCompanyRegularDividendProcessing) {
+          return { success: false, message: "정기배당 예약을 처리 중입니다." };
+        }
+        playerCompanyRegularDividendProcessing = true;
+        try {
+        const dividendSession =
+          (Math.floor(currentSession / COVERED_CALL_INTERVAL_DAYS) + 1) *
+          COVERED_CALL_INTERVAL_DAYS;
+        const context = {
+          companyId: company.id,
+          ticker: company.ticker,
+          sector: company.sector,
+          capital: company.cumulativeCapitalBurned,
+          reputation: company.governanceReputation ?? 0,
+          currentSession,
+        };
+
+        if (
+          await hasPlayerCompanyDividend(
+            company.ipoListingStockId,
+            dividendSession,
+          )
+        ) {
+          const fulfilled = markPlayerCompanyRegularDividendResult(
+            management,
+            context,
+            true,
+          );
+          get().updatePlayerCompanyManagement(fulfilled, 2);
+          return {
+            success: true,
+            message:
+              "이번 배당일에 이미 예약된 배당을 정기배당 이행으로 반영했습니다.",
+          };
+        }
+
+        set({
+          playerCompany: {
+            ...company,
+            dividendRate: management.regularDividendRate,
+          },
+        });
+        const result = await get().declarePlayerCompanyDividend();
+        const latestCompany = get().playerCompany;
+        if (!latestCompany) return result;
+        const settled = markPlayerCompanyRegularDividendResult(
+          latestCompany.management ?? management,
+          context,
+          result.success,
+          result.success ? undefined : result.message,
+        );
+        set({
+          playerCompany: {
+            ...latestCompany,
+            dividendRate: 0,
+            management: settled,
+            governanceReputation: Math.max(
+              -100,
+              Math.min(
+                100,
+                (latestCompany.governanceReputation ?? 0) +
+                  (result.success ? 2 : -4),
+              ),
+            ),
+          },
+        });
+        if (!result.success) {
+          useToastStore
+            .getState()
+            .push(
+              "정기배당을 실행하지 못해 주주 신뢰도가 하락했습니다.",
+              "error",
+            );
+        }
+        return result;
+        } finally {
+          playerCompanyRegularDividendProcessing = false;
+        }
       },
 
       declarePlayerCompanyDividend: async () => {

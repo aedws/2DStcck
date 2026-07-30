@@ -121,3 +121,18 @@ export async function listClaimablePlayerCompanyDividends(
     dividendSession: Number(row.dividend_session),
   }));
 }
+
+/** 같은 회사·배당일에 이미 예약된 배당이 있는지 확인한다. 정기배당 재시도 중복 방지용. */
+export async function hasPlayerCompanyDividend(
+  stockId: string,
+  dividendSession: number,
+): Promise<boolean> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("player_company_dividends")
+    .select("id")
+    .eq("stock_id", stockId.trim().toLowerCase())
+    .eq("dividend_session", Math.round(dividendSession))
+    .limit(1);
+  return !error && Array.isArray(data) && data.length > 0;
+}
