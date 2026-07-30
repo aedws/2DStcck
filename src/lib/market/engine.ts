@@ -292,7 +292,7 @@ export function calculateTickPrice(
   const regimeReturn = regimeReturnForStock(regime, stock.sector, dtSeconds);
   const cycleReturn = cycleReturnForStock(cycle, stock.sector, dtSeconds);
   const crisisReturn = crisis
-    ? crisisReturnForStock(crisis, stock, dtSeconds)
+    ? crisisReturnForStock(crisis, stock, dtSeconds, events)
     : 0;
   const warReturn = war
     ? scheduledWarReturnForStock(war, stock, dtSeconds)

@@ -246,7 +246,7 @@ function themeExposure(
   stock: Pick<
     StockDefinition,
     "sector" | "subsector" | "beta" | "marketTags"
-  >,
+  > & { id?: string },
 ): number {
   const { sector, subsector } = stock;
   const hasMarketTag = (tag: string) =>
@@ -265,6 +265,9 @@ function themeExposure(
     if (hasMarketTag("바이오")) exposure *= 0.35;
   } else if (active.theme.id === "energy-shock") {
     if (hasMarketTag("에너지")) exposure *= negativePhase ? -0.45 : 0.65;
+    // 에너지 공급망 충격에서는 비축 식량·생산 능력이 희소해진다는 요청을
+    // 반영해 캬롯 농장은 위기 단계와 관계없이 완만한 상방 압력을 받는다.
+    if (stock.id === "carrot") exposure *= negativePhase ? -0.55 : 0.65;
     if (hasMarketTag("요식업") || hasMarketTag("관광")) exposure *= 1.25;
   }
 
@@ -277,9 +280,34 @@ export function crisisReturnForStock(
   stock: Pick<
     StockDefinition,
     "sector" | "subsector" | "beta" | "marketTags"
-  >,
+  > & { id?: string },
   dtSeconds: number,
+  events: readonly Pick<MarketEvent, "id" | "tag" | "timestamp">[] = [],
 ): number {
+  if (active.theme.id === "energy-shock") {
+    const bumperCropCount = new Set(
+      events
+        .filter((event) => {
+          const eventSession = Math.floor(
+            event.timestamp / SESSION_DURATION_MS,
+          );
+          return (
+            event.tag === "대풍작" &&
+            eventSession >= active.startSession &&
+            eventSession < active.endSession
+          );
+        })
+        .map((event) => event.id),
+    ).size;
+    const activeSession = active.endSession - active.sessionsLeft;
+    const elapsedSessions = activeSession - active.startSession;
+    if (
+      elapsedSessions >=
+      active.endSession - active.startSession - bumperCropCount
+    ) {
+      return 0;
+    }
+  }
   return (
     active.phase.marketReturnPerSession *
     themeExposure(active, stock) *

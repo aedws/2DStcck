@@ -2,19 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-function isTradeRoute(pathname: string): boolean {
-  return (
-    pathname === "/trade" ||
-    pathname.startsWith("/stock/") ||
-    pathname.startsWith("/amc/trade")
-  );
-}
+import {
+  isPortfolioPath,
+  isTradePath,
+} from "@/lib/navigation/paths";
 
 export function TradeSectionTabs() {
   const pathname = usePathname();
-  const tradeActive = isTradeRoute(pathname);
-  const accountActive = pathname.startsWith("/portfolio");
+  const tradeActive = isTradePath(pathname);
+  const accountActive = isPortfolioPath(pathname);
 
   if (!tradeActive && !accountActive) return null;
 

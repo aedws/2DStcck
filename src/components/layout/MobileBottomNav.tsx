@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import {
+  isPortfolioPath,
+  isTradePath,
+  normalizePathname,
+} from "@/lib/navigation/paths";
 
 interface MobileNavItem {
   href: string;
@@ -12,7 +17,7 @@ interface MobileNavItem {
 
 const bottomItems: MobileNavItem[] = [
   { href: "/", label: "홈", icon: "⌂" },
-  { href: "/trade", label: "거래", icon: "↕" },
+  { href: "/trade", label: "거래·계좌", icon: "↕" },
   { href: "/company", label: "회사", icon: "🏢" },
   { href: "/amc", label: "ETF", icon: "📊" },
 ];
@@ -21,6 +26,7 @@ const menuGroups: Array<{ label: string; items: MobileNavItem[] }> = [
   {
     label: "핵심",
     items: [
+      { href: "/portfolio", label: "내 계좌", icon: "💼" },
       { href: "/season", label: "시즌", icon: "🏆" },
       { href: "/leaderboard", label: "랭킹", icon: "🥇" },
       { href: "/characters", label: "도감", icon: "🎭" },
@@ -66,16 +72,17 @@ const menuGroups: Array<{ label: string; items: MobileNavItem[] }> = [
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
+  const normalizedPathname = normalizePathname(pathname);
+  const normalizedHref = normalizePathname(href);
+  if (normalizedHref === "/") return normalizedPathname === "/";
   if (href === "/trade") {
-    return (
-      pathname === "/trade" ||
-      pathname.startsWith("/stock/") ||
-      pathname.startsWith("/amc/trade") ||
-      pathname.startsWith("/portfolio")
-    );
+    return isTradePath(pathname) || isPortfolioPath(pathname);
   }
-  return pathname.startsWith(href);
+  if (href === "/portfolio") return isPortfolioPath(pathname);
+  return (
+    normalizedPathname === normalizedHref ||
+    normalizedPathname.startsWith(`${normalizedHref}/`)
+  );
 }
 
 export function MobileBottomNav() {

@@ -18,7 +18,8 @@ export type CharacterMessageKind =
   | "earnings"
   | "mission"
   | "relationship"
-  | "shareholder_letter";
+  | "shareholder_letter"
+  | "system";
 
 export interface CharacterMessage {
   id: string;

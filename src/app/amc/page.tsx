@@ -23,6 +23,7 @@ import {
   AMC_MIN_HOLDINGS,
   AMC_MIN_NET_WORTH,
   AMC_REBALANCE_WINDOW_DAYS,
+  AMC_SHARE_ADJUSTMENT_COOLDOWN_DAYS,
   AMC_SHARE_ADJUSTMENT_RATIOS,
   amcFundStockId,
   classifyAmcFundExposure,
@@ -776,6 +777,7 @@ export default function AssetManagerPage() {
                 initialPriceOf={initialPriceOf}
                 valuationPriceOf={valuationPriceOf}
                 stockOf={stockOfSelected}
+                currentSession={currentSession}
                 qty={tradeQty[fund.id] ?? "1"}
                 onQty={(value) =>
                   setTradeQty((prev) => ({
@@ -1294,7 +1296,11 @@ export default function AssetManagerPage() {
                           ? `상장 ${AMC_ETF_LISTING_STATUS_LABEL[listing.status]}`
                           : "상장 미신청"}
                     </p>
-                    <ShareAdjustmentLabel fund={fund} />
+                    <ShareAdjustmentLabel
+                      fund={fund}
+                      nav={nav}
+                      currentSession={currentSession}
+                    />
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
@@ -2426,6 +2432,7 @@ function ListedFundCard({
   initialPriceOf,
   valuationPriceOf,
   stockOf,
+  currentSession,
   qty,
   onQty,
   busy,
@@ -2444,6 +2451,7 @@ function ListedFundCard({
         coveredCallAnnualYield?: number;
       }
     | undefined;
+  currentSession: number;
   qty: string;
   onQty: (value: string) => void;
   busy: boolean;
@@ -2485,7 +2493,11 @@ function ListedFundCard({
             {(exposureProfile.incomeWeight * 100).toFixed(0)}% · 레버리지{" "}
             {(exposureProfile.leverageWeight * 100).toFixed(0)}%
           </p>
-          <ShareAdjustmentLabel fund={fund} />
+          <ShareAdjustmentLabel
+            fund={fund}
+            nav={nav}
+            currentSession={currentSession}
+          />
         </div>
         <div className="min-w-0 max-w-full text-right sm:shrink-0">
           <p className="text-xs text-[var(--muted)]">좌당 NAV</p>
@@ -2555,29 +2567,61 @@ function ListedFundCard({
 
 function ShareAdjustmentLabel({
   fund,
+  nav,
+  currentSession,
 }: {
   fund: {
     splitTriggerPrice?: number;
     splitRatio?: number;
     reverseSplitTriggerPrice?: number;
     reverseSplitRatio?: number;
+    lastShareAdjustmentSession?: number;
   };
+  nav: number;
+  currentSession: number;
 }) {
   if (!fund.splitTriggerPrice && !fund.reverseSplitTriggerPrice) return null;
+  const cooldownLeft =
+    fund.lastShareAdjustmentSession == null
+      ? 0
+      : Math.max(
+          0,
+          AMC_SHARE_ADJUSTMENT_COOLDOWN_DAYS -
+            (currentSession - fund.lastShareAdjustmentSession),
+        );
+  const splitDue =
+    Boolean(fund.splitTriggerPrice) &&
+    nav >= (fund.splitTriggerPrice ?? Number.POSITIVE_INFINITY);
+  const reverseSplitDue =
+    Boolean(fund.reverseSplitTriggerPrice) &&
+    nav <= (fund.reverseSplitTriggerPrice ?? 0);
+  const status =
+    cooldownLeft > 0
+      ? `최근 조정 후 냉각 중 · ${cooldownLeft}거래일 뒤 재판정`
+      : splitDue
+        ? "분할 조건 충족 · 서버 반영 대기(최대 3분)"
+        : reverseSplitDue
+          ? "병합 조건 충족 · 서버 반영 대기(최대 3분)"
+          : fund.reverseSplitTriggerPrice
+            ? `현재 ${formatPrice(nav)} · ${formatPrice(fund.reverseSplitTriggerPrice)} 이하부터 병합`
+            : `현재 ${formatPrice(nav)} · 아직 조정 조건 미충족`;
   return (
-    <p className="mt-1 break-words text-[11px] font-semibold text-violet-300 [overflow-wrap:anywhere]">
-      자동 액면조정 ·{" "}
-      {[
-        fund.splitTriggerPrice
-          ? `${formatPrice(fund.splitTriggerPrice)} 이상 ${fund.splitRatio ?? 2}:1 분할`
-          : "",
-        fund.reverseSplitTriggerPrice
-          ? `${formatPrice(fund.reverseSplitTriggerPrice)} 이하 1:${fund.reverseSplitRatio ?? 2} 병합`
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" · ")}
-    </p>
+    <div className="mt-1 break-words text-[11px] font-semibold text-violet-300 [overflow-wrap:anywhere]">
+      <p>
+        자동 액면조정 ·{" "}
+        {[
+          fund.splitTriggerPrice
+            ? `${formatPrice(fund.splitTriggerPrice)} 이상 ${fund.splitRatio ?? 2}:1 분할`
+            : "",
+          fund.reverseSplitTriggerPrice
+            ? `${formatPrice(fund.reverseSplitTriggerPrice)} 이하 1:${fund.reverseSplitRatio ?? 2} 병합`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <p className="mt-0.5 text-[var(--muted)]">{status}</p>
+    </div>
   );
 }
 

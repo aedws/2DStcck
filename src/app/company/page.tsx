@@ -891,7 +891,7 @@ export default function CompanyPage() {
               }}
               className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
             >
-              1회 예산 저장
+              배당 금액 계산
             </button>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -920,6 +920,12 @@ export default function CompanyPage() {
             <p>
               <b className="text-[var(--foreground)]">자동 반복되지 않습니다.</b>{" "}
               아래 버튼을 누를 때마다 배당 1건만 예약됩니다.
+            </p>
+            <p className="mt-1">
+              위의 <b className="text-[var(--foreground)]">배당 금액 계산</b>은
+              예상액만 보여주며 현금을 차감하지 않습니다. 실제 차감은 아래의{" "}
+              <b className="text-[var(--foreground)]">1회 배당 예약</b> 버튼을
+              확인해 누른 직후 이루어집니다.
             </p>
             <p className="mt-1">
               예약이 끝나면 설정값도 자동으로 0%로 돌아가므로, 한 번만 배당할

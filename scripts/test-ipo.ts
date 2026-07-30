@@ -125,6 +125,7 @@ assert.deepEqual(
     "nexr",
     "nkcl",
     "pghg",
+    "speedwagon",
     "tehty",
     "udnge",
     "wakamo",
@@ -499,6 +500,36 @@ assert.equal(listedRecurring.failedPlans.length, 0);
 assert.equal(listedRecurring.trades.length, 1);
 assert.ok((ishmael.quarterlyDividend ?? 0) > 0, "안정 배당 설정이 없음");
 assert.equal(ishmael.suspendDividendBelowInitialPrice, true);
+
+// 8/2 스피드웨건 오일: 석유 탐사·정유와 안정 배당
+const speedwagonListing = Date.UTC(2026, 7, 2, 9, 0);
+const speedwagon = getCompanyDefinitions().find(
+  (item) => item.id === "speedwagon",
+);
+assert.ok(speedwagon, "스피드웨건 오일 종목 정의가 없음");
+assert.equal(speedwagon.ticker, "SPWO");
+assert.equal(speedwagon.sector, "에너지");
+assert.equal(speedwagon.ceoId, "chr_speedwagon");
+assert.equal(speedwagon.listingEpochMs, speedwagonListing);
+assert.equal(isListed(speedwagon, speedwagonListing - 1), false);
+assert.equal(isListed(speedwagon, speedwagonListing), true);
+assert.ok((speedwagon.quarterlyDividend ?? 0) > 0);
+assert.ok(
+  EVENT_TEMPLATES.some(
+    (template) =>
+      template.companyId === "speedwagon" &&
+      template.tag === "유전 발견" &&
+      template.impact > 0,
+  ),
+);
+assert.ok(
+  EVENT_TEMPLATES.some(
+    (template) =>
+      template.companyId === "speedwagon" &&
+      template.tag === "탐사 실패" &&
+      template.impact < 0,
+  ),
+);
 assert.ok(
   (ishmael.belowInitialPriceBuybackSupportPerSession ?? 0) > 0,
   "공모가 하회 자사주 매입 방어가 없음",

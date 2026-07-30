@@ -15,6 +15,7 @@ import {
   type ShareholderLetter,
 } from "@/lib/supabase/shareholderLetters";
 import { useMarketStore } from "@/store/marketStore";
+import { useToastStore } from "@/store/toastStore";
 
 const KIND_LABEL = {
   clue: "비공개 단서",
@@ -22,11 +23,13 @@ const KIND_LABEL = {
   mission: "의뢰 답장",
   relationship: "관계 알림",
   shareholder_letter: "CEO 주주서한",
+  system: "게임 알림",
 } as const;
 
 interface InboxMessage extends CharacterMessage {
   isRead: boolean;
   shareholderLetterId?: string;
+  notificationId?: string;
 }
 
 export default function CharacterMessagesPage() {
@@ -38,6 +41,13 @@ export default function CharacterMessagesPage() {
   const readIds = useMarketStore((state) => state.readCharacterMessageIds);
   const markRead = useMarketStore((state) => state.markCharacterMessageRead);
   const markAllRead = useMarketStore((state) => state.markAllCharacterMessagesRead);
+  const notifications = useToastStore((state) => state.notifications);
+  const markNotificationRead = useToastStore(
+    (state) => state.markNotificationRead,
+  );
+  const markAllNotificationsRead = useToastStore(
+    (state) => state.markAllNotificationsRead,
+  );
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [shareholderLetters, setShareholderLetters] = useState<ShareholderLetter[]>([]);
   const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -89,15 +99,43 @@ export default function CharacterMessagesPage() {
         shareholderLetterId: letter.id,
       };
     });
-    return [...characterInbox, ...shareholderInbox]
+    const notificationInbox = notifications.map((notification) => ({
+      id: `notification-${notification.id}`,
+      characterId: "",
+      companyId: "",
+      sender: "2DStock",
+      emoji:
+        notification.tone === "success"
+          ? "✅"
+          : notification.tone === "error"
+            ? "⚠️"
+            : "🔔",
+      kind: "system" as const,
+      title:
+        notification.tone === "success"
+          ? "처리 완료"
+          : notification.tone === "error"
+            ? "확인 필요"
+            : "게임 알림",
+      body: notification.message,
+      timestamp: notification.timestamp,
+      href: "/messages",
+      isRead: notification.isRead,
+      notificationId: notification.id,
+    }));
+    return [...characterInbox, ...shareholderInbox, ...notificationInbox]
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 200);
-  }, [characterMessages, readSet, shareholderLetters]);
+  }, [characterMessages, notifications, readSet, shareholderLetters]);
 
   const unread = messages.filter((message) => !message.isRead);
   const visible = unreadOnly ? unread : messages;
 
   const handleMessageRead = (message: InboxMessage) => {
+    if (message.notificationId) {
+      markNotificationRead(message.notificationId);
+      return;
+    }
     if (!message.shareholderLetterId) {
       markRead(message.id);
       return;
@@ -115,6 +153,7 @@ export default function CharacterMessagesPage() {
 
   const handleAllRead = () => {
     markAllRead(characterMessages.map((message) => message.id));
+    markAllNotificationsRead();
     setShareholderLetters((letters) =>
       letters.map((letter) => ({
         ...letter,
@@ -130,7 +169,8 @@ export default function CharacterMessagesPage() {
         <div>
           <h1 className="text-2xl font-bold">💬 메시지</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            캐릭터 알림과 보유 회사 CEO가 보낸 주주서한을 확인합니다.
+            지나간 게임 알림, 캐릭터 메시지와 보유 회사 CEO의 주주서한을
+            다시 확인합니다.
           </p>
         </div>
         {unread.length > 0 && (
@@ -165,7 +205,8 @@ export default function CharacterMessagesPage() {
             {unreadOnly ? "새 메시지가 없습니다" : "아직 도착한 메시지가 없습니다"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            캐릭터 관계를 쌓거나 플레이어 회사 주식을 장기보유하면 메시지가 도착합니다.
+            의뢰 완료·액면조정·지급 같은 게임 사건과 캐릭터 메시지가 이곳에
+            보관됩니다.
           </p>
         </div>
       ) : (

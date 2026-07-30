@@ -11,6 +11,11 @@ import { useMarketStore } from "@/store/marketStore";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { marketClassificationLabel } from "@/lib/market/taxonomy";
 import { isListed } from "@/lib/market/ipo";
+import {
+  isPortfolioPath,
+  isTradePath,
+  normalizePathname,
+} from "@/lib/navigation/paths";
 
 // 정체성: 수집·경쟁 메타가 주(主). 자주 가는 5개만 1차 탭으로 남기고,
 // 나머지는 성격별 드롭다운(성장·투자 도구·라운지)으로 묶는다.
@@ -125,6 +130,7 @@ function NavGroupMenu({
 
 export function TossHeader() {
   const pathname = usePathname();
+  const normalizedPathname = normalizePathname(pathname);
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-md">
@@ -137,13 +143,11 @@ export function TossHeader() {
           {primaryNavItems.map((item) => {
             const active =
               item.href === "/"
-                ? pathname === "/"
+                ? normalizedPathname === "/"
                 : item.href === "/trade"
-                  ? pathname === "/trade" ||
-                    pathname.startsWith("/stock/") ||
-                    pathname.startsWith("/amc/trade") ||
-                    pathname.startsWith("/portfolio")
-                  : pathname.startsWith(item.href);
+                  ? isTradePath(pathname) || isPortfolioPath(pathname)
+                  : normalizedPathname === item.href ||
+                    normalizedPathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}

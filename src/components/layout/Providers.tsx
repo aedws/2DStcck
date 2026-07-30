@@ -13,14 +13,17 @@ import { BugResponseWatcher } from "@/components/layout/BugResponseWatcher";
 import { ModalQueueProvider } from "@/components/layout/ModalQueue";
 import { Toaster } from "@/components/layout/Toaster";
 import { TradeSectionTabs } from "@/components/layout/TradeSectionTabs";
+import {
+  isTradePath,
+  normalizePathname,
+} from "@/lib/navigation/paths";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const normalizedPathname = normalizePathname(pathname);
   const fullWidth =
-    pathname === "/" ||
-    pathname === "/trade" ||
-    pathname.startsWith("/stock/") ||
-    pathname.startsWith("/amc/trade");
+    normalizedPathname === "/" ||
+    isTradePath(pathname);
 
   return (
     <StoreHydration>

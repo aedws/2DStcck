@@ -133,6 +133,14 @@ const CORE_CHARACTERS: Character[] = [
     emoji: "🔥",
   },
   {
+    id: "chr_speedwagon",
+    name: "로버트 E. O. 스피드왜건",
+    title: "스피드웨건 오일 재단 이사장",
+    traits: ["의리", "사업가", "해설가"],
+    bio: "석유 사업으로 쌓은 자본을 에너지 개발과 연구 지원에 다시 투자하는 기업가. 현장의 위험을 누구보다 빠르게 읽고 주주들에게 상황을 알기 쉽게 설명하며, 위기에는 비축 원유와 재단 자금으로 공급망을 지킨다.",
+    emoji: "🛢️",
+  },
+  {
     id: "chr_dorothy",
     name: "도로시",
     title: "에덴 오트쿠튀르 CEO",

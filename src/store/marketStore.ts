@@ -85,6 +85,7 @@ import {
   coverShort,
   isShortSuccess,
   openShort,
+  shortRealizedPnl,
 } from "@/lib/market/shorting";
 import {
   getBenchmark,
@@ -4863,6 +4864,11 @@ export const useMarketStore = create<MarketStore>()(
           timestamp: now,
         });
         const cashExact = exactSubtract(result.cashExact, taxExact);
+        const realizedPnl = shortRealizedPnl(
+          short?.averagePrice ?? price,
+          price,
+          quantity,
+        );
         set({
           cash: exactToNumber(cashExact),
           cashExact,
@@ -4874,7 +4880,11 @@ export const useMarketStore = create<MarketStore>()(
         });
         return {
           success: true,
-          message: `공매도 청산 (${formatPrice(price)})`,
+          message: `공매도 청산 · 청산대금 ${formatPrice(price * quantity)} 차감 · 실현손익 ${realizedPnl >= 0 ? "+" : ""}${formatPrice(realizedPnl)}${
+            BigInt(taxExact) > 0n
+              ? ` · 세금 ${formatPrice(exactToNumber(taxExact))}`
+              : ""
+          }`,
         };
       },
 

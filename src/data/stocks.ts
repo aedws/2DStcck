@@ -599,6 +599,29 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     ceoId: "chr_ifrit",
   },
   {
+    id: "speedwagon",
+    ticker: "SPWO",
+    name: "스피드웨건 오일",
+    instrumentType: "company",
+    sector: "에너지",
+    subsector: "석유 탐사·정유",
+    marketTags: ["에너지", "원자재", "인플레이션"],
+    initialPrice: 76000,
+    volatility: 0.042,
+    drift: 0.00065,
+    beta: 1.08,
+    quarterlyDividend: 520,
+    description:
+      "로버트 E. O. 스피드왜건이 석유 사업으로 일군 종합 에너지 기업. 유전 탐사·원유 생산·정유를 수직계열화해 유가 상승기에는 높은 현금흐름을 만들고, 비축 원유와 재단 자금으로 공급 충격을 버틴다. 유가 급락과 탐사 실패에는 민감하지만 이익 일부를 연구 지원과 주주 배당에 꾸준히 돌린다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "유전 발견": 4,
+      "비축유 공급": 3,
+      "탐사 실패": 2,
+      실적: 2,
+    },
+    ceoId: "chr_speedwagon",
+  },
+  {
     id: "dorothy",
     ticker: "EDEN",
     name: "에덴 오트쿠튀르",
@@ -1570,6 +1593,33 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "보일러 온도가 설계 범위를 넘어서며 핵심 부품 일부가 손상됐습니다. 절감한 연료비를 넘어설 수 있는 수리비와 가동률 저하 우려가 반영됩니다.",
     impact: -1.1,
+  },
+  {
+    category: "company",
+    companyId: "speedwagon",
+    tag: "유전 발견",
+    title: "스피드웨건 오일, 대형 유전 매장량 확인",
+    description:
+      "탐사 광구에서 예상치를 웃도는 원유 매장량이 확인됐습니다. 장기 생산량과 정유 설비 가동률 개선 기대가 동시에 높아집니다.",
+    impact: 1.1,
+  },
+  {
+    category: "company",
+    companyId: "speedwagon",
+    tag: "비축유 공급",
+    title: "스피드웨건 오일, 공급 충격에 비축 원유 방출",
+    description:
+      "원유 공급 차질이 발생하자 비축 물량을 시장에 풀어 높은 판매 마진과 공급 안정 성과를 함께 거뒀습니다.",
+    impact: 0.85,
+  },
+  {
+    category: "company",
+    companyId: "speedwagon",
+    tag: "탐사 실패",
+    title: "스피드웨건 오일, 신규 광구 탐사 실패",
+    description:
+      "대규모 탐사 비용을 투입한 광구의 상업성이 기준에 미달했습니다. 개발비 손상과 향후 생산량 공백 우려가 반영됩니다.",
+    impact: -0.95,
   },
   {
     category: "company",

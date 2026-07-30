@@ -76,4 +76,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   militc: Date.UTC(2026, 6, 31, 9, 0),
   // 이스마엘 해운(ISML) — 2026-08-01 15:00 KST 개장 (= 06:00 UTC)
   ishmael: Date.UTC(2026, 7, 1, 6, 0),
+  // 스피드웨건 오일(SPWO) — 2026-08-02 18:00 KST 개장 (= 09:00 UTC)
+  speedwagon: Date.UTC(2026, 7, 2, 9, 0),
 };
