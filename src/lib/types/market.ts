@@ -383,7 +383,9 @@ export interface CashPayment {
   ticker?: string;
   dueSession: number;
   quantity?: number;
+  quantityExact?: string;
   amountPerShare?: number;
+  amountPerShareExact?: string;
   amount: number;
   /** 지급액의 정확한 정수 센트 문자열. */
   amountExact?: string;

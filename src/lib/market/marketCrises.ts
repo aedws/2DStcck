@@ -139,9 +139,9 @@ export const MARKET_CRISIS_THEMES: MarketCrisisTheme[] = [
   },
   {
     id: "energy-shock",
-    name: "에너지 공급 충격",
+    name: "에너지 공급망 대충격",
     emoji: "🛢️",
-    summary: "원자재 공급 차질과 비용 급등이 소비·생산을 압박하고 에너지 기업의 상대 강세를 만듭니다.",
+    summary: "원유·가스·전력 공급망이 동시에 흔들려 생산·운송비가 급등하고, 에너지·식량 생산 기업과 비용 민감 업종의 희비가 갈립니다.",
   },
   {
     id: "bank-run",

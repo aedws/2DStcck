@@ -13,14 +13,15 @@ export interface PlayerCompanyDividend {
   stockId: string;
   ticker: string;
   perShareCents: number;
+  perShareCentsExact: string;
   dividendSession: number;
 }
 
 export interface DeclareDividendInput {
   ticker: string;
   stockId: string;
-  perShareCents: number;
-  totalCents: number;
+  perShareCentsExact: string;
+  totalCentsExact: string;
   dividendSession: number;
 }
 
@@ -43,8 +44,8 @@ export async function declarePlayerCompanyDividend(
     {
       p_ticker: input.ticker.trim().toUpperCase(),
       p_stock_id: input.stockId,
-      p_per_share_cents: Math.round(input.perShareCents),
-      p_total_cents: Math.round(input.totalCents),
+      p_per_share_cents: input.perShareCentsExact,
+      p_total_cents: input.totalCentsExact,
       p_dividend_session: Math.round(input.dividendSession),
     },
   );
@@ -61,6 +62,23 @@ export async function declarePlayerCompanyDividend(
         message: "이번 배당일에는 이미 배당이 선언되어 있습니다.",
       };
     }
+    if (error?.message?.includes("insufficient_cash")) {
+      return {
+        success: false,
+        message:
+          "서버에 저장된 현금이 이번 1회 배당 재원보다 부족합니다. 계좌를 새로고침한 뒤 다시 확인해 주세요.",
+      };
+    }
+    if (
+      error?.message?.includes("not_listed_founder") ||
+      error?.message?.includes("invalid_dividend_budget")
+    ) {
+      return {
+        success: false,
+        message:
+          "서버의 상장 회사·발행주식수와 배당 계산 기준이 달라졌습니다. 계좌를 새로고침한 뒤 다시 계산해 주세요.",
+      };
+    }
     return {
       success: false,
       message: "배당 선언에 실패했습니다. 잠시 후 다시 시도해 주세요.",
@@ -75,6 +93,7 @@ export async function declarePlayerCompanyDividend(
       stockId: String(row.stock_id),
       ticker: String(row.ticker),
       perShareCents: Number(row.per_share_cents),
+      perShareCentsExact: String(row.per_share_cents),
       dividendSession: Number(row.dividend_session),
     },
   };
@@ -98,6 +117,7 @@ export async function listClaimablePlayerCompanyDividends(
     stockId: String(row.stock_id),
     ticker: String(row.ticker),
     perShareCents: Number(row.per_share_cents),
+    perShareCentsExact: String(row.per_share_cents),
     dividendSession: Number(row.dividend_session),
   }));
 }

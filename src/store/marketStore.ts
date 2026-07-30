@@ -34,10 +34,13 @@ import {
 } from "@/lib/market/trading";
 import {
   exactAdd,
+  exactCompare,
+  exactNegate,
   exactPercentChange,
   exactPositionValue,
   exactSubtract,
   exactToNumber,
+  formatExactMoney,
   normalizeExactAmount,
   normalizeExactQuantity,
 } from "@/lib/market/exactAmount";
@@ -224,6 +227,7 @@ import {
   type PlayerCompanyDividend,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
+import { calculatePlayerCompanyDividendBudget } from "@/lib/player/playerCompanyDividend";
 import {
   contributeLiquidityIntervention,
 } from "@/lib/supabase/liquidityInterventions";
@@ -5814,20 +5818,24 @@ export const useMarketStore = create<MarketStore>()(
         }
         // 회사 전용 현금 계정이 없으므로 창업주 개인 계좌 총자산을 기준으로
         // 1회 배당 예산을 계산하고, 실제 재원은 개인 현금에서 차감한다.
-        const required = Math.round(rate * Math.max(0, state.getTotalAssets()));
-        if (required <= 0) {
+        const dividendBudget = calculatePlayerCompanyDividendBudget(
+          state.getTotalAssetsExact(),
+          company.totalShares,
+          rate,
+        );
+        const requiredExact = dividendBudget.totalCentsExact;
+        const required = exactToNumber(requiredExact);
+        if (BigInt(requiredExact) <= 0n) {
           return { success: false, message: "배당 금액이 0입니다." };
         }
-        if (state.cash < required) {
+        if (exactCompare(exactCashOf(state), requiredExact) < 0) {
           return {
             success: false,
-            message: `이번 1회 배당 재원으로 내 계좌 현금 ${formatPrice(required)}가 필요합니다.`,
+            message: `이번 1회 배당 재원으로 내 계좌 현금 ${formatExactMoney(requiredExact)}가 필요합니다.`,
           };
         }
-        const perShare = Math.floor(
-          required / Math.max(1, company.totalShares),
-        );
-        if (perShare < 1) {
+        const perShareExact = dividendBudget.perShareCentsExact;
+        if (BigInt(perShareExact) < 1n) {
           return {
             success: false,
             message: "좌당 배당이 1센트 미만입니다. 배당률을 올려 주세요.",
@@ -5838,16 +5846,29 @@ export const useMarketStore = create<MarketStore>()(
         const dividendSession =
           (Math.floor(currentSession / COVERED_CALL_INTERVAL_DAYS) + 1) *
           COVERED_CALL_INTERVAL_DAYS;
+        // 배당 원장과 차감은 서버에서 한 트랜잭션으로 처리한다. 먼저 현재 로컬
+        // 지갑·회사 상태를 올려 서버가 오래된 현금이나 회사 설정을 기준으로
+        // 판단하지 않게 한다.
+        if (!(await get().saveCloud())) {
+          return {
+            success: false,
+            message:
+              "최신 계좌를 서버에 저장하지 못해 배당 예약을 중단했습니다.",
+          };
+        }
         const res = await declareDividendServer({
           ticker: company.ticker,
           stockId: company.ipoListingStockId,
-          perShareCents: perShare,
-          totalCents: required,
+          perShareCentsExact: perShareExact,
+          totalCentsExact: requiredExact,
           dividendSession,
         });
         if (!res.success || !res.dividend) {
           return { success: false, message: res.message };
         }
+        // RPC가 현금 차감과 함께 wallet revision을 올리므로 다음 자동 저장이
+        // 구버전 충돌을 내지 않게 서버 revision 캐시를 즉시 맞춘다.
+        await loadGameSave();
         const now = Date.now();
         const burnPayment: CashPayment = {
           id: `pcdiv-burn-${res.dividend.id}`,
@@ -5856,11 +5877,12 @@ export const useMarketStore = create<MarketStore>()(
           ticker: company.ticker,
           dueSession: currentSession,
           amount: -required,
+          amountExact: exactNegate(requiredExact),
           timestamp: now,
         };
         const latest = get();
         set({
-          ...withExactCashDelta(latest, -required),
+          ...withExactCashDelta(latest, exactNegate(requiredExact)),
           cashPayments: [burnPayment, ...latest.cashPayments].slice(0, 200),
           // 배당은 자동 반복하지 않는다. 같은 비율로 실수 재집행하지 않도록
           // 성공 즉시 다음 1회 예산을 0%로 되돌린다.
@@ -5872,8 +5894,7 @@ export const useMarketStore = create<MarketStore>()(
               }
             : latest.playerCompany,
         });
-        void get().saveCloud();
-        const message = `1회 배당 예약 · 내 계좌 현금 ${formatPrice(required)} 차감, 좌당 ${formatPrice(perShare)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다. 다음 배당은 자동 실행되지 않습니다.`;
+        const message = `1회 배당 예약 · 내 계좌 현금 ${formatExactMoney(requiredExact)} 차감, 좌당 ${formatExactMoney(perShareExact)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다. 다음 배당은 자동 실행되지 않습니다.`;
         useToastStore.getState().push(message, "success");
         playSound("cash");
         return { success: true, message };
@@ -5890,30 +5911,43 @@ export const useMarketStore = create<MarketStore>()(
         if (fresh.length === 0) return;
         const now = Date.now();
         const dueSession = Math.floor(now / SESSION_DURATION_MS);
-        const quantityByStock = new Map(
-          state.holdings.map((h) => [h.stockId, h.quantity]),
+        const holdingByStock = new Map(
+          state.holdings.map((holding) => [holding.stockId, holding]),
         );
         const payments: CashPayment[] = [];
         for (const dividend of fresh) {
-          const quantity = quantityByStock.get(dividend.stockId) ?? 0;
-          if (quantity <= 0 || dividend.perShareCents <= 0) continue;
-          const amount = Math.round(quantity * dividend.perShareCents);
-          if (amount <= 0) continue;
+          const holding = holdingByStock.get(dividend.stockId);
+          if (!holding || holding.quantity <= 0) continue;
+          const quantityExact = quantityExactOf(holding);
+          const amountExact = exactPositionValue(
+            dividend.perShareCentsExact,
+            quantityExact,
+          );
+          if (BigInt(amountExact) <= 0n) continue;
+          const amount = exactToNumber(amountExact);
           payments.push({
             id: `pcdiv-pay-${dividend.id}`,
             kind: "dividend",
             sourceId: dividend.stockId,
             ticker: dividend.ticker,
             dueSession,
-            quantity,
+            quantity: holding.quantity,
+            quantityExact,
             amountPerShare: dividend.perShareCents,
+            amountPerShareExact: dividend.perShareCentsExact,
             amount,
+            amountExact,
             timestamp: now,
           });
         }
-        const total = payments.reduce((sum, p) => sum + p.amount, 0);
+        const totalExact = payments.reduce(
+          (sum, payment) => exactAdd(sum, payment.amountExact ?? payment.amount),
+          "0",
+        );
         set({
-          ...(total > 0 ? withExactCashDelta(state, total) : {}),
+          ...(BigInt(totalExact) > 0n
+            ? withExactCashDelta(state, totalExact)
+            : {}),
           cashPayments:
             payments.length > 0
               ? [...payments, ...state.cashPayments].slice(0, 200)
@@ -5923,7 +5957,7 @@ export const useMarketStore = create<MarketStore>()(
             ...state.resolvedPlayerCompanyDividendIds,
           ].slice(0, 300),
         });
-        if (total > 0) {
+        if (BigInt(totalExact) > 0n) {
           playSound("cash");
           void get().saveCloud();
         }
