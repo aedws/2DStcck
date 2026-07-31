@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  adjustedFounderEligibleVoteWeight,
   exactOwnershipPercent,
+  expectedFounderVotePercent,
   formatExactShareQuantity,
   getPlayerCompanyFounderOwnershipSummary,
   type PlayerCompanyFounderOwnershipSummary,
@@ -32,17 +34,22 @@ export function PlayerCompanyOwnershipPanel({
     return () => window.clearInterval(interval);
   }, [currentSession, refresh]);
 
-  const founderQuantity =
-    summary?.founderQuantityExact ?? localFounderQuantityExact;
+  // 거래 직후의 계좌 수량이 서버 마감 스냅샷보다 항상 최신이다.
+  // 서버 요약은 다른 장기주주와 주총 의결권을 확인하는 용도로만 사용한다.
+  const founderQuantity = localFounderQuantityExact;
   const totalShares = summary?.totalSharesExact ?? totalSharesExact;
   const ownershipPercent = useMemo(
-    () =>
-      summary?.founderOwnershipPercent ??
-      exactOwnershipPercent(founderQuantity, totalShares),
-    [founderQuantity, summary?.founderOwnershipPercent, totalShares],
+    () => exactOwnershipPercent(founderQuantity, totalShares),
+    [founderQuantity, totalShares],
   );
-  const expectedVotePercent =
-    summary?.founderExpectedVotePercent ?? ownershipPercent;
+  const expectedVotePercent = useMemo(
+    () => expectedFounderVotePercent(founderQuantity, summary),
+    [founderQuantity, summary],
+  );
+  const eligibleVoteWeight = useMemo(
+    () => adjustedFounderEligibleVoteWeight(founderQuantity, summary),
+    [founderQuantity, summary],
+  );
 
   return (
     <section className="mb-5 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-5">
@@ -52,7 +59,7 @@ export function PlayerCompanyOwnershipPanel({
           <h2 className="mt-1 text-lg font-black">창업주 지분·예상 의결권</h2>
         </div>
         <span className="rounded-full bg-[var(--background)] px-3 py-1 text-[11px] text-[var(--muted)]">
-          현재 {summary?.currentSession ?? currentSession}회차 · 마감마다 확정
+          현재 {currentSession}회차 · 계좌 거래 즉시 반영
         </span>
       </div>
 
@@ -90,18 +97,16 @@ export function PlayerCompanyOwnershipPanel({
         </span>
         <span>
           다음 주총 예상 유효 의결권{" "}
-          {formatExactShareQuantity(
-            summary?.eligibleVoteWeightExact ?? founderQuantity,
-          )}
+          {formatExactShareQuantity(eligibleVoteWeight)}
           주
         </span>
       </div>
 
       <p className="mt-3 rounded-xl bg-[var(--background)] p-3 text-[11px] leading-relaxed text-[var(--muted)]">
         상장 후 창업주 주식수는 회사 설립 당시 장부 수량이 아니라 내 계좌의 실제
-        보유량으로 표시합니다. 예상 단독 의결권은 현재 창업주 보유량과 90거래일
-        이상 연속 보유한 다른 주주의 투표 가능 수량을 기준으로 계산하며, 매
-        거래일 마감 후 서버 저장분으로 갱신됩니다.
+        보유량을 거래 직후 바로 표시합니다. 예상 단독 의결권은 이 최신 보유량과
+        서버가 확인한 90거래일 이상 연속 보유 다른 주주의 투표 가능 수량을
+        합쳐 계산합니다.
       </p>
     </section>
   );

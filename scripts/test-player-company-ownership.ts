@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  adjustedFounderEligibleVoteWeight,
   exactOwnershipPercent,
+  expectedFounderVotePercent,
   formatExactShareQuantity,
 } from "../src/lib/supabase/playerCompanyOwnership";
 
@@ -13,6 +15,27 @@ assert.equal(
   50,
 );
 assert.equal(formatExactShareQuantity("1234567890.25"), "1,234,567,890.25");
+assert.equal(
+  expectedFounderVotePercent("600", {
+    founderQuantityExact: "500",
+    eligibleVoteWeightExact: "900",
+  }),
+  60,
+);
+assert.equal(
+  adjustedFounderEligibleVoteWeight("600", {
+    founderQuantityExact: "500",
+    eligibleVoteWeightExact: "900",
+  }),
+  "1000",
+);
+assert.equal(
+  expectedFounderVotePercent("1689602109300", {
+    founderQuantityExact: "1689602109280",
+    eligibleVoteWeightExact: "1689602109280",
+  }),
+  100,
+);
 
 const migrationPath = fileURLToPath(
   new URL(

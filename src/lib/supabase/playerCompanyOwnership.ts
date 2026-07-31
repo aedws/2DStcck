@@ -1,5 +1,6 @@
 import {
   decimalToScaledInteger,
+  exactQuantityAdd,
   normalizeExactQuantity,
 } from "@/lib/market/exactAmount";
 import { createClient } from "@/lib/supabase/client";
@@ -85,6 +86,58 @@ export function exactOwnershipPercent(
   const millionthPercent =
     (quantityMicros * 100_000_000n + totalMicros / 2n) / totalMicros;
   return Number(millionthPercent) / 1_000_000;
+}
+
+/**
+ * 현재 계좌의 창업주 수량과 서버가 확정한 다른 장기주주의 수량을 합쳐
+ * 다음 주총의 예상 단독 의결권을 계산한다.
+ *
+ * 서버 요약의 창업주 수량은 저장 시점보다 늦을 수 있으므로 그대로 재사용하지
+ * 않고, 전체 유효 의결권에서 서버 창업주분만 뺀 뒤 현재 계좌분을 다시 더한다.
+ */
+export function expectedFounderVotePercent(
+  localFounderQuantity: unknown,
+  summary: Pick<
+    PlayerCompanyFounderOwnershipSummary,
+    "founderQuantityExact" | "eligibleVoteWeightExact"
+  > | null,
+): number {
+  const founder = normalizeExactQuantity(localFounderQuantity);
+  return exactOwnershipPercent(
+    founder,
+    adjustedFounderEligibleVoteWeight(founder, summary),
+  );
+}
+
+export function adjustedFounderEligibleVoteWeight(
+  localFounderQuantity: unknown,
+  summary: Pick<
+    PlayerCompanyFounderOwnershipSummary,
+    "founderQuantityExact" | "eligibleVoteWeightExact"
+  > | null,
+): string {
+  const founder = normalizeExactQuantity(localFounderQuantity);
+  if (!summary) return founder;
+
+  const eligibleMicros = decimalToScaledInteger(
+    normalizeExactQuantity(summary.eligibleVoteWeightExact),
+    6,
+  );
+  const serverFounderMicros = decimalToScaledInteger(
+    normalizeExactQuantity(summary.founderQuantityExact),
+    6,
+  );
+  const otherEligibleMicros =
+    eligibleMicros > serverFounderMicros
+      ? eligibleMicros - serverFounderMicros
+      : 0n;
+  const otherWhole = otherEligibleMicros / 1_000_000n;
+  const otherFraction = otherEligibleMicros % 1_000_000n;
+  const otherEligible =
+    otherFraction === 0n
+      ? String(otherWhole)
+      : `${otherWhole}.${String(otherFraction).padStart(6, "0")}`;
+  return exactQuantityAdd(founder, otherEligible);
 }
 
 /** 최대 소수 6자리 좌수를 천 단위 구분 기호와 함께 표시한다. */
