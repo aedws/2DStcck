@@ -86,6 +86,7 @@ import {
 } from "@/lib/market/margin";
 import {
   coverShort,
+  isShortQuoteStale,
   isShortSuccess,
   openShort,
   shortRealizedPnl,
@@ -593,9 +594,17 @@ interface MarketStore extends MarketSnapshot {
   /** 배치된 가구 되팔기 — 구매가의 50% 환불, 나머지는 소각. */
   sellRoomItem: (index: number) => OrderResult;
   /** 공매도 개시 (시장가) */
-  openShortPosition: (stockId: string, quantity: number) => OrderResult;
+  openShortPosition: (
+    stockId: string,
+    quantity: number,
+    displayedPrice?: number,
+  ) => OrderResult;
   /** 공매도 청산(cover, 시장가) */
-  coverShortPosition: (stockId: string, quantity: number) => OrderResult;
+  coverShortPosition: (
+    stockId: string,
+    quantity: number,
+    displayedPrice?: number,
+  ) => OrderResult;
   /** 추가 매수·공매도 여력 (현금 환산, 마진 포함) */
   getBuyingPower: () => number;
   /** 자기자본(순자산) = 현금 + 롱 + 사치재 − 공매도 부채 */
@@ -4841,7 +4850,7 @@ export const useMarketStore = create<MarketStore>()(
         };
       },
 
-      openShortPosition: (stockId, quantity) => {
+      openShortPosition: (stockId, quantity, displayedPrice) => {
         get().settleCashflows();
         const rawState = get();
         const preTradeSplit = reconcileLeveragePositionSplits(
@@ -4873,6 +4882,12 @@ export const useMarketStore = create<MarketStore>()(
           };
         }
         const price = getMarketSellPrice(stock.currentPrice);
+        if (isShortQuoteStale(displayedPrice, price)) {
+          return {
+            success: false,
+            message: `호가가 ${formatPrice(displayedPrice!)}에서 ${formatPrice(price)}로 크게 변했습니다. 현재가를 확인한 뒤 다시 주문해 주세요.`,
+          };
+        }
         if (price * quantity > fullBuyingPower(state)) {
           return { success: false, message: "증거금(매수여력)이 부족합니다." };
         }
@@ -4925,7 +4940,7 @@ export const useMarketStore = create<MarketStore>()(
         };
       },
 
-      coverShortPosition: (stockId, quantity) => {
+      coverShortPosition: (stockId, quantity, displayedPrice) => {
         get().settleCashflows();
         const rawState = get();
         const preTradeSplit = reconcileLeveragePositionSplits(
@@ -4941,6 +4956,12 @@ export const useMarketStore = create<MarketStore>()(
         const stock = state.stocks.find((s) => s.id === stockId);
         if (!stock) return { success: false, message: "종목을 찾을 수 없습니다." };
         const price = getMarketBuyPrice(stock.currentPrice);
+        if (isShortQuoteStale(displayedPrice, price)) {
+          return {
+            success: false,
+            message: `호가가 ${formatPrice(displayedPrice!)}에서 ${formatPrice(price)}로 크게 변했습니다. 현재가를 확인한 뒤 다시 주문해 주세요.`,
+          };
+        }
         const short = state.shorts.find(
           (position) => position.stockId === stockId,
         );

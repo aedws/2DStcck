@@ -16,6 +16,24 @@ export interface ShortResult {
   trade: Trade;
 }
 
+/**
+ * 버튼을 누른 뒤 시장 리플레이 결과가 교체되며 호가가 크게 바뀐 경우에는
+ * 사용자가 화면에서 확인하지 않은 가격으로 공매도 주문을 체결하지 않는다.
+ */
+export const MAX_SHORT_QUOTE_DEVIATION = 0.15;
+
+export function isShortQuoteStale(
+  displayedPrice: number | undefined,
+  executionPrice: number,
+): boolean {
+  if (displayedPrice === undefined) return false;
+  if (!(displayedPrice > 0) || !(executionPrice > 0)) return true;
+  return (
+    Math.abs(executionPrice / displayedPrice - 1) >
+    MAX_SHORT_QUOTE_DEVIATION
+  );
+}
+
 function makeTrade(
   stockId: string,
   ticker: string,

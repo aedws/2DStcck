@@ -192,8 +192,8 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
       return;
     }
     const result = kind === "open"
-      ? openShortPosition(stock.id, quantity)
-      : coverShortPosition(stock.id, quantity);
+      ? openShortPosition(stock.id, quantity, bestBid)
+      : coverShortPosition(stock.id, quantity, bestAsk);
     report(result);
     playResultSound(result, kind === "open" ? "sell" : "buy");
   }
