@@ -16,6 +16,7 @@ export const COMPANY_SECTOR_ORDER = [
   "헬스케어",
   "미디어·콘텐츠",
   "기술",
+  "에너지",
   "에너지·인프라",
 ] as const;
 

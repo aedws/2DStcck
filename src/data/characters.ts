@@ -204,6 +204,14 @@ const CORE_CHARACTERS: Character[] = [
     bio: "누구보다 빠른 긴급 배송을 내세워 특송 시장을 개척한 물류 기업가. 높은 연료비에도 배송 속도를 늦추지 않으며, 호황기에 번 현금을 두텁게 쌓아 다음 불황과 주가 하락을 대비한다.",
     emoji: "📦",
   },
+  {
+    id: "chr_chinatsu",
+    name: "히노미야 치나츠",
+    title: "게헨나헬스 그룹 CEO",
+    traits: ["성실", "원칙주의", "의료지원"],
+    bio: "게헨나 학원 선도부의 구호 담당으로 규정과 절차를 중시하는 의료 실무자이자 게헨나헬스 그룹의 CEO. 응급의학부 시절부터 쌓은 현장 경험을 바탕으로 보험 심사와 의료시설 운영을 꼼꼼히 연결하며, 차분한 판단으로 가입자와 주주의 장기 신뢰를 지킨다.",
+    emoji: "🩺",
+  },
 ];
 
 export const CHARACTERS: Character[] = [...CORE_CHARACTERS, ...CSV_CHARACTERS];

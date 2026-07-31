@@ -131,18 +131,21 @@ function createHistoricalDailyCandles(def: StockDefinition): Candle[] {
 export function createGenesisStocks(): StockState[] {
   return getRuntimeStockDefinitions().map((def) => {
     const state = createInitialStockState(def, MARKET_EPOCH_MS);
+    const isFutureIpoAtGenesis =
+      def.listingEpochMs !== undefined && def.listingEpochMs > MARKET_EPOCH_MS;
     // 자동 생성 레버리지 상품의 과거 일봉은 기초자산에서 즉시 역산한다.
     // 여기서 1,200개를 만들면 복원 직후 버려지는 중복 계산이 된다.
     const syntheticHistory =
-      def.universalDerivative && def.leverage !== undefined
+      isFutureIpoAtGenesis ||
+      (def.universalDerivative && def.leverage !== undefined)
         ? []
         : createHistoricalDailyCandles(def);
     return {
       ...state,
-      dailyCandles: [
-        ...syntheticHistory,
-        ...state.dailyCandles,
-      ].slice(-MAX_DAILY_CANDLES),
+      // 예약 IPO는 상장 전 차트 이력을 만들지 않는다. 첫 실제 일봉은 개장 틱부터 쌓인다.
+      dailyCandles: isFutureIpoAtGenesis
+        ? []
+        : [...syntheticHistory, ...state.dailyCandles].slice(-MAX_DAILY_CANDLES),
     };
   });
 }
@@ -309,6 +312,7 @@ export function replayMarket(
 
     // 2차: NAV ETF. 이 결과를 기초로 하는 레버리지 상품보다 먼저 갱신한다.
     for (const s of navEtfs) {
+      if (tick < listingTickOf(s)) continue;
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
       Object.assign(s, advanceDailyLeveragePath(s, session));
@@ -321,6 +325,7 @@ export function replayMarket(
 
     // 3차: 각 레버리지·인버스 상품이 지정된 기초자산 수익률을 추종한다.
     for (const s of replayedLeveragedEtfs) {
+      if (tick < listingTickOf(s)) continue;
       const underlyingId = s.leverageUnderlyingId ?? "vnasdaq";
       const underlying = byId.get(underlyingId);
       if (!underlying) continue;
@@ -338,6 +343,7 @@ export function replayMarket(
     // 경계마다 갱신해야 장기 리플레이와 실시간 접속의 배수가 같아진다.
     if (session !== prevSession) {
       for (const s of universalDerivatives) {
+        if (tick < listingTickOf(s)) continue;
         const underlying = byId.get(
           s.leverageUnderlyingId ?? "vnasdaq",
         );
@@ -355,6 +361,7 @@ export function replayMarket(
 
     // 4차: 커버드콜 상품 갱신.
     for (const s of coveredCallEtfs) {
+      if (tick < listingTickOf(s)) continue;
       const isNewSession =
         s.daySessionId !== undefined && s.daySessionId !== session;
       Object.assign(s, advanceDailyLeveragePath(s, session));
@@ -417,6 +424,13 @@ export function replayMarket(
         const divDue = sinceEpoch % QUARTERLY_DIVIDEND_INTERVAL_DAYS === 0;
 
         for (const stock of stocks) {
+          const sessionStart = s * SESSION_DURATION_MS;
+          if (
+            stock.listingEpochMs !== undefined &&
+            sessionStart < stock.listingEpochMs
+          ) {
+            continue;
+          }
           let amount = 0;
           const ccInterval =
             stock.coveredCallDistributionIntervalDays ??
@@ -481,6 +495,7 @@ export function replayMarket(
 
     // 일봉은 전체 리플레이 구간을 보존해 주봉·월봉의 원본으로 사용한다.
     for (const stock of replayedStocks) {
+      if (tick < listingTickOf(stock)) continue;
       const dailyCandles = dailyMap.get(stock.id) ?? [];
       const sessionStart = session * SESSION_DURATION_MS;
       const last = dailyCandles[dailyCandles.length - 1];
@@ -513,6 +528,7 @@ export function replayMarket(
     // 실제 가격을 계산해 정상적인 봉이 그려지게 한다. 최종가는 기존과 동일하다.
     if (tick > candleWindowStart) {
       for (const s of universalDerivatives) {
+        if (tick < listingTickOf(s)) continue;
         const underlying = byId.get(s.leverageUnderlyingId ?? "vnasdaq");
         if (underlying) {
           const snapshot = computeLeveragedSnapshot(s, underlying);
@@ -563,6 +579,7 @@ export function replayMarket(
   // 자동 생성 상품은 기초자산에 저장된 '완료 거래일 누적계수 + 당일 수익률'로
   // 최종가를 계산한다. 긴 초기 리플레이에서도 파생상품 204개를 매 틱 돌지 않는다.
   for (const stock of universalDerivatives) {
+    if (toTick < listingTickOf(stock)) continue;
     const underlyingId = stock.leverageUnderlyingId;
     const underlying = underlyingId ? byId.get(underlyingId) : undefined;
     if (!underlying || !underlyingId) continue;

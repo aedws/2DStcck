@@ -76,6 +76,7 @@ export function recoverPlayerCompanyFromServerRecords(
         payment.kind === "company_capital" &&
         payment.sourceId === companyId &&
         payment.id !== foundingPayment?.id &&
+        !payment.id.startsWith("pcdiv-burn-") &&
         payment.amount < 0,
     );
     const lastCapitalSession = laterCapitalPayments.reduce(

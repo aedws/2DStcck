@@ -1,6 +1,11 @@
 "use client";
 
 import { formatPrice, formatTradeTime } from "@/lib/market/engine";
+import {
+  formatSignedExactMoney,
+  formatSignedFullExactMoney,
+} from "@/lib/market/exactAmount";
+import { cashPaymentKindLabel } from "@/lib/market/cashPaymentDisplay";
 import { useMarketStore } from "@/store/marketStore";
 import type { Trade } from "@/lib/types/market";
 
@@ -59,53 +64,7 @@ export default function HistoryPage() {
                     {formatTradeTime(payment.timestamp)}
                   </td>
                   <td className="px-4 py-3 font-medium">
-                    {payment.kind === "salary"
-                      ? "고정급"
-                      : payment.kind === "covered_call"
-                        ? "월 분배"
-                        : payment.kind === "interest"
-                          ? "마진 이자"
-                          : payment.kind === "lottery"
-                            ? "복권"
-                            : payment.kind === "minigame"
-                              ? "현금 채굴"
-                              : payment.kind === "attendance"
-                                ? "출석"
-                                : payment.kind === "compensation"
-                                  ? "운영 보상"
-                                  : payment.kind === "company_capital"
-                                    ? "회사 출자 소각"
-                                    : payment.kind === "amc_capital"
-                                      ? "운용사 소각"
-                                      : payment.kind === "management_fee"
-                                        ? "ETF 운용료"
-                                        : payment.kind === "exchange_tax"
-                                          ? "거래소 거래세"
-                                          : payment.kind === "capital_gains_tax"
-                                            ? "거래세·양도소득세"
-                                            : payment.kind === "financial_investment_tax"
-                                              ? "금융투자소득세"
-                                              : payment.kind === "corporate_tax"
-                                                ? "법인세"
-                                        : payment.kind === "content_request"
-                                          ? payment.sourceId ===
-                                            "market-phase-policy-refund"
-                                            ? "기존 국면 요청 비용 환급"
-                                            : payment.sourceId ===
-                                                "market-phase-reward"
-                                              ? "국면 추가 채택 보상"
-                                              : payment.amount >= 0
-                                                ? "국면 요청 반려 환불"
-                                                : "국면 추가 요청 비용"
-                                        : payment.kind === "dividend_tax"
-                                          ? "배당 원천징수세"
-                                        : payment.kind === "pump_surveillance_tax"
-                                          ? "급등주 감시세"
-                                        : payment.kind === "amc_dividend"
-                                          ? "유저 ETF 배당"
-                                          : payment.kind === "amc_redemption"
-                                            ? "ETF 상장폐지 환급"
-                                  : "분기 배당"}
+                    {cashPaymentKindLabel(payment)}
                   </td>
                   <td className="px-4 py-3">
                     {payment.ticker ?? "계정"}
@@ -120,8 +79,22 @@ export default function HistoryPage() {
                       payment.amount >= 0 ? "text-[var(--up)]" : "text-[var(--down)]"
                     }`}
                   >
-                    {payment.amount >= 0 ? "+" : "-"}
-                    {formatPrice(Math.abs(payment.amount))}
+                    {payment.amountExact ? (
+                      <>
+                        <div>{formatSignedExactMoney(payment.amountExact)}</div>
+                        {formatSignedFullExactMoney(payment.amountExact) !==
+                          formatSignedExactMoney(payment.amountExact) && (
+                          <div className="mt-1 max-w-[30rem] break-all text-[10px] font-normal leading-4 text-[var(--muted)]">
+                            정확히 {formatSignedFullExactMoney(payment.amountExact)}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {payment.amount >= 0 ? "+" : "-"}
+                        {formatPrice(Math.abs(payment.amount))}
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

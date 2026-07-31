@@ -1098,6 +1098,7 @@ export function tickAllStocks(
     s.leverage !== undefined ||
     Boolean(s.coveredCallUnderlyingId);
   const ticked = stocks.map((stock) => {
+    if (!isListed(stock, now)) return stock;
     if (isDerived(stock)) return stock;
     const tickedStock = tickStock(
       stock,
@@ -1117,7 +1118,7 @@ export function tickAllStocks(
   // 2차: NAV ETF를 먼저 산출해 해당 ETF를 기초로 하는 파생상품도 같은 틱을 추종한다.
   const baseById = new Map(ticked.map((s) => [s.id, s]));
   let calculated = ticked.map((stock) =>
-    stock.etfHoldings?.length
+    isListed(stock, now) && stock.etfHoldings?.length
       ? applyTickPrice(
           stock,
           computeEtfNav(stock, baseById),
@@ -1131,6 +1132,7 @@ export function tickAllStocks(
 
   // 3차: 각 상품이 기초자산의 1거래일 누적수익률을 배수 추종한다.
   calculated = calculated.map((stock) => {
+    if (!isListed(stock, now)) return stock;
     if (stock.leverage !== undefined) {
       const underlyingId = stock.leverageUnderlyingId ?? "vnasdaq";
       const after = afterById.get(underlyingId);
@@ -1151,6 +1153,7 @@ export function tickAllStocks(
   // 4차: 커버드콜은 갱신된 기초자산 흐름에 참여율을 적용한다.
   afterById = new Map(calculated.map((s) => [s.id, s]));
   return calculated.map((stock) => {
+    if (!isListed(stock, now)) return stock;
     if (stock.coveredCallUnderlyingId) {
       const before = beforeById.get(stock.coveredCallUnderlyingId);
       const after = afterById.get(stock.coveredCallUnderlyingId);

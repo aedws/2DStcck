@@ -927,6 +927,27 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
   },
   {
+    id: "vergilius",
+    ticker: "VRGL",
+    name: "베르길리우스 다크 투어리즘",
+    instrumentType: "company",
+    sector: "소비재·서비스",
+    subsector: "다크 투어리즘",
+    marketTags: ["관광", "지정학", "역사"],
+    initialPrice: 48000,
+    volatility: 0.058,
+    drift: 0.0007,
+    beta: 1.35,
+    description:
+      "가이드 베르길리우스가 설립한 다크 투어리즘 기업. 비극적 사건과 역사적 분쟁의 현장을 해설하는 여행 상품을 운영하며, 지정학·역사·사회적 갈등이 커질수록 수요가 늘지만 여행 제한과 윤리 논란에 민감하다. 대표 문구는 ‘지옥으로 출발하지’. 유저 종목 요청으로 상장.",
+    eventBias: {
+      지정학: 4,
+      "여행 수요": 3,
+      "여행 제한": 3,
+      "윤리 논란": 2,
+    },
+  },
+  {
     id: "militc",
     ticker: "MILITC",
     name: "밀리테크 인터내셔널 아머먼츠",
@@ -1043,6 +1064,30 @@ const CORE_DEFINITIONS: StockDefinition[] = [
       "파산 위기": 3,
       실적: 2,
     },
+  },
+  {
+    id: "ghh",
+    ticker: "GHH",
+    name: "게헨나헬스 그룹",
+    instrumentType: "company",
+    sector: "헬스케어",
+    subsector: "의료보험·의료시설 운영",
+    marketTags: ["헬스케어", "보험", "의료", "방어"],
+    initialPrice: 64_000,
+    volatility: 0.026,
+    drift: 0.00062,
+    beta: 0.72,
+    quarterlyDividend: 520,
+    description:
+      "히노미야 치나츠가 이끄는 키보토스 최대 종합 헬스케어 기업. 개인·단체 의료보험을 중심으로 의료시설 운영·관리, 진료 지원 서비스를 함께 제공하며 민간 보험뿐 아니라 키보토스 공공보험 위탁 사업에도 참여합니다. 높은 가입자 점유율과 안정적인 보험료 현금흐름을 갖춘 방어형 대기업이지만 의료비 상승과 공공보험 규제 변화에는 민감합니다. 유저 종목 요청으로 상장.",
+    eventBias: {
+      "공공보험 확대": 4,
+      "의료시설 효율화": 3,
+      "의료비 상승": 3,
+      보험: 2,
+      실적: 2,
+    },
+    ceoId: "chr_chinatsu",
   },
 ];
 
@@ -1730,6 +1775,24 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   },
   {
     category: "company",
+    companyId: "vergilius",
+    tag: "여행 수요",
+    title: "분쟁 현장 해설 투어 예약 급증",
+    description:
+      "국제 정세와 역사적 분쟁에 대한 관심이 높아지며 베르길리우스의 전문 해설 투어가 연이어 매진됐습니다. 고가 맞춤 상품과 기관 연계 프로그램의 예약도 함께 늘어납니다.",
+    impact: 0.75,
+  },
+  {
+    category: "company",
+    companyId: "vergilius",
+    tag: "윤리 논란",
+    title: "다크 투어리즘 상품 윤리성 조사",
+    description:
+      "비극의 현장을 상업화한다는 비판과 현지 주민 보호 문제로 일부 여행 상품에 대한 조사가 시작됐습니다. 일정 중단과 브랜드 신뢰 하락 우려가 커집니다.",
+    impact: -0.85,
+  },
+  {
+    category: "company",
     companyId: "militc",
     tag: "수주",
     title: "밀리테크, 통합 방위체계 대형 수주",
@@ -1871,5 +1934,32 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "여러 번의 수익을 한 번에 되돌릴 수 있는 꼬리위험이 발생했습니다. 거래 상대방이 추가 담보를 요구하며 존속 가능성까지 흔들립니다.",
     impact: -1.75,
+  },
+  {
+    category: "company",
+    companyId: "ghh",
+    tag: "공공보험 확대",
+    title: "게헨나헬스, 키보토스 공공보험 위탁 권역 확대",
+    description:
+      "공공보험 가입자 관리와 진료 연계 성과를 인정받아 장기 위탁 권역이 확대됐습니다. 가입자 기반과 안정적인 보험료 수입이 함께 늘어납니다.",
+    impact: 0.8,
+  },
+  {
+    category: "company",
+    companyId: "ghh",
+    tag: "의료시설 효율화",
+    title: "게헨나헬스, 의료시설 통합 운영 체계 정착",
+    description:
+      "보험 청구와 진료 예약, 시설 운영 데이터를 연결해 대기 시간과 중복 비용을 줄였습니다. 의료서비스 품질과 수익성이 동시에 개선됩니다.",
+    impact: 0.65,
+  },
+  {
+    category: "company",
+    companyId: "ghh",
+    tag: "의료비 상승",
+    title: "진료비 급등, 게헨나헬스 보험 손해율 상승",
+    description:
+      "약제비와 의료 인건비가 예상보다 빠르게 오르며 보험금 지급 부담이 커졌습니다. 보험료 조정과 공공보험 수가 협상이 늦어져 단기 수익성이 압박받습니다.",
+    impact: -0.95,
   },
 ];

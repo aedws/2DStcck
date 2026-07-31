@@ -93,13 +93,25 @@ const foundingPayment: CashPayment = {
 };
 const recovered = recoverPlayerCompanyFromServerRecords(
   [parsed],
-  [foundingPayment],
+  [
+    foundingPayment,
+    {
+      ...foundingPayment,
+      id: "pcdiv-burn-legacy",
+      amount: -5_000_000_000,
+    },
+  ],
   500,
 );
 assert.ok(recovered);
 assert.equal(recovered.entity.id, "player-company-123");
 assert.equal(recovered.entity.name, input.name);
 assert.equal(recovered.entity.foundingCost, 20_000_000_000);
+assert.equal(
+  recovered.entity.cumulativeCapitalBurned,
+  20_000_000_000,
+  "구버전 배당 재원 차감은 회사 출자 누계로 복구되면 안 됩니다.",
+);
 assert.equal(recovered.shouldMarkShipped, true);
 
 const ipoRequest: StockRequestRow = {

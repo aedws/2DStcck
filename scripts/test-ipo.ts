@@ -17,6 +17,7 @@ import {
   createInitialStockState,
   resolveAsunaAdversityFollowUp,
   resolveEventTemplate,
+  tickAllStocks,
 } from "../src/lib/market/engine";
 import { corporateActionKindsForCompany } from "../src/lib/market/corporateActions";
 import { replayMarket } from "../src/lib/market/localSim";
@@ -29,6 +30,7 @@ import {
   STOCK_DEFINITIONS,
   getCompanyDefinitions,
 } from "../src/data/stocks";
+import { getCharacterById } from "../src/data/characters";
 import { stockHref } from "../src/lib/ui/stockLink";
 import { getCharacterGuideline } from "../src/lib/market/marketGuidelines";
 import {
@@ -104,6 +106,7 @@ assert.deepEqual(
     "carrot",
     "dante",
     "faust",
+    "ghh",
     "gsck",
     "hifumi",
     "hinafg",
@@ -131,17 +134,19 @@ assert.deepEqual(
     "speedwagon",
     "tehty",
     "udnge",
+    "vergilius",
     "wakamo",
     "yakumo",
     "yisang",
   ],
 );
 
-// 8/3 IPO 3건: 플레이어 금융사 2곳과 슈팡특송
+// 8/3 IPO 4건: 플레이어 금융사 2곳, 슈팡특송, 게헨나헬스 그룹
 const august3Slots = [
   ["jbinvb", "JBINVB", Date.UTC(2026, 7, 3, 3, 0)],
   ["shupang", "SHPG", Date.UTC(2026, 7, 3, 6, 0)],
   ["nacm", "NACM", Date.UTC(2026, 7, 3, 9, 0)],
+  ["ghh", "GHH", Date.UTC(2026, 7, 3, 12, 0)],
 ] as const;
 for (const [id, ticker, listingAt] of august3Slots) {
   const stock = getCompanyDefinitions().find((item) => item.id === id);
@@ -157,6 +162,68 @@ for (const [id, ticker, listingAt] of august3Slots) {
     assert.ok(derivative, `${ticker} ${suffix} 파생상품 정의가 없음`);
     assert.equal(derivative.listingEpochMs, listingAt);
   }
+}
+
+const ghhListing = Date.UTC(2026, 7, 3, 12, 0);
+const ghh = getCompanyDefinitions().find((item) => item.id === "ghh");
+assert.ok(ghh, "게헨나헬스 그룹 종목 정의가 없음");
+assert.equal(ghh.ticker, "GHH");
+assert.equal(ghh.sector, "헬스케어");
+assert.equal(ghh.ceoId, "chr_chinatsu");
+assert.equal(ghh.quarterlyDividend, 520);
+assert.equal(ghh.listingEpochMs, ghhListing);
+assert.ok(getCharacterById("chr_chinatsu"), "히노미야 치나츠 캐릭터 정의가 없음");
+const ghhCoveredCall = STOCK_DEFINITIONS.find(
+  (item) => item.id === "ghh-covered-call",
+);
+assert.ok(ghhCoveredCall, "GHH 커버드콜 정의가 없음");
+assert.equal(ghhCoveredCall.listingEpochMs, ghhListing);
+const ghhPublicInsurance = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ghh" && template.tag === "공공보험 확대",
+);
+const ghhMedicalCosts = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ghh" && template.tag === "의료비 상승",
+);
+assert.ok(ghhPublicInsurance && ghhPublicInsurance.impact > 0);
+assert.ok(ghhMedicalCosts && ghhMedicalCosts.impact < 0);
+
+// 상장 전에는 본주·파생 모두 배당락, 프리미엄 적립, 차트 생성을 포함해 완전 동결된다.
+const ghhFamily = STOCK_DEFINITIONS.filter((item) =>
+  item.id === "ghh" || item.id.startsWith("ghh-"),
+);
+assert.equal(ghhFamily.length, 5);
+const prelistingStates = ghhFamily.map((definition) => ({
+  ...createInitialStockState(definition, MARKET_EPOCH_MS),
+  priceHistory: [],
+  candles: [],
+  dailyCandles: [],
+}));
+const ticksPerSession = SESSION_DURATION_MS / SIM_TICK_MS;
+const beforeDividendBoundary = 60 * ticksPerSession - 1;
+const afterDividendBoundary = 60 * ticksPerSession + 1;
+const prelistingReplay = replayMarket(
+  prelistingStates,
+  [],
+  beforeDividendBoundary,
+  afterDividendBoundary,
+).stocks;
+for (const stock of prelistingReplay) {
+  assert.equal(stock.currentPrice, stock.initialPrice, `${stock.id} 상장 전 가격 변동`);
+  assert.equal(stock.priceHistory.length, 0, `${stock.id} 상장 전 가격 기록 생성`);
+  assert.equal(stock.candles.length, 0, `${stock.id} 상장 전 분봉 생성`);
+  assert.equal(stock.dailyCandles.length, 0, `${stock.id} 상장 전 일봉 생성`);
+}
+const livePrelistingTick = tickAllStocks(
+  prelistingStates,
+  [],
+  ghhListing - 1,
+  1,
+  10,
+);
+for (const stock of livePrelistingTick) {
+  assert.equal(stock.currentPrice, stock.initialPrice, `${stock.id} 실시간 상장 전 가격 변동`);
 }
 
 const shupang = getCompanyDefinitions().find((item) => item.id === "shupang");
@@ -485,6 +552,35 @@ for (const [id, ticker, listingAt] of july26Slots) {
     );
   }
 }
+
+// 7/31 베르길리우스 다크 투어리즘: 운영 DB 동적 목록과 무관한 번들 상장
+const vergiliusListing = Date.UTC(2026, 6, 31, 6, 0);
+const vergilius = getCompanyDefinitions().find(
+  (item) => item.id === "vergilius",
+);
+assert.ok(vergilius, "베르길리우스 다크 투어리즘 종목 정의가 없음");
+assert.equal(vergilius.ticker, "VRGL");
+assert.equal(vergilius.sector, "소비재·서비스");
+assert.equal(vergilius.listingEpochMs, vergiliusListing);
+assert.equal(isListed(vergilius, vergiliusListing - 1), false);
+assert.equal(isListed(vergilius, vergiliusListing), true);
+for (const suffix of ["inverse", "inverse-2x", "leverage-2x"]) {
+  const derivative = STOCK_DEFINITIONS.find(
+    (item) => item.id === `vergilius-${suffix}`,
+  );
+  assert.ok(derivative, `VRGL ${suffix} 파생상품 정의가 없음`);
+  assert.equal(derivative.listingEpochMs, vergiliusListing);
+}
+const vergiliusDemand = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "vergilius" && template.tag === "여행 수요",
+);
+const vergiliusEthics = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "vergilius" && template.tag === "윤리 논란",
+);
+assert.ok(vergiliusDemand && vergiliusDemand.impact > 0);
+assert.ok(vergiliusEthics && vergiliusEthics.impact < 0);
 
 // 7/31 플레이어 회사 IPO: 밀리테크 인터내셔널 아머먼츠(MILITC)
 const militechListing = Date.UTC(2026, 6, 31, 9, 0);

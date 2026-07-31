@@ -10,7 +10,7 @@ alter table public.player_company_dividends
   alter column per_share_cents type numeric
   using per_share_cents::numeric;
 
-create function public.declare_player_company_dividend(
+create or replace function public.declare_player_company_dividend(
   p_ticker text,
   p_stock_id text,
   p_per_share_cents numeric,

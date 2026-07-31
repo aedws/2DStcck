@@ -114,11 +114,25 @@ begin
              '%"ticker":"' || v_ticker || '"%'
        )
     then
-      insert into public.player_company_market_listings (
-        stock_id, ticker, founder_id
-      )
-      values (v_stock_id, v_ticker, new.user_id)
-      on conflict do nothing;
+      if exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'player_company_market_listings'
+          and column_name = 'original_founder_id'
+      ) then
+        insert into public.player_company_market_listings (
+          stock_id, ticker, founder_id, original_founder_id
+        )
+        values (v_stock_id, v_ticker, new.user_id, new.user_id)
+        on conflict do nothing;
+      else
+        insert into public.player_company_market_listings (
+          stock_id, ticker, founder_id
+        )
+        values (v_stock_id, v_ticker, new.user_id)
+        on conflict do nothing;
+      end if;
     end if;
   end if;
 

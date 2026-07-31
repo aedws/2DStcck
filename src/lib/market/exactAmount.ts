@@ -296,9 +296,24 @@ export function formatExactMoney(value: unknown): string {
   return `${sign}$${mantissa}e${digits.length - 1}`;
 }
 
+/** 축약 단위를 쓰지 않고 임의 크기 정수 센트를 달러 전체 자릿수로 표시한다. */
+export function formatFullExactMoney(value: unknown): string {
+  const amount = BigInt(normalizeExactAmount(value));
+  const negative = amount < 0n;
+  const abs = negative ? -amount : amount;
+  const dollars = abs / 100n;
+  const cents = (abs % 100n).toString().padStart(2, "0");
+  return `${negative ? "-" : ""}$${commaInteger(dollars)}.${cents}`;
+}
+
 export function formatSignedExactMoney(value: unknown): string {
   const normalized = normalizeExactAmount(value);
   return `${BigInt(normalized) >= 0n ? "+" : ""}${formatExactMoney(normalized)}`;
+}
+
+export function formatSignedFullExactMoney(value: unknown): string {
+  const normalized = normalizeExactAmount(value);
+  return `${BigInt(normalized) >= 0n ? "+" : ""}${formatFullExactMoney(normalized)}`;
 }
 
 export function formatExactPercent(

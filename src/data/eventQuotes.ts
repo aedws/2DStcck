@@ -634,6 +634,40 @@ const CORE_CHARACTER_QUOTES: CharacterQuoteEntry[] = [
       "정박할 곳이 없다면 다음 항구로 갑니다. 화물과 승객부터 지키죠.",
     ],
   },
+  {
+    characterId: "chr_chinatsu",
+    tag: "*",
+    direction: "positive",
+    quotes: [
+      "절차대로 점검했습니다. 더 많은 학생에게 안정적인 의료 서비스를 제공하겠습니다.",
+      "가입자와 의료진 모두가 신뢰할 수 있는 체계를 만드는 것이 우선입니다.",
+    ],
+  },
+  {
+    characterId: "chr_chinatsu",
+    tag: "*",
+    direction: "negative",
+    quotes: [
+      "수치를 다시 확인하겠습니다. 보장 공백이 생기지 않도록 바로 조치하죠.",
+      "상황이 어렵더라도 규정과 의료 안전은 생략할 수 없습니다.",
+    ],
+  },
+  {
+    characterId: "chr_chinatsu",
+    tag: "공공보험 확대",
+    direction: "positive",
+    quotes: [
+      "공공보험의 범위가 넓어진 만큼, 한 명도 절차에서 누락되지 않게 하겠습니다.",
+    ],
+  },
+  {
+    characterId: "chr_chinatsu",
+    tag: "의료비 상승",
+    direction: "negative",
+    quotes: [
+      "비용 압박은 사실입니다. 그래도 필요한 진료까지 줄이는 일은 없도록 하겠습니다.",
+    ],
+  },
 ];
 
 /**

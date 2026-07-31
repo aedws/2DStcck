@@ -23,6 +23,7 @@ export interface DeclareDividendInput {
   perShareCentsExact: string;
   totalCentsExact: string;
   dividendSession: number;
+  dividendKind?: "special" | "regular";
 }
 
 export interface DeclareDividendResult {
@@ -39,16 +40,32 @@ export async function declarePlayerCompanyDividend(
     return { success: false, message: "로그인한 창업주만 배당을 선언할 수 있습니다." };
   }
   const supabase = createClient();
-  const { data, error } = await supabase.rpc(
-    "declare_player_company_dividend",
+  const params = {
+    p_ticker: input.ticker.trim().toUpperCase(),
+    p_stock_id: input.stockId,
+    p_per_share_cents: input.perShareCentsExact,
+    p_total_cents: input.totalCentsExact,
+    p_dividend_session: Math.round(input.dividendSession),
+  };
+  // v2는 배당 유형까지 서버 현금 원장에 기록한다. 마이그레이션 전 서버에서는
+  // 기존 원자적 차감 RPC로 안전하게 폴백해 배당 실행 자체가 막히지 않게 한다.
+  let { data, error } = await supabase.rpc(
+    "declare_player_company_dividend_v2",
     {
-      p_ticker: input.ticker.trim().toUpperCase(),
-      p_stock_id: input.stockId,
-      p_per_share_cents: input.perShareCentsExact,
-      p_total_cents: input.totalCentsExact,
-      p_dividend_session: Math.round(input.dividendSession),
+      ...params,
+      p_dividend_kind: input.dividendKind ?? "special",
     },
   );
+  if (
+    error &&
+    (error.code === "PGRST202" ||
+      error.message?.includes("declare_player_company_dividend_v2"))
+  ) {
+    ({ data, error } = await supabase.rpc(
+      "declare_player_company_dividend",
+      params,
+    ));
+  }
   if (error || !data) {
     if (error?.message?.includes("not_founder")) {
       return {

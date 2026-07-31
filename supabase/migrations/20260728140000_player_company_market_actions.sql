@@ -48,33 +48,83 @@ create table if not exists public.player_company_market_listings (
 alter table public.player_company_market_listings enable row level security;
 revoke all on public.player_company_market_listings from public, anon, authenticated;
 
-insert into public.player_company_market_listings (stock_id, ticker, founder_id)
-select
-  lower(saves.state -> 'playerCompany' ->> 'ipoListingStockId'),
-  upper(saves.state -> 'playerCompany' ->> 'ticker'),
-  saves.user_id
-from public.game_saves saves
-where jsonb_typeof(saves.state -> 'playerCompany') = 'object'
-  and coalesce(saves.state -> 'playerCompany' ->> 'status', '')
-    in ('ipo-requested', 'listed')
-  and lower(coalesce(
-    saves.state -> 'playerCompany' ->> 'ipoListingStockId', ''
-  )) ~ '^[a-z][a-z0-9]{1,31}$'
-  and upper(coalesce(
-    saves.state -> 'playerCompany' ->> 'ticker', ''
-  )) ~ '^[A-Z0-9]{2,6}$'
-  and exists (
+do $$
+begin
+  if exists (
     select 1
-    from public.stock_requests request
-    where request.user_id = saves.user_id
-      and request.status in ('accepted', 'shipped')
-      and request.description like '%[PLAYER_COMPANY_FOUNDATION]%'
-      and request.description like
-        '%"ticker":"' ||
-        upper(saves.state -> 'playerCompany' ->> 'ticker') ||
-        '"%'
-  )
-on conflict (stock_id) do nothing;
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'player_company_market_listings'
+      and column_name = 'original_founder_id'
+  ) then
+    insert into public.player_company_market_listings (
+      stock_id,
+      ticker,
+      founder_id,
+      original_founder_id
+    )
+    select
+      lower(saves.state -> 'playerCompany' ->> 'ipoListingStockId'),
+      upper(saves.state -> 'playerCompany' ->> 'ticker'),
+      saves.user_id,
+      saves.user_id
+    from public.game_saves saves
+    where jsonb_typeof(saves.state -> 'playerCompany') = 'object'
+      and coalesce(saves.state -> 'playerCompany' ->> 'status', '')
+        in ('ipo-requested', 'listed')
+      and lower(coalesce(
+        saves.state -> 'playerCompany' ->> 'ipoListingStockId', ''
+      )) ~ '^[a-z][a-z0-9]{1,31}$'
+      and upper(coalesce(
+        saves.state -> 'playerCompany' ->> 'ticker', ''
+      )) ~ '^[A-Z0-9]{2,6}$'
+      and exists (
+        select 1
+        from public.stock_requests request
+        where request.user_id = saves.user_id
+          and request.status in ('accepted', 'shipped')
+          and request.description like '%[PLAYER_COMPANY_FOUNDATION]%'
+          and request.description like
+            '%"ticker":"' ||
+            upper(saves.state -> 'playerCompany' ->> 'ticker') ||
+            '"%'
+      )
+    on conflict (stock_id) do nothing;
+  else
+    insert into public.player_company_market_listings (
+      stock_id,
+      ticker,
+      founder_id
+    )
+    select
+      lower(saves.state -> 'playerCompany' ->> 'ipoListingStockId'),
+      upper(saves.state -> 'playerCompany' ->> 'ticker'),
+      saves.user_id
+    from public.game_saves saves
+    where jsonb_typeof(saves.state -> 'playerCompany') = 'object'
+      and coalesce(saves.state -> 'playerCompany' ->> 'status', '')
+        in ('ipo-requested', 'listed')
+      and lower(coalesce(
+        saves.state -> 'playerCompany' ->> 'ipoListingStockId', ''
+      )) ~ '^[a-z][a-z0-9]{1,31}$'
+      and upper(coalesce(
+        saves.state -> 'playerCompany' ->> 'ticker', ''
+      )) ~ '^[A-Z0-9]{2,6}$'
+      and exists (
+        select 1
+        from public.stock_requests request
+        where request.user_id = saves.user_id
+          and request.status in ('accepted', 'shipped')
+          and request.description like '%[PLAYER_COMPANY_FOUNDATION]%'
+          and request.description like
+            '%"ticker":"' ||
+            upper(saves.state -> 'playerCompany' ->> 'ticker') ||
+            '"%'
+      )
+    on conflict (stock_id) do nothing;
+  end if;
+end;
+$$;
 
 -- 기업별 권위 캡테이블. RPC가 행 잠금 후 갱신해 여러 탭의 동시 행동과 중복 요청을 막는다.
 create table if not exists public.player_company_market_state (

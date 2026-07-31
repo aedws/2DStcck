@@ -758,7 +758,9 @@ interface MarketStore extends MarketSnapshot {
   /** 접속 시 만기가 된 정기배당을 한 번만 실제 주주 배당 원장에 예약한다. */
   processDuePlayerCompanyRegularDividend: () => Promise<OrderResult>;
   /** 1회 배당 예약 — 계좌 총자산×예산 비율을 개인 현금에서 차감해 원장에 선언한다. */
-  declarePlayerCompanyDividend: () => Promise<OrderResult>;
+  declarePlayerCompanyDividend: (
+    dividendKind?: "special" | "regular",
+  ) => Promise<OrderResult>;
   /** 배당 원장에서 지급 개시된 배당을 보유 좌수 비례로 멱등 수령한다. */
   resolvePlayerCompanyDividends: (
     dividends: PlayerCompanyDividend[],
@@ -5896,7 +5898,7 @@ export const useMarketStore = create<MarketStore>()(
             dividendRate: management.regularDividendRate,
           },
         });
-        const result = await get().declarePlayerCompanyDividend();
+        const result = await get().declarePlayerCompanyDividend("regular");
         const latestCompany = get().playerCompany;
         if (!latestCompany) return result;
         const settled = markPlayerCompanyRegularDividendResult(
@@ -5934,7 +5936,7 @@ export const useMarketStore = create<MarketStore>()(
         }
       },
 
-      declarePlayerCompanyDividend: async () => {
+      declarePlayerCompanyDividend: async (dividendKind = "special") => {
         const state = get();
         const company = state.playerCompany;
         if (!company) {
@@ -5996,6 +5998,7 @@ export const useMarketStore = create<MarketStore>()(
           perShareCentsExact: perShareExact,
           totalCentsExact: requiredExact,
           dividendSession,
+          dividendKind,
         });
         if (!res.success || !res.dividend) {
           return { success: false, message: res.message };
@@ -6006,7 +6009,10 @@ export const useMarketStore = create<MarketStore>()(
         const now = Date.now();
         const burnPayment: CashPayment = {
           id: `pcdiv-burn-${res.dividend.id}`,
-          kind: "company_capital",
+          kind:
+            dividendKind === "regular"
+              ? "company_regular_dividend"
+              : "company_special_dividend",
           sourceId: company.id,
           ticker: company.ticker,
           dueSession: currentSession,

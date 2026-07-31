@@ -72,6 +72,8 @@ export const IPO_SCHEDULE: Record<string, number> = {
   koyuki: Date.UTC(2026, 6, 29, 12, 0),
   // 에이메스 엔터테인먼트(WWAM) — 2026-07-30 15:00 KST 개장 (= 06:00 UTC)
   ames: Date.UTC(2026, 6, 30, 6, 0),
+  // 베르길리우스 다크 투어리즘(VRGL) — 2026-07-31 15:00 KST 개장 (= 06:00 UTC)
+  vergilius: Date.UTC(2026, 6, 31, 6, 0),
   // 밀리테크 인터내셔널 아머먼츠(MILITC) — 2026-07-31 18:00 KST 개장 (= 09:00 UTC)
   militc: Date.UTC(2026, 6, 31, 9, 0),
   // 이스마엘 해운(ISML) — 2026-08-01 15:00 KST 개장 (= 06:00 UTC)
@@ -84,4 +86,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   shupang: Date.UTC(2026, 7, 3, 6, 0),
   // NatsumeAnan Capital Management(NACM) — 2026-08-03 18:00 KST 개장 (= 09:00 UTC) · 플레이어 회사 IPO
   nacm: Date.UTC(2026, 7, 3, 9, 0),
+  // 게헨나헬스 그룹(GHH) — 2026-08-03 21:00 KST 개장 (= 12:00 UTC)
+  ghh: Date.UTC(2026, 7, 3, 12, 0),
 };
