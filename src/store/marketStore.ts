@@ -226,7 +226,7 @@ import {
 import {
   declarePlayerCompanyDividend as declareDividendServer,
   hasPlayerCompanyDividend,
-  type PlayerCompanyDividend,
+  type PlayerCompanyDividendClaim,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
 import { calculatePlayerCompanyDividendBudget } from "@/lib/player/playerCompanyDividend";
@@ -770,9 +770,9 @@ interface MarketStore extends MarketSnapshot {
   declarePlayerCompanyDividend: (
     dividendKind?: "special" | "regular",
   ) => Promise<OrderResult>;
-  /** 배당 원장에서 지급 개시된 배당을 보유 좌수 비례로 멱등 수령한다. */
-  resolvePlayerCompanyDividends: (
-    dividends: PlayerCompanyDividend[],
+  /** 서버가 선언 시점 주주명부로 확정·지급한 배당을 현재 탭에도 반영한다. */
+  applyPlayerCompanyDividendClaim: (
+    claim: PlayerCompanyDividendClaim,
   ) => void;
   resumePlayerCompany: () => OrderResult;
   markPlayerCompanyIpoRequested: () => OrderResult;
@@ -6020,6 +6020,10 @@ export const useMarketStore = create<MarketStore>()(
           totalCentsExact: requiredExact,
           dividendSession,
           dividendKind,
+          shareMultiplier:
+            state.stocks.find(
+              (stock) => stock.id === company.ipoListingStockId,
+            )?.shareMultiplier ?? 1,
         });
         if (!res.success || !res.dividend) {
           return { success: false, message: res.message };
@@ -6061,67 +6065,32 @@ export const useMarketStore = create<MarketStore>()(
         return { success: true, message };
       },
 
-      resolvePlayerCompanyDividends: (dividends) => {
+      applyPlayerCompanyDividendClaim: (claim) => {
+        if (claim.claimedCount <= 0 || claim.payments.length === 0) return;
         const state = get();
-        const already = resolvedResponseIdsWithPaymentEvidence(
-          state.resolvedPlayerCompanyDividendIds,
-          state.cashPayments,
-          "pcdiv-pay-",
+        const knownPaymentIds = new Set(
+          state.cashPayments.map((payment) => payment.id),
         );
-        const fresh = dividends.filter((d) => !already.has(d.id));
-        if (fresh.length === 0) return;
-        const now = Date.now();
-        const dueSession = Math.floor(now / SESSION_DURATION_MS);
-        const holdingByStock = new Map(
-          state.holdings.map((holding) => [holding.stockId, holding]),
+        const freshPayments = claim.payments.filter(
+          (payment) => !knownPaymentIds.has(payment.id),
         );
-        const payments: CashPayment[] = [];
-        for (const dividend of fresh) {
-          const holding = holdingByStock.get(dividend.stockId);
-          if (!holding || holding.quantity <= 0) continue;
-          const quantityExact = quantityExactOf(holding);
-          const amountExact = exactPositionValue(
-            dividend.perShareCentsExact,
-            quantityExact,
-          );
-          if (BigInt(amountExact) <= 0n) continue;
-          const amount = exactToNumber(amountExact);
-          payments.push({
-            id: `pcdiv-pay-${dividend.id}`,
-            kind: "dividend",
-            sourceId: dividend.stockId,
-            ticker: dividend.ticker,
-            dueSession,
-            quantity: holding.quantity,
-            quantityExact,
-            amountPerShare: dividend.perShareCents,
-            amountPerShareExact: dividend.perShareCentsExact,
-            amount,
-            amountExact,
-            timestamp: now,
-          });
-        }
-        const totalExact = payments.reduce(
+        if (freshPayments.length === 0) return;
+        const totalExact = freshPayments.reduce(
           (sum, payment) => exactAdd(sum, payment.amountExact ?? payment.amount),
           "0",
         );
+        const resolvedIds = freshPayments
+          .map((payment) => payment.id.replace(/^pcdiv-pay-/, ""))
+          .filter(Boolean);
         set({
-          ...(BigInt(totalExact) > 0n
-            ? withExactCashDelta(state, totalExact)
-            : {}),
-          cashPayments:
-            payments.length > 0
-              ? [...payments, ...state.cashPayments].slice(0, 200)
-              : state.cashPayments,
+          ...withExactCashDelta(state, totalExact),
+          cashPayments: [...freshPayments, ...state.cashPayments].slice(0, 200),
           resolvedPlayerCompanyDividendIds: [
-            ...fresh.map((d) => d.id),
+            ...resolvedIds,
             ...state.resolvedPlayerCompanyDividendIds,
           ].slice(0, 300),
         });
-        if (BigInt(totalExact) > 0n) {
-          playSound("cash");
-          void get().saveCloud();
-        }
+        playSound("cash");
       },
 
       resumePlayerCompany: () => {

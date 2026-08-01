@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
+import { loadGameSave } from "@/lib/supabase/cloudSave";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
+import type { CashPayment } from "@/lib/types/market";
 
 /**
  * 유저 회사 배당 원장 접근 계층.
  * - 창업주는 `declarePlayerCompanyDividend` 로 배당을 선언(서버가 창업주 검증).
- * - 모든 보유자는 `listClaimablePlayerCompanyDividends` 로 지급 개시된 배당을 읽어
- *   보유 좌수 비례로 지급받는다(클라이언트가 멱등 크레딧).
+ * - 지급은 선언 시점 주주명부를 고정한 서버 원장에서 원자적으로 처리한다.
  */
 
 export interface PlayerCompanyDividend {
@@ -24,6 +25,13 @@ export interface DeclareDividendInput {
   totalCentsExact: string;
   dividendSession: number;
   dividendKind?: "special" | "regular";
+  shareMultiplier: number;
+}
+
+export interface PlayerCompanyDividendClaim {
+  claimedCount: number;
+  totalCentsExact: string;
+  payments: CashPayment[];
 }
 
 export interface DeclareDividendResult {
@@ -50,21 +58,38 @@ export async function declarePlayerCompanyDividend(
   // v2는 배당 유형까지 서버 현금 원장에 기록한다. 마이그레이션 전 서버에서는
   // 기존 원자적 차감 RPC로 안전하게 폴백해 배당 실행 자체가 막히지 않게 한다.
   let { data, error } = await supabase.rpc(
-    "declare_player_company_dividend_v2",
+    "declare_player_company_dividend_v3",
     {
       ...params,
       p_dividend_kind: input.dividendKind ?? "special",
+      p_share_multiplier:
+        Number.isFinite(input.shareMultiplier) && input.shareMultiplier > 0
+          ? input.shareMultiplier
+          : 1,
     },
   );
   if (
     error &&
     (error.code === "PGRST202" ||
-      error.message?.includes("declare_player_company_dividend_v2"))
+      error.message?.includes("declare_player_company_dividend_v3"))
   ) {
     ({ data, error } = await supabase.rpc(
-      "declare_player_company_dividend",
-      params,
+      "declare_player_company_dividend_v2",
+      {
+        ...params,
+        p_dividend_kind: input.dividendKind ?? "special",
+      },
     ));
+    if (
+      error &&
+      (error.code === "PGRST202" ||
+        error.message?.includes("declare_player_company_dividend_v2"))
+    ) {
+      ({ data, error } = await supabase.rpc(
+        "declare_player_company_dividend",
+        params,
+      ));
+    }
   }
   if (error || !data) {
     if (error?.message?.includes("not_founder")) {
@@ -116,27 +141,39 @@ export async function declarePlayerCompanyDividend(
   };
 }
 
-/** 지급 개시(dividend_session ≤ 현재)된 최근 배당 목록. 보유자 클라이언트가 정산에 쓴다. */
-export async function listClaimablePlayerCompanyDividends(
-  currentSession: number,
-  limit = 100,
-): Promise<PlayerCompanyDividend[]> {
+/** 선언 시점 주주명부에 확정된 배당을 서버 지갑에 원자적으로 지급한다. */
+export async function claimPlayerCompanyDividends(): Promise<PlayerCompanyDividendClaim> {
+  const empty: PlayerCompanyDividendClaim = {
+    claimedCount: 0,
+    totalCentsExact: "0",
+    payments: [],
+  };
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("player_company_dividends")
-    .select("id, stock_id, ticker, per_share_cents, dividend_session")
-    .lte("dividend_session", Math.round(currentSession))
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error || !data) return [];
-  return data.map((row) => ({
-    id: String(row.id),
-    stockId: String(row.stock_id),
-    ticker: String(row.ticker),
-    perShareCents: Number(row.per_share_cents),
-    perShareCentsExact: String(row.per_share_cents),
-    dividendSession: Number(row.dividend_session),
-  }));
+  const { data, error } = await supabase.rpc(
+    "claim_player_company_dividends",
+  );
+  if (error || !data || typeof data !== "object") return empty;
+
+  const row = data as Record<string, unknown>;
+  const rawPayments = Array.isArray(row.payments) ? row.payments : [];
+  const payments = rawPayments.filter(
+    (payment): payment is CashPayment =>
+      Boolean(payment) &&
+      typeof payment === "object" &&
+      typeof (payment as CashPayment).id === "string" &&
+      typeof (payment as CashPayment).amountExact === "string",
+  );
+  const claimedCount = Math.max(
+    0,
+    Math.floor(Number(row.claimedCount) || 0),
+  );
+  // 실제 지급 때만 wallet_revision이 오르므로 그때만 다음 CAS 기준을 갱신한다.
+  if (claimedCount > 0) await loadGameSave();
+  return {
+    claimedCount,
+    totalCentsExact: String(row.totalCentsExact ?? "0"),
+    payments,
+  };
 }
 
 /** 같은 회사·배당일에 이미 예약된 배당이 있는지 확인한다. 정기배당 재시도 중복 방지용. */

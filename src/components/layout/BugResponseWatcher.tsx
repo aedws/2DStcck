@@ -21,8 +21,7 @@ import {
   COMPANY_FOUNDATION_STATUS_LABEL,
   listMyCompanyFoundationResponses,
 } from "@/lib/supabase/companyFoundationRequests";
-import { listClaimablePlayerCompanyDividends } from "@/lib/supabase/playerCompanyDividends";
-import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { claimPlayerCompanyDividends } from "@/lib/supabase/playerCompanyDividends";
 import { formatPrice } from "@/lib/market/engine";
 
 /** 모달 큐에 쌓이는 통합 회신 아이템(버그·피드백·IPO·회사 설립 공통). */
@@ -52,22 +51,23 @@ export function BugResponseWatcher() {
   const resolveStockRequestResponses = useMarketStore(
     (s) => s.resolveStockRequestResponses,
   );
-  const resolvePlayerCompanyDividends = useMarketStore(
-    (s) => s.resolvePlayerCompanyDividends,
+  const applyPlayerCompanyDividendClaim = useMarketStore(
+    (s) => s.applyPlayerCompanyDividendClaim,
   );
   const [queue, setQueue] = useState<QueuedResponse[]>([]);
 
   const check = useCallback(async () => {
     if (!userId) return;
-    const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
-    const [bugs, feedback, stocks, companies, dividends] = await Promise.all([
+    const [bugs, feedback, stocks, companies, dividendClaim] = await Promise.all([
       listMyBugResponses(),
       listMyFeedbackResponses(),
       listMyStockRequestResponses(),
       listMyCompanyFoundationResponses(),
-      listClaimablePlayerCompanyDividends(currentSession),
+      claimPlayerCompanyDividends(),
     ]);
-    if (dividends.length > 0) resolvePlayerCompanyDividends(dividends);
+    if (dividendClaim.claimedCount > 0) {
+      applyPlayerCompanyDividendClaim(dividendClaim);
+    }
 
     const queued: QueuedResponse[] = [];
     if (bugs.length > 0) {
@@ -139,7 +139,7 @@ export function BugResponseWatcher() {
     resolveBugReports,
     resolveFeedbackResponses,
     resolveStockRequestResponses,
-    resolvePlayerCompanyDividends,
+    applyPlayerCompanyDividendClaim,
   ]);
 
   useEffect(() => {
