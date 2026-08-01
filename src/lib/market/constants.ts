@@ -79,8 +79,10 @@ export const MARKET_EPOCH_MS = Date.UTC(2026, 6, 11); // 2026-07-11T00:00Z
  *  추가한다. 종목 구성 변경으로 전체 재생성한다.
  *  v53: 8/3 예약 IPO 3종(JBINVB·SHPG·NACM)을 추가해 전체 재생성한다.
  *  v54: 게헨나헬스 그룹(GHH)과 전용 헬스케어 사건을 8/3 예약 상장한다.
- *  v55: 예약 종목의 상장 전 배당락·파생 프리미엄·차트 누적을 차단한다. */
-export const MARKET_SIM_VERSION = 55;
+ *  v55: 예약 종목의 상장 전 배당락·파생 프리미엄·차트 누적을 차단한다.
+ *  v56: 플레이어 회사 Kusogaki Capital(KSGK)을 8/4 예약 상장하고 공매도 적중·
+ *  시장중립 차익·숏 스퀴즈 사건과 역상관 금융주 성격을 추가한다. */
+export const MARKET_SIM_VERSION = 56;
 /**
  * 지갑(현금·보유·거래내역) 스키마 세대.
  * 증가 시 구세대 LocalStorage·cloud `game_saves` 를 폐기하고 초기 자금으로 다시 시작한다.

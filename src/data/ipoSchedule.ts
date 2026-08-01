@@ -88,4 +88,6 @@ export const IPO_SCHEDULE: Record<string, number> = {
   nacm: Date.UTC(2026, 7, 3, 9, 0),
   // 게헨나헬스 그룹(GHH) — 2026-08-03 21:00 KST 개장 (= 12:00 UTC)
   ghh: Date.UTC(2026, 7, 3, 12, 0),
+  // Kusogaki Capital(KSGK) — 2026-08-04 12:00 KST 개장 (= 03:00 UTC) · 플레이어 회사 IPO
+  ksgk: Date.UTC(2026, 7, 4, 3, 0),
 };

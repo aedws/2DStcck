@@ -1089,6 +1089,27 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     },
     ceoId: "chr_chinatsu",
   },
+  {
+    id: "ksgk",
+    ticker: "KSGK",
+    name: "Kusogaki Capital",
+    instrumentType: "company",
+    sector: "금융",
+    subsector: "증권·공매도·자산운용",
+    marketTags: ["금융", "증권", "공매도", "자산운용"],
+    initialPrice: 666_666,
+    volatility: 0.072,
+    drift: 0.0005,
+    beta: -0.32,
+    description:
+      "플레이어 @live5080이 설립한 헤지펀드·증권 운용사. 소악마 쿠소가키 트레이더들이 공매도와 시장중립 차익거래를 운용해 하락장에서 강한 역상관 수익을 노립니다. 방향을 맞히면 큰 이익을 내지만 숏 스퀴즈와 증거금 압박에는 손실이 확대되는 고변동 금융사입니다. 천문학적 누적 소각과 창업주 지분 약 99.98%, 회사 프레스티지 500으로 IPO 승인을 받았습니다.",
+    eventBias: {
+      "공매도 적중": 4,
+      "시장중립 차익": 3,
+      "숏 스퀴즈": 3,
+      실적: 2,
+    },
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */
@@ -1961,5 +1982,32 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description:
       "약제비와 의료 인건비가 예상보다 빠르게 오르며 보험금 지급 부담이 커졌습니다. 보험료 조정과 공공보험 수가 협상이 늦어져 단기 수익성이 압박받습니다.",
     impact: -0.95,
+  },
+  {
+    category: "company",
+    companyId: "ksgk",
+    tag: "공매도 적중",
+    title: "Kusogaki Capital, 하락 종목 공매도 연속 적중",
+    description:
+      "과열된 종목의 회계·수급 약점을 먼저 포착한 공매도 포지션이 연이어 수익으로 전환됐습니다. 시장 하락과 함께 운용자산의 성과보수가 크게 늘어납니다.",
+    impact: 1.15,
+  },
+  {
+    category: "company",
+    companyId: "ksgk",
+    tag: "시장중립 차익",
+    title: "Kusogaki Capital, 시장중립 차익거래 수익 확대",
+    description:
+      "롱·숏 포지션의 시장 노출을 상쇄한 채 가격 괴리만 회수하는 운용 전략이 안정적인 성과를 냈습니다. 변동성이 커질수록 거래 기회가 늘어납니다.",
+    impact: 0.85,
+  },
+  {
+    category: "company",
+    companyId: "ksgk",
+    tag: "숏 스퀴즈",
+    title: "Kusogaki Capital, 예상 밖 급등에 숏 스퀴즈",
+    description:
+      "대규모 공매도 대상이 급등하며 담보 추가 납입과 강제 환매가 동시에 발생했습니다. 높은 레버리지와 좁아진 유동성이 손실을 증폭시킵니다.",
+    impact: -1.35,
   },
 ];

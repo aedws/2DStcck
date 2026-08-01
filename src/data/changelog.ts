@@ -16,6 +16,12 @@ export interface ChangelogDaySummary {
 }
 
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
+  "2026-08-01": {
+    highlights:
+      "플레이어 회사 Kusogaki Capital(KSGK)을 8월 4일 12:00 KST에 예약 상장합니다. 공매도·시장중립 차익거래의 하락장 방어력과 숏 스퀴즈 위험을 함께 반영했습니다. (@live5080)",
+    intent:
+      "플레이어 회사의 실제 최신 자본·지분 원장을 보존하면서 기존 금융주와 다른 역상관 헤지펀드 선택지를 추가했습니다.",
+  },
   "2026-07-31": {
     highlights: [
       "플레이어 개인 계좌 파산과 상장 법인의 존속을 분리했습니다. 강제청산 뒤 법인 회생 관리·지분 보호 신탁·긴급 회생대출·공개매각·M&A 중 하나를 선택할 수 있고, 인수자는 여러 회사를 회사별 이사회·주주총회 경영권 포트폴리오로 운영합니다.",
@@ -302,6 +308,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-08-01",
+    tag: "신규",
+    title: "Kusogaki Capital(KSGK) 예약 상장",
+    detail:
+      "플레이어 @live5080이 설립한 헤지펀드·증권 운용사를 2026년 8월 4일 12:00 KST에 공모가 $6,666.66로 상장합니다. 운영 원장의 최신 총 240,509,000주와 창업주 240,449,000주를 기준으로 개장 시 창업주 보통주를 한 번만 지급합니다. 공매도 적중·시장중립 차익거래 호재와 숏 스퀴즈 위험, 시장과 반대로 움직이는 낮은 베타를 반영했으며 본주와 인버스·곱버스·2배 레버리지가 같은 시각에 개장합니다. (@live5080)",
+  },
   {
     date: "2026-07-31",
     tag: "신규",

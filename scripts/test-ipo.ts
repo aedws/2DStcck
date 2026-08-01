@@ -118,6 +118,7 @@ assert.deepEqual(
     "jbinv",
     "jbinvb",
     "koyuki",
+    "ksgk",
     "lcid",
     "levi",
     "miku",
@@ -188,6 +189,34 @@ const ghhMedicalCosts = EVENT_TEMPLATES.find(
 );
 assert.ok(ghhPublicInsurance && ghhPublicInsurance.impact > 0);
 assert.ok(ghhMedicalCosts && ghhMedicalCosts.impact < 0);
+
+// 8/4 플레이어 회사 IPO: Kusogaki Capital(KSGK)
+const ksgkListing = Date.UTC(2026, 7, 4, 3, 0);
+const ksgk = getCompanyDefinitions().find((item) => item.id === "ksgk");
+assert.ok(ksgk, "Kusogaki Capital 종목 정의가 없음");
+assert.equal(ksgk.ticker, "KSGK");
+assert.equal(ksgk.sector, "금융");
+assert.equal(ksgk.listingEpochMs, ksgkListing);
+assert.ok((ksgk.beta ?? 0) < 0, "KSGK의 공매도 헤지 성격이 반영되지 않음");
+assert.equal(isListed(ksgk, ksgkListing - 1), false);
+assert.equal(isListed(ksgk, ksgkListing), true);
+for (const suffix of ["inverse", "inverse-2x", "leverage-2x"]) {
+  const derivative = STOCK_DEFINITIONS.find(
+    (item) => item.id === `ksgk-${suffix}`,
+  );
+  assert.ok(derivative, `KSGK ${suffix} 파생상품 정의가 없음`);
+  assert.equal(derivative.listingEpochMs, ksgkListing);
+}
+const ksgkShortWin = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ksgk" && template.tag === "공매도 적중",
+);
+const ksgkShortSqueeze = EVENT_TEMPLATES.find(
+  (template) =>
+    template.companyId === "ksgk" && template.tag === "숏 스퀴즈",
+);
+assert.ok(ksgkShortWin && ksgkShortWin.impact > 0);
+assert.ok(ksgkShortSqueeze && ksgkShortSqueeze.impact < 0);
 
 // 상장 전에는 본주·파생 모두 배당락, 프리미엄 적립, 차트 생성을 포함해 완전 동결된다.
 const ghhFamily = STOCK_DEFINITIONS.filter((item) =>
