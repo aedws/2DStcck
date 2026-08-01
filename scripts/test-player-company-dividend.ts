@@ -32,6 +32,20 @@ assert.deepEqual(calculatePlayerCompanyDividendBudget("1000000", 100, 0), {
   perShareCentsExact: "0",
 });
 
+const ultraSmallRate = 2.5e-51;
+const ultraSmallBudget = calculatePlayerCompanyDividendBudget(
+  hugeCash,
+  shares,
+  ultraSmallRate,
+);
+assert.equal(
+  ultraSmallBudget.totalCentsExact,
+  ((BigInt(hugeCash) * 25n + 5n * 10n ** 51n) / 10n ** 52n).toString(),
+  "초고액 계정에서 0.000001%보다 작은 배당률도 0원으로 소실되면 안 됩니다.",
+);
+assert.ok(BigInt(ultraSmallBudget.totalCentsExact) > 0n);
+assert.ok(BigInt(ultraSmallBudget.perShareCentsExact) > 0n);
+
 const debitExact = `-${budget.totalCentsExact}`;
 assert.ok(formatSignedExactMoney(debitExact).startsWith("-$"));
 assert.ok(
