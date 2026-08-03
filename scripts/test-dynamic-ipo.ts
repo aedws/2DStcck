@@ -47,6 +47,26 @@ assert.ok(clamped!.volatility <= 0.2, "변동성 상한 클램프");
 assert.ok(clamped!.drift <= 0.005, "드리프트 상한 클램프");
 assert.ok(clamped!.beta >= 0, "베타 하한 클램프");
 
+// 도감 캐릭터 연동: 올바른 chr_ id 는 보존, 잘못된 값은 제거.
+const withCeo = normalizeStoredIpoListing({
+  id: "koyu",
+  ticker: "koyu",
+  name: "코유키",
+  sector: "기술",
+  ceoId: "chr_minori",
+  listingEpochMs: Date.UTC(2035, 0, 1),
+});
+assert.equal(withCeo!.ceoId, "chr_minori", "유효한 도감 캐릭터 id 보존");
+const badCeo = normalizeStoredIpoListing({
+  id: "koyu",
+  ticker: "koyu",
+  name: "코유키",
+  sector: "기술",
+  ceoId: "not-a-char",
+  listingEpochMs: Date.UTC(2035, 0, 1),
+});
+assert.equal(badCeo!.ceoId, undefined, "잘못된 캐릭터 id 는 제거");
+
 // ── 기준: 동적 상장 없이 리플레이 ──
 setDynamicListingDefs([], BUNDLED_STOCK_IDS);
 assert.equal(getDynamicListingDefs().length, 0, "레지스트리 비움");
