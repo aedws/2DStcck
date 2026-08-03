@@ -228,7 +228,7 @@ export function InstitutionalLiquidityPanel() {
 
             <article className="rounded-xl border border-blue-500/20 bg-blue-500/[0.05] p-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-blue-300">🏙️ JP모건 · 월가</h3>
+                <h3 className="font-bold text-blue-300">🏙️ 종필모건 · 월가</h3>
                 <span className="text-[10px] text-blue-400">적중률 80%</span>
               </div>
               <p className="mt-1 text-[11px] text-[var(--muted)]">

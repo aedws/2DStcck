@@ -293,7 +293,7 @@ export function computeAnalystDeskOpinions(
     }),
     deskOpinion(stock, {
       id: "jp-morgan",
-      name: "JP모건",
+      name: "종필모건",
       lens: "선행 가치·차익거래",
       targetPrice: jpMorganTarget,
       thesis:
@@ -302,7 +302,7 @@ export function computeAnalystDeskOpinions(
     }),
     deskOpinion(stock, {
       id: "goldman-sachs",
-      name: "골드만삭스",
+      name: "실버만삭스",
       lens: "모멘텀·수급",
       targetPrice: current * (1 + momentumReturn),
       thesis:
@@ -313,7 +313,7 @@ export function computeAnalystDeskOpinions(
     }),
     deskOpinion(stock, {
       id: "morgan-stanley",
-      name: "모건스탠리",
+      name: "모건스탈리",
       lens: "리스크 조정",
       targetPrice: consensus.targetPrice * (1 - riskDiscount),
       thesis:
@@ -322,7 +322,7 @@ export function computeAnalystDeskOpinions(
     }),
     deskOpinion(stock, {
       id: "morningstar",
-      name: "모닝스타",
+      name: "이브닝스타",
       lens: "내재가치·안전마진",
       targetPrice: intrinsicTarget,
       thesis:
@@ -333,7 +333,7 @@ export function computeAnalystDeskOpinions(
     }),
     deskOpinion(stock, {
       id: "citi-research",
-      name: "씨티 리서치",
+      name: "씨리 리서치",
       lens: "거시·업종 순환",
       targetPrice: consensus.targetPrice * (1 + macroAdjustment),
       thesis: defensiveSector
