@@ -33,12 +33,15 @@ export interface StoredIpoListing {
   belowInitialPriceBuybackSupportPerSession?: number;
   description?: string;
   logo?: string;
+  /** 연동할 도감 캐릭터 id(characters.ts, 예: "chr_minori"). 비우면 미연동. */
+  ceoId?: string;
   /** 상장 시각(ms, UTC). */
   listingEpochMs: number;
 }
 
 const ID_RE = /^[a-z][a-z0-9]{1,11}$/;
 const TICKER_RE = /^[A-Z0-9]{1,6}$/;
+const CEO_ID_RE = /^chr_[a-z0-9_]{1,40}$/;
 
 function clamp(value: number, min: number, max: number, fallback: number): number {
   return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
@@ -80,6 +83,10 @@ export function normalizeStoredIpoListing(
         : undefined,
     description: input.description?.trim().slice(0, 400) || undefined,
     logo: input.logo?.trim().slice(0, 300) || undefined,
+    ceoId: (() => {
+      const raw = String(input.ceoId ?? "").trim();
+      return CEO_ID_RE.test(raw) ? raw : undefined;
+    })(),
     listingEpochMs,
   };
 }
@@ -104,6 +111,7 @@ export function ipoListingToDefinition(listing: StoredIpoListing): StockDefiniti
       listing.belowInitialPriceBuybackSupportPerSession,
     description: listing.description,
     logo: listing.logo,
+    ceoId: listing.ceoId,
     listingEpochMs: listing.listingEpochMs,
   };
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatPrice } from "@/lib/market/engine";
 import { COMPANY_SECTOR_ORDER } from "@/lib/market/taxonomy";
+import { CHARACTERS } from "@/data/characters";
 import {
   normalizeStoredIpoListing,
   type StoredIpoListing,
@@ -40,6 +41,7 @@ interface FormState {
   beta: string;
   dividendUsd: string;
   description: string;
+  ceoId: string;
   listing: string;
 }
 
@@ -55,8 +57,14 @@ const EMPTY_FORM: FormState = {
   beta: "1",
   dividendUsd: "0",
   description: "",
+  ceoId: "",
   listing: defaultListingInput(),
 };
+
+/** 도감 캐릭터 선택 목록(이름순). */
+const CHARACTER_OPTIONS = [...CHARACTERS]
+  .map((c) => ({ id: c.id, name: c.name }))
+  .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 
 /**
  * 관리자 즉시 IPO 발행 — 코드 배포 없이 미래 시각에 상장할 종목을 등록한다.
@@ -100,6 +108,7 @@ export function IpoComposer() {
         beta: Number(form.beta),
         quarterlyDividend: Math.round(Number(form.dividendUsd) * 100) || undefined,
         description: form.description || undefined,
+        ceoId: form.ceoId || undefined,
         listingEpochMs: localInputToMs(form.listing),
       }),
     [form, effectiveId],
@@ -272,6 +281,21 @@ export function IpoComposer() {
             />
           </label>
           <label className="col-span-2 text-[11px] font-semibold text-[var(--muted)]">
+            도감 캐릭터 연동 (선택)
+            <select
+              value={form.ceoId}
+              onChange={(e) => set("ceoId", e.target.value)}
+              className={fieldClass}
+            >
+              <option value="">연동 안 함</option>
+              {CHARACTER_OPTIONS.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.id})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="col-span-2 text-[11px] font-semibold text-[var(--muted)]">
             회사 소개 (선택)
             <textarea
               value={form.description}
@@ -289,6 +313,12 @@ export function IpoComposer() {
             {formatPrice(preview.initialPrice)} · {preview.sector}
             {preview.subsector ? ` · ${preview.subsector}` : ""} · 상장{" "}
             {new Date(preview.listingEpochMs).toLocaleString("ko-KR")}
+            {preview.ceoId
+              ? ` · 도감 🔗 ${
+                  CHARACTER_OPTIONS.find((c) => c.id === preview.ceoId)?.name ??
+                  preview.ceoId
+                }`
+              : ""}
           </p>
         )}
         {!listingInFuture && form.listing && (
