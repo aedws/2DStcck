@@ -198,6 +198,15 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
     playResultSound(result, kind === "open" ? "sell" : "buy");
   }
 
+  // 레버리지 액면 변동으로 남은 0.5주 같은 소수 잔여까지 한 번에 청산한다
+  // (정수 입력으로는 청산할 수 없던 잔여 공매도 — 버그리포트 4caa66b0).
+  function coverShortAll() {
+    if (!shortPos || !(shortPos.quantity > 0)) return;
+    const result = coverShortPosition(stock.id, shortPos.quantity, bestAsk);
+    report(result);
+    playResultSound(result, "buy");
+  }
+
   function createPlan() {
     const dollars = Number(recurringAmount);
     const result = createRecurringInvestment(
@@ -426,6 +435,15 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                         공매도 청산
                       </button>
                     </div>
+                    {shortPos && !Number.isInteger(shortPos.quantity) && (
+                      <button
+                        type="button"
+                        onClick={coverShortAll}
+                        className="mt-2 w-full rounded-xl border border-[var(--up)]/40 bg-[var(--up)]/10 py-2 text-[11px] font-semibold text-[var(--up)]"
+                      >
+                        잔여 {formatQuantity(shortPos.quantity)}주 전량 청산
+                      </button>
+                    )}
                     {shortPos && (
                       <p className={`mt-2 text-right text-xs ${upDownClass(shortProfit)}`}>
                         {formatQuantity(shortPos.quantity)}주 · {formatSignedMoney(shortProfit)}

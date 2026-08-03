@@ -16,6 +16,12 @@ export interface ChangelogDaySummary {
 }
 
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
+  "2026-08-03": {
+    highlights:
+      "레버리지 액면 변동으로 남은 소수 잔여 공매도를 ‘잔여 전량 청산’으로 되살 수 있게 하고, 오염된 총자산에서 나온 플레이어 회사의 천문학적 좌당 배당이 전 주주에게 살포되던 돈복사 연쇄를 상한으로 차단했습니다. (@titia8397 외)",
+    intent:
+      "정수 청산만 허용해 잔여가 묶이던 소수 공매도를 정밀 원장 기준으로 풀고, 창업주 총자산 기준 배당이 시장을 팽창시키지 못하도록 주가 대비 상한을 두어 경제 무결성을 지켰습니다.",
+  },
   "2026-08-01": {
     highlights:
       "플레이어 회사 Kusogaki Capital(KSGK)을 8월 4일 12:00 KST에 예약 상장합니다. 공매도·시장중립 차익거래의 하락장 방어력과 숏 스퀴즈 위험을 함께 반영했습니다. (@live5080)",
@@ -308,6 +314,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-08-03",
+    tag: "수정",
+    title: "잔여 소수 공매도 청산·플레이어 회사 배당 폭주 차단",
+    detail:
+      "레버리지 액면 변동으로 0.5주 같은 소수 잔여 공매도가 남으면 정수 청산만 가능해 되살 수 없던 문제를 수정했습니다. 종목 상세의 공매도 영역에 ‘잔여 전량 청산’ 버튼을 추가해 정밀 원장 기준으로 소수 잔량까지 한 번에 되사 상환할 수 있습니다. 또한 창업주 총자산 기준으로 산정되는 플레이어 회사 배당이 오염된 총자산 등으로 현재 주가 대비 비정상적으로 커지면(예: 무배당 종목에 천문학적 좌당 배당) 전 주주에게 현금이 살포되는 배당 폭주를 사전에 차단하도록 상한을 추가했습니다. (@titia8397 외)",
+  },
   {
     date: "2026-08-01",
     tag: "신규",

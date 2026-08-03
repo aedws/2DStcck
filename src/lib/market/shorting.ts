@@ -126,7 +126,14 @@ export function openShort(
   };
 }
 
-/** 공매도 청산(cover): 되사서 상환. 현금이 나가고 부채가 줄어든다. */
+/**
+ * 공매도 청산(cover): 되사서 상환. 현금이 나가고 부채가 줄어든다.
+ *
+ * 개시는 1주 단위지만, 레버리지 액면 변동(reconcileLeveragePositionSplits)으로
+ * 0.5주 같은 소수 잔여가 생길 수 있어 청산은 보유·매도와 동일하게 소수 수량을
+ * 허용한다(버그리포트 4caa66b0). 잔여 판정·부족 판정은 부동소수 오차 대신
+ * 6자리 정밀 정수 원장(quantityExact)으로만 한다.
+ */
 export function coverShort(
   cash: number,
   shorts: ShortPosition[],
@@ -138,27 +145,32 @@ export function coverShort(
   cashExact?: string,
   shareMultiplier = 1,
 ): ShortResult | OrderResult {
-  if (quantity <= 0 || !Number.isInteger(quantity)) {
-    return { success: false, message: "수량은 1 이상의 정수여야 합니다." };
+  if (!(quantity > 0) || !Number.isFinite(quantity)) {
+    return { success: false, message: "수량은 0보다 커야 합니다." };
   }
   const existing = shorts.find((s) => s.stockId === stockId);
-  if (!existing || existing.quantity < quantity) {
+  if (!existing) {
     return { success: false, message: "청산할 공매도 수량이 부족합니다." };
   }
-  const remaining = existing.quantity - quantity;
+  const coverExact = normalizeExactQuantity(quantity);
   const remainingExact = exactQuantityAdd(
     existing.quantityExact ?? existing.quantity,
-    `-${normalizeExactQuantity(quantity)}`,
+    `-${coverExact}`,
   );
+  // 정밀 원장이 음수면 보유 잔량보다 많이 청산하려는 것이다.
+  if (remainingExact.startsWith("-")) {
+    return { success: false, message: "청산할 공매도 수량이 부족합니다." };
+  }
+  const remaining = Number(remainingExact);
   const next =
-    remaining === 0
+    remaining <= 0
       ? shorts.filter((s) => s.stockId !== stockId)
       : shorts.map((s) =>
           s.stockId === stockId
             ? { ...s, quantity: remaining, quantityExact: remainingExact }
             : s,
         );
-  const costExact = exactPositionValue(price, quantity);
+  const costExact = exactPositionValue(price, coverExact);
   const nextCashExact = cashExact
     ? exactSubtract(cashExact, costExact)
     : normalizeExactAmount(cash - price * quantity);

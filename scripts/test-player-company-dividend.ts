@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { calculatePlayerCompanyDividendBudget } from "../src/lib/player/playerCompanyDividend";
+import {
+  calculatePlayerCompanyDividendBudget,
+  isPlayerCompanyDividendPerShareSane,
+} from "../src/lib/player/playerCompanyDividend";
 import {
   formatSignedExactMoney,
   formatSignedFullExactMoney,
@@ -78,6 +81,42 @@ assert.equal(
     amount: -1,
   }),
   "회사 배당 재원",
+);
+
+// 좌당 배당 상한: 정상 배당은 통과하고, 오염된 총자산에서 나온 천문학적
+// 좌당 배당(주가 대비 수천억 배)은 차단해야 한다(버그리포트 79118168).
+assert.equal(
+  isPlayerCompanyDividendPerShareSane("0", 48_000),
+  true,
+  "0원 좌당 배당은 상한과 무관해야 합니다.",
+);
+assert.equal(
+  isPlayerCompanyDividendPerShareSane("120000", 48_000),
+  true,
+  "주가의 2.5배 정도의 넉넉한 특별배당은 통과해야 합니다.",
+);
+// $239T/주(= 2.39e16센트)는 $480(48,000센트) 종목 기준 명백한 버그성 값.
+assert.equal(
+  isPlayerCompanyDividendPerShareSane("23965847115065100", 48_000),
+  false,
+  "천문학적 좌당 배당은 차단돼야 합니다.",
+);
+// 상한(주가 × 100만) 경계: 정확히 상한이면 통과, 1센트 초과면 차단.
+assert.equal(
+  isPlayerCompanyDividendPerShareSane("48000000000", 48_000),
+  true,
+);
+assert.equal(
+  isPlayerCompanyDividendPerShareSane("48000000001", 48_000),
+  false,
+);
+// 현재가가 0 이하면(가격 미확정) 보수적으로 차단한다.
+assert.equal(isPlayerCompanyDividendPerShareSane("1", 0), false);
+assert.equal(
+  BigInt(budget.perShareCentsExact) > 0n &&
+    isPlayerCompanyDividendPerShareSane(budget.perShareCentsExact, 48_000),
+  false,
+  "오염된 초고액 계정의 좌당 배당은 상한에 걸려야 합니다.",
 );
 
 console.log("player company exact dividend tests passed");

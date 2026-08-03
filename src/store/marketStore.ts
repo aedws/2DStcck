@@ -229,7 +229,10 @@ import {
   type PlayerCompanyDividendClaim,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
-import { calculatePlayerCompanyDividendBudget } from "@/lib/player/playerCompanyDividend";
+import {
+  calculatePlayerCompanyDividendBudget,
+  isPlayerCompanyDividendPerShareSane,
+} from "@/lib/player/playerCompanyDividend";
 import {
   contributeLiquidityIntervention,
 } from "@/lib/supabase/liquidityInterventions";
@@ -5998,6 +6001,25 @@ export const useMarketStore = create<MarketStore>()(
             message: "좌당 배당이 1센트 미만입니다. 배당률을 올려 주세요.",
           };
         }
+        // 좌당 배당이 현재 주가 대비 비정상적으로 크면(오염된 총자산 등으로
+        // 계산된 천문학적 배당) 전 주주 돈복사 연쇄를 막기 위해 차단한다
+        // (버그리포트 79118168).
+        const listingStock = state.stocks.find(
+          (stock) => stock.id === company.ipoListingStockId,
+        );
+        if (
+          !listingStock ||
+          !isPlayerCompanyDividendPerShareSane(
+            perShareExact,
+            listingStock.currentPrice,
+          )
+        ) {
+          return {
+            success: false,
+            message:
+              "좌당 배당이 현재 주가 대비 비정상적으로 큽니다. 총자산·배당률을 다시 확인해 주세요.",
+          };
+        }
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
         // 다음 20거래일 그리드 경계를 배당일로 삼는다.
         const dividendSession =
@@ -6020,10 +6042,7 @@ export const useMarketStore = create<MarketStore>()(
           totalCentsExact: requiredExact,
           dividendSession,
           dividendKind,
-          shareMultiplier:
-            state.stocks.find(
-              (stock) => stock.id === company.ipoListingStockId,
-            )?.shareMultiplier ?? 1,
+          shareMultiplier: listingStock.shareMultiplier ?? 1,
         });
         if (!res.success || !res.dividend) {
           return { success: false, message: res.message };
