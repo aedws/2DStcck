@@ -16,6 +16,12 @@ export interface ChangelogDaySummary {
 }
 
 export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
+  "2026-08-04": {
+    highlights:
+      "자동 정기배당이 실패할 때 그 사유(현금 부족·좌당 1센트 미만·상한 초과 등)를 알림에 그대로 표시하도록 했습니다. 배당률만 조정하며 반복 실패하던 상황에서 원인을 바로 알 수 있습니다. (@신고자)",
+    intent:
+      "정기배당 실패 사유가 보이지 않아 왜 신뢰도가 계속 깎이는지 알 수 없던 문제를, 수동 배당과 동일하게 실패 사유를 노출해 해소했습니다.",
+  },
   "2026-08-03": {
     highlights: [
       "레버리지 액면 변동으로 남은 소수 잔여 공매도를 ‘잔여 전량 청산’으로 되살 수 있게 하고, 오염된 총자산에서 나온 플레이어 회사의 천문학적 좌당 배당이 전 주주에게 살포되던 돈복사 연쇄를 상한으로 차단했습니다. (@titia8397 외)",
@@ -316,6 +322,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    date: "2026-08-04",
+    tag: "수정",
+    title: "자동 정기배당 실패 사유 표시",
+    detail:
+      "자동 정기배당이 실행되지 못할 때 ‘주주 신뢰도가 하락했습니다’라는 안내만 떠서, 왜 실패하는지 알 수 없어 배당률만 반복 조정하던 문제를 고쳤습니다. 이제 수동 배당과 동일하게 실패 사유(현금 부족, 좌당 배당 1센트 미만 — 발행 좌수가 많으면 낮은 배당률에서 좌당이 0으로 반올림, 좌당 배당 상한 초과 등)를 알림에 함께 표시합니다. 실패 사유를 확인해 배당률을 조정하거나 정책을 조정할 수 있습니다.",
+  },
   {
     date: "2026-08-03",
     tag: "개선",

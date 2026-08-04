@@ -5947,10 +5947,15 @@ export const useMarketStore = create<MarketStore>()(
           },
         });
         if (!result.success) {
+          // 자동 정기배당 실패 사유(현금 부족·좌당 1센트 미만·상한 초과 등)를
+          // 그대로 노출해, 왜 계속 실패하며 신뢰도가 깎이는지 알 수 있게 한다
+          // (버그리포트 a37095fb — 사유가 안 보여 배당률만 조정하다 반복 실패).
           useToastStore
             .getState()
             .push(
-              "정기배당을 실행하지 못해 주주 신뢰도가 하락했습니다.",
+              `정기배당을 실행하지 못해 주주 신뢰도가 하락했습니다.${
+                result.message ? ` (${result.message})` : ""
+              }`,
               "error",
             );
         }
