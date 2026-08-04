@@ -230,8 +230,8 @@ import {
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
 import {
+  applyPlayerCompanyDividendSurtax,
   calculatePlayerCompanyDividendBudget,
-  isPlayerCompanyDividendPerShareSane,
 } from "@/lib/player/playerCompanyDividend";
 import {
   contributeLiquidityIntervention,
@@ -5990,46 +5990,44 @@ export const useMarketStore = create<MarketStore>()(
         }
         // 회사 전용 현금 계정이 없으므로 창업주 개인 계좌 총자산을 기준으로
         // 1회 배당 예산을 계산하고, 실제 재원은 개인 현금에서 차감한다.
-        const dividendBudget = calculatePlayerCompanyDividendBudget(
+        const rawBudget = calculatePlayerCompanyDividendBudget(
           state.getTotalAssetsExact(),
           company.totalShares,
           rate,
         );
-        const requiredExact = dividendBudget.totalCentsExact;
-        const required = exactToNumber(requiredExact);
-        if (BigInt(requiredExact) <= 0n) {
+        if (BigInt(rawBudget.totalCentsExact) <= 0n) {
           return { success: false, message: "배당 금액이 0입니다." };
         }
-        if (exactCompare(exactCashOf(state), requiredExact) < 0) {
+        const listingStock = state.stocks.find(
+          (stock) => stock.id === company.ipoListingStockId,
+        );
+        if (!listingStock || !(listingStock.currentPrice > 0)) {
           return {
             success: false,
-            message: `이번 1회 배당 재원으로 내 계좌 현금 ${formatExactMoney(requiredExact)}가 필요합니다.`,
+            message: "상장 종목 시세를 확인할 수 없어 배당을 집행할 수 없습니다.",
           };
         }
-        const perShareExact = dividendBudget.perShareCentsExact;
+        // 초고액 배당엔 누진 배당가산세를 물려 순 좌당 배당을 주가 대비 합리적
+        // 범위로 감면한다(BigInt 정확 계산 · 순분배 ≤ 원재원이라 돈복사 불가 —
+        // 버그리포트 79118168). 정상 배당은 세율 0%라 감면이 전혀 없다.
+        const surtax = applyPlayerCompanyDividendSurtax(
+          rawBudget.totalCentsExact,
+          company.totalShares,
+          listingStock.currentPrice,
+        );
+        const requiredExact = surtax.netTotalCentsExact;
+        const required = exactToNumber(requiredExact);
+        const perShareExact = surtax.netPerShareCentsExact;
         if (BigInt(perShareExact) < 1n) {
           return {
             success: false,
             message: "좌당 배당이 1센트 미만입니다. 배당률을 올려 주세요.",
           };
         }
-        // 좌당 배당이 현재 주가 대비 비정상적으로 크면(오염된 총자산 등으로
-        // 계산된 천문학적 배당) 전 주주 돈복사 연쇄를 막기 위해 차단한다
-        // (버그리포트 79118168).
-        const listingStock = state.stocks.find(
-          (stock) => stock.id === company.ipoListingStockId,
-        );
-        if (
-          !listingStock ||
-          !isPlayerCompanyDividendPerShareSane(
-            perShareExact,
-            listingStock.currentPrice,
-          )
-        ) {
+        if (exactCompare(exactCashOf(state), requiredExact) < 0) {
           return {
             success: false,
-            message:
-              "좌당 배당이 현재 주가 대비 비정상적으로 큽니다. 총자산·배당률을 다시 확인해 주세요.",
+            message: `이번 1회 배당 재원으로 내 계좌 현금 ${formatExactMoney(requiredExact)}가 필요합니다.`,
           };
         }
         const currentSession = Math.floor(Date.now() / SESSION_DURATION_MS);
@@ -6090,7 +6088,11 @@ export const useMarketStore = create<MarketStore>()(
               }
             : latest.playerCompany,
         });
-        const message = `1회 배당 예약 · 내 계좌 현금 ${formatExactMoney(requiredExact)} 차감, 좌당 ${formatExactMoney(perShareExact)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다. 다음 배당은 자동 실행되지 않습니다.`;
+        const surtaxNote =
+          BigInt(surtax.surtaxCentsExact) > 0n
+            ? ` (원 재원 ${formatExactMoney(rawBudget.totalCentsExact)} 중 배당가산세 ${formatExactMoney(surtax.surtaxCentsExact)} 감면)`
+            : "";
+        const message = `1회 배당 예약 · 내 계좌 현금 ${formatExactMoney(requiredExact)} 차감${surtaxNote}, 좌당 ${formatExactMoney(perShareExact)}를 배당일(${dividendSession}회차)부터 보유자에게 지급합니다. 다음 배당은 자동 실행되지 않습니다.`;
         useToastStore.getState().push(message, "success");
         playSound("cash");
         return { success: true, message };

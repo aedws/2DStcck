@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  applyPlayerCompanyDividendSurtax,
   calculatePlayerCompanyDividendBudget,
   isPlayerCompanyDividendPerShareSane,
 } from "../src/lib/player/playerCompanyDividend";
@@ -118,5 +119,45 @@ assert.equal(
   false,
   "오염된 초고액 계정의 좌당 배당은 상한에 걸려야 합니다.",
 );
+
+// ── 배당가산세(누진) ────────────────────────────────────────────────
+// 정상 배당(좌당 ≤ 주가 20배)은 세율 0%라 전혀 감면되지 않는다.
+const normalSurtax = applyPlayerCompanyDividendSurtax("10000", 1000, 100);
+assert.equal(normalSurtax.surtaxCentsExact, "0");
+assert.equal(normalSurtax.netTotalCentsExact, "10000");
+assert.equal(normalSurtax.netPerShareCentsExact, "10");
+
+// 좌당 = 주가 100배 → 누진 감면으로 순 좌당 60배.
+const highSurtax = applyPlayerCompanyDividendSurtax("10000000", 1000, 100);
+assert.equal(highSurtax.netPerShareCentsExact, "6000");
+assert.equal(highSurtax.netTotalCentsExact, "6000000");
+assert.equal(highSurtax.surtaxCentsExact, "4000000");
+// 보존: 순 분배 총액 = 순 좌당 × 좌수, 그리고 원 재원 이하(돈복사 불가).
+assert.equal(
+  BigInt(highSurtax.netTotalCentsExact),
+  BigInt(highSurtax.netPerShareCentsExact) * 1000n,
+);
+assert.ok(BigInt(highSurtax.netTotalCentsExact) <= 10_000_000n);
+assert.equal(
+  BigInt(highSurtax.surtaxCentsExact),
+  10_000_000n - BigInt(highSurtax.netTotalCentsExact),
+);
+
+// 79118168형 극단값($480 종목에 좌당 $239T): 순 좌당이 주가의 11,170배로 상한.
+const extremeSurtax = applyPlayerCompanyDividendSurtax(
+  "23965847115065100",
+  1,
+  48_000,
+);
+assert.equal(BigInt(extremeSurtax.netPerShareCentsExact), 48_000n * 11_170n);
+assert.ok(
+  BigInt(extremeSurtax.netTotalCentsExact) < 23_965_847_115_065_100n,
+);
+assert.ok(BigInt(extremeSurtax.surtaxCentsExact) > 0n);
+
+// 주가를 못 구하면(0 이하) 과세 기준이 없어 원본을 그대로 둔다.
+const noPriceSurtax = applyPlayerCompanyDividendSurtax("500000", 1000, 0);
+assert.equal(noPriceSurtax.surtaxCentsExact, "0");
+assert.equal(noPriceSurtax.netTotalCentsExact, "500000");
 
 console.log("player company exact dividend tests passed");
