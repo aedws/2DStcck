@@ -45,6 +45,9 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showAveraging, setShowAveraging] = useState(false);
+  // 공매도 개시는 실수 클릭으로 즉시 체결되지 않도록 한 번 더 확인받는다
+  // (일반 매매와 수량창을 공유해 오조작 위험 — 피드백 6b4a1f69).
+  const [shortArmed, setShortArmed] = useState(false);
 
   const buyMarket = useMarketStore((s) => s.buyMarket);
   const sellMarket = useMarketStore((s) => s.sellMarket);
@@ -153,6 +156,7 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
       setQuantityInput(
         String(fractional ? Math.floor(max * 1_000) / 1_000 : Math.floor(max)),
       );
+      setShortArmed(false);
     }
   }
 
@@ -191,6 +195,13 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
       setMessage("공매도는 1주 단위로만 거래할 수 있습니다.");
       return;
     }
+    // 공매도 개시는 한 번 더 확인받아 오조작(풀매수 대신 풀공매도)을 막는다.
+    if (kind === "open" && !shortArmed) {
+      setShortArmed(true);
+      setMessage(`⚠️ 공매도 확인 — 한 번 더 누르면 ${quantity}주를 공매도합니다.`);
+      return;
+    }
+    setShortArmed(false);
     const result = kind === "open"
       ? openShortPosition(stock.id, quantity, bestBid)
       : coverShortPosition(stock.id, quantity, bestAsk);
@@ -336,7 +347,10 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
             <input
               inputMode="decimal"
               value={quantityInput}
-              onChange={(event) => setQuantityInput(cleanDecimal(event.target.value))}
+              onChange={(event) => {
+                setQuantityInput(cleanDecimal(event.target.value));
+                setShortArmed(false);
+              }}
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm tabular-nums outline-none focus:border-[var(--accent)]"
             />
             <div className="grid grid-cols-4 gap-1.5">
@@ -344,7 +358,10 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                 <button
                   key={preset}
                   type="button"
-                  onClick={() => setQuantityInput(String(preset))}
+                  onClick={() => {
+                    setQuantityInput(String(preset));
+                    setShortArmed(false);
+                  }}
                   className="min-h-10 rounded-lg bg-[var(--surface)] text-xs text-[var(--muted)]"
                 >
                   {preset}주
@@ -415,16 +432,20 @@ export function QuickOrderPanel({ stock }: { stock: StockState }) {
                   <div className="border-t border-[var(--border)] pt-3">
                     <div className="mb-2 flex items-center justify-between text-xs text-[var(--muted)]">
                       <span>공매도</span>
-                      <span>정수 수량만 가능</span>
+                      <span>정수 수량만 · 재확인 후 체결</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => shortOrder("open")}
                         disabled={loading || !validQuantity || !Number.isInteger(quantity)}
-                        className="rounded-xl bg-[var(--down)]/10 py-3 text-xs font-semibold text-[var(--down)] disabled:opacity-40"
+                        className={`rounded-xl py-3 text-xs font-semibold disabled:opacity-40 ${
+                          shortArmed
+                            ? "bg-[var(--down)] text-white"
+                            : "bg-[var(--down)]/10 text-[var(--down)]"
+                        }`}
                       >
-                        공매도
+                        {shortArmed ? `공매도 확정 (${quantity}주)` : "공매도"}
                       </button>
                       <button
                         type="button"
