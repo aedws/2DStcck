@@ -104,7 +104,8 @@ export function PlayerCompanyBoardPanel({
             {DECISIONS.find((item) => item.type === pending.decisionType)?.title}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            선택이 확정됐습니다. {pending.resolveSession.toLocaleString()}거래일의
+            선택이 확정됐습니다.{" "}
+            {Math.max(0, pending.resolveSession - currentSession)}거래일 뒤
             다음 분기 실적 발표에서 결과가 공개됩니다.
           </p>
         </div>
