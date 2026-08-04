@@ -36,6 +36,10 @@ import {
 } from "@/lib/supabase/companyFoundationRequests";
 import { submitStockRequest } from "@/lib/supabase/stockRequests";
 import {
+  getPlayerCompanyFounderOwnershipSummary,
+  type PlayerCompanyFounderOwnershipSummary,
+} from "@/lib/supabase/playerCompanyOwnership";
+import {
   listPublicPlayerCompanies,
   type PublicPlayerCompany,
 } from "@/lib/supabase/publicPlayerCompanies";
@@ -173,6 +177,8 @@ export default function CompanyPage() {
   const [publicCompanies, setPublicCompanies] = useState<
     PublicPlayerCompany[] | null
   >(null);
+  const [dividendOwnership, setDividendOwnership] =
+    useState<PlayerCompanyFounderOwnershipSummary | null>(null);
 
   const refreshFoundationRequests = useCallback(async () => {
     setFoundationRequests(await listMyCompanyFoundationRequests());
@@ -192,14 +198,48 @@ export default function CompanyPage() {
   const plannedDividendTotal = Math.round(
     Math.max(0, netWorth) * plannedDividendRate,
   );
+  // 예상 좌당 배당은 명목 총발행이 아니라 실제 유통주식(창업주 실보유 + 다른 주주
+  // 보유합) 기준으로 표시한다 — 실제 분배와 일치한다(버그리포트 c10d3202).
+  const circulatingShares =
+    playerCompany?.status === "listed"
+      ? Number(listedFounderQuantityExact) +
+        Number(dividendOwnership?.trackedPublicQuantityExact ?? 0)
+      : (playerCompany?.totalShares ?? 0);
+  const dividendShareBasis = Math.max(
+    1,
+    circulatingShares > 0
+      ? circulatingShares
+      : (playerCompany?.totalShares ?? 1),
+  );
   const plannedDividendPerShare = playerCompany
-    ? Math.floor(plannedDividendTotal / Math.max(1, playerCompany.totalShares))
+    ? Math.floor(plannedDividendTotal / dividendShareBasis)
     : 0;
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  // 예상 좌당 배당을 실제 유통주식 기준으로 표시하기 위한 다른 주주 보유 집계.
+  useEffect(() => {
+    if (!listedStockId) {
+      setDividendOwnership(null);
+      return;
+    }
+    let active = true;
+    const load = () =>
+      void getPlayerCompanyFounderOwnershipSummary(listedStockId).then(
+        (summary) => {
+          if (active) setDividendOwnership(summary);
+        },
+      );
+    load();
+    const interval = window.setInterval(load, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [listedStockId]);
 
   useEffect(() => {
     let active = true;
@@ -963,6 +1003,11 @@ export default function CompanyPage() {
                   ? formatPrice(plannedDividendPerShare)
                   : "-"
               }
+              detail={
+                playerCompany?.status === "listed"
+                  ? `실제 유통 ${Math.round(circulatingShares).toLocaleString()}주 기준`
+                  : undefined
+              }
             />
           </div>
           <div className="mt-3 rounded-xl bg-[var(--background)] p-3 text-[11px] leading-relaxed text-[var(--muted)]">
@@ -1261,13 +1306,26 @@ function Field({
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
       <p className="text-[11px] text-[var(--muted)]">{label}</p>
       <p className="mt-1 truncate text-lg font-black tabular-nums" title={value}>
         {value}
       </p>
+      {detail && (
+        <p className="mt-1 truncate text-[10px] text-[var(--muted)]" title={detail}>
+          {detail}
+        </p>
+      )}
     </div>
   );
 }

@@ -38,6 +38,7 @@ import {
   exactNegate,
   exactPercentChange,
   exactPositionValue,
+  exactQuantityAdd,
   exactSubtract,
   exactToNumber,
   formatExactMoney,
@@ -229,6 +230,7 @@ import {
   type PlayerCompanyDividendClaim,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
+import { getPlayerCompanyFounderOwnershipSummary } from "@/lib/supabase/playerCompanyOwnership";
 import {
   applyPlayerCompanyDividendSurtax,
   calculatePlayerCompanyDividendBudget,
@@ -5988,16 +5990,6 @@ export const useMarketStore = create<MarketStore>()(
         if (!(rate > 0)) {
           return { success: false, message: "먼저 배당률을 지정해 주세요." };
         }
-        // 회사 전용 현금 계정이 없으므로 창업주 개인 계좌 총자산을 기준으로
-        // 1회 배당 예산을 계산하고, 실제 재원은 개인 현금에서 차감한다.
-        const rawBudget = calculatePlayerCompanyDividendBudget(
-          state.getTotalAssetsExact(),
-          company.totalShares,
-          rate,
-        );
-        if (BigInt(rawBudget.totalCentsExact) <= 0n) {
-          return { success: false, message: "배당 금액이 0입니다." };
-        }
         const listingStock = state.stocks.find(
           (stock) => stock.id === company.ipoListingStockId,
         );
@@ -6007,12 +5999,43 @@ export const useMarketStore = create<MarketStore>()(
             message: "상장 종목 시세를 확인할 수 없어 배당을 집행할 수 없습니다.",
           };
         }
+        // 좌당 배당·분배는 명목 '총 발행주식'이 아니라 실제 유통주식(창업주 실보유 +
+        // 다른 주주 보유합)을 기준으로 한다. 명목 총발행은 IPO 좌당가 리베이스로
+        // 실제 유통과 크게 달라, 좌당 배당액이 실제와 어긋나던 문제를 바로잡는다
+        // (버그리포트 c10d3202). 유통 집계를 못 구하면 명목 총발행으로 대체한다.
+        const founderHolding = state.holdings.find(
+          (holding) => holding.stockId === company.ipoListingStockId,
+        );
+        const founderHoldingExact = normalizeExactQuantity(
+          founderHolding?.quantityExact ?? founderHolding?.quantity ?? 0,
+        );
+        const ownershipSummary = await getPlayerCompanyFounderOwnershipSummary(
+          company.ipoListingStockId,
+        );
+        const circulatingExact = exactQuantityAdd(
+          founderHoldingExact,
+          ownershipSummary?.trackedPublicQuantityExact ?? "0",
+        );
+        const dividendShares =
+          BigInt(normalizeExactAmount(circulatingExact)) > 0n
+            ? circulatingExact
+            : String(company.totalShares);
+        // 배당 예산은 창업주 개인 계좌 총자산 기준으로 계산하고, 실제 재원은 개인
+        // 현금에서 차감한다.
+        const rawBudget = calculatePlayerCompanyDividendBudget(
+          state.getTotalAssetsExact(),
+          dividendShares,
+          rate,
+        );
+        if (BigInt(rawBudget.totalCentsExact) <= 0n) {
+          return { success: false, message: "배당 금액이 0입니다." };
+        }
         // 초고액 배당엔 누진 배당가산세를 물려 순 좌당 배당을 주가 대비 합리적
         // 범위로 감면한다(BigInt 정확 계산 · 순분배 ≤ 원재원이라 돈복사 불가 —
         // 버그리포트 79118168). 정상 배당은 세율 0%라 감면이 전혀 없다.
         const surtax = applyPlayerCompanyDividendSurtax(
           rawBudget.totalCentsExact,
-          company.totalShares,
+          dividendShares,
           listingStock.currentPrice,
         );
         const requiredExact = surtax.netTotalCentsExact;

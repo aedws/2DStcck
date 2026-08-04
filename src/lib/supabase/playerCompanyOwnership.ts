@@ -83,9 +83,12 @@ export function exactOwnershipPercent(
     6,
   );
   if (totalMicros <= 0n || quantityMicros <= 0n) return 0;
+  // 상장 후 시장은 고정 float가 없어 창업주가 명목 총발행보다 많이 매수할 수
+  // 있는데, 그때 지분율이 100%를 넘어 수백~수천%로 표시되던 문제를 막는다
+  // (버그리포트 d3e6a83d). 지분율은 100%를 넘을 수 없으므로 상한을 둔다.
   const millionthPercent =
     (quantityMicros * 100_000_000n + totalMicros / 2n) / totalMicros;
-  return Number(millionthPercent) / 1_000_000;
+  return Math.min(100, Number(millionthPercent) / 1_000_000);
 }
 
 /**
