@@ -270,6 +270,32 @@ export function retirePlayerCompanyShares(
   };
 }
 
+/**
+ * 상장 후 명목 캡테이블(founderShares/publicShares)을 실제 계좌 보유 기준으로
+ * 재조정한다. 상장 시장은 고정 float가 없어 시장 매매가 명목 수치에 반영되지
+ * 않으므로, 자사주 매입·소각의 유통 float 판정을 실제 보유로 맞춘다
+ * (버그리포트 d3e6a83d — 시장 매도 후에도 명목 publicShares가 0이라 매입이 막힘).
+ * publicShares = max(0, 총발행 − 창업주 실보유), founderShares = 창업주 실보유.
+ */
+export function reconcileListedPlayerCompanyFloat(
+  company: PlayerCompanyState,
+  founderActualShares: number,
+): PlayerCompanyState {
+  if (company.status !== "listed") return company;
+  const founder = Math.max(
+    0,
+    Math.floor(Number.isFinite(founderActualShares) ? founderActualShares : 0),
+  );
+  const publicFloat = Math.max(0, Math.floor(company.totalShares) - founder);
+  if (
+    company.founderShares === founder &&
+    company.publicShares === publicFloat
+  ) {
+    return company;
+  }
+  return { ...company, founderShares: founder, publicShares: publicFloat };
+}
+
 /** 다음 1회 배당 예산 비율(계좌 총자산 대비 0~50%)을 설정한다. */
 export function setPlayerCompanyDividendRate(
   company: PlayerCompanyState,

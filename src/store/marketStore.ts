@@ -376,6 +376,7 @@ import {
   issuePlayerCompanyShares as issueCompanyShares,
   buybackPlayerCompanyShares as buybackCompanyShares,
   retirePlayerCompanyShares as retireCompanyShares,
+  reconcileListedPlayerCompanyFloat,
   setPlayerCompanyDividendRate as setCompanyDividendRate,
   preparePlayerCompanyCapitalCall as prepareCompanyCapitalCall,
   reconcilePlayerCompanyIpo,
@@ -5739,11 +5740,23 @@ export const useMarketStore = create<MarketStore>()(
         }
         const now = Date.now();
         const currentSession = Math.floor(now / SESSION_DURATION_MS);
-        const company = state.playerCompany;
+        const rawCompany = state.playerCompany;
         const listed =
-          company.status === "listed" && company.ipoListingStockId
-            ? state.stocks.find((s) => s.id === company.ipoListingStockId)
+          rawCompany.status === "listed" && rawCompany.ipoListingStockId
+            ? state.stocks.find((s) => s.id === rawCompany.ipoListingStockId)
             : undefined;
+        // 상장 후엔 시장 매매가 명목 캡테이블에 반영되지 않으므로, 실제 계좌 보유
+        // 기준으로 유통 float를 맞춘 뒤 자사주 매입을 판정한다(버그리포트 d3e6a83d).
+        const founderActualShares =
+          rawCompany.status === "listed" && rawCompany.ipoListingStockId
+            ? state.holdings.find(
+                (holding) => holding.stockId === rawCompany.ipoListingStockId,
+              )?.quantity ?? 0
+            : rawCompany.founderShares;
+        const company = reconcileListedPlayerCompanyFloat(
+          rawCompany,
+          founderActualShares,
+        );
         const result = buybackCompanyShares(
           company,
           shares,
@@ -5795,14 +5808,26 @@ export const useMarketStore = create<MarketStore>()(
 
       retirePlayerCompanyShares: async (shares) => {
         const state = get();
-        const company = state.playerCompany;
-        if (!company) {
+        const rawCompany = state.playerCompany;
+        if (!rawCompany) {
           return { success: false, message: "설립한 회사가 없습니다." };
         }
         const listed =
-          company.status === "listed" && company.ipoListingStockId
-            ? state.stocks.find((s) => s.id === company.ipoListingStockId)
+          rawCompany.status === "listed" && rawCompany.ipoListingStockId
+            ? state.stocks.find((s) => s.id === rawCompany.ipoListingStockId)
             : undefined;
+        // 상장 후엔 실제 계좌 보유 기준으로 유통 float를 맞춘 뒤 소각을 판정한다
+        // (버그리포트 d3e6a83d — 시장 매매가 명목 publicShares에 안 잡힘).
+        const founderActualShares =
+          rawCompany.status === "listed" && rawCompany.ipoListingStockId
+            ? state.holdings.find(
+                (holding) => holding.stockId === rawCompany.ipoListingStockId,
+              )?.quantity ?? 0
+            : rawCompany.founderShares;
+        const company = reconcileListedPlayerCompanyFloat(
+          rawCompany,
+          founderActualShares,
+        );
         const result = retireCompanyShares(
           company,
           shares,
