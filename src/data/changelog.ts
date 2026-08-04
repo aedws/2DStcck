@@ -324,6 +324,13 @@ export const CHANGELOG_DAILY_SUMMARIES: Record<string, ChangelogDaySummary> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-08-04",
+    tag: "신규",
+    title: "플레이어 회사 IPO 2종 예약 상장 — 이가 증권(LEE)·Omni Robotics(ORI)",
+    detail:
+      "심사 대기 중이던 플레이어 회사 IPO 2건을 2026년 8월 5일 순차 예약 상장합니다. 이가 증권(LEE)은 공격적 투자로 안정적 수익을 노리는 금융지주로 8월 5일 18:00 KST에 공모가 $30,000·분기 배당과 함께 개장하고, Omni Robotics Industry(ORI)는 밀리테크의 로봇·안드로이드 자회사로 같은 날 21:00 KST에 공모가 $50,000로 개장합니다. 두 회사 모두 누적 소각 장부가치가 비정상적으로 커, 시세 왜곡을 막기 위해 공모가에 상한을 적용했습니다. 본주와 인버스·곱버스·2배 레버리지가 같은 시각에 함께 개장합니다. (@신고자)",
+  },
+  {
+    date: "2026-08-04",
     tag: "수정",
     title: "자동 정기배당 실패 사유 표시",
     detail:

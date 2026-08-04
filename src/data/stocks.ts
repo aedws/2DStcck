@@ -1110,6 +1110,50 @@ const CORE_DEFINITIONS: StockDefinition[] = [
       실적: 2,
     },
   },
+  {
+    id: "iga",
+    ticker: "LEE",
+    name: "이가 증권",
+    instrumentType: "company",
+    sector: "금융",
+    subsector: "금융지주",
+    marketTags: ["금융", "증권", "지주"],
+    initialPrice: 3_000_000,
+    volatility: 0.045,
+    drift: 0.0005,
+    beta: 1.2,
+    quarterlyDividend: 24_000,
+    description:
+      "플레이어가 설립한 금융지주. 공격적인 투자로 안정적인 수익 창출을 노리며 시장에서 오래 살아남는 것을 목표로 합니다. 천문학적 누적 소각과 창업주 지분 100%, 회사 프레스티지 500으로 IPO 승인을 받았으며, 비정상적으로 큰 장부 가치는 시세 왜곡을 막기 위해 공모가에 상한을 적용했습니다.",
+    eventBias: {
+      "투자 적중": 4,
+      "리스크 관리": 3,
+      "시장 위기": 3,
+      실적: 2,
+    },
+  },
+  {
+    id: "omniro",
+    ticker: "ORI",
+    name: "Omni Robotics Industry",
+    instrumentType: "company",
+    sector: "기술",
+    subsector: "로봇·안드로이드",
+    marketTags: ["기술", "로봇", "AI"],
+    initialPrice: 5_000_000,
+    volatility: 0.07,
+    drift: 0.0007,
+    beta: 1.45,
+    description:
+      "플레이어가 설립한 로봇 제작 기업으로 밀리테크의 로봇공학 전문 자회사. 산업용·군사용 로봇과 인간에 준하는 안드로이드를 연구·개발·생산하며, 성격·행동까지 맞춤 설계하는 개인 복지용 안드로이드에서 높은 점유율을 자랑합니다. 천문학적 누적 소각과 창업주 지분 100%, 회사 프레스티지 500으로 IPO 승인을 받았으며, 비정상적으로 큰 장부 가치는 시세 왜곡을 막기 위해 공모가에 상한을 적용했습니다.",
+    eventBias: {
+      "신제품 안드로이드": 4,
+      "군용 수주": 3,
+      AI: 3,
+      "안전 논란": 3,
+      실적: 2,
+    },
+  },
 ];
 
 /** CSV 회사가 코드 종목과 같은 id면 CSV가 우선한다 */

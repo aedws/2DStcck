@@ -90,4 +90,8 @@ export const IPO_SCHEDULE: Record<string, number> = {
   ghh: Date.UTC(2026, 7, 3, 12, 0),
   // Kusogaki Capital(KSGK) — 2026-08-04 12:00 KST 개장 (= 03:00 UTC) · 플레이어 회사 IPO
   ksgk: Date.UTC(2026, 7, 4, 3, 0),
+  // 이가 증권(LEE) — 2026-08-05 18:00 KST 개장 (= 09:00 UTC) · 플레이어 회사 IPO
+  iga: Date.UTC(2026, 7, 5, 9, 0),
+  // Omni Robotics Industry(ORI) — 2026-08-05 21:00 KST 개장 (= 12:00 UTC) · 플레이어 회사 IPO
+  omniro: Date.UTC(2026, 7, 5, 12, 0),
 };
