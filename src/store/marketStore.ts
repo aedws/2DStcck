@@ -4108,13 +4108,20 @@ export const useMarketStore = create<MarketStore>()(
             );
           }
         }
-        // 분산하는 순간(유예 없음) 우선주는 전량 소멸한다 — 가치는 환급되지 않는다.
+        // 5캐릭터 이상으로 유의미하게 분산하면 휴면 우선주가 소멸한다(환급 없음).
+        // 다만 즉시 소멸시키지 않고 PREFERRED_SALE_GRACE_SESSIONS(5거래일) 유예를 둬,
+        // 그 사이 다시 집중하면 되살릴 수 있게 한다(버그리포트 abcbfccf — 배당으로
+        // 현금 비중이 불어 집중이 풀리자마자 유예 없이 전량 소멸하던 문제).
         const diversified =
           preferredConcentration.heldCount >= PREFERRED_DIVERSIFY_CHARACTERS;
         let preferredDiversifiedSince = diversified
           ? state.preferredDiversifiedSince ?? currentSession
           : null;
-        const sellDormant = diversified;
+        const sellDormant =
+          diversified &&
+          preferredDiversifiedSince !== null &&
+          currentSession - preferredDiversifiedSince >=
+            PREFERRED_SALE_GRACE_SESSIONS;
         const preferredReconcile = reconcilePreferredShares(
           characterProgress,
           state.preferredShares,

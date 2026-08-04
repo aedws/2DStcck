@@ -206,15 +206,16 @@ export function reconcilePreferredShares(
     }
   }
 
-  // 2) 신규 발행 (지정·동맹·과거 미발행)
-  const everIssued = new Set(issuedCharacterIds);
+  // 2) 신규 발행 (지정·동맹) — '과거 발행'이 아니라 '현재 보유' 여부로만 막는다.
+  //    분산 소멸은 환급이 전혀 없어(무한 현금화 여지 없음) 다시 집중하면 최초 1좌를
+  //    재지급받아야 한다(버그리포트 abcbfccf — 소멸 뒤 재집중해도 영구 미지급되던 문제).
   const ownedNow = new Set(kept.map((share) => share.characterId));
   const newlyIssued: PreferredShare[] = [];
   if (eligible) {
     for (const company of getCompanyDefinitions()) {
       const characterId = company.ceoId;
       if (!characterId || !focused.has(characterId)) continue;
-      if (ownedNow.has(characterId) || everIssued.has(characterId)) continue;
+      if (ownedNow.has(characterId)) continue;
       if (getCharacterProgress(progress, characterId).affinity < PREFERRED_SHARE_AFFINITY) {
         continue;
       }
@@ -240,7 +241,7 @@ export function reconcilePreferredShares(
       };
       newlyIssued.push(share);
       issued.push(share);
-      everIssued.add(characterId);
+      ownedNow.add(characterId);
     }
   }
 
@@ -249,7 +250,8 @@ export function reconcilePreferredShares(
     issued,
     sold,
     proceeds,
-    issuedCharacterIds: [...everIssued],
+    // 재발행 차단은 '현재 보유' 캐릭터로만 유지한다(소멸분은 자동 해제).
+    issuedCharacterIds: [...ownedNow],
   };
 }
 
