@@ -15,22 +15,42 @@ Vercel의 "Edge Request 한도" 같은 제약이 없어집니다.
 
 ## 2. Pages 프로젝트 생성 (GitHub 연결)
 1. 왼쪽 메뉴 **Workers & Pages** → **Create application** → **Pages** 탭 → **Connect to Git**.
+   - ⚠️ **반드시 "Pages" 탭**에서 시작하세요. "Workers" 탭(또는 "Import a repository"가
+     Workers로 잡히는 경우)으로 들어가면 SSR(Workers+OpenNext) 빌드가 돼서
+     이 앱(정적 export)에서는 실패합니다. 아래 4번의 실패 사례 참고.
 2. GitHub 계정을 연결하고 이 레포(**aedws/2dstck**)를 선택.
 3. Production branch: **main**.
 
 ## 3. 빌드 설정 (이 값 그대로 입력)
 | 항목 | 값 |
 |---|---|
-| Framework preset | **Next.js (Static HTML Export)** — 없으면 "None" 선택 후 아래 수동 입력 |
+| Framework preset | **None** (Next.js 프리셋을 고르지 마세요 — 아래 ⚠️ 참고) |
 | Build command | `npm run build` |
 | Build output directory | `out` |
+| Deploy command | **(비움)** — 값이 있으면 지우세요 (`npx wrangler deploy` 금지) |
 | Root directory | (비움) |
 | Environment variables | **없음** (Supabase 설정이 코드에 포함됨) |
 
+- ⚠️ **Framework preset을 "Next.js"로 두지 마세요.** 최근 Cloudflare는 "Next.js" 프리셋을
+  고르면 **Workers + OpenNext(SSR) 빌드**로 연결해 `npx wrangler deploy`를 실행합니다.
+  이 앱은 `output: "export"`(정적)라 SSR 산출물(`.next/standalone`)이 없어 빌드가
+  `ENOENT ... pages-manifest.json`으로 실패합니다. 반드시 **"None"** 을 고르고 위 표대로
+  수동 입력하세요.
 - Node 버전: 레포의 `.node-version`(22)을 자동 인식합니다. 혹시 빌드가 Node 버전 문제로
   실패하면 환경변수 **`NODE_VERSION` = `22`** 를 추가하세요.
 
 4. **Save and Deploy** 클릭 → 몇 분 뒤 `https://<프로젝트이름>.pages.dev` 주소가 생깁니다.
+
+### ⚠️ 이미 "배포 실패"가 난 경우 (Workers/OpenNext로 잡힘)
+빌드 로그에 `npx wrangler deploy`, `@opennextjs/cloudflare`, `open-next.config.ts`,
+`.next/standalone/... pages-manifest.json ENOENT` 같은 게 보이면, 프로젝트가
+**SSR(Workers) 빌드**로 만들어진 것입니다. 이 앱은 정적이라 그 경로로는 안 됩니다.
+- 가장 깔끔한 해결: 그 프로젝트를 **삭제**하고, 위 2번의 **"Pages" 탭**에서 다시 만들면서
+  3번 표대로 **Framework preset = None**, **Deploy command = 비움**, **Build output = `out`**
+  으로 설정하세요.
+- OpenNext의 `migrate`가 빌드 머신에서 `package.json`·`next.config`·`wrangler.jsonc`·
+  `open-next.config.ts` 등을 임시로 고쳤지만, 그건 **빌드 머신의 클론에만** 적용된 것이라
+  **레포(GitHub)에는 아무 영향이 없습니다.** 커밋하지 않았으니 그대로 두면 됩니다.
 
 ## 4. 배포 후 필수 확인 (Supabase 인증)
 1. Supabase 대시보드 → **Authentication** → **URL Configuration**:
