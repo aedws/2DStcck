@@ -38,7 +38,6 @@ import {
   exactNegate,
   exactPercentChange,
   exactPositionValue,
-  exactQuantityAdd,
   exactSubtract,
   exactToNumber,
   formatExactMoney,
@@ -230,7 +229,6 @@ import {
   type PlayerCompanyDividendClaim,
 } from "@/lib/supabase/playerCompanyDividends";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
-import { getPlayerCompanyFounderOwnershipSummary } from "@/lib/supabase/playerCompanyOwnership";
 import {
   applyPlayerCompanyDividendSurtax,
   calculatePlayerCompanyDividendBudget,
@@ -6024,32 +6022,16 @@ export const useMarketStore = create<MarketStore>()(
             message: "상장 종목 시세를 확인할 수 없어 배당을 집행할 수 없습니다.",
           };
         }
-        // 좌당 배당·분배는 명목 '총 발행주식'이 아니라 실제 유통주식(창업주 실보유 +
-        // 다른 주주 보유합)을 기준으로 한다. 명목 총발행은 IPO 좌당가 리베이스로
-        // 실제 유통과 크게 달라, 좌당 배당액이 실제와 어긋나던 문제를 바로잡는다
-        // (버그리포트 c10d3202). 유통 집계를 못 구하면 명목 총발행으로 대체한다.
-        const founderHolding = state.holdings.find(
-          (holding) => holding.stockId === company.ipoListingStockId,
-        );
-        const founderHoldingExact = normalizeExactQuantity(
-          founderHolding?.quantityExact ?? founderHolding?.quantity ?? 0,
-        );
-        const ownershipSummary = await getPlayerCompanyFounderOwnershipSummary(
-          company.ipoListingStockId,
-        );
-        const circulatingExact = exactQuantityAdd(
-          founderHoldingExact,
-          ownershipSummary?.trackedPublicQuantityExact ?? "0",
-        );
-        const dividendShares =
-          BigInt(normalizeExactAmount(circulatingExact)) > 0n
-            ? circulatingExact
-            : String(company.totalShares);
+        // 좌당 배당·총예산은 서버 검증(좌당 × 명목 총발행주식 = 총예산)과 반드시
+        // 일치해야 하므로 명목 '총 발행주식'을 기준으로 산정한다. 실제 유통 기준
+        // 지급은 서버 declare_v3가 총예산을 실보유 비중대로 비례 분배해 그대로
+        // 보존된다(c10d3202). 좌당을 실유통 좌수로 나눠 제출하면 서버 검증(명목
+        // 기준)에서 거부돼 배당이 실패하던 회귀를 되돌린다(버그리포트 22eddc5b).
         // 배당 예산은 창업주 개인 계좌 총자산 기준으로 계산하고, 실제 재원은 개인
         // 현금에서 차감한다.
         const rawBudget = calculatePlayerCompanyDividendBudget(
           state.getTotalAssetsExact(),
-          dividendShares,
+          company.totalShares,
           rate,
         );
         if (BigInt(rawBudget.totalCentsExact) <= 0n) {
@@ -6060,7 +6042,7 @@ export const useMarketStore = create<MarketStore>()(
         // 버그리포트 79118168). 정상 배당은 세율 0%라 감면이 전혀 없다.
         const surtax = applyPlayerCompanyDividendSurtax(
           rawBudget.totalCentsExact,
-          dividendShares,
+          company.totalShares,
           listingStock.currentPrice,
         );
         const requiredExact = surtax.netTotalCentsExact;
