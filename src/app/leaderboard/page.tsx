@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import {
   formatExactMoney,
   formatExactPercent,
@@ -39,18 +40,14 @@ export default function LeaderboardPage() {
     setLastLoadedAt(Date.now());
   }, [mode]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // 탭이 보일 때만 갱신(배경 폴링 중단 → 전송량 절감). 훅이 마운트·재표시 시
+  // 즉시 1회 로드하므로 별도 초기 로드 효과가 필요 없다.
+  useVisiblePolling(() => void load(), LEADERBOARD_REFRESH_MS, [load]);
 
   useEffect(() => {
-    const refresh = window.setInterval(() => void load(), LEADERBOARD_REFRESH_MS);
     const clock = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => {
-      window.clearInterval(refresh);
-      window.clearInterval(clock);
-    };
-  }, [load]);
+    return () => window.clearInterval(clock);
+  }, []);
 
   const secondsUntilRefresh = lastLoadedAt
     ? Math.max(0, Math.ceil((lastLoadedAt + LEADERBOARD_REFRESH_MS - now) / 1_000))

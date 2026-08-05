@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import { formatExactMoney } from "@/lib/market/exactAmount";
 import {
   acquirePlayerCompanyControl,
@@ -128,17 +129,9 @@ export function PlayerCompanyInsolvencyPanel({
     await refreshSummary();
   }, [refreshDirectory, refreshSummary]);
 
-  useEffect(() => {
-    void refreshDirectory();
-    const interval = window.setInterval(() => void refreshDirectory(), 30_000);
-    return () => window.clearInterval(interval);
-  }, [refreshDirectory]);
-
-  useEffect(() => {
-    void refreshSummary();
-    const interval = window.setInterval(() => void refreshSummary(), 30_000);
-    return () => window.clearInterval(interval);
-  }, [refreshSummary]);
+  // 탭이 보일 때만 60초 주기로 갱신(배경 폴링 중단 → 전송량 절감).
+  useVisiblePolling(() => void refreshDirectory(), 60_000, [refreshDirectory]);
+  useVisiblePolling(() => void refreshSummary(), 60_000, [refreshSummary]);
 
   const selected = useMemo(
     () => companies.find((company) => company.stockId === selectedStockId),

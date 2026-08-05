@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import {
   adjustedFounderEligibleVoteWeight,
   exactOwnershipPercent,
@@ -28,11 +29,8 @@ export function PlayerCompanyOwnershipPanel({
     setSummary(await getPlayerCompanyFounderOwnershipSummary(stockId));
   }, [stockId]);
 
-  useEffect(() => {
-    void refresh();
-    const interval = window.setInterval(() => void refresh(), 30_000);
-    return () => window.clearInterval(interval);
-  }, [currentSession, refresh]);
+  // 탭이 보일 때만 60초 주기로 갱신(배경 폴링 중단 → 전송량 절감).
+  useVisiblePolling(() => void refresh(), 60_000, [refresh]);
 
   // 거래 직후의 계좌 수량이 서버 마감 스냅샷보다 항상 최신이다.
   // 서버 요약은 다른 장기주주와 주총 의결권을 확인하는 용도로만 사용한다.

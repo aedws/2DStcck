@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import {
   castPlayerCompanyGovernanceVote,
   createPlayerCompanyGovernanceProposal,
@@ -46,11 +47,8 @@ export function PlayerCompanyGovernancePanel({
     setProposals(await listPlayerCompanyGovernanceProposals());
   }, []);
 
-  useEffect(() => {
-    void refresh();
-    const interval = window.setInterval(() => void refresh(), 30_000);
-    return () => window.clearInterval(interval);
-  }, [refresh]);
+  // 탭이 보일 때만 60초 주기로 갱신(배경 폴링 중단 → 전송량 절감).
+  useVisiblePolling(() => void refresh(), 60_000, [refresh]);
 
   const open = useMemo(
     () => proposals.filter((proposal) => proposal.status === "open"),

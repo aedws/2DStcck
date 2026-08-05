@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import {
   getCharacterMessages,
   type CharacterMessage,
@@ -58,22 +59,17 @@ export default function CharacterMessagesPage() {
   const readSet = useMemo(() => new Set(readIds), [readIds]);
 
   useEffect(() => {
-    if (!userId || !cloudSyncReady) {
-      setShareholderLetters([]);
-      return;
-    }
-    let active = true;
-    const refresh = () =>
-      void listMyShareholderLetters().then((letters) => {
-        if (active) setShareholderLetters(letters);
-      });
-    refresh();
-    const interval = window.setInterval(refresh, 30_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
+    if (!userId || !cloudSyncReady) setShareholderLetters([]);
   }, [userId, cloudSyncReady]);
+  // 탭이 보일 때만 60초 주기로 갱신(배경 폴링 중단 → 전송량 절감).
+  useVisiblePolling(
+    () => {
+      if (!userId || !cloudSyncReady) return;
+      void listMyShareholderLetters().then(setShareholderLetters);
+    },
+    60_000,
+    [userId, cloudSyncReady],
+  );
 
   const messages = useMemo<InboxMessage[]>(() => {
     const characterInbox = characterMessages.map((message) => ({

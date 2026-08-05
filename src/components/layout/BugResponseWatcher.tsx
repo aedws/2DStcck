@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import { useMarketStore } from "@/store/marketStore";
 import { MODAL_PRIORITY, useModalSlot } from "@/components/layout/ModalQueue";
 import {
@@ -142,16 +143,16 @@ export function BugResponseWatcher() {
     applyPlayerCompanyDividendClaim,
   ]);
 
-  useEffect(() => {
-    if (!userId || !isReady) return;
-    // 로그인·클라우드 로드 직후 한 번, 이후 주기적으로 확인한다.
-    const t = window.setTimeout(() => void check(), 2_500);
-    const interval = window.setInterval(() => void check(), 90_000);
-    return () => {
-      window.clearTimeout(t);
-      window.clearInterval(interval);
-    };
-  }, [userId, isReady, check]);
+  // 로그인·클라우드 로드 직후 한 번, 이후 탭이 보일 때만 90초 주기로 확인한다
+  // (배경 폴링 중단 → 전송량 절감).
+  useVisiblePolling(
+    () => {
+      if (!userId || !isReady) return;
+      void check();
+    },
+    90_000,
+    [userId, isReady, check],
+  );
 
   const show = useModalSlot(
     "bug-response",

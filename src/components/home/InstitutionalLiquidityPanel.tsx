@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { SESSION_DURATION_MS } from "@/lib/market/constants";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import {
   burryForecast,
   pensionFund13F,
@@ -70,31 +71,28 @@ export function InstitutionalLiquidityPanel() {
   );
 
   useEffect(() => {
-    let active = true;
     if (!opportunity) {
       setStatus(null);
       setStatusMessage("");
-      return () => {
-        active = false;
-      };
     }
-    const refresh = async () => {
-      const response = await getLiquidityInterventionStatus(opportunity);
-      if (!active) return;
-      if (response.success) {
-        setStatus(response.status);
-        setStatusMessage("");
-      } else {
-        setStatusMessage(response.message);
-      }
-    };
-    void refresh();
-    const timer = setInterval(() => void refresh(), 5_000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [opportunity, interventions]);
+  }, [opportunity]);
+
+  // 탭이 보일 때만 30초 주기로 갱신한다(기존 5초·배경 폴링 → 전송량 급감).
+  useVisiblePolling(
+    () => {
+      if (!opportunity) return;
+      void getLiquidityInterventionStatus(opportunity).then((response) => {
+        if (response.success) {
+          setStatus(response.status);
+          setStatusMessage("");
+        } else {
+          setStatusMessage(response.message);
+        }
+      });
+    },
+    30_000,
+    [opportunity, interventions],
+  );
 
   const submit = async () => {
     if (!opportunity || submitting) return;

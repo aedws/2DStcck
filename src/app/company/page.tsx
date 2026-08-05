@@ -39,6 +39,7 @@ import {
   getPlayerCompanyFounderOwnershipSummary,
   type PlayerCompanyFounderOwnershipSummary,
 } from "@/lib/supabase/playerCompanyOwnership";
+import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import {
   listPublicPlayerCompanies,
   type PublicPlayerCompany,
@@ -220,51 +221,40 @@ export default function CompanyPage() {
     return () => window.clearInterval(interval);
   }, []);
 
-  // 예상 좌당 배당을 실제 유통주식 기준으로 표시하기 위한 다른 주주 보유 집계.
+  // 아래 서버 조회들은 탭이 보일 때만 60초 주기로 폴링한다(배경 폴링 중단·주기
+  // 완화로 전송량 절감). 조건 불충족 시 상태만 초기화한다.
   useEffect(() => {
-    if (!listedStockId) {
-      setDividendOwnership(null);
-      return;
-    }
-    let active = true;
-    const load = () =>
-      void getPlayerCompanyFounderOwnershipSummary(listedStockId).then(
-        (summary) => {
-          if (active) setDividendOwnership(summary);
-        },
-      );
-    load();
-    const interval = window.setInterval(load, 30_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
+    if (!listedStockId) setDividendOwnership(null);
   }, [listedStockId]);
+  // 예상 좌당 배당을 실제 유통주식 기준으로 표시하기 위한 다른 주주 보유 집계.
+  useVisiblePolling(
+    () => {
+      if (!listedStockId) return;
+      void getPlayerCompanyFounderOwnershipSummary(listedStockId).then(
+        setDividendOwnership,
+      );
+    },
+    60_000,
+    [listedStockId],
+  );
+
+  useVisiblePolling(
+    () => void listPublicPlayerCompanies().then(setPublicCompanies),
+    60_000,
+    [],
+  );
 
   useEffect(() => {
-    let active = true;
-    const refresh = () =>
-      void listPublicPlayerCompanies().then((companies) => {
-        if (active) setPublicCompanies(companies);
-      });
-    refresh();
-    const interval = window.setInterval(refresh, 30_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!userId || !cloudSyncReady) {
-      setFoundationRequests([]);
-      return;
-    }
-    const refresh = () => void refreshFoundationRequests();
-    refresh();
-    const interval = window.setInterval(refresh, 30_000);
-    return () => window.clearInterval(interval);
-  }, [userId, cloudSyncReady, refreshFoundationRequests]);
+    if (!userId || !cloudSyncReady) setFoundationRequests([]);
+  }, [userId, cloudSyncReady]);
+  useVisiblePolling(
+    () => {
+      if (!userId || !cloudSyncReady) return;
+      void refreshFoundationRequests();
+    },
+    60_000,
+    [userId, cloudSyncReady, refreshFoundationRequests],
+  );
 
   const refreshShareholderLetterStatus = useCallback(async () => {
     if (!userId || !cloudSyncReady || !listedStockId) {
@@ -275,15 +265,16 @@ export default function CompanyPage() {
   }, [userId, cloudSyncReady, listedStockId]);
 
   useEffect(() => {
-    if (!listedStockId) {
-      setShareholderLetterStatus(null);
-      return;
-    }
-    const refresh = () => void refreshShareholderLetterStatus();
-    refresh();
-    const interval = window.setInterval(refresh, 30_000);
-    return () => window.clearInterval(interval);
-  }, [listedStockId, refreshShareholderLetterStatus]);
+    if (!listedStockId) setShareholderLetterStatus(null);
+  }, [listedStockId]);
+  useVisiblePolling(
+    () => {
+      if (!listedStockId) return;
+      void refreshShareholderLetterStatus();
+    },
+    60_000,
+    [listedStockId, refreshShareholderLetterStatus],
+  );
 
   useEffect(() => {
     if (!playerCompany || playerCompany.status !== "active") return;
