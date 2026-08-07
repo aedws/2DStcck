@@ -165,6 +165,15 @@ function CloudSaveSync() {
         state.reputation !== prev.reputation ||
         state.characterProgress !== prev.characterProgress ||
         state.readCharacterMessageIds !== prev.readCharacterMessageIds ||
+        // 확인 처리 ID(회신 팝업·배당 수령·세금 이벤트)도 저장을 촉발해야 한다.
+        // 빠져 있으면 확인 기록이 클라우드에 안 올라가 다음 로그인에 재발한다.
+        state.resolvedBugReportIds !== prev.resolvedBugReportIds ||
+        state.resolvedFeedbackIds !== prev.resolvedFeedbackIds ||
+        state.resolvedStockRequestIds !== prev.resolvedStockRequestIds ||
+        state.resolvedPlayerCompanyDividendIds !==
+          prev.resolvedPlayerCompanyDividendIds ||
+        state.claimedCompensationIds !== prev.claimedCompensationIds ||
+        state.appliedTaxEventIds !== prev.appliedTaxEventIds ||
         state.investmentMastery !== prev.investmentMastery ||
         state.investmentSeason !== prev.investmentSeason ||
         state.storyDecision !== prev.storyDecision ||
