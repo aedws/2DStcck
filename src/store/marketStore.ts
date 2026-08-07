@@ -114,6 +114,7 @@ import {
   settleOperationalCompensations,
 } from "@/lib/market/operationalCompensation";
 import {
+  mergeAckIds,
   resolvedResponseIdsWithPaymentEvidence,
   shouldRecoverFailedLocalWallet,
 } from "@/lib/market/cloudSyncGuards";
@@ -2734,8 +2735,17 @@ export const useMarketStore = create<MarketStore>()(
           trades: wallet.trades ?? [],
           openOrders: wallet.openOrders ?? [],
           cashPayments: cloudCompensation.cashPayments,
+          // 운영 보상 확인 ID는 병합하지 않는다: 새 기기 첫 로그인 시 로컬이 전체
+          // 수령완료로 초기화되므로(신규계정 기본값), 합집합하면 기존 유저가 받을
+          // 보상을 막는다. 지급 자체는 cashPayments 증거로 멱등이라 안전하다.
           claimedCompensationIds: cloudCompensation.claimedCompensationIds,
-          appliedTaxEventIds: wallet.appliedTaxEventIds ?? [],
+          // 세금 이벤트 확인 ID는 기본값이 빈 배열이라 병합해도 안전 — 로컬 기록을
+          // 보존해 서버 ETF 이벤트 중복 과세를 막는다.
+          appliedTaxEventIds: mergeAckIds(
+            wallet.appliedTaxEventIds,
+            get().appliedTaxEventIds,
+            2_000,
+          ),
           lastSalarySession: cloudClockChanged
             ? nowSession
             : cloudSession(wallet.lastSalarySession),
@@ -2791,11 +2801,25 @@ export const useMarketStore = create<MarketStore>()(
               ? wallet.preferredDiversifiedSince
               : null,
           readCharacterMessageIds: wallet.readCharacterMessageIds ?? [],
-          resolvedBugReportIds: wallet.resolvedBugReportIds ?? [],
-          resolvedFeedbackIds: wallet.resolvedFeedbackIds ?? [],
-          resolvedPlayerCompanyDividendIds:
-            wallet.resolvedPlayerCompanyDividendIds ?? [],
-          resolvedStockRequestIds: wallet.resolvedStockRequestIds ?? [],
+          // 확인 처리 ID는 클라우드로 통째로 덮지 않고 로컬(현재 메모리·localStorage
+          // 복원분)과 합집합으로 병합한다. 이 필드들은 과거 저장 트리거에서 빠져 있어
+          // 클라우드가 비어 있을 수 있는데, 덮어쓰면 과거 회신 팝업이 매 접속 재발한다.
+          resolvedBugReportIds: mergeAckIds(
+            wallet.resolvedBugReportIds,
+            get().resolvedBugReportIds,
+          ),
+          resolvedFeedbackIds: mergeAckIds(
+            wallet.resolvedFeedbackIds,
+            get().resolvedFeedbackIds,
+          ),
+          resolvedPlayerCompanyDividendIds: mergeAckIds(
+            wallet.resolvedPlayerCompanyDividendIds,
+            get().resolvedPlayerCompanyDividendIds,
+          ),
+          resolvedStockRequestIds: mergeAckIds(
+            wallet.resolvedStockRequestIds,
+            get().resolvedStockRequestIds,
+          ),
           myRoomItems: normalizeRoomItems(
             wallet.myRoomItems,
             normalizeRoomLevel(wallet.myRoomLevel),
