@@ -44,9 +44,14 @@ function parseAction(
   if (
     !action.id ||
     !Number.isSafeInteger(action.sequence) ||
-    !["issue", "buyback", "retire", "board", "governance"].includes(
-      action.actionType,
-    ) ||
+    ![
+      "issue",
+      "capital_raise",
+      "buyback",
+      "retire",
+      "board",
+      "governance",
+    ].includes(action.actionType) ||
     !Number.isFinite(action.priceFactor) ||
     !Number.isSafeInteger(action.effectiveTick)
   ) {
@@ -78,7 +83,7 @@ export interface RecordPlayerCompanyMarketActionInput {
   stockId: string;
   actionType: Extract<
     PlayerCompanyMarketActionType,
-    "issue" | "buyback" | "retire"
+    "issue" | "capital_raise" | "buyback" | "retire"
   >;
   shares: number;
   totalSharesBefore: number;

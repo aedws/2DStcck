@@ -8,6 +8,7 @@ import type { Candle, MarketEvent, StockState } from "@/lib/types/market";
 
 export type PlayerCompanyMarketActionType =
   | "issue"
+  | "capital_raise"
   | "buyback"
   | "retire"
   | "board"
@@ -46,9 +47,14 @@ function validAction(action: PlayerCompanyMarketAction): boolean {
     Number.isSafeInteger(action.sequence) &&
     action.sequence > 0 &&
     Boolean(action.stockId) &&
-    ["issue", "buyback", "retire", "board", "governance"].includes(
-      action.actionType,
-    ) &&
+    [
+      "issue",
+      "capital_raise",
+      "buyback",
+      "retire",
+      "board",
+      "governance",
+    ].includes(action.actionType) &&
     Number.isFinite(action.priceFactor) &&
     action.priceFactor >= MIN_ACTION_FACTOR &&
     action.priceFactor <= MAX_ACTION_FACTOR &&
@@ -78,7 +84,7 @@ export function getPlayerCompanyMarketActions(): PlayerCompanyMarketAction[] {
 export function playerCompanyMarketActionFactor(
   actionType: Extract<
     PlayerCompanyMarketActionType,
-    "issue" | "buyback" | "retire"
+    "issue" | "capital_raise" | "buyback" | "retire"
   >,
   shares: number,
   totalSharesBefore: number,
@@ -87,7 +93,8 @@ export function playerCompanyMarketActionFactor(
   const total = Math.floor(totalSharesBefore);
   if (!(count > 0) || !(total > 0)) return 1;
 
-  if (actionType === "issue") {
+  // 유상증자도 발행주식수가 늘어 공통 시세는 신주발행과 같은 폭으로 소폭 희석된다.
+  if (actionType === "issue" || actionType === "capital_raise") {
     return Math.max(MIN_ACTION_FACTOR, total / (total + count));
   }
   if (actionType === "buyback") {

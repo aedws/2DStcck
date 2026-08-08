@@ -13,6 +13,12 @@ export const PLAYER_COMPANY_FOUNDING_RATE = 0.2;
 export const PLAYER_COMPANY_CAPITAL_CALL_RATE = 0.24;
 export const PLAYER_COMPANY_CAPITAL_CALL_INTERVAL = 24;
 export const PLAYER_COMPANY_DILUTION_RATE = 0.1;
+/** 상장 후 프리미엄 유상증자: 창업주는 현재가 대비 +10%로 신주를 인수한다. */
+export const PLAYER_COMPANY_CAPITAL_RAISE_PREMIUM = 0.1;
+/** 1회 유상증자 발행 한도 — 총발행주식수의 20%. */
+export const PLAYER_COMPANY_CAPITAL_RAISE_MAX_RATE = 0.2;
+/** 유상증자 쿨다운(거래일). */
+export const PLAYER_COMPANY_CAPITAL_RAISE_COOLDOWN_SESSIONS = 5;
 export const PLAYER_COMPANY_INITIAL_SHARES = 100_000;
 export const PLAYER_COMPANY_MAX_PRESTIGE = 500;
 export const PLAYER_COMPANY_PRESTIGE_BURN_UNIT = 5_000_000; // $50K
@@ -267,6 +273,70 @@ export function retirePlayerCompanyShares(
         company.cumulativeCapitalBurned - removedCapital,
       lastActionAt: now,
     },
+  };
+}
+
+/** 유상증자 1회 최대 발행 좌수 — 총발행주식수의 20%. */
+export function playerCompanyCapitalRaiseMaxShares(
+  company: Pick<PlayerCompanyState, "totalShares">,
+): number {
+  return Math.floor(
+    Math.max(0, company.totalShares) * PLAYER_COMPANY_CAPITAL_RAISE_MAX_RATE,
+  );
+}
+
+/** 유상증자 좌당 인수가(센트) — 현재 시장가에 프리미엄(+10%)을 얹는다. */
+export function playerCompanyCapitalRaisePrice(marketPrice: number): number {
+  return Math.max(
+    1,
+    Math.round(marketPrice * (1 + PLAYER_COMPANY_CAPITAL_RAISE_PREMIUM)),
+  );
+}
+
+/**
+ * 상장 후 프리미엄 유상증자 — 창업주가 현재가 대비 +10%로 신주를 인수한다.
+ * 창업주 개인 현금을 회사에 투입해 자본금(누적 소각 자본)을 늘리고, 신주는 창업주
+ * 보통주로 편입된다(공모주 float 불변, 총발행주식수·창업주 지분 증가). 발행 주식수
+ * 증가분만큼 공통 시세는 소폭 희석(total/(total+count))된다.
+ */
+export function capitalRaisePlayerCompanyShares(
+  company: PlayerCompanyState,
+  shares: number,
+  cash: number,
+  marketPrice: number,
+  now = Date.now(),
+): PlayerCompanyActionResult {
+  const count = Math.floor(shares);
+  if (!(count > 0)) {
+    return { success: false, message: "증자 좌수를 1주 이상 입력해 주세요." };
+  }
+  if (!(marketPrice > 0)) {
+    return { success: false, message: "현재 시장가를 확인할 수 없습니다." };
+  }
+  const maxShares = playerCompanyCapitalRaiseMaxShares(company);
+  if (count > maxShares) {
+    return {
+      success: false,
+      message: `1회 증자는 총발행주식수의 20%(${maxShares.toLocaleString("ko-KR")}주)까지 가능합니다.`,
+    };
+  }
+  const pricePerShare = playerCompanyCapitalRaisePrice(marketPrice);
+  const cost = pricePerShare * count;
+  if (!Number.isFinite(cash) || cash < cost) {
+    return { success: false, message: "증자에 필요한 현금이 부족합니다." };
+  }
+  return {
+    success: true,
+    message: `유상증자 ${count.toLocaleString("ko-KR")}주 인수 · 자본금이 늘고 창업주 지분이 커졌습니다.`,
+    company: {
+      ...company,
+      totalShares: company.totalShares + count,
+      founderShares: company.founderShares + count,
+      cumulativeCapitalBurned: company.cumulativeCapitalBurned + cost,
+      lastActionAt: now,
+    },
+    cash: cash - cost,
+    burned: cost,
   };
 }
 

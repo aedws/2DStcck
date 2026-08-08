@@ -375,6 +375,7 @@ import {
   normalizePlayerCompany,
   playerCompanyFounderStakeValue,
   issuePlayerCompanyShares as issueCompanyShares,
+  capitalRaisePlayerCompanyShares as raiseCompanyCapital,
   buybackPlayerCompanyShares as buybackCompanyShares,
   retirePlayerCompanyShares as retireCompanyShares,
   reconcileListedPlayerCompanyFloat,
@@ -383,6 +384,7 @@ import {
   reconcilePlayerCompanyIpo,
   refusePlayerCompanyCapitalCall as refuseCompanyCapitalCall,
   resumePlayerCompany as resumeCompany,
+  PLAYER_COMPANY_CAPITAL_RAISE_COOLDOWN_SESSIONS,
   type FoundPlayerCompanyInput,
   type PlayerCompanyState,
 } from "@/lib/player/playerCompany";
@@ -474,7 +476,7 @@ async function registerListedPlayerCompanyMarketAction(
   company: PlayerCompanyState,
   actionType: Extract<
     PlayerCompanyMarketActionType,
-    "issue" | "buyback" | "retire"
+    "issue" | "capital_raise" | "buyback" | "retire"
   >,
   shares: number,
   priceCents: number,
@@ -760,6 +762,8 @@ interface MarketStore extends MarketSnapshot {
   ) => OrderResult;
   /** 신주 발행(공모주 증가·창업주 지분 희석, 순자산 중립). */
   issuePlayerCompanyShares: (shares: number) => Promise<OrderResult>;
+  /** 프리미엄 유상증자(창업주가 +10%로 신주 인수, 자본금·창업주 지분 증가). */
+  raisePlayerCompanyCapital: (shares: number) => Promise<OrderResult>;
   /** 자사주 매입(공모주를 장부가로 매입해 창업주 지분 편입, 현금 소모). */
   buybackPlayerCompanyShares: (shares: number) => Promise<OrderResult>;
   /** 공모주 소각(유통 좌수·장부자본 감소, 순자산 중립). */
@@ -5754,6 +5758,106 @@ export const useMarketStore = create<MarketStore>()(
           ? `${result.message} · 희석 주가 반영이 공통 시장에 예약됐습니다.`
           : result.message;
         useToastStore.getState().push(message, "info");
+        return { success: true, message };
+      },
+
+      raisePlayerCompanyCapital: async (shares) => {
+        const state = get();
+        const rawCompany = state.playerCompany;
+        if (!rawCompany) {
+          return { success: false, message: "설립한 회사가 없습니다." };
+        }
+        if (rawCompany.status !== "listed" || !rawCompany.ipoListingStockId) {
+          return {
+            success: false,
+            message: "유상증자는 상장 후에만 가능합니다.",
+          };
+        }
+        const now = Date.now();
+        const currentSession = Math.floor(now / SESSION_DURATION_MS);
+        const listed = state.stocks.find(
+          (s) => s.id === rawCompany.ipoListingStockId,
+        );
+        if (!listed || !(listed.currentPrice > 0)) {
+          return { success: false, message: "현재 시장가를 확인할 수 없습니다." };
+        }
+        // 쿨다운: 최근 유상증자 이후 5거래일이 지나야 한다(서버가 최종 판정).
+        const lastRaise = getPlayerCompanyMarketActions()
+          .filter(
+            (action) =>
+              action.stockId === rawCompany.ipoListingStockId &&
+              action.actionType === "capital_raise",
+          )
+          .reduce(
+            (latest, action) =>
+              Date.parse(action.createdAt) > latest
+                ? Date.parse(action.createdAt)
+                : latest,
+            0,
+          );
+        if (
+          lastRaise > 0 &&
+          now - lastRaise <
+            PLAYER_COMPANY_CAPITAL_RAISE_COOLDOWN_SESSIONS * SESSION_DURATION_MS
+        ) {
+          return {
+            success: false,
+            message: "유상증자는 5거래일에 한 번만 가능합니다.",
+          };
+        }
+        // 상장 시장은 고정 float가 없어 실제 계좌 보유로 캡테이블을 맞춘 뒤 판정한다.
+        const founderActualShares =
+          state.holdings.find(
+            (holding) => holding.stockId === rawCompany.ipoListingStockId,
+          )?.quantity ?? rawCompany.founderShares;
+        const company = reconcileListedPlayerCompanyFloat(
+          rawCompany,
+          founderActualShares,
+        );
+        const result = raiseCompanyCapital(
+          company,
+          shares,
+          state.cash,
+          listed.currentPrice,
+          now,
+        );
+        if (!result.success || !result.company || result.cash === undefined) {
+          return { success: false, message: result.message };
+        }
+        if (!(await get().saveCloud())) {
+          return {
+            success: false,
+            message: "최신 계좌를 서버에 저장하지 못해 유상증자를 중단했습니다.",
+          };
+        }
+        const registered = await registerListedPlayerCompanyMarketAction(
+          company,
+          "capital_raise",
+          Math.floor(shares),
+          listed.currentPrice,
+        );
+        if (!registered.success) {
+          return { success: false, message: registered.message };
+        }
+        const payment: CashPayment = {
+          id: registered.action
+            ? `company-capital-raise-market-${registered.action.id}`
+            : `company-capital-raise-${result.company.id}-${now}`,
+          kind: "company_capital",
+          sourceId: result.company.id,
+          ticker: result.company.ticker,
+          dueSession: currentSession,
+          amount: -(result.burned ?? 0),
+          timestamp: now,
+        };
+        set({
+          ...withExactCashDelta(state, -(result.burned ?? 0)),
+          playerCompany: result.company,
+          cashPayments: [payment, ...state.cashPayments].slice(0, 200),
+        });
+        const message = `${result.message} · 희석 주가 반영이 공통 시장에 예약됐습니다.`;
+        useToastStore.getState().push(message, "success");
+        playSound("cash");
         return { success: true, message };
       },
 

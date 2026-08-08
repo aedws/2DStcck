@@ -25,6 +25,8 @@ import {
   playerCompanyLevel,
   playerCompanyPrestige,
   playerCompanyBookPricePerShare,
+  playerCompanyCapitalRaisePrice,
+  playerCompanyCapitalRaiseMaxShares,
   PLAYER_COMPANY_MAX_DIVIDEND_RATE,
 } from "@/lib/player/playerCompany";
 import {
@@ -137,6 +139,9 @@ export default function CompanyPage() {
     (state) => state.markPlayerCompanyIpoRequested,
   );
   const issueShares = useMarketStore((state) => state.issuePlayerCompanyShares);
+  const raiseCapital = useMarketStore(
+    (state) => state.raisePlayerCompanyCapital,
+  );
   const buybackShares = useMarketStore(
     (state) => state.buybackPlayerCompanyShares,
   );
@@ -158,7 +163,7 @@ export default function CompanyPage() {
     useState<ShareholderLetterStatus | null>(null);
   const [sendingShareholderLetter, setSendingShareholderLetter] = useState(false);
   const [capitalAction, setCapitalAction] = useState<
-    "issue" | "buyback" | "retire" | null
+    "issue" | "capital_raise" | "buyback" | "retire" | null
   >(null);
 
   const [now, setNow] = useState(() => Date.now());
@@ -439,7 +444,7 @@ export default function CompanyPage() {
   };
 
   const handleCapitalAction = async (
-    kind: "issue" | "buyback" | "retire",
+    kind: "issue" | "capital_raise" | "buyback" | "retire",
   ) => {
     if (capitalAction) return;
     const quantity = Number(manageQty);
@@ -447,9 +452,11 @@ export default function CompanyPage() {
     const result =
       kind === "issue"
         ? await issueShares(quantity)
-        : kind === "buyback"
-          ? await buybackShares(quantity)
-          : await retireShares(quantity);
+        : kind === "capital_raise"
+          ? await raiseCapital(quantity)
+          : kind === "buyback"
+            ? await buybackShares(quantity)
+            : await retireShares(quantity);
     setMessage(result.message);
     setCapitalAction(null);
   };
@@ -936,6 +943,44 @@ export default function CompanyPage() {
               {capitalAction === "retire" ? "등록 중…" : "공모주 소각"}
             </button>
           </div>
+          {playerCompany.status === "listed" &&
+            (listedMarketPrice ?? 0) > 0 && (
+            <div className="mt-3 rounded-2xl border border-sky-400/25 bg-sky-400/5 p-4">
+              <p className="text-sm font-black text-sky-200">프리미엄 유상증자</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--muted)]">
+                창업주가 현재가 대비 +10%(좌당{" "}
+                {formatPrice(
+                  playerCompanyCapitalRaisePrice(listedMarketPrice ?? 0),
+                )}
+                )로 신주를 인수해 회사 자본금과 창업주 지분을 함께 늘립니다. 공모주
+                유통량은 그대로이며, 발행주식수 증가로 공통 주가는 소폭 희석됩니다.
+                1회 최대{" "}
+                {playerCompanyCapitalRaiseMaxShares(playerCompany).toLocaleString(
+                  "ko-KR",
+                )}
+                주(총발행 20%), 5거래일에 1회.
+              </p>
+              {Number(manageQty) > 0 && (
+                <p className="mt-2 text-[11px] font-semibold text-sky-200">
+                  예상 투입 자본 ={" "}
+                  {formatPrice(
+                    playerCompanyCapitalRaisePrice(listedMarketPrice ?? 0) *
+                      Math.floor(Number(manageQty)),
+                  )}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleCapitalAction("capital_raise")}
+                disabled={capitalAction !== null}
+                className="mt-3 w-full rounded-xl bg-sky-500/20 py-2 text-xs font-semibold text-sky-200 disabled:opacity-60"
+              >
+                {capitalAction === "capital_raise"
+                  ? "등록 중…"
+                  : `유상증자 (${(Number(manageQty) || 0).toLocaleString("ko-KR")}주 인수)`}
+              </button>
+            </div>
+          )}
         </div>
         <div className="mt-4 border-t border-[var(--border)] pt-4">
           <div className="rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
