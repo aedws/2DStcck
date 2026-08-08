@@ -49,7 +49,7 @@ export function ServiceNoticeModal() {
 
   return (
     <div className="fixed inset-0 z-[125] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl">
         <div className="text-center text-4xl">{notice.emoji}</div>
         <h2 className="mt-3 text-center text-xl font-black">{notice.title}</h2>
         <div className="mt-4 space-y-2.5">
