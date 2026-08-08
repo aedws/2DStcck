@@ -169,6 +169,7 @@ import {
   OVERFLOW_RECOVERY_GRANT_CENTS,
   PERSISTED_DAILY_CANDLES,
   OVERFLOW_BROKEN_NET_WORTH_FLOOR,
+  OVERFLOW_BROKEN_NET_WORTH_CEILING,
 } from "@/lib/market/constants";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
 import {
@@ -1463,14 +1464,21 @@ function recoverFromOverflow(state: {
   ownedLuxuries: OwnedLuxury[];
   marginEnabled: boolean;
 }): OverflowRepair {
+  // 비유한(NaN/Infinity)뿐 아니라 천문학적 유한값(포지션 평가액이 파손 상한 초과)도
+  // 오염으로 본다. BigInt 정확계산은 Infinity가 되지 않아 유한한 채로 폭증하기 때문이다.
   const holdingFinite = (h: Holding) =>
-    Number.isFinite(h.quantity) && Number.isFinite(h.averagePrice);
+    Number.isFinite(h.quantity) &&
+    Number.isFinite(h.averagePrice) &&
+    Math.abs(h.quantity * h.averagePrice) < OVERFLOW_BROKEN_NET_WORTH_CEILING;
   const shortFinite = (s: ShortPosition) =>
-    Number.isFinite(s.quantity) && Number.isFinite(s.averagePrice);
+    Number.isFinite(s.quantity) &&
+    Number.isFinite(s.averagePrice) &&
+    Math.abs(s.quantity * s.averagePrice) < OVERFLOW_BROKEN_NET_WORTH_CEILING;
   const optionFinite = (o: OptionPosition) =>
     Number.isFinite(o.strike) &&
     Number.isFinite(o.quantity) &&
-    Number.isFinite(o.openPremium);
+    Number.isFinite(o.openPremium) &&
+    Math.abs(o.quantity * o.openPremium) < OVERFLOW_BROKEN_NET_WORTH_CEILING;
 
   const cleanHoldings = state.holdings.filter(holdingFinite);
   const cleanShorts = state.shorts.filter(shortFinite);
@@ -1493,7 +1501,9 @@ function recoverFromOverflow(state: {
     !cashFinite ||
     hadCorruptPosition ||
     !Number.isFinite(equity) ||
-    equity < OVERFLOW_BROKEN_NET_WORTH_FLOOR;
+    equity < OVERFLOW_BROKEN_NET_WORTH_FLOOR ||
+    equity > OVERFLOW_BROKEN_NET_WORTH_CEILING ||
+    Math.abs(state.cash) > OVERFLOW_BROKEN_NET_WORTH_CEILING;
 
   if (!broken) {
     return {
@@ -2714,10 +2724,14 @@ export const useMarketStore = create<MarketStore>()(
           ),
           cloudCompensation.grantedCents,
         );
-        const cloudLedgerExact = normalizeExactAmount(
-          wallet.amcLedgerBalanceExact,
-          normalizeExactAmount(wallet.amcLedgerBalance ?? 0),
-        );
+        // 파손 복구 시 오염된 AMC 원장 잔액도 함께 0으로 되돌린다. 그러지 않으면
+        // 천문학적 원장이 총자산을 부풀려 배당이 다시 폭증한다(인시던트 d6709b10).
+        const cloudLedgerExact = cloudRepair.broken
+          ? "0"
+          : normalizeExactAmount(
+              wallet.amcLedgerBalanceExact,
+              normalizeExactAmount(wallet.amcLedgerBalance ?? 0),
+            );
         const cloudInitialExact = normalizeExactAmount(
           wallet.initialCashExact,
           normalizeExactAmount(wallet.initialCash),
@@ -8778,7 +8792,9 @@ export const useMarketStore = create<MarketStore>()(
           exactSubtract(localBaseCashExact, compensation.reconciledCents),
           compensation.grantedCents,
         );
-        const localLedgerExact = normalizeExactAmount(
+        const localLedgerExact = overflowRepair.broken
+          ? "0"
+          : normalizeExactAmount(
           (walletSource as Partial<MarketStore>).amcLedgerBalanceExact,
           normalizeExactAmount(
             (walletSource as Partial<MarketStore>).amcLedgerBalance ?? 0,

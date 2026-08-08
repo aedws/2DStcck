@@ -110,6 +110,11 @@ export const OVERFLOW_RECOVERY_GRANT_CENTS = 1_000_000_000;
 /** 오버플로우 파손 판정 하한(센트) — 순자산이 -$1조 미만이면 정상 플레이로는
  *  도달 불가능한 정밀도 붕괴로 간주한다. */
 export const OVERFLOW_BROKEN_NET_WORTH_FLOOR = -100_000_000_000_000;
+/** 오버플로우 파손 판정 상한(센트, $1경 = 1e18달러) — BigInt 정확계산은
+ *  Infinity가 되지 않아 배당 복리증폭 등으로 순자산이 천문학적 유한값(1e20센트+)까지
+ *  부풀 수 있다. 정상 최고 자산(≤19자리 센트)보다 한참 위, 오염(22자리+) 아래의
+ *  빈 구간에 두어 정상 고래를 오인하지 않고 오염만 잡는다. */
+export const OVERFLOW_BROKEN_NET_WORTH_CEILING = 100_000_000_000_000_000_000;
 
 /** 시장가 슬리피지: 체결가 = 현재가 × (1 ± 0.005%) */
 export const MARKET_ORDER_SLIPPAGE = 0.00005;
