@@ -2211,6 +2211,7 @@ export const useMarketStore = create<MarketStore>()(
           next = [...current, titleId];
         }
         set({ selectedTitleIds: next, selectedTitleId: next[0] });
+        void get().saveCloud();
         return { success: true, message: "표시 칭호를 변경했습니다." };
       },
       acceptDailyOperation: (offerId) => {
@@ -2966,6 +2967,7 @@ export const useMarketStore = create<MarketStore>()(
           recurringInvestments: s.recurringInvestments,
           attendance: s.attendance,
           selectedTitleId: s.selectedTitleId,
+          selectedTitleIds: s.selectedTitleIds,
           dailyOperation: s.dailyOperation,
           dailyOperationHistory: s.dailyOperationHistory,
           selectedPortfolioStrategyId: s.selectedPortfolioStrategyId,

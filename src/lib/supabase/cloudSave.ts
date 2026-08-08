@@ -119,6 +119,7 @@ export interface WalletSave {
   recurringInvestments?: RecurringInvestment[];
   attendance?: AttendanceState;
   selectedTitleId?: string;
+  selectedTitleIds?: string[];
   dailyOperation?: DailyOperation | null;
   dailyOperationHistory?: DailyOperation[];
   selectedPortfolioStrategyId?: PortfolioStrategyId;

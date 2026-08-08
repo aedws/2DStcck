@@ -45,6 +45,10 @@ interface QueuedResponse {
 export function BugResponseWatcher() {
   const userId = useMarketStore((s) => s.userId);
   const isReady = useMarketStore((s) => s.isReady);
+  // 클라우드 지갑(확인 처리 ID 포함)이 적용된 뒤에만 회신을 확인한다. isReady만
+  // 보면 클라우드 로드 전에 실행돼 이미 처리한 회신을 매 접속 다시 띄우고, 그때의
+  // saveCloud는 cloudSyncReady=false라 저장되지 않아 재발이 영구화됐다(버그 381bffa4).
+  const cloudSyncReady = useMarketStore((s) => s.cloudSyncReady);
   const resolveBugReports = useMarketStore((s) => s.resolveBugReports);
   const resolveFeedbackResponses = useMarketStore(
     (s) => s.resolveFeedbackResponses,
@@ -147,11 +151,11 @@ export function BugResponseWatcher() {
   // (배경 폴링 중단 → 전송량 절감).
   useVisiblePolling(
     () => {
-      if (!userId || !isReady) return;
+      if (!userId || !isReady || !cloudSyncReady) return;
       void check();
     },
     90_000,
-    [userId, isReady, check],
+    [userId, isReady, cloudSyncReady, check],
   );
 
   const show = useModalSlot(
