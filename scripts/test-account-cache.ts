@@ -21,6 +21,8 @@ assert.equal(
     cloudActivityAt: 2_000,
     cloudUpdatedAt: 2_500,
     localSaveFailedAt: 0,
+    localAccountResetAt: 10,
+    cloudAccountResetAt: 10,
   }),
   false,
   "새 기기 로컬 캐시는 명시적 저장 실패 없이 서버 지갑을 덮으면 안 됨",
@@ -31,9 +33,24 @@ assert.equal(
     cloudActivityAt: 2_000,
     cloudUpdatedAt: 2_500,
     localSaveFailedAt: 2_800,
+    localAccountResetAt: 10,
+    cloudAccountResetAt: 10,
   }),
   true,
   "서버 갱신 뒤 실제 저장 실패가 발생한 로컬 활동만 복구해야 함",
+);
+
+assert.equal(
+  shouldRecoverFailedLocalWallet({
+    localActivityAt: 3_000,
+    cloudActivityAt: 2_000,
+    cloudUpdatedAt: 2_500,
+    localSaveFailedAt: 2_800,
+    localAccountResetAt: 9,
+    cloudAccountResetAt: 10,
+  }),
+  false,
+  "a pre-reset local wallet must never replace the reset cloud wallet",
 );
 
 const feedbackId = "feedback-response-id";

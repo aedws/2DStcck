@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test:cashflows": "node --experimental-strip-types scripts/test-cashflows.mjs",
     "test:gameplay": "tsx scripts/test-gameplay.ts",
+    "test:preferred-shares": "tsx scripts/test-preferred-share-preservation.ts",
     "test:splits": "tsx scripts/test-leverage-splits.ts",
     "test:shorting": "tsx scripts/test-shorting.ts",
     "test:navigation": "tsx scripts/test-navigation-paths.ts",

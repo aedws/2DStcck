@@ -47,10 +47,6 @@ export function trackedPreferredFaceValue(
 }
 /** 시세를 못 구할 때 쓰는 액면 하한 (초기 발행 안전장치). */
 const PREFERRED_FACE_FALLBACK = 80_000;
-/** 매각이 발동하는 '유의미한 분산' 기준 — 보유 캐릭터 수. */
-export const PREFERRED_DIVERSIFY_CHARACTERS = 5;
-/** 분산 지속 후 휴면 우선주가 매각되기까지의 거래일 유예. */
-export const PREFERRED_SALE_GRACE_SESSIONS = 5;
 /** 동맹·집중 조건 유지 시 우선주 1좌가 추가 지급되는 기본 간격(호감 100). */
 export const PREFERRED_GRANT_INTERVAL_SESSIONS = 5;
 /** 호감도 120 이상: 발행 간격 단축(3거래일당 1좌). */
@@ -74,28 +70,20 @@ export function preferredGrantIntervalSessions(affinity: number): number {
   return PREFERRED_GRANT_INTERVAL_SESSIONS;
 }
 
-/**
- * 활성 우선주 — 지금 집중(focused) 상태인 캐릭터의 우선주만 혜택이 살아있다.
- * 집중을 풀면 기록은 남되 휴면(자산·배당 0)이 되고, 재집중하면 부활한다.
- */
+/** 발행된 우선주는 집중 상태와 무관하게 계속 자산·배당에 반영된다. */
 export function getActivePreferredShares(
   shares: PreferredShare[],
-  concentration: CharacterConcentration,
+  _concentration: CharacterConcentration,
 ): PreferredShare[] {
-  if (!isPreferredEligible(concentration)) return [];
-  const focused = new Set(concentration.focusedCharacterIds);
-  return shares.filter((share) => focused.has(share.characterId));
+  return shares.filter((share) => share.shares > 0);
 }
 
-/** 우선주가 지금 활성(집중 유지)인지 판정. */
+/** 보유 수량이 있는 우선주는 집중 상태와 무관하게 항상 활성이다. */
 export function isPreferredActive(
   share: PreferredShare,
-  concentration: CharacterConcentration,
+  _concentration: CharacterConcentration,
 ): boolean {
-  return (
-    isPreferredEligible(concentration) &&
-    concentration.focusedCharacterIds.includes(share.characterId)
-  );
+  return share.shares > 0;
 }
 
 /** 보유 우선주의 총 액면가치. */
@@ -116,11 +104,7 @@ export interface PreferredReconcileResult {
   shares: PreferredShare[];
   /** 이번 정산에서 신규 또는 추가 지급된 좌. shares는 지급 수량이다. */
   issued: PreferredShare[];
-  /** 집중 해제로 매각된 우선주 */
-  sold: PreferredShare[];
-  /** 매각 대금 (액면 합계) — 현금으로 지급된다 */
-  proceeds: number;
-  /** 지금까지 한 번이라도 발행된 캐릭터 id (매각 후 재발행 방지) */
+  /** 지금까지 한 번이라도 발행된 캐릭터 id */
   issuedCharacterIds: string[];
 }
 
@@ -129,8 +113,8 @@ export interface PreferredReconcileResult {
  * - 발행: 호감 100(동맹) + 원 앤 온리·트윈 스타·트리플 하르모니아 지정 캐릭터 +
  *   최초 미발행이면 1좌 지급. 조건을 계속 유지하면 5거래일마다 1좌 추가 지급.
  *   액면 = 최초 발행 시 본주 × 1.30, 분기배당 = 액면 ×(본주배당률 + 5%p).
- * - 매각: 집중이 풀려 더는 지정이 아닌 우선주는 액면가로 매각(현금화)되고 사라진다.
- * - 재발행 방지: 매각된 캐릭터는 다시 최초 발행되지 않는다(무한 현금화 차단).
+ * - 보유: 한 번 발행된 우선주는 집중이 풀려도 영구 보존되고 자산·배당이 유지된다.
+ * - 추가 발행: 동맹·집중 조건을 현재 만족할 때만 지급한다.
  * 컨텍스트(보유·집중 데이터)가 없으면 그대로 둔다(로드 시엔 직후 tick 이 정산).
  */
 export function reconcilePreferredShares(
@@ -142,12 +126,10 @@ export function reconcilePreferredShares(
   context?: {
     stocks: StockState[];
     concentration: CharacterConcentration;
-    /** 유의미 분산(5캐릭터↑)이 유예(5거래일)를 넘겨 휴면분 매각이 확정됐는지 */
-    sellDormant: boolean;
   },
 ): PreferredReconcileResult {
   if (!context) {
-    return { shares: existing, issued: [], sold: [], proceeds: 0, issuedCharacterIds };
+    return { shares: existing, issued: [], issuedCharacterIds };
   }
   const eligible = isPreferredEligible(context.concentration);
   const focused = new Set(context.concentration.focusedCharacterIds);
@@ -174,19 +156,12 @@ export function reconcilePreferredShares(
     };
   };
 
-  // 1) 보유 우선주: 집중 유지 중이면 가치를 추종 갱신하고 조건 충족 시 1좌 추가.
-  //    유의미 분산(5캐릭터↑)이 확정되면 전량 소멸한다 — 가치는 환급되지 않는다.
+  // 1) 보유 우선주: 집중 여부와 무관하게 영구 보존하고 가치를 추종 갱신한다.
+  //    동맹·집중 조건을 현재 만족할 때만 1좌를 추가 발행한다.
   const kept: PreferredShare[] = [];
-  const sold: PreferredShare[] = [];
   const issued: PreferredShare[] = [];
-  const proceeds = 0;
   for (const share of existing) {
-    if (context.sellDormant && !isActive(share.characterId)) {
-      // 분산 확정 — 0주 초기화, 환급 없음.
-      sold.push(share);
-      continue;
-    }
-    const tracked = isActive(share.characterId) ? trackValue(share) : share;
+    const tracked = trackValue(share);
     const affinity = getCharacterProgress(progress, share.characterId).affinity;
     const lastIssuedSession = tracked.lastIssuedSession ?? tracked.issuedSession;
     if (
@@ -206,9 +181,7 @@ export function reconcilePreferredShares(
     }
   }
 
-  // 2) 신규 발행 (지정·동맹) — '과거 발행'이 아니라 '현재 보유' 여부로만 막는다.
-  //    분산 소멸은 환급이 전혀 없어(무한 현금화 여지 없음) 다시 집중하면 최초 1좌를
-  //    재지급받아야 한다(버그리포트 abcbfccf — 소멸 뒤 재집중해도 영구 미지급되던 문제).
+  // 2) 신규 발행 (지정·동맹). 보유 기록과 과거 발행 기록을 모두 보존한다.
   const ownedNow = new Set(kept.map((share) => share.characterId));
   const newlyIssued: PreferredShare[] = [];
   if (eligible) {
@@ -248,10 +221,7 @@ export function reconcilePreferredShares(
   return {
     shares: [...kept, ...newlyIssued],
     issued,
-    sold,
-    proceeds,
-    // 재발행 차단은 '현재 보유' 캐릭터로만 유지한다(소멸분은 자동 해제).
-    issuedCharacterIds: [...ownedNow],
+    issuedCharacterIds: [...new Set([...issuedCharacterIds, ...ownedNow])],
   };
 }
 

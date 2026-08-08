@@ -5,6 +5,8 @@ export interface LocalWalletRecoveryDecision {
   cloudActivityAt: number;
   cloudUpdatedAt: number;
   localSaveFailedAt: number;
+  localAccountResetAt: number;
+  cloudAccountResetAt: number;
 }
 
 /**
@@ -17,7 +19,16 @@ export function shouldRecoverFailedLocalWallet({
   cloudActivityAt,
   cloudUpdatedAt,
   localSaveFailedAt,
+  localAccountResetAt,
+  cloudAccountResetAt,
 }: LocalWalletRecoveryDecision): boolean {
+  if (
+    !Number.isFinite(localAccountResetAt) ||
+    !Number.isFinite(cloudAccountResetAt) ||
+    localAccountResetAt < cloudAccountResetAt
+  ) {
+    return false;
+  }
   if (
     !Number.isFinite(localSaveFailedAt) ||
     localSaveFailedAt <= 0 ||

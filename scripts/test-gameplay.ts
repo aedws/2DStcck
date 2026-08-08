@@ -68,6 +68,8 @@ import {
   claimAttendanceState,
 } from "../src/lib/player/playerProfile";
 import {
+  getActivePreferredShares,
+  isPreferredActive,
   normalizePreferredShares,
   PREFERRED_GRANT_INTERVAL_SESSIONS,
   reconcilePreferredShares,
@@ -1049,7 +1051,6 @@ const firstPreferred = reconcilePreferredShares(
   {
     stocks: [relationshipStock],
     concentration: preferredConcentration,
-    sellDormant: false,
   },
 );
 assert.equal(firstPreferred.shares[0]?.shares, 1);
@@ -1063,7 +1064,6 @@ const beforePreferredInterval = reconcilePreferredShares(
   {
     stocks: [relationshipStock],
     concentration: preferredConcentration,
-    sellDormant: false,
   },
 );
 assert.equal(beforePreferredInterval.shares[0]?.shares, 1);
@@ -1077,7 +1077,6 @@ const recurringPreferred = reconcilePreferredShares(
   {
     stocks: [relationshipStock],
     concentration: preferredConcentration,
-    sellDormant: false,
   },
 );
 assert.equal(recurringPreferred.shares[0]?.shares, 2);
@@ -1091,7 +1090,6 @@ const sameSessionPreferred = reconcilePreferredShares(
   {
     stocks: [relationshipStock],
     concentration: preferredConcentration,
-    sellDormant: false,
   },
 );
 assert.equal(sameSessionPreferred.shares[0]?.shares, 2);
@@ -1105,11 +1103,48 @@ const pausedPreferred = reconcilePreferredShares(
   {
     stocks: [relationshipStock],
     concentration: preferredConcentration,
-    sellDormant: false,
   },
 );
 assert.equal(pausedPreferred.shares[0]?.shares, 2);
 assert.equal(pausedPreferred.issued.length, 0);
+const diversifiedPreferredConcentration = {
+  ...preferredConcentration,
+  heldCount: 5,
+  oneAndOnly: false,
+  twinStar: false,
+  tripleHarmonia: false,
+  focusedCharacterIds: [],
+};
+const preservedPreferred = reconcilePreferredShares(
+  {},
+  recurringPreferred.shares,
+  [...recurringPreferred.issuedCharacterIds, "historical-missing"],
+  windowStart + PREFERRED_GRANT_INTERVAL_SESSIONS * 2,
+  MARKET_EPOCH_MS,
+  {
+    stocks: [relationshipStock],
+    concentration: diversifiedPreferredConcentration,
+  },
+);
+assert.equal(preservedPreferred.shares[0]?.shares, 2);
+assert.equal(
+  preservedPreferred.issuedCharacterIds.includes("historical-missing"),
+  true,
+);
+assert.equal(
+  getActivePreferredShares(
+    preservedPreferred.shares,
+    diversifiedPreferredConcentration,
+  ).length,
+  1,
+);
+assert.equal(
+  isPreferredActive(
+    preservedPreferred.shares[0],
+    diversifiedPreferredConcentration,
+  ),
+  true,
+);
 const normalizedLegacyPreferred = normalizePreferredShares([
   {
     ...firstPreferred.shares[0],

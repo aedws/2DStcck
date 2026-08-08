@@ -170,7 +170,7 @@ export default function CharactersPage() {
       <div className="mb-5 grid grid-cols-3 gap-2">
         <SummaryStat label="활성화" value={`${discovered}/${entries.length}`} tone="text-sky-400" />
         <SummaryStat label="최애 ⭐" value={`${favorites}/${entries.length}`} tone="text-amber-400" />
-        <SummaryStat label="활성 우선주 🎖️" value={`${activePreferred.length}좌`} tone="text-emerald-400" />
+        <SummaryStat label="보유 우선주 🎖️" value={`${activePreferred.length}종`} tone="text-emerald-400" />
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         일반 주식·레버리지·커버드콜과 유저 ETF의 우호 구성 자산을 보유하면 도감이

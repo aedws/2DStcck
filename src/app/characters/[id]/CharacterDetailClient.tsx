@@ -113,7 +113,7 @@ export function CharacterDetailClient({ id }: { id: string }) {
   const preferredActive = preferredShare
     ? isPreferredActive(preferredShare, concentration)
     : false;
-  // 발행됐다가 집중 해제로 매각되어 사라진 상태(재발행 불가)
+  // 과거 발행 기록은 있지만 보유 데이터가 누락된 비정상 상태
   const preferredSoldGone =
     !preferredShare && preferredIssuedCharacterIds.includes(ceo.id);
 
@@ -346,16 +346,17 @@ export function CharacterDetailClient({ id }: { id: string }) {
         <div className={`mt-4 rounded-2xl border p-4 ${preferredActive ? "border-amber-400/40 bg-amber-400/10" : "border-orange-400/40 bg-orange-400/10"}`}>
           <p className={`flex items-center gap-2 text-sm font-bold ${preferredActive ? "text-amber-300" : "text-orange-300"}`}>
             🎖️ 동맹 보상 우선주 {preferredShare.shares}좌{" "}
-            {preferredActive ? "· 활성" : "· 💤 휴면(집중 해제)"}
+            · 보유 중
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             {company.name}이(가) 발행한 매매불가 특별주. 가치는 본주 등락을 비대칭
             추종(상승 200%·하락 20%)합니다. 현재 가치{" "}
             {formatPrice(preferredShare.faceValue * preferredShare.shares)} · 20일 배당{" "}
             {formatPrice(preferredShare.dividendPerShare * preferredShare.shares)}.{" "}
-            {preferredActive
-              ? "집중과 호감 100 이상을 유지하면 5거래일당 100%(20거래일마다 가치의 400%)를 배당합니다. 추가 지급은 호감 100→5거래일·120→3거래일·150→2거래일마다 1좌입니다."
-              : "지금은 휴면(자산·배당 0)입니다. 다시 집중하면 부활하지만, 5캐릭터 이상으로 분산하는 순간 전량 소멸하며 환급되지 않습니다."}
+            한 번 발행된 우선주는 집중이 풀리거나 분산 투자해도 삭제되지 않으며,
+            5거래일당 100%(20거래일마다 가치의 400%) 배당 권리도 유지됩니다. 추가
+            지급은 집중과 호감 100 이상을 만족할 때 호감 100→5거래일·120→3거래일·150→
+            2거래일마다 1좌입니다.
           </p>
           <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--muted)]">
             ℹ️ 좌당 가치·배당은 매 거래일 갱신되어 저장되며, 발행 시점의 본주
@@ -372,10 +373,10 @@ export function CharacterDetailClient({ id }: { id: string }) {
         </div>
       ) : preferredSoldGone ? (
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm font-semibold text-[var(--muted)]">🎖️ 동맹 보상 우선주 · 매각 완료</p>
+          <p className="text-sm font-semibold text-[var(--muted)]">🎖️ 동맹 보상 우선주 · 복구 대기</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            이미 발행되었다가 장기 분산으로 매각되었습니다. 현금화된 우선주는 무한
-            재발행을 막기 위해 다시 지급되지 않습니다.
+            과거 발행 기록은 있지만 보유 데이터가 누락됐습니다. 서버 복구 후 다시
+            접속하면 보유 우선주가 표시됩니다.
           </p>
         </div>
       ) : (
@@ -385,7 +386,8 @@ export function CharacterDetailClient({ id }: { id: string }) {
             호감도 {PREFERRED_SHARE_AFFINITY}(동맹) 도달 + 집중 투자(원 앤 온리·트윈
             스타·트리플 하르모니아) 상태일 때 {company.name}이(가) 고배당 우선주
             1좌를 지급합니다. 이후 조건을 유지하면 호감 100→5거래일·120→3거래일·150→
-            2거래일마다 1좌를 추가 지급합니다. 앞으로 호감{" "}
+            2거래일마다 1좌를 추가 지급합니다. 발행된 우선주는 이후 집중이 풀려도
+            삭제되지 않습니다. 앞으로 호감{" "}
             <span className="font-semibold text-pink-400">{untilAlly}</span> 더 필요.
           </p>
           <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--muted)]">

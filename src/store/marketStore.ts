@@ -297,8 +297,6 @@ import {
   getActivePreferredShares,
   getPreferredShareValue,
   normalizePreferredShares,
-  PREFERRED_DIVERSIFY_CHARACTERS,
-  PREFERRED_SALE_GRACE_SESSIONS,
   reconcilePreferredShares,
 } from "@/lib/player/preferredShares";
 import {
@@ -2594,6 +2592,8 @@ export const useMarketStore = create<MarketStore>()(
             cloudActivityAt: latestWalletActivityMs(wallet),
             cloudUpdatedAt,
             localSaveFailedAt: localState.cloudSaveFailedAt,
+            localAccountResetAt: localState.accountResetAt,
+            cloudAccountResetAt: wallet.accountResetAt ?? 0,
           })
         ) {
           await get().refreshServerPlayerCompany();
@@ -3004,6 +3004,20 @@ export const useMarketStore = create<MarketStore>()(
           selectedSeasonFrameId: s.selectedSeasonFrameId,
           lastInterestSession: s.lastInterestSession,
         });
+
+        if (saveResult === "recovery_locked") {
+          // A server-side recovery freeze is authoritative. Reload the audited
+          // wallet and do not mark local activity as a failed save that could be
+          // uploaded after maintenance ends.
+          set({ cloudSyncReady: false, cloudSaveFailedAt: 0 });
+          await get().loadCloudSave();
+          set({ cloudSyncReady: false, cloudSaveFailedAt: 0 });
+          useToastStore.getState().push(
+            "계좌 안전 복구 중입니다. 서버 원장이 확정될 때까지 거래 저장이 잠시 중단됩니다.",
+            "info",
+          );
+          return false;
+        }
 
         if (saveResult === "conflict") {
           // 충돌: 서버 revision 이 우리가 아는 값보다 앞섰다. 무조건 로컬을 버리면
@@ -4169,20 +4183,9 @@ export const useMarketStore = create<MarketStore>()(
             );
           }
         }
-        // 5캐릭터 이상으로 유의미하게 분산하면 휴면 우선주가 소멸한다(환급 없음).
-        // 다만 즉시 소멸시키지 않고 PREFERRED_SALE_GRACE_SESSIONS(5거래일) 유예를 둬,
-        // 그 사이 다시 집중하면 되살릴 수 있게 한다(버그리포트 abcbfccf — 배당으로
-        // 현금 비중이 불어 집중이 풀리자마자 유예 없이 전량 소멸하던 문제).
-        const diversified =
-          preferredConcentration.heldCount >= PREFERRED_DIVERSIFY_CHARACTERS;
-        let preferredDiversifiedSince = diversified
-          ? state.preferredDiversifiedSince ?? currentSession
-          : null;
-        const sellDormant =
-          diversified &&
-          preferredDiversifiedSince !== null &&
-          currentSession - preferredDiversifiedSince >=
-            PREFERRED_SALE_GRACE_SESSIONS;
+        // 한 번 발행된 우선주는 집중 해제·분산 뒤에도 영구 보존한다.
+        // 집중 조건은 신규·추가 발행 자격에만 사용한다.
+        const preferredDiversifiedSince = null;
         const preferredReconcile = reconcilePreferredShares(
           characterProgress,
           state.preferredShares,
@@ -4192,13 +4195,8 @@ export const useMarketStore = create<MarketStore>()(
           {
             stocks: combinedStocks,
             concentration: preferredConcentration,
-            sellDormant,
           },
         );
-        // 분산 소멸이 확정됐으면 분산 타이머를 초기화한다.
-        if (sellDormant && preferredReconcile.sold.length > 0) {
-          preferredDiversifiedSince = null;
-        }
         const preferredShares = preferredReconcile.shares;
         const preferredIssuedCharacterIds = preferredReconcile.issuedCharacterIds;
         for (const toast of relationshipToasts.slice(0, 3)) {
@@ -4208,12 +4206,6 @@ export const useMarketStore = create<MarketStore>()(
           useToastStore.getState().push(
             `🎖️ ${share.emoji} ${share.companyName} 우선주 ${share.shares}좌 지급 — 동맹·집중 유지 보상!`,
             "success",
-          );
-        }
-        for (const share of preferredReconcile.sold) {
-          useToastStore.getState().push(
-            `⚠️ ${share.emoji} ${share.companyName} 우선주 소멸 — 분산으로 0주 초기화(환급 없음)`,
-            "error",
           );
         }
         if (preferredReconcile.issued.length > 0) {

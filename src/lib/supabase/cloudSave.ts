@@ -142,7 +142,11 @@ export type GameSaveLoadResult =
   | { status: "missing" }
   | { status: "error"; message: string };
 
-export type GameSaveWriteResult = "saved" | "conflict" | "failed";
+export type GameSaveWriteResult =
+  | "saved"
+  | "conflict"
+  | "recovery_locked"
+  | "failed";
 
 type GameSaveWriteRpcResponse = {
   saved?: unknown;
@@ -246,6 +250,10 @@ export async function saveGameSave(
       });
       if (error) {
         console.warn("[cloud-save] wallet write failed", error.message);
+        if (error.message.includes("account_recovery_in_progress")) {
+          bumpGameSaveGeneration(userId);
+          return "recovery_locked";
+        }
         return "failed";
       }
       const result = parseGameSaveWriteRpcResponse(data);

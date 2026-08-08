@@ -126,7 +126,7 @@ export default function PortfolioPage() {
     (sum, position) => sum + position.evaluation,
     0,
   );
-  // 우선주는 집중 유지 중인 활성분만 자산 반영 — 총자산과 일치시킨다.
+  // 발행된 우선주는 집중 여부와 무관하게 모두 자산·배당에 반영한다.
   const preferredConcentration = computeCharacterConcentration(
     holdings,
     stocks,
@@ -641,7 +641,7 @@ export default function PortfolioPage() {
             <h2 className="text-sm font-semibold">
               🎖️ 관계 보상 우선주{" "}
               <span className="text-zinc-500">
-                활성 {activePreferredShares.length}/{preferredShares.length}종 ·{" "}
+                보유 {preferredShares.length}종 ·{" "}
                 {formatPrice(preferredValue)}
               </span>
             </h2>
@@ -650,13 +650,12 @@ export default function PortfolioPage() {
             </Link>
           </div>
           <p className="mb-2 text-[11px] text-zinc-500">
-            집중(원 앤 온리·트윈 스타·트리플 하르모니아) 유지 중인 우선주만 자산·배당에
+            한 번 발행된 우선주는 집중이 풀리거나 분산 투자해도 삭제되지 않고 계속 자산·배당에
             반영됩니다. 가치는 본주 등락을 비대칭 추종(상승 200%·하락 20%)하고 5거래일당 100%
-            (20거래일마다 현재 가치의 400%) 배당을 지급합니다. 호감 100→5거래일·120→3거래일·150→
-            2거래일마다 1좌가 추가 지급되며, 집중이 풀리면 휴면(재집중 시 부활)됩니다. 단, 5캐릭터
-            이상으로 분산하는 순간 전량 0주로 소멸하며 가치는 환급되지 않습니다. 좌당 가치·배당은
-            매 거래일 갱신·저장되고 발행 시점의 본주 가격 기준이라, 같은 캐릭터라도 발행 시점에 따라
-            좌당 가치·배당이 다를 수 있습니다.
+            (20거래일마다 현재 가치의 400%) 배당을 지급합니다. 호감 100과 집중 조건은 추가 발행에만
+            적용되며, 호감 100→5거래일·120→3거래일·150→2거래일마다 1좌가 추가 지급됩니다. 좌당
+            가치·배당은 매 거래일 갱신·저장되고 발행 시점의 본주 가격 기준이라, 같은 캐릭터라도
+            발행 시점에 따라 좌당 가치·배당이 다를 수 있습니다.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {preferredShares.map((share) => {
@@ -678,9 +677,7 @@ export default function PortfolioPage() {
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-semibold">
                         {share.companyName}
-                        {!active && (
-                          <span className="ml-1 text-[10px]">💤 휴면</span>
-                        )}
+                        <span className="ml-1 text-[10px]">· 보유 중</span>
                       </span>
                       <span className="mt-0.5 block text-[10px] opacity-80">
                         {share.shares.toLocaleString("ko-KR")}좌 · 20일 배당률{" "}
