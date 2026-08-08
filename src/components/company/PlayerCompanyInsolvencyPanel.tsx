@@ -79,6 +79,14 @@ function loanRepayment(principal: string): string {
   return ((amount * 115n + 99n) / 100n).toString();
 }
 
+function controlVoteLabel(
+  controlSource: string,
+  voteWeightExact: string,
+): string {
+  if (controlSource === "trust") return "총 발행주식의 10%";
+  return `${formatExactShareQuantity(voteWeightExact)}표`;
+}
+
 export function PlayerCompanyInsolvencyPanel({
   founderStockId,
   currentSession,
@@ -253,7 +261,10 @@ export function PlayerCompanyInsolvencyPanel({
               </p>
               <p className="mt-1 text-[var(--muted)]">
                 계약 의결권{" "}
-                {formatExactShareQuantity(selected.controlVoteWeightExact)}표
+                {controlVoteLabel(
+                  selected.controlSource,
+                  selected.controlVoteWeightExact,
+                )}
               </p>
             </div>
           </div>
@@ -312,7 +323,10 @@ export function PlayerCompanyInsolvencyPanel({
           {activeCase.status === "trust" && (
             <p className="mt-2 text-xs text-[var(--muted)]">
               보호된 계약 의결권{" "}
-              {formatExactShareQuantity(activeCase.protectedVoteWeightExact)}표
+              {controlVoteLabel(
+                activeCase.optionType,
+                activeCase.protectedVoteWeightExact,
+              )}
             </p>
           )}
           {activeCase.status === "loan-active" && (
