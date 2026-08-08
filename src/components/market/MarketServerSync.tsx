@@ -9,7 +9,13 @@ import {
   marketStorageKey,
   safeMarketStorage,
 } from "@/lib/storage/safeLocalStorage";
-import { LEADERBOARD_REFRESH_MS } from "@/lib/supabase/cloudSave";
+import {
+  claimServerInstabilityCompensation,
+  LEADERBOARD_REFRESH_MS,
+} from "@/lib/supabase/cloudSave";
+import { formatPrice } from "@/lib/market/engine";
+import { useToastStore } from "@/store/toastStore";
+import { playSound } from "@/lib/ui/sound";
 
 /**
  * 클라우드 계정 동기화 (선택적):
@@ -89,7 +95,25 @@ function CloudSaveSync() {
             // cloudSyncReady 를 먼저 켜면 디바운스 저장이 빈 지갑을 덮어쓸 수 있다.
             await refreshListedAmcFunds();
             setCloudSyncReady(true);
-            await saveCloud();
+            const saved = await saveCloud();
+            if (saved) {
+              const compensation =
+                await claimServerInstabilityCompensation();
+              if (compensation.status === "granted") {
+                // The RPC advanced the authoritative wallet revision. Reload it
+                // before any local autosave so the exact server cash wins.
+                setCloudSyncReady(false);
+                const reloaded = await loadCloudSave();
+                if (reloaded !== "offline") {
+                  setCloudSyncReady(true);
+                  useToastStore.getState().push(
+                    `🛠️ 서버 불안정 접속 보상 ${formatPrice(compensation.amountCents)} 지급`,
+                    "success",
+                  );
+                  playSound("cash");
+                }
+              }
+            }
             await processRegularCompanyDividend();
           })();
         }, 0);

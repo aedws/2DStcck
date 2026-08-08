@@ -30,6 +30,10 @@ import {
   exactToNumber,
   normalizeExactAmount,
 } from "@/lib/market/exactAmount";
+import {
+  parseServiceCompensationClaimResult,
+  type ServiceCompensationClaimResult,
+} from "@/lib/market/serviceCompensation";
 
 export const SPLIT_SETTLEMENT_VERSION = 1;
 
@@ -218,6 +222,27 @@ export async function loadGameSave(): Promise<GameSaveLoadResult> {
     updatedAt: new Date(data.updated_at as string).getTime(),
     revision,
   };
+}
+
+/**
+ * Claims the one-time August server-instability compensation. The RPC uses the
+ * database clock and updates the authoritative wallet and claim ledger in one
+ * transaction; callers should reload the cloud wallet after a successful grant.
+ */
+export async function claimServerInstabilityCompensation(): Promise<ServiceCompensationClaimResult> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "claim_server_instability_compensation_20260814",
+  );
+  if (error) {
+    return {
+      status: "error",
+      amountCents: 0,
+      walletRevision: 0,
+      message: error.message,
+    };
+  }
+  return parseServiceCompensationClaimResult(data);
 }
 
 /** 현재 지갑을 저장한다 (upsert). 로그인 상태가 아니면 무시. */
