@@ -5824,6 +5824,8 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company || result.cash === undefined) {
           return { success: false, message: result.message };
         }
+        // 재조정된 float를 서버 등록 전에 먼저 저장한다(버그 a67f5c60 — buyback과 동일).
+        set({ playerCompany: company });
         if (!(await get().saveCloud())) {
           return {
             success: false,
@@ -5895,6 +5897,10 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company || result.cash === undefined) {
           return { success: false, message: result.message };
         }
+        // 재조정된 float(실제 보유 기준)를 서버 등록 전에 먼저 저장한다. 그러지 않으면
+        // 저장본은 옛 명목 지분이라 RPC의 before-값 대조(CAS)가 stale_company_state로
+        // 막혀 실보유가 드리프트한 창업주는 자사주 매입이 영구 불가였다(버그 a67f5c60).
+        if (listed) set({ playerCompany: company });
         if (listed && !(await get().saveCloud())) {
           return {
             success: false,
@@ -5965,6 +5971,8 @@ export const useMarketStore = create<MarketStore>()(
         if (!result.success || !result.company) {
           return { success: false, message: result.message };
         }
+        // 재조정된 float를 서버 등록 전에 먼저 저장한다(버그 a67f5c60 — buyback과 동일).
+        if (listed) set({ playerCompany: company });
         if (listed && !(await get().saveCloud())) {
           return {
             success: false,
