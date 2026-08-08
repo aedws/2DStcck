@@ -256,6 +256,7 @@ export default function AssetManagerPage() {
   const [profileDetail, setProfileDetail] = useState("");
 
   const [fundName, setFundName] = useState("");
+  const [fundDescription, setFundDescription] = useState("");
   const [fundTicker, setFundTicker] = useState("");
   const [fundStyle, setFundStyle] = useState<AmcFundStyle>("passive");
   const [feeRatePct, setFeeRatePct] = useState("0.5");
@@ -661,6 +662,7 @@ export default function AssetManagerPage() {
     const feeRate = Number(feeRatePct) / 100;
     const result = await createAmcFund({
       name: fundName,
+      description: fundDescription.trim() || undefined,
       ticker: fundTicker,
       style: fundStyle,
       feeRate,
@@ -687,6 +689,7 @@ export default function AssetManagerPage() {
     setMessage(result.message);
     if (result.success) {
       setFundName("");
+      setFundDescription("");
       setFundTicker("");
       setSelectedIds([]);
       setEqualWeight(true);
@@ -1987,6 +1990,22 @@ export default function AssetManagerPage() {
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
             />
           </Field>
+          <div className="sm:col-span-2">
+            <Field label="펀드 소개 (선택)">
+              <textarea
+                value={fundDescription}
+                onChange={(event) =>
+                  setFundDescription(event.target.value.slice(0, 500))
+                }
+                rows={3}
+                placeholder="투자 전략·컨셉을 자유롭게 소개해 주세요. 상장 후 각 ETF 상세에 표시됩니다."
+                className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+              />
+              <span className="mt-1 block text-right text-[10px] text-[var(--muted)]">
+                {fundDescription.length}/500
+              </span>
+            </Field>
+          </div>
           <Field label="유형">
             <select
               value={fundStyle}

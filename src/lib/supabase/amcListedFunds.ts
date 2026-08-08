@@ -1,4 +1,5 @@
 import {
+  AMC_FUND_DESCRIPTION_MAX_LENGTH,
   type AmcDividendIntervalDays,
   type AmcDividendPoint,
   type AmcFundState,
@@ -27,6 +28,8 @@ export interface ListedAmcFund {
   managerTagline: string;
   managerDetail?: string;
   name: string;
+  /** 운용사가 작성하는 펀드 소개(선택). */
+  description?: string;
   ticker: string;
   style: AmcFundStyle;
   feeRate: number;
@@ -123,6 +126,7 @@ interface AmcListedFundRow {
   manager_tagline: string;
   manager_detail: string | null;
   name: string;
+  description?: string | null;
   ticker: string;
   style: string;
   fee_rate: number;
@@ -231,6 +235,13 @@ export function parseListedAmcFundRow(
       ? { managerDetail: row.manager_detail.trim().slice(0, 500) }
       : {}),
     name: name.slice(0, 40),
+    ...(row.description?.trim()
+      ? {
+          description: row.description
+            .trim()
+            .slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH),
+        }
+      : {}),
     ticker,
     style,
     feeRate: Number(row.fee_rate) || 0,
@@ -304,6 +315,7 @@ export function listedFundToAmcState(fund: ListedAmcFund): AmcFundState {
   return {
     id: fund.id,
     name: fund.name,
+    ...(fund.description ? { description: fund.description } : {}),
     ticker: fund.ticker,
     style: fund.style,
     status: fund.status,
@@ -366,6 +378,8 @@ function fundToRow(
     manager_tagline: manager.tagline.slice(0, 80),
     manager_detail: manager.detail?.slice(0, 500) ?? null,
     name: fund.name.slice(0, 40),
+    description:
+      fund.description?.trim().slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH) ?? null,
     ticker: fund.ticker,
     style: fund.style,
     fee_rate: fund.feeRate,
@@ -502,6 +516,8 @@ export async function syncAmcListedFundMeta(
     p_manager_tagline: manager.tagline.slice(0, 80),
     p_manager_detail: manager.detail?.slice(0, 500) ?? "",
     p_name: fund.name.slice(0, 40),
+    p_description:
+      fund.description?.trim().slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH) ?? "",
     p_holdings: fund.holdings,
     p_benchmark_stock_id: fund.benchmarkStockId ?? "",
     p_dividend_interval_days: fund.dividendIntervalDays,

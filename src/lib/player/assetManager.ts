@@ -19,6 +19,7 @@ export const AMC_MIN_HOLDINGS = 3;
 export const AMC_MAX_HOLDINGS = 30;
 export const AMC_MIN_HOLDING_WEIGHT = 0.01;
 export const AMC_MAX_HOLDING_WEIGHT = 0.5;
+export const AMC_FUND_DESCRIPTION_MAX_LENGTH = 500;
 export const AMC_FUND_ID_PREFIX = "amc:" as const;
 export const AMC_DIVIDEND_INTERVALS = [5, 20, 60] as const;
 export const AMC_MIN_DIVIDEND_INTERVAL_DAYS = 1;
@@ -180,6 +181,8 @@ export function amcDividendHistoryAfter(
 export interface AmcFundState {
   id: string;
   name: string;
+  /** 운용사가 작성하는 펀드 소개(선택, 최대 500자). 상세 화면에 노출된다. */
+  description?: string;
   ticker: string;
   style: AmcFundStyle;
   status: AmcFundStatus;
@@ -270,6 +273,8 @@ export interface UpdateAssetManagerProfileInput {
 
 export interface CreateAmcFundInput {
   name: string;
+  /** 펀드 소개(선택, 최대 500자). */
+  description?: string;
   ticker: string;
   style: AmcFundStyle;
   feeRate: number;
@@ -958,9 +963,13 @@ export function createAmcFund(
   if (comparisonStockId && !(priceOf(comparisonStockId) > 0)) {
     return { success: false, message: "비교할 목표 주식의 시세를 확인할 수 없습니다." };
   }
+  const description = input.description
+    ?.trim()
+    .slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH);
   const fund: AmcFundState = {
     id: fundId,
     name,
+    ...(description ? { description } : {}),
     ticker,
     style: input.style,
     status: "active",
@@ -1681,6 +1690,13 @@ function normalizeAmcFund(value: unknown): AmcFundState | null {
       typeof source.name === "string" && source.name.trim()
         ? source.name.trim().slice(0, 40)
         : "유저 ETF",
+    ...(typeof source.description === "string" && source.description.trim()
+      ? {
+          description: source.description
+            .trim()
+            .slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH),
+        }
+      : {}),
     ticker:
       typeof source.ticker === "string"
         ? source.ticker.trim().toUpperCase().slice(0, 6)

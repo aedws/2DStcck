@@ -1,4 +1,5 @@
 import {
+  AMC_FUND_DESCRIPTION_MAX_LENGTH,
   AMC_MAX_HOLDINGS,
   AMC_MIN_HOLDINGS,
   isForbiddenAmcHoldingStockId,
@@ -33,6 +34,7 @@ export const AMC_ETF_LISTING_STATUS_LABEL: Record<StockRequestStatus, string> = 
 
 export interface AmcEtfListingPayload {
   fundId: string;
+  description?: string;
   ticker: string;
   style: AmcFundStyle;
   feeRate: number;
@@ -70,6 +72,13 @@ export function serializeAmcEtfListingRequest(
 ): string {
   const payload: AmcEtfListingPayload = {
     fundId: fund.id,
+    ...(fund.description?.trim()
+      ? {
+          description: fund.description
+            .trim()
+            .slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH),
+        }
+      : {}),
     ticker: fund.ticker,
     style: fund.style,
     feeRate: fund.feeRate,
@@ -158,6 +167,13 @@ export function parseAmcEtfListingRequest(
       fundName: row.name.trim(),
       payload: {
         fundId,
+        ...(typeof payload.description === "string" && payload.description.trim()
+          ? {
+              description: payload.description
+                .trim()
+                .slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH),
+            }
+          : {}),
         ticker,
         style,
         feeRate: Number(payload.feeRate) || 0,
@@ -230,6 +246,13 @@ export function listingRequestToAmcState(
   return {
     id: payload.fundId,
     name: request.fundName.slice(0, 40),
+    ...(payload.description?.trim()
+      ? {
+          description: payload.description
+            .trim()
+            .slice(0, AMC_FUND_DESCRIPTION_MAX_LENGTH),
+        }
+      : {}),
     ticker: payload.ticker,
     style: payload.style,
     status: "active",

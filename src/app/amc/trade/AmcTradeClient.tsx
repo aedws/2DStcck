@@ -497,6 +497,14 @@ export function AmcTradeClient() {
           )}
           {tab === 1 && (
             <div className="max-w-2xl space-y-4">
+              {fund.description?.trim() && (
+                <section className="rounded-2xl bg-[var(--surface)] p-4">
+                  <h3 className="mb-2 text-sm font-semibold">펀드 소개</h3>
+                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-[var(--muted)]">
+                    {fund.description.trim()}
+                  </p>
+                </section>
+              )}
               <section className="rounded-2xl bg-[var(--surface)] p-4">
                 <h3 className="mb-3 text-sm font-semibold">펀드 개요</h3>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
