@@ -38,6 +38,7 @@ import {
   exactNegate,
   exactPercentChange,
   exactPositionValue,
+  exactQuantityAdd,
   exactSubtract,
   exactToNumber,
   formatExactMoney,
@@ -229,6 +230,7 @@ import {
   hasPlayerCompanyDividend,
   type PlayerCompanyDividendClaim,
 } from "@/lib/supabase/playerCompanyDividends";
+import { getPlayerCompanyFounderOwnershipSummary } from "@/lib/supabase/playerCompanyOwnership";
 import { recordPlayerCompanyMarketAction } from "@/lib/supabase/playerCompanyMarketActions";
 import {
   applyPlayerCompanyDividendSurtax,
@@ -6046,16 +6048,46 @@ export const useMarketStore = create<MarketStore>()(
             message: "상장 종목 시세를 확인할 수 없어 배당을 집행할 수 없습니다.",
           };
         }
-        // 좌당 배당·총예산은 서버 검증(좌당 × 명목 총발행주식 = 총예산)과 반드시
-        // 일치해야 하므로 명목 '총 발행주식'을 기준으로 산정한다. 실제 유통 기준
-        // 지급은 서버 declare_v3가 총예산을 실보유 비중대로 비례 분배해 그대로
-        // 보존된다(c10d3202). 좌당을 실유통 좌수로 나눠 제출하면 서버 검증(명목
-        // 기준)에서 거부돼 배당이 실패하던 회귀를 되돌린다(버그리포트 22eddc5b).
-        // 배당 예산은 창업주 개인 계좌 총자산 기준으로 계산하고, 실제 재원은 개인
-        // 현금에서 차감한다.
+        // 배당 예산(총액)은 창업주 개인 계좌 총자산×비율로 좌수와 무관하고, 실제
+        // 재원은 개인 현금에서 차감한다.
+        //
+        // 좌당 배당·배당가산세는 '실제 유통주식(창업주 실보유 + 추적된 공개주주
+        // 보유합)' 기준으로 산정한다. 시장이 명목 총발행보다 많은 매수를 허용해
+        // 실유통 ≫ 명목이 된 회사에서, 가산세를 명목 좌수로 판정하면 좌당액이
+        // 터무니없이 커져(예산÷명목) 정상 배당까지 상한 과세로 붕괴돼 실제 분배가
+        // 0에 수렴하던 문제를 고친다(버그리포트 8029b212). 실유통 기준 좌당액은
+        // 서버 declare_v3가 실보유 비중대로 비례 분배하는 실제 좌당액과 일치한다.
+        //
+        // 서버 base 검증은 여전히 '좌당 × 명목 총발행 = 총예산'이므로, 제출용
+        // 좌당액은 순분배 총액을 명목 좌수로 나눈 값으로 환산한다(실유통 ≫ 명목일
+        // 때만; 실유통 ≤ 명목이면 명목 기준 그대로라 기존 동작과 완전 동일).
+        const nominalSharesExact = String(
+          Math.max(0, Math.floor(company.totalShares)),
+        );
+        let dividendBasisExact = nominalSharesExact;
+        try {
+          const ownership = await getPlayerCompanyFounderOwnershipSummary(
+            company.ipoListingStockId,
+          );
+          if (ownership) {
+            const circulating = exactQuantityAdd(
+              ownership.founderQuantityExact,
+              ownership.trackedPublicQuantityExact,
+            );
+            const circulatingInt = circulating.split(".")[0] || "0";
+            // 가산세·좌당 계산은 정수 좌수 기준. 실유통이 명목보다 클 때만 채택.
+            if (BigInt(circulatingInt) > BigInt(nominalSharesExact || "0")) {
+              dividendBasisExact = circulatingInt;
+            }
+          }
+        } catch {
+          // 서버 요약을 못 얻으면 명목 기준으로 폴백(기존 동작).
+        }
+        const usesCirculatingBasis = dividendBasisExact !== nominalSharesExact;
+
         const rawBudget = calculatePlayerCompanyDividendBudget(
           state.getTotalAssetsExact(),
-          company.totalShares,
+          dividendBasisExact,
           rate,
         );
         if (BigInt(rawBudget.totalCentsExact) <= 0n) {
@@ -6066,12 +6098,29 @@ export const useMarketStore = create<MarketStore>()(
         // 버그리포트 79118168). 정상 배당은 세율 0%라 감면이 전혀 없다.
         const surtax = applyPlayerCompanyDividendSurtax(
           rawBudget.totalCentsExact,
-          company.totalShares,
+          dividendBasisExact,
           listingStock.currentPrice,
         );
         const requiredExact = surtax.netTotalCentsExact;
         const required = exactToNumber(requiredExact);
-        const perShareExact = surtax.netPerShareCentsExact;
+        // 실 좌당 배당(기준 좌수당 순분배액) — 주주가 실제로 받는 값이 1센트 이상인지
+        // 판정한다.
+        const netPerShareOnBasis = BigInt(surtax.netPerShareCentsExact);
+        if (netPerShareOnBasis < 1n) {
+          return {
+            success: false,
+            message: "좌당 배당이 1센트 미만입니다. 배당률을 올려 주세요.",
+          };
+        }
+        // 서버 base 검증(좌당 × 명목 = 총액, 잔차 < 명목)을 만족시키는 제출용 좌당액.
+        // 실유통 기준일 때는 순분배 총액을 명목 좌수로 내림해 환산한다(v3가 실보유
+        // 비중대로 재분배하므로 각 주주 수령액은 실 좌당 배당과 동일). 명목 기준일
+        // 때는 가산세가 산출한 명목 좌당액을 그대로 쓴다(기존 동작 불변).
+        const nominalSharesBig = BigInt(nominalSharesExact || "0");
+        const perShareExact =
+          usesCirculatingBasis && nominalSharesBig > 0n
+            ? (BigInt(requiredExact) / nominalSharesBig).toString()
+            : surtax.netPerShareCentsExact;
         if (BigInt(perShareExact) < 1n) {
           return {
             success: false,

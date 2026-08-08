@@ -160,4 +160,33 @@ const noPriceSurtax = applyPlayerCompanyDividendSurtax("500000", 1000, 0);
 assert.equal(noPriceSurtax.surtaxCentsExact, "0");
 assert.equal(noPriceSurtax.netTotalCentsExact, "500000");
 
+// ── 실유통 ≫ 명목 회사의 배당 붕괴 방지(버그리포트 8029b212) ──────────
+// 같은 예산·주가라도 가산세 판정 기준이 '명목'이면 좌당액이 부풀려져 정상
+// 배당까지 상한 과세로 붕괴하고, '실제 유통' 기준이면 세율 0%로 전액 분배된다.
+// declarePlayerCompanyDividend 가 실유통(창업주 실보유 + 공개주주 보유합)을
+// 기준으로 가산세를 산정하도록 고친 근거를 고정한다.
+const collapseBudget = "1500000000"; // 예산 1.5e9센트
+const collapsePrice = 100; // 주가 100센트 → 20배 상한 = 좌당 2000
+// 명목 좌수 1000 기준: 좌당 = 1.5e6 (주가의 15,000배) → 누진 상한으로 붕괴.
+const nominalBasis = applyPlayerCompanyDividendSurtax(
+  collapseBudget,
+  1000,
+  collapsePrice,
+);
+assert.equal(nominalBasis.netPerShareCentsExact, "112000");
+assert.equal(nominalBasis.netTotalCentsExact, "112000000");
+assert.ok(
+  BigInt(nominalBasis.netTotalCentsExact) < BigInt(collapseBudget),
+  "명목 기준이면 정상 배당이 상한 과세로 붕괴한다(버그 조건).",
+);
+// 실제 유통 좌수 1,000,000 기준: 좌당 = 1500 (주가의 15배 ≤ 20배) → 세율 0%.
+const circulatingBasis = applyPlayerCompanyDividendSurtax(
+  collapseBudget,
+  1_000_000,
+  collapsePrice,
+);
+assert.equal(circulatingBasis.surtaxCentsExact, "0");
+assert.equal(circulatingBasis.netTotalCentsExact, collapseBudget);
+assert.equal(circulatingBasis.netPerShareCentsExact, "1500");
+
 console.log("player company exact dividend tests passed");
