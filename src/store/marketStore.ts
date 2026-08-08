@@ -1163,6 +1163,20 @@ function normalizeSelectedTitleIds(raw: unknown, primary: string): string[] {
   return unique.length ? unique : [primary];
 }
 
+/**
+ * 저장된 대표 칭호 id를 보존한다. getPlayerTitle은 정적 칭호만 알아 이사 칭호
+ * (CMO 등 신뢰도 위촉)를 rookie로 되돌려 버렸다(버그 d349692b). 정적 칭호이거나
+ * 이사 칭호면 그대로 두고, 정말 알 수 없는 값만 기본 칭호로 폴백한다.
+ */
+function resolvePrimaryTitleId(raw: unknown): string {
+  const id = typeof raw === "string" ? raw.trim() : "";
+  if (!id) return getPlayerTitle(undefined).id;
+  if (getPlayerTitle(id).id === id || parseDirectorTitleId(id) !== null) {
+    return id;
+  }
+  return getPlayerTitle(undefined).id;
+}
+
 /** 현재 기준금리(연 소수) */
 function currentRateDecimal(stocks: StockState[]): number {
   return getAnnualRatePercent(getRateLevel(getBenchmark(stocks))) / 100;
@@ -2866,10 +2880,10 @@ export const useMarketStore = create<MarketStore>()(
             wallet.recurringInvestments,
           ),
           attendance: normalizeAttendance(wallet.attendance),
-          selectedTitleId: getPlayerTitle(wallet.selectedTitleId).id,
+          selectedTitleId: resolvePrimaryTitleId(wallet.selectedTitleId),
           selectedTitleIds: normalizeSelectedTitleIds(
             (wallet as { selectedTitleIds?: unknown }).selectedTitleIds,
-            getPlayerTitle(wallet.selectedTitleId).id,
+            resolvePrimaryTitleId(wallet.selectedTitleId),
           ),
           dailyOperation: normalizeDailyOperation(wallet.dailyOperation),
           dailyOperationHistory: normalizeDailyOperationHistory(
@@ -9035,14 +9049,14 @@ export const useMarketStore = create<MarketStore>()(
           attendance: normalizeAttendance(
             (walletSource as Partial<MarketStore>).attendance,
           ),
-          selectedTitleId: getPlayerTitle(
+          selectedTitleId: resolvePrimaryTitleId(
             (walletSource as Partial<MarketStore>).selectedTitleId,
-          ).id,
+          ),
           selectedTitleIds: normalizeSelectedTitleIds(
             (walletSource as Partial<MarketStore>).selectedTitleIds,
-            getPlayerTitle(
+            resolvePrimaryTitleId(
               (walletSource as Partial<MarketStore>).selectedTitleId,
-            ).id,
+            ),
           ),
           dailyOperation: normalizeDailyOperation(
             (walletSource as Partial<MarketStore>).dailyOperation,
