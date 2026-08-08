@@ -53,6 +53,17 @@ export interface PlayerCompanyGovernanceProposal {
   reputationDelta?: number;
 }
 
+export interface PlayerCompanyGovernanceDirectoryItem {
+  stockId: string;
+  ticker: string;
+  companyName: string;
+  founderGameId: string;
+  sector: string;
+  subsector?: string;
+  description?: string;
+  openProposalCount: number;
+}
+
 const text = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 const number = (value: unknown) => {
@@ -145,6 +156,40 @@ function parseProposal(
       ? { reputationDelta: number(row.reputation_delta) }
       : {}),
   };
+}
+
+function parseDirectoryItem(
+  row: Record<string, unknown>,
+): PlayerCompanyGovernanceDirectoryItem | null {
+  const stockId = text(row.stock_id);
+  const ticker = text(row.ticker).toUpperCase();
+  const companyName = text(row.company_name);
+  if (!stockId || !ticker || !companyName) return null;
+  return {
+    stockId,
+    ticker,
+    companyName,
+    founderGameId: text(row.founder_game_id) || "unknown",
+    sector: text(row.sector) || "기타",
+    ...(text(row.subsector) ? { subsector: text(row.subsector) } : {}),
+    ...(text(row.description) ? { description: text(row.description) } : {}),
+    openProposalCount: Math.max(0, Math.floor(number(row.open_proposal_count))),
+  };
+}
+
+export async function listPlayerCompanyGovernanceDirectory(): Promise<
+  PlayerCompanyGovernanceDirectoryItem[]
+> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc(
+    "list_player_company_governance_directory",
+  );
+  if (error || !Array.isArray(data)) return [];
+  return (data as Record<string, unknown>[])
+    .map(parseDirectoryItem)
+    .filter(
+      (item): item is PlayerCompanyGovernanceDirectoryItem => item !== null,
+    );
 }
 
 export async function listPlayerCompanyBoardDecisions(
@@ -256,8 +301,15 @@ export async function createPlayerCompanyGovernanceProposal(input: {
   if (detail.includes("open_proposal_exists")) {
     return { success: false, message: "이미 진행 중인 주주총회 안건이 있습니다." };
   }
-  if (detail.includes("not_founder")) {
-    return { success: false, message: "인증된 창업주만 안건을 상정할 수 있습니다." };
+  if (
+    detail.includes("not_major_shareholder") ||
+    detail.includes("not_proposer")
+  ) {
+    return {
+      success: false,
+      message:
+        "경영권자 또는 90거래일 이상 보유한 실제 지분 3% 이상 주요 주주만 안건을 상정할 수 있습니다.",
+    };
   }
   return { success: false, message: "주주총회 안건을 열지 못했습니다." };
 }

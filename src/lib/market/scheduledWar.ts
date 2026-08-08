@@ -543,6 +543,30 @@ export function scheduledWarReturnForStock(
   return perSession * (dtSeconds / (SESSION_DURATION_MS / 1_000));
 }
 
+/**
+ * 반복 시장 에라에서 기존 전면전 가격 규칙을 재사용한다. 고정 예약 전쟁과 달리
+ * 시작 시각만 에라가 관리하고, 업종별 방산·식품·의료·채권 반응은 같은 규칙을 쓴다.
+ */
+export function recurringWarBattleReturnForStock(
+  stock: WarStock,
+  dtSeconds: number,
+): number {
+  const phase = SCHEDULED_WAR_PHASES.find((item) => item.id === "fullwar")!;
+  return scheduledWarReturnForStock(
+    {
+      phase,
+      phaseIndex: 1,
+      phaseSession: 0,
+      phaseSessionsLeft: phase.duration,
+      sessionsLeft: phase.duration,
+      winner: WAR_WINNER,
+      loser: WAR_LOSER,
+    },
+    stock,
+    dtSeconds,
+  );
+}
+
 /** 전쟁 국면의 변동성 배수(없으면 1). */
 export function scheduledWarVolatilityMultiplier(session: number): number {
   return getActiveScheduledWar(session)?.phase.volatilityMultiplier ?? 1;

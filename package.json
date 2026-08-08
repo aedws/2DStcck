@@ -37,6 +37,7 @@
     "test:company": "tsx scripts/test-player-company.ts",
     "test:company-market-actions": "tsx scripts/test-player-company-market-actions.ts",
     "test:company-governance": "tsx scripts/test-player-company-governance.ts",
+    "test:company-delisting": "tsx scripts/test-safe-player-company-delisting.ts",
     "test:company-dividend": "tsx scripts/test-player-company-dividend.ts",
     "test:company-management": "tsx scripts/test-player-company-management.ts",
     "test:company-ownership": "tsx scripts/test-player-company-ownership.ts",

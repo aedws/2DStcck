@@ -790,6 +790,10 @@ const CORE_DEFINITIONS: StockDefinition[] = [
     subsector: "증권",
     marketTags: ["금융", "증권"],
     initialPrice: 84000,
+    // 창업주 요청에 따른 안전 상장폐지. 2026-08-09 09:00 KST 공통 체크포인트
+    // 가격으로 주주를 현금 정산하고, 과거 차트만 보존한다.
+    delistingEpochMs: Date.UTC(2026, 7, 9, 0, 0),
+    delistingPrice: 11900,
     volatility: 0.052,
     drift: 0.0007,
     beta: 1.28,
@@ -1179,6 +1183,12 @@ const DERIVATIVE_FACTORS = [
   { leverage: 2, idSuffix: "leverage-2x", tickerSuffix: "L2", name: "2배 레버리지" },
 ] as const;
 
+const DELISTING_DERIVATIVE_PRICES: Record<string, number> = {
+  "lcid:-1": 1448,
+  "lcid:-2": 1607,
+  "lcid:2": 2251,
+};
+
 const existingDerivativeKeys = new Set(
   DISPLAY_BASE_STOCK_DEFINITIONS.filter(
     (stock) => stock.leverage !== undefined && stock.leverageUnderlyingId,
@@ -1225,6 +1235,9 @@ const UNIVERSAL_DERIVATIVES: StockDefinition[] =
       universalDerivative: true,
       // 기초자산이 IPO 예정이면 파생상품도 같은 시각까지 비상장으로 묶는다.
       listingEpochMs: underlying.listingEpochMs,
+      delistingEpochMs: underlying.delistingEpochMs,
+      delistingPrice:
+        DELISTING_DERIVATIVE_PRICES[`${underlying.id}:${leverage}`],
       description: `${underlying.name}의 1거래일 누적수익률을 ${leverage}배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.`,
     })),
   );
@@ -1256,6 +1269,7 @@ const SINGLE_STOCK_COVERED_CALLS: StockDefinition[] =
     universalDerivative: true,
     // 기초자산이 IPO 예정이면 커버드콜도 같은 시각까지 비상장으로 묶는다.
     listingEpochMs: underlying.listingEpochMs,
+    delistingEpochMs: underlying.delistingEpochMs,
     description: `${underlying.name}의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.`,
   }));
 

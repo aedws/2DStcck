@@ -99,6 +99,8 @@ export interface WalletSave {
   resolvedStockRequestIds?: string[];
   /** 이미 받은 전 계정 운영 보상(롤백 보상 등) id. 중복 지급 방지. */
   claimedCompensationIds?: string[];
+  /** 서버가 정산 완료한 상장폐지 id. 구버전 탭의 중복 환급을 막는다. */
+  appliedDelistingIds?: string[];
   appliedTaxEventIds?: string[];
   /** 마이룸에 배치된 가구. */
   myRoomItems?: PlacedRoomItem[];

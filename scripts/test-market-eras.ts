@@ -4,8 +4,13 @@ import {
   BOOM_BUBBLE_FIRST_ERA_INDEX,
   BOOM_BUBBLE_MIN_SIDEWAYS_OFFSET,
   BOOM_BUBBLE_SIDEWAYS_SESSIONS,
+  CRISIS_TO_WAR_CRISIS_SESSIONS,
+  CRISIS_TO_WAR_FIRST_ERA_INDEX,
+  CRISIS_TO_WAR_RECOVERY_SESSIONS,
   MARKET_ERA_SESSIONS,
   MARKET_ERA_START_SESSION,
+  WHY_IS_IT_RISING_FIRST_ERA_INDEX,
+  WHY_IS_IT_RISING_REVEAL_OFFSET,
   getMarketEra,
 } from "../src/lib/market/marketEras";
 import { SESSION_DURATION_MS } from "../src/lib/market/constants";
@@ -73,5 +78,42 @@ for (let occurrence = 0; occurrence < 20; occurrence++) {
 
 assert.ok(sawBoom, "결정론 결과에 대호황 분기가 필요함");
 assert.ok(sawBubble, "결정론 결과에 버블 분기가 필요함");
+
+const disguisedStart =
+  MARKET_ERA_START_SESSION +
+  WHY_IS_IT_RISING_FIRST_ERA_INDEX * MARKET_ERA_SESSIONS;
+const disguised = getMarketEra(disguisedStart);
+assert.equal(disguised.archetypeId, "why-is-it-rising");
+assert.equal(disguised.whyIsItRising?.phase, "cover");
+assert.ok(["횡보장", "약세장"].includes(disguised.name));
+assert.equal(
+  disguised.whyIsItRising?.revealSession,
+  disguisedStart + WHY_IS_IT_RISING_REVEAL_OFFSET,
+);
+const disguisedReveal = getMarketEra(
+  disguisedStart + WHY_IS_IT_RISING_REVEAL_OFFSET,
+);
+assert.equal(disguisedReveal.whyIsItRising?.phase, "reveal");
+assert.match(disguisedReveal.name, /^정체 공개/);
+assert.ok(perSession(disguisedReveal) >= 0.02);
+
+const crisisWarStart =
+  MARKET_ERA_START_SESSION +
+  CRISIS_TO_WAR_FIRST_ERA_INDEX * MARKET_ERA_SESSIONS;
+const crisisWar = getMarketEra(crisisWarStart);
+assert.equal(crisisWar.archetypeId, "crisis-to-war");
+assert.equal(crisisWar.crisisToWar?.phase, "crisis");
+assert.equal(crisisWar.economyAsUsual?.phase, "active");
+const recovery = getMarketEra(
+  crisisWarStart + CRISIS_TO_WAR_CRISIS_SESSIONS,
+);
+assert.equal(recovery.crisisToWar?.phase, "recovery");
+assert.equal(recovery.economyAsUsual, undefined);
+const battle = getMarketEra(
+  crisisWarStart +
+    CRISIS_TO_WAR_CRISIS_SESSIONS +
+    CRISIS_TO_WAR_RECOVERY_SESSIONS,
+);
+assert.equal(battle.crisisToWar?.phase, "war");
 
 console.log("market era boom/bubble tests passed");

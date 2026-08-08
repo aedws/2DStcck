@@ -136,6 +136,10 @@ export interface StockDefinition {
    * 결정론 시뮬레이션에 참여한다. 비우면 기원점부터 상장된 것으로 본다.
    */
   listingEpochMs?: number;
+  /** 이 시각부터 신규 거래를 막고 마지막 공통 시세로 정산된 상장폐지 종목. */
+  delistingEpochMs?: number;
+  /** 상장폐지 원장 정산에 사용한 마지막 공통 가격(센트). */
+  delistingPrice?: number;
 }
 
 export interface EtfConstituent {

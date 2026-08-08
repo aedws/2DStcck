@@ -21,7 +21,35 @@ export type MarketEraArchetypeId =
   | "recovery"
   | "choppy"
   | "boom-bubble"
-  | "economy-as-usual";
+  | "economy-as-usual"
+  | "why-is-it-rising"
+  | "crisis-to-war";
+
+export type WhyIsItRisingPhase = "cover" | "reveal";
+
+export interface WhyIsItRisingEraState {
+  phase: WhyIsItRisingPhase;
+  /** 80% 지점 전에는 UI에 노출하지 않는 실제 기반 국면. */
+  hiddenArchetypeId: Exclude<
+    MarketEraArchetypeId,
+    | "neutral"
+    | "boom-bubble"
+    | "economy-as-usual"
+    | "why-is-it-rising"
+    | "crisis-to-war"
+  >;
+  revealSession: number;
+  displayMode: "sideways" | "bear";
+}
+
+export type CrisisToWarPhase = "crisis" | "recovery" | "war";
+
+export interface CrisisToWarEraState {
+  phase: CrisisToWarPhase;
+  hiddenScenarioId: EconomyAsUsualScenarioId;
+  crisisEndSession: number;
+  recoveryEndSession: number;
+}
 
 export type BoomBubbleOutcome = "boom" | "bubble";
 export type BoomBubblePhase =
@@ -53,7 +81,11 @@ export interface EconomyAsUsualEraState {
   phase: EconomyAsUsualPhase;
   coverArchetypeId: Exclude<
     MarketEraArchetypeId,
-    "neutral" | "boom-bubble" | "economy-as-usual"
+    | "neutral"
+    | "boom-bubble"
+    | "economy-as-usual"
+    | "why-is-it-rising"
+    | "crisis-to-war"
   >;
   decisionSessions: number[];
   /** UI에는 노출하지 않는 전역 공통 판정 결과다. */
@@ -101,6 +133,24 @@ const ECONOMY_AS_USUAL_ARCHETYPE: EraArchetype = {
   driftBiasPerSession: 0,
 };
 
+const WHY_IS_IT_RISING_ARCHETYPE: EraArchetype = {
+  id: "why-is-it-rising",
+  name: "뭐임? 왜오름???",
+  emoji: "❓",
+  volMul: 0.9,
+  trendMul: 0.85,
+  driftBiasPerSession: -0.002,
+};
+
+const CRISIS_TO_WAR_ARCHETYPE: EraArchetype = {
+  id: "crisis-to-war",
+  name: "역사적인 경제위기는 언제나 대전쟁의 불씨였다",
+  emoji: "🔥",
+  volMul: 1.8,
+  trendMul: 1.35,
+  driftBiasPerSession: -0.012,
+};
+
 /** 국면 길이(거래일). 시즌(20)의 배수라 이후 시즌 정렬과 맞물린다. */
 export const MARKET_ERA_SESSIONS = 60;
 /** 최초 신규 복합 국면. 2026-07-31 09:00 KST 시작, 기존 과거 에라는 불변. */
@@ -111,6 +161,19 @@ export const BOOM_BUBBLE_ERA_INTERVAL = 7;
 export const ECONOMY_AS_USUAL_FIRST_ERA_INDEX = 8;
 /** 대호황·버블과 겹치지 않는 별도 7국면 주기다. */
 export const ECONOMY_AS_USUAL_ERA_INTERVAL = 7;
+/** 2026-08-10 09:00 KST부터 신규 위장 국면을 미래 시장에만 편성한다. */
+export const WHY_IS_IT_RISING_FIRST_ERA_INDEX = 10;
+export const WHY_IS_IT_RISING_ERA_INTERVAL = 13;
+/** 위장 국면 다음 에라부터 경제위기→회복→전쟁 복합 국면을 편성한다. */
+export const CRISIS_TO_WAR_FIRST_ERA_INDEX = 11;
+export const CRISIS_TO_WAR_ERA_INTERVAL = 13;
+export const WHY_IS_IT_RISING_REVEAL_OFFSET = Math.floor(
+  MARKET_ERA_SESSIONS * 0.8,
+);
+export const CRISIS_TO_WAR_CRISIS_SESSIONS = Math.floor(
+  MARKET_ERA_SESSIONS * 0.5,
+);
+export const CRISIS_TO_WAR_RECOVERY_SESSIONS = 5;
 export const ECONOMY_AS_USUAL_FIRST_DECISION_OFFSET = 5;
 export const ECONOMY_AS_USUAL_DECISION_INTERVAL = 10;
 export const ECONOMY_AS_USUAL_CRISIS_DELAY = 4;
@@ -145,6 +208,8 @@ export interface MarketEra {
   endSession: number;
   boomBubble?: BoomBubbleEraState;
   economyAsUsual?: EconomyAsUsualEraState;
+  whyIsItRising?: WhyIsItRisingEraState;
+  crisisToWar?: CrisisToWarEraState;
 }
 
 const NEUTRAL_ERA: MarketEra = {
@@ -184,11 +249,114 @@ function archetypeForEra(index: number): EraArchetype {
   ) {
     return ECONOMY_AS_USUAL_ARCHETYPE;
   }
+  if (
+    index >= WHY_IS_IT_RISING_FIRST_ERA_INDEX &&
+    (index - WHY_IS_IT_RISING_FIRST_ERA_INDEX) %
+      WHY_IS_IT_RISING_ERA_INTERVAL ===
+      0
+  ) {
+    return WHY_IS_IT_RISING_ARCHETYPE;
+  }
+  if (
+    index >= CRISIS_TO_WAR_FIRST_ERA_INDEX &&
+    (index - CRISIS_TO_WAR_FIRST_ERA_INDEX) %
+      CRISIS_TO_WAR_ERA_INTERVAL ===
+      0
+  ) {
+    return CRISIS_TO_WAR_ARCHETYPE;
+  }
   const pick = hashIndex(index, ARCHETYPES.length);
   if (index > 0 && pick === hashIndex(index - 1, ARCHETYPES.length)) {
     return ARCHETYPES[(pick + 1) % ARCHETYPES.length];
   }
   return ARCHETYPES[pick];
+}
+
+function whyIsItRisingModifiers(
+  index: number,
+  session: number,
+  startSession: number,
+) {
+  const hidden = ARCHETYPES[
+    hashIndex(index * 149 + 31, ARCHETYPES.length)
+  ];
+  const revealSession = startSession + WHY_IS_IT_RISING_REVEAL_OFFSET;
+  const displayMode =
+    hashIndex(Math.floor((session - startSession) / 4) + index * 17, 2) === 0
+      ? ("sideways" as const)
+      : ("bear" as const);
+  const revealed = session >= revealSession;
+  return {
+    name: revealed
+      ? `정체 공개 · ${hidden.name}`
+      : displayMode === "sideways"
+        ? "횡보장"
+        : "약세장",
+    volMul: revealed ? Math.max(1.3, hidden.volMul) : displayMode === "sideways" ? 0.72 : 1.15,
+    trendMul: revealed ? Math.max(1.2, hidden.trendMul) : displayMode === "sideways" ? 0.75 : 1.05,
+    driftBiasPerSession: revealed
+      ? 0.022
+      : displayMode === "sideways"
+        ? 0
+        : -0.009,
+    state: {
+      phase: revealed ? ("reveal" as const) : ("cover" as const),
+      hiddenArchetypeId:
+        hidden.id as WhyIsItRisingEraState["hiddenArchetypeId"],
+      revealSession,
+      displayMode,
+    },
+  };
+}
+
+function crisisToWarModifiers(
+  index: number,
+  session: number,
+  startSession: number,
+) {
+  const crisisEndSession = startSession + CRISIS_TO_WAR_CRISIS_SESSIONS;
+  const recoveryEndSession =
+    crisisEndSession + CRISIS_TO_WAR_RECOVERY_SESSIONS;
+  const scenarioIds: EconomyAsUsualScenarioId[] = [
+    "liquidity-drought",
+    "giant-fraud",
+    "bank-run",
+    "private-credit",
+  ];
+  const hiddenScenarioId =
+    scenarioIds[hashIndex(index * 163 + 47, scenarioIds.length)];
+  const phase: CrisisToWarPhase =
+    session < crisisEndSession
+      ? "crisis"
+      : session < recoveryEndSession
+        ? "recovery"
+        : "war";
+  return {
+    name:
+      phase === "crisis"
+        ? "역사적 경제위기"
+        : phase === "recovery"
+          ? "폐허 속 숨 고르기"
+          : "위기가 낳은 대전쟁",
+    volMul: phase === "crisis" ? 2.05 : phase === "recovery" ? 0.8 : 1.75,
+    trendMul: phase === "crisis" ? 1.45 : phase === "recovery" ? 0.75 : 1.35,
+    driftBiasPerSession:
+      phase === "crisis" ? -0.018 : phase === "recovery" ? 0.004 : -0.007,
+    state: {
+      phase,
+      hiddenScenarioId,
+      crisisEndSession,
+      recoveryEndSession,
+    },
+    economyState: {
+      phase: "active" as const,
+      coverArchetypeId: "bear" as const,
+      decisionSessions: [startSession],
+      hiddenScenarioId,
+      triggerDecisionSession: startSession,
+      crisisStartSession: startSession,
+    },
+  };
 }
 
 function economyAsUsualState(
@@ -349,6 +517,14 @@ export function getMarketEra(session: number): MarketEra {
     arch.id === "economy-as-usual"
       ? economyAsUsualState(index, session, startSession)
       : null;
+  const whyIsItRising =
+    arch.id === "why-is-it-rising"
+      ? whyIsItRisingModifiers(index, session, startSession)
+      : null;
+  const crisisToWar =
+    arch.id === "crisis-to-war"
+      ? crisisToWarModifiers(index, session, startSession)
+      : null;
   const cover =
     economyAsUsual && economyAsUsual.phase !== "active"
       ? ARCHETYPES.find(
@@ -358,25 +534,41 @@ export function getMarketEra(session: number): MarketEra {
   return {
     index,
     archetypeId: arch.id,
-    name: boomBubble?.name ?? arch.name,
+    name:
+      boomBubble?.name ??
+      whyIsItRising?.name ??
+      crisisToWar?.name ??
+      arch.name,
     emoji: arch.emoji,
     volMul:
       boomBubble?.volMul ??
+      whyIsItRising?.volMul ??
+      crisisToWar?.volMul ??
       cover?.volMul ??
       (economyAsUsual?.phase === "active" ? 1.55 : arch.volMul),
     trendMul:
       boomBubble?.trendMul ??
+      whyIsItRising?.trendMul ??
+      crisisToWar?.trendMul ??
       cover?.trendMul ??
       (economyAsUsual?.phase === "active" ? 1.25 : arch.trendMul),
     driftPerSecond:
       (boomBubble?.driftBiasPerSession ??
+        whyIsItRising?.driftBiasPerSession ??
+        crisisToWar?.driftBiasPerSession ??
         cover?.driftBiasPerSession ??
         arch.driftBiasPerSession) /
       (SESSION_DURATION_MS / 1000),
     startSession,
     endSession: startSession + MARKET_ERA_SESSIONS,
     boomBubble: boomBubble?.state,
-    economyAsUsual: economyAsUsual ?? undefined,
+    economyAsUsual:
+      economyAsUsual ??
+      (crisisToWar?.state.phase === "crisis"
+        ? crisisToWar.economyState
+        : undefined),
+    whyIsItRising: whyIsItRising?.state,
+    crisisToWar: crisisToWar?.state,
   };
 }
 

@@ -59,6 +59,7 @@ import {
 } from "@/lib/market/marketCrises";
 import {
   getActiveScheduledWar,
+  recurringWarBattleReturnForStock,
   scheduledWarReturnForStock,
 } from "@/lib/market/scheduledWar";
 import { belowInitialPriceBuybackReturn } from "@/lib/market/shareholderPolicy";
@@ -346,6 +347,10 @@ export function calculateTickPrice(
     stock,
     dtSeconds,
   );
+  const recurringWarReturn =
+    era.crisisToWar?.phase === "war"
+      ? recurringWarBattleReturnForStock(stock, dtSeconds)
+      : 0;
   // 공동 유동성 투입이 성공한 순간부터 해당 위기의 강제 매도·신용 경색 하방은
   // 중단한다. 정상적인 기업별 악재와 전쟁·경기 국면은 그대로 유지한다.
   const resolvedCrisisReturn = liquidityIntervention
@@ -353,7 +358,8 @@ export function calculateTickPrice(
     : crisisReturn;
   const resolvedEconomyAsUsualReturn = liquidityIntervention
     ? Math.max(0, economyAsUsualReturn)
-    : economyAsUsualReturn;
+    : economyAsUsualReturn *
+      (era.crisisToWar?.phase === "crisis" ? 1.35 : 1);
   const rescueReturn = liquidityRescueReturn(
     liquidityIntervention,
     session,
@@ -374,6 +380,7 @@ export function calculateTickPrice(
     cycleReturn +
     resolvedCrisisReturn +
     warReturn +
+    recurringWarReturn +
     resolvedEconomyAsUsualReturn +
     rescueReturn +
     secularGrowthSupport +

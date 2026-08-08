@@ -38,6 +38,8 @@ export function MarketEraBanner() {
   const left = Math.max(0, era.endSession - session);
   const boomBubble = era.boomBubble;
   const economyAsUsual = era.economyAsUsual;
+  const whyIsItRising = era.whyIsItRising;
+  const crisisToWar = era.crisisToWar;
   const phaseText =
     boomBubble?.phase === "sideways"
       ? "횡보 관망 · 판정 비공개"
@@ -49,7 +51,17 @@ export function MarketEraBanner() {
             ? "버블 판정 · 하락 지속"
             : boomBubble
               ? "강한 상승 · 호황/버블 판정 비공개"
-              : economyAsUsual?.phase === "active"
+              : whyIsItRising?.phase === "reveal"
+                ? `숨겨진 ${whyIsItRising.hiddenArchetypeId} 국면 공개 · 종가까지 강한 랠리`
+                : whyIsItRising
+                  ? `${whyIsItRising.displayMode === "sideways" ? "횡보" : "하락"} 위장 중 · 실제 국면은 80% 지점에 공개`
+                  : crisisToWar?.phase === "crisis"
+                    ? "기존 경제위기 확대 · 전 업종 충격 증폭"
+                    : crisisToWar?.phase === "recovery"
+                      ? "5거래일 회복·횡보 구간"
+                      : crisisToWar?.phase === "war"
+                        ? "전면전 규칙 전환 · 방산·식품·의료 강세"
+                        : economyAsUsual?.phase === "active"
                 ? "경제 이상 징후 확산 · 위기 종류 비공개"
                 : economyAsUsual?.phase === "warning"
                   ? "비공개 판정 발생 · 4거래일 뒤 시장 반영"

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FeatureTutorialModal } from "@/components/ui/FeatureTutorialModal";
 import { PlayerCompanyBoardPanel } from "@/components/company/PlayerCompanyBoardPanel";
-import { PlayerCompanyGovernancePanel } from "@/components/company/PlayerCompanyGovernancePanel";
 import { PlayerCompanyInsolvencyPanel } from "@/components/company/PlayerCompanyInsolvencyPanel";
 import { PlayerCompanyOwnershipPanel } from "@/components/company/PlayerCompanyOwnershipPanel";
 import { PlayerCompanyStrategyPanel } from "@/components/company/PlayerCompanyStrategyPanel";
@@ -723,7 +722,17 @@ export default function CompanyPage() {
           )}
         </section>
         <PlayerCompanyInsolvencyPanel currentSession={currentSession} />
-        <PlayerCompanyGovernancePanel currentSession={currentSession} />
+        <Link
+          href="/governance"
+          className="mb-5 block rounded-3xl border border-cyan-400/30 bg-cyan-500/5 p-5"
+        >
+          <p className="text-xs font-bold text-cyan-300">별도 주주총회 탭</p>
+          <h2 className="mt-1 text-lg font-black">회사별 의결권·주주 안건 보기 →</h2>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            회사 운영 화면과 주주총회를 분리했습니다. 상장 회사 명부에서 원하는 회사를
+            선택해 투표와 안건 상정을 진행하세요.
+          </p>
+        </Link>
         <PublicCompanyDirectory companies={publicCompanies} />
       </div>
     );
@@ -1115,10 +1124,15 @@ export default function CompanyPage() {
           currentSession={currentSession}
         />
       )}
-      <PlayerCompanyGovernancePanel
-        founderStockId={listedStockId || undefined}
-        currentSession={currentSession}
-      />
+      {listedStockId && (
+        <Link
+          href={`/governance/${listedStockId}`}
+          className="mb-5 block rounded-3xl border border-cyan-400/30 bg-cyan-500/5 p-5"
+        >
+          <p className="text-xs font-bold text-cyan-300">별도 주주총회 탭</p>
+          <h2 className="mt-1 text-lg font-black">내 회사 주주총회 열기 →</h2>
+        </Link>
+      )}
 
       {playerCompany.status === "listed" && (
         <section className="mb-5 rounded-3xl border border-cyan-400/30 bg-cyan-400/5 p-5">

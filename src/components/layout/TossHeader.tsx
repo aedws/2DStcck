@@ -10,7 +10,7 @@ import { formatSignedPercent, upDownClass } from "@/lib/ui/marketColors";
 import { useMarketStore } from "@/store/marketStore";
 import { isPumpStock } from "@/lib/market/pumpStocks";
 import { marketClassificationLabel } from "@/lib/market/taxonomy";
-import { isListed } from "@/lib/market/ipo";
+import { isDelisted, isListed } from "@/lib/market/ipo";
 import {
   isPortfolioPath,
   isTradePath,
@@ -34,6 +34,7 @@ const navGroups = [
     items: [
       { href: "/profile", label: "프로필" },
       { href: "/company", label: "회사" },
+      { href: "/governance", label: "주주총회" },
       { href: "/amc", label: "자산운용사" },
       { href: "/mastery", label: "숙련도" },
       { href: "/achievements", label: "업적" },
@@ -270,7 +271,11 @@ function StockSearch() {
     setOpen(false);
     setQuery("");
     const stock = stocks.find((item) => item.id === stockId);
-    router.push(stock && !isListed(stock) ? "/ipo" : `/stock/${stockId}`);
+    router.push(
+      stock && !isListed(stock) && !isDelisted(stock)
+        ? "/ipo"
+        : `/stock/${stockId}`,
+    );
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -316,6 +321,7 @@ function StockSearch() {
           ) : (
             results.map((s, i) => {
               const listed = isListed(s);
+              const delisted = isDelisted(s);
               const change = listed ? getDayChangePercent(s) : 0;
               return (
                 <button
@@ -336,14 +342,22 @@ function StockSearch() {
                     </span>
                   </span>
                   <span className="shrink-0 text-sm tabular-nums">
-                    {listed ? formatPrice(s.currentPrice) : `공모가 ${formatPrice(s.initialPrice)}`}
+                    {listed
+                      ? formatPrice(s.currentPrice)
+                      : delisted
+                        ? "상장폐지"
+                        : `공모가 ${formatPrice(s.initialPrice)}`}
                   </span>
                   <span
                     className={`w-16 shrink-0 text-right text-xs tabular-nums ${
                       listed ? upDownClass(change) : "text-[var(--muted)]"
                     }`}
                   >
-                    {listed ? formatSignedPercent(change) : "상장 예정"}
+                    {listed
+                      ? formatSignedPercent(change)
+                      : delisted
+                        ? "거래 종료"
+                        : "상장 예정"}
                   </span>
                 </button>
               );

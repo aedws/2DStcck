@@ -28,10 +28,10 @@ function valueLabel(proposal: PlayerCompanyGovernanceProposal) {
 }
 
 export function PlayerCompanyGovernancePanel({
-  founderStockId,
+  stockId,
   currentSession,
 }: {
-  founderStockId?: string;
+  stockId: string;
   currentSession: number;
 }) {
   const [proposals, setProposals] = useState<PlayerCompanyGovernanceProposal[]>(
@@ -51,19 +51,28 @@ export function PlayerCompanyGovernancePanel({
   useVisiblePolling(() => void refresh(), 60_000, [refresh]);
 
   const open = useMemo(
-    () => proposals.filter((proposal) => proposal.status === "open"),
-    [proposals],
+    () =>
+      proposals.filter(
+        (proposal) =>
+          proposal.stockId === stockId && proposal.status === "open",
+      ),
+    [proposals, stockId],
   );
   const recent = useMemo(
-    () => proposals.filter((proposal) => proposal.status !== "open").slice(0, 3),
-    [proposals],
+    () =>
+      proposals
+        .filter(
+          (proposal) =>
+            proposal.stockId === stockId && proposal.status !== "open",
+        )
+        .slice(0, 3),
+    [proposals, stockId],
   );
 
   const createProposal = async () => {
-    if (!founderStockId) return;
     setWorking(true);
     const result = await createPlayerCompanyGovernanceProposal({
-      stockId: founderStockId,
+      stockId,
       proposalType,
       proposedValue:
         proposalType === "expansion" || proposalType === "ceo_change"
@@ -89,9 +98,9 @@ export function PlayerCompanyGovernancePanel({
         <p className="text-xs font-bold text-cyan-300">플레이어 회사 거버넌스</p>
         <h2 className="mt-1 text-xl font-black">주주총회 투표</h2>
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-          창업주와 {PLAYER_COMPANY_LONG_TERM_VOTE_SESSIONS}거래일 이상 연속
+          경영권자와 {PLAYER_COMPANY_LONG_TERM_VOTE_SESSIONS}거래일 이상 연속
           보유한 장기 주주가 지분 가중 투표권을 행사합니다. 결과는 공통 주가와
-          회사 명성에 반영됩니다. 창업주 투표권도 회사 장부가 아닌 실제 계좌
+          회사 명성에 반영됩니다. 경영권자 투표권도 회사 장부가 아닌 실제 계좌
           보유주식 수로 계산됩니다.
         </p>
         <p className="mt-2 rounded-xl bg-cyan-400/10 p-3 text-[11px] leading-relaxed text-cyan-200">
@@ -101,8 +110,13 @@ export function PlayerCompanyGovernancePanel({
         </p>
       </div>
 
-      {founderStockId && (
-        <div className="mt-4 grid gap-3 rounded-2xl border border-cyan-400/20 bg-[var(--background)] p-4 sm:grid-cols-[1fr_1fr_auto]">
+      <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-[var(--background)] p-4">
+        <p className="mb-3 text-[11px] leading-relaxed text-[var(--muted)]">
+          경영권자 또는 실제 유통 보유량 3% 이상을 90거래일 연속 보유한 주요
+          주주가 안건을 상정할 수 있습니다. 배당·자사주 소각 같은 주주환원과 CEO
+          교체 요구도 같은 기준을 적용합니다.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <select
             value={proposalType}
             onChange={(event) =>
@@ -138,14 +152,14 @@ export function PlayerCompanyGovernancePanel({
           )}
           <button
             type="button"
-            disabled={working || open.some((item) => item.stockId === founderStockId)}
+            disabled={working || open.length > 0}
             onClick={() => void createProposal()}
             className="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
           >
             안건 상정
           </button>
         </div>
-      )}
+      </div>
 
       <div className="mt-4 space-y-3">
         {open.length === 0 && (

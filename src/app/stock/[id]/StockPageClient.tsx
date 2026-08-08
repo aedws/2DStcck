@@ -36,7 +36,11 @@ import {
   upDownClass,
 } from "@/lib/ui/marketColors";
 import { StockLogo } from "@/components/ui/StockLogo";
-import { isUpcomingIpo, listingCountdownLabel } from "@/lib/market/ipo";
+import {
+  isDelisted,
+  isUpcomingIpo,
+  listingCountdownLabel,
+} from "@/lib/market/ipo";
 import { marketClassificationLabel } from "@/lib/market/taxonomy";
 import { useMarketStore } from "@/store/marketStore";
 
@@ -428,6 +432,33 @@ export function StockPageClient({ id }: { id: string }) {
   // (주소로 직행해도 매매·옵션·공매도가 열리지 않게 UI 자체를 막는다.)
   if (isUpcomingIpo(stock)) {
     return <UpcomingIpoView stock={stock} />;
+  }
+
+  if (isDelisted(stock)) {
+    return (
+      <div className="mx-auto max-w-5xl pb-24">
+        <StockHeader stock={stock} />
+        <div className="m-4 rounded-3xl border border-amber-400/30 bg-amber-500/5 p-6">
+          <p className="text-xs font-bold text-amber-300">안전 상장폐지 완료</p>
+          <h1 className="mt-1 text-xl font-black">신규 거래가 종료됐습니다</h1>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+            보유 주식과 연결 파생상품은 상장폐지 직전 공통 시세로 현금 정산됩니다.
+            과거 차트와 회사 기록은 감사 목적으로 보존합니다.
+          </p>
+        </div>
+        <div className="px-4">
+          <CandlestickChart
+            candles={series.candles}
+            dailyCandles={series.dailyCandles}
+            history={series.history}
+            height={360}
+            mobileHeight={260}
+            averagePrice={holding?.averagePrice}
+            prevDayClose={stock.prevDayClose}
+          />
+        </div>
+      </div>
+    );
   }
 
   // 지수·선물은 직접 거래 불가 — 주문 없이 차트·뉴스 전용 화면

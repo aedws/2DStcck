@@ -37,6 +37,7 @@ const menuGroups: Array<{ label: string; items: MobileNavItem[] }> = [
     label: "성장",
     items: [
       { href: "/profile", label: "프로필", icon: "👤" },
+      { href: "/governance", label: "주주총회", icon: "🏛️" },
       { href: "/mastery", label: "숙련도", icon: "🎓" },
       { href: "/achievements", label: "업적", icon: "🎖️" },
       { href: "/missions", label: "의뢰", icon: "📋" },

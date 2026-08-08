@@ -65,5 +65,19 @@ assert.match(migration, /player_company_governance_votes/);
 assert.match(migration, /apply_player_company_reputation/);
 assert.match(migration, /earnings_growth_delta/);
 
+const feedbackMigration = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../supabase/migrations/20260809050000_apply_remaining_feedback.sql",
+      import.meta.url,
+    ),
+  ),
+  "utf8",
+);
+assert.match(feedbackMigration, /v_quantity \/ v_total_quantity < 0\.03/);
+assert.match(feedbackMigration, /v_held_since > v_session - 90/);
+assert.match(feedbackMigration, /list_player_company_governance_directory/);
+assert.match(feedbackMigration, /delisted_at is null/);
+
 setPlayerCompanyMarketActions([]);
 console.log("player company governance tests passed");

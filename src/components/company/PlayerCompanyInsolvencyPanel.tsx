@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useVisiblePolling } from "@/lib/ui/useVisiblePolling";
 import { formatExactMoney } from "@/lib/market/exactAmount";
@@ -18,7 +19,6 @@ import {
 import { formatExactShareQuantity } from "@/lib/supabase/playerCompanyOwnership";
 import { useMarketStore } from "@/store/marketStore";
 import { PlayerCompanyBoardPanel } from "./PlayerCompanyBoardPanel";
-import { PlayerCompanyGovernancePanel } from "./PlayerCompanyGovernancePanel";
 
 const OPTIONS: Array<{
   type: PlayerCompanyInsolvencyOption;
@@ -416,10 +416,12 @@ export function PlayerCompanyInsolvencyPanel({
             stockId={selected.stockId}
             currentSession={currentSession}
           />
-          <PlayerCompanyGovernancePanel
-            founderStockId={selected.stockId}
-            currentSession={currentSession}
-          />
+          <Link
+            href={`/governance/${selected.stockId}`}
+            className="mt-5 block rounded-2xl border border-cyan-400/30 bg-cyan-500/5 p-4 text-sm font-bold text-cyan-200"
+          >
+            이 회사 주주총회 열기 →
+          </Link>
         </div>
       )}
     </section>

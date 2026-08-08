@@ -18,18 +18,33 @@ export function listingTickOf(def: {
 
 /** 지금 시각 기준 상장되어 거래 가능한가. */
 export function isListed(
-  def: { listingEpochMs?: number },
+  def: { listingEpochMs?: number; delistingEpochMs?: number },
   nowMs: number = Date.now(),
 ): boolean {
-  return !def.listingEpochMs || nowMs >= def.listingEpochMs;
+  return (
+    (!def.listingEpochMs || nowMs >= def.listingEpochMs) &&
+    (!def.delistingEpochMs || nowMs < def.delistingEpochMs)
+  );
+}
+
+/** 회사 존속 기록과 과거 차트는 남지만 신규 주문은 종료된 종목인가. */
+export function isDelisted(
+  def: { delistingEpochMs?: number },
+  nowMs: number = Date.now(),
+): boolean {
+  return Boolean(def.delistingEpochMs) && nowMs >= def.delistingEpochMs!;
 }
 
 /** 아직 상장 전(IPO 예정)인가. */
 export function isUpcomingIpo(
-  def: { listingEpochMs?: number },
+  def: { listingEpochMs?: number; delistingEpochMs?: number },
   nowMs: number = Date.now(),
 ): boolean {
-  return Boolean(def.listingEpochMs) && nowMs < def.listingEpochMs!;
+  return (
+    !isDelisted(def, nowMs) &&
+    Boolean(def.listingEpochMs) &&
+    nowMs < def.listingEpochMs!
+  );
 }
 
 /** 상장까지 남은 ms (이미 상장이면 0). */

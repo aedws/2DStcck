@@ -109,7 +109,7 @@ import {
   PUMP_FILL_IMPACT_SCALE_MARKET,
   replaceActivePumpStocks,
 } from "@/lib/market/pumpStocks";
-import { isListed } from "@/lib/market/ipo";
+import { isDelisted, isListed } from "@/lib/market/ipo";
 import {
   OPERATIONAL_COMPENSATIONS,
   settleOperationalCompensations,
@@ -1358,6 +1358,76 @@ function quantityExactOf(position: { quantity: number; quantityExact?: string })
   );
 }
 
+function settleDelistedStockHoldings(
+  state: Pick<
+    MarketStore,
+    | "cash"
+    | "cashExact"
+    | "holdings"
+    | "stocks"
+    | "trades"
+    | "openOrders"
+    | "recurringInvestments"
+  >,
+  now: number,
+) {
+  const delisted = new Map(
+    state.stocks
+      .filter(
+        (stock) =>
+          isDelisted(stock, now) &&
+          Number.isFinite(stock.delistingPrice) &&
+          stock.delistingPrice! > 0,
+      )
+      .map((stock) => [stock.id, stock]),
+  );
+  const affected = state.holdings.filter((holding) => delisted.has(holding.stockId));
+  if (affected.length === 0) {
+    return { changed: false as const, ...state };
+  }
+
+  let cashExact = exactCashOf(state);
+  let trades = state.trades;
+  for (const holding of affected) {
+    const stock = delisted.get(holding.stockId)!;
+    const tradeId = `safe-delist-${holding.stockId}-${stock.delistingEpochMs}`;
+    if (trades.some((trade) => trade.id === tradeId)) continue;
+    const totalExact = exactPositionValue(
+      stock.delistingPrice!,
+      quantityExactOf(holding),
+    );
+    cashExact = exactAdd(cashExact, totalExact);
+    trades = [
+      {
+        id: tradeId,
+        stockId: holding.stockId,
+        ticker: stock.ticker,
+        type: "sell",
+        quantity: holding.quantity,
+        quantityExact: quantityExactOf(holding),
+        price: stock.delistingPrice!,
+        total: exactToNumber(totalExact),
+        totalExact,
+        timestamp: stock.delistingEpochMs ?? now,
+      },
+      ...trades,
+    ];
+  }
+  const affectedIds = new Set(affected.map((holding) => holding.stockId));
+  return {
+    changed: true as const,
+    cash: exactToNumber(cashExact),
+    cashExact,
+    holdings: state.holdings.filter((holding) => !affectedIds.has(holding.stockId)),
+    trades,
+    openOrders: state.openOrders.filter((order) => !affectedIds.has(order.stockId)),
+    recurringInvestments: state.recurringInvestments.filter(
+      (plan) => !affectedIds.has(plan.stockId),
+    ),
+    stocks: state.stocks,
+  };
+}
+
 function normalizePositionExactQuantities<
   T extends { quantity: number; quantityExact?: string },
 >(positions: T[]): T[] {
@@ -1869,7 +1939,9 @@ function applyLocalBuySell(
   if (!isListed(stock)) {
     return {
       success: false,
-      message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+      message: isDelisted(stock)
+        ? "상장폐지되어 거래가 종료된 종목입니다. 보유분은 마지막 공통 시세로 정산됩니다."
+        : "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
     };
   }
 
@@ -2076,7 +2148,9 @@ export const useMarketStore = create<MarketStore>()(
         if (!isListed(stock)) {
           return {
             success: false,
-            message: "상장 전 종목은 주식 모으기를 설정할 수 없습니다.",
+            message: isDelisted(stock)
+              ? "상장폐지 종목은 주식 모으기를 설정할 수 없습니다."
+              : "상장 전 종목은 주식 모으기를 설정할 수 없습니다.",
           };
         }
         if (!Number.isFinite(amount) || Math.round(amount) < MIN_RECURRING_AMOUNT) {
@@ -3183,7 +3257,9 @@ export const useMarketStore = create<MarketStore>()(
         if (!isListed(stock)) {
           return {
             success: false,
-            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+            message: isDelisted(stock)
+              ? "상장폐지되어 신규 주문이 종료된 종목입니다."
+              : "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
           };
         }
         if (!isValidShareQuantity(quantity)) {
@@ -3243,6 +3319,24 @@ export const useMarketStore = create<MarketStore>()(
       tickMarket: () => {
         const now = Date.now();
         let state = get();
+        const delistingSettlement = settleDelistedStockHoldings(state, now);
+        if (delistingSettlement.changed) {
+          const next = {
+            ...state,
+            cash: delistingSettlement.cash,
+            cashExact: delistingSettlement.cashExact,
+            holdings: delistingSettlement.holdings,
+            trades: delistingSettlement.trades,
+            openOrders: delistingSettlement.openOrders,
+            recurringInvestments: delistingSettlement.recurringInvestments,
+          };
+          set(next);
+          state = next;
+          useToastStore
+            .getState()
+            .push("📕 상장폐지 보유분을 마지막 공통 시세로 안전 정산했습니다.", "info");
+          void get().saveCloud();
+        }
         const listedCompany = reconcilePlayerCompanyIpo(
           state.playerCompany,
           state.holdings,
@@ -4941,7 +5035,9 @@ export const useMarketStore = create<MarketStore>()(
         if (!isListed(stock)) {
           return {
             success: false,
-            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+            message: isDelisted(stock)
+              ? "상장폐지 종목은 공매도할 수 없습니다."
+              : "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
           };
         }
         const price = getMarketSellPrice(stock.currentPrice);
@@ -5102,7 +5198,9 @@ export const useMarketStore = create<MarketStore>()(
         if (!isListed(stock)) {
           return {
             success: false,
-            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+            message: isDelisted(stock)
+              ? "상장폐지 종목은 새 옵션 계약을 열 수 없습니다."
+              : "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
           };
         }
         const session = Math.floor(now / SESSION_DURATION_MS);
@@ -5223,7 +5321,9 @@ export const useMarketStore = create<MarketStore>()(
         if (!isListed(stock)) {
           return {
             success: false,
-            message: "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
+            message: isDelisted(stock)
+              ? "상장폐지 종목은 새 옵션 계약을 열 수 없습니다."
+              : "아직 상장 전인 종목입니다. IPO 탭에서 상장 시각을 확인하세요.",
           };
         }
         const session = Math.floor(now / SESSION_DURATION_MS);

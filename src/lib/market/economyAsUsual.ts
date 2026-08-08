@@ -50,7 +50,11 @@ function stateAt(
 ): EconomyAsUsualEraState | null {
   const state = era.economyAsUsual;
   if (
-    era.archetypeId !== "economy-as-usual" ||
+    (era.archetypeId !== "economy-as-usual" &&
+      !(
+        era.archetypeId === "crisis-to-war" &&
+        era.crisisToWar?.phase === "crisis"
+      )) ||
     !state?.hiddenScenarioId ||
     state.crisisStartSession === undefined ||
     session < state.crisisStartSession
