@@ -20,6 +20,8 @@ assert.equal(isServiceRebuildPublicPath("/service-update"), true);
 assert.equal(isServiceRebuildPublicPath("/2DStock/service-update/"), true);
 assert.equal(isServiceRebuildPublicPath("/login"), true);
 assert.equal(isServiceRebuildPublicPath("/2DStock/login/"), true);
+assert.equal(isServiceRebuildPublicPath("/admin"), true);
+assert.equal(isServiceRebuildPublicPath("/2DStock/admin/"), true);
 assert.equal(isServiceRebuildPublicPath("/"), false);
 assert.equal(isServiceRebuildPublicPath("/trade"), false);
 

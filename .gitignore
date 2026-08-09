@@ -40,4 +40,7 @@ next-env.d.ts
 # local platform links
 /.vercel
 /supabase/.temp/
+
+# independent V2 repository
+/v2-preview/
 supabase/newproject_setup/02_data.sql
