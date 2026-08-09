@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { isServiceRebuildClosed } from "@/lib/serviceShutdown";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +11,11 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [feedbackOnlyMode, setFeedbackOnlyMode] = useState(false);
+
+  useEffect(() => {
+    setFeedbackOnlyMode(isServiceRebuildClosed());
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,6 +42,11 @@ export default function LoginPage() {
     });
 
     if (error) {
+      if (feedbackOnlyMode) {
+        setMessage("자정 이후에는 기존 V1 계정으로만 로그인해 V2 개선안을 남길 수 있습니다.");
+        setLoading(false);
+        return;
+      }
       // 처음 접근하는 아이디면 자동 가입. 이메일 발송·Edge Function·"Confirm email"
       // 설정에 의존하지 않도록 서버 DB 함수로 계정을 만든다(비밀번호는 bcrypt 해시).
       // 이미 존재하는 아이디면 'exists'만 반환하고 그대로 로그인으로 PIN을 검증한다.
@@ -63,7 +74,9 @@ export default function LoginPage() {
     <div className="mx-auto max-w-md px-4 py-16">
       <h1 className="mb-2 text-2xl font-bold">2DStock 로그인</h1>
       <p className="mb-8 text-sm text-[var(--muted)]">
-        아이디와 PIN만으로 접속하면 보유 종목과 매매내역이 저장됩니다.
+        {feedbackOnlyMode
+          ? "기존 V1 아이디와 PIN으로 로그인해 V2 개선안과 기능 요청을 남길 수 있습니다."
+          : "아이디와 PIN만으로 접속하면 보유 종목과 매매내역이 저장됩니다."}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -104,13 +117,14 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full rounded-xl bg-[var(--accent)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
-          {loading ? "확인 중..." : "시작하기"}
+          {loading ? "확인 중..." : feedbackOnlyMode ? "로그인하여 개선안 남기기" : "시작하기"}
         </button>
       </form>
 
       <div className="mt-5 rounded-xl bg-[var(--surface)] px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
-        처음 입력한 아이디는 자동으로 가입됩니다. 이메일을 받지 않으므로 아이디나
-        PIN을 잊으면 복구할 수 없습니다.
+        {feedbackOnlyMode
+          ? "금융 원장은 동결되어 있으며 로그인은 V2 개선안 제출과 내 요청 상태 확인에만 사용됩니다."
+          : "처음 입력한 아이디는 자동으로 가입됩니다. 이메일을 받지 않으므로 아이디나 PIN을 잊으면 복구할 수 없습니다."}
       </div>
 
       {message && (
