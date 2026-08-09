@@ -1,0 +1,615 @@
+[
+  {
+    "category": "macro",
+    "tag": "금리",
+    "title": "금리 인하 기대",
+    "description": "중앙은행의 완화적 통화정책 기대감이 시장 전반에 확산됩니다."
+  },
+  {
+    "category": "macro",
+    "tag": "금리",
+    "title": "금리 동결 실망",
+    "description": "기대했던 금리 인하가 미뤄지며 위험자산 전반이 약세입니다."
+  },
+  {
+    "category": "macro",
+    "tag": "위험선호",
+    "title": "글로벌 위험선호 회복",
+    "description": "위험자산 선호가 살아나며 성장주 중심으로 반등합니다."
+  },
+  {
+    "category": "macro",
+    "tag": "위험선호",
+    "title": "시장 전반 조정",
+    "description": "투자 심리 위축으로 전 종목에 조정 압력이 가해집니다."
+  },
+  {
+    "category": "macro",
+    "tag": "실적",
+    "title": "실적 시즌 호조",
+    "description": "주요 기업들의 분기 실적이 시장 예상을 상회했습니다."
+  },
+  {
+    "category": "macro",
+    "tag": "실적",
+    "title": "실적 시즌 부진",
+    "description": "주요 기업들의 실적이 기대에 못 미치며 실망 매물이 나옵니다."
+  },
+  {
+    "category": "sector",
+    "tag": "지정학",
+    "title": "지정학 리스크 고조",
+    "description": "국경 분쟁 격화로 방위 예산 증액 논의가 급물살을 탑니다.",
+    "sector": "방산"
+  },
+  {
+    "category": "sector",
+    "tag": "치안",
+    "title": "키보토스 치안 불안 고조",
+    "description": "곳곳의 소요 사태로 경비·경호 수요가 급증하고 있습니다.",
+    "sector": "PMC"
+  },
+  {
+    "category": "sector",
+    "tag": "보안",
+    "title": "대규모 해킹 사태",
+    "description": "연쇄 해킹 공격에 보안 솔루션 수요가 폭증합니다.",
+    "sector": "보안"
+  },
+  {
+    "category": "sector",
+    "tag": "신작",
+    "title": "신작 게임 글로벌 흥행",
+    "description": "신작 게임의 글로벌 흥행으로 게임 섹터가 강세입니다.",
+    "sector": "게임"
+  },
+  {
+    "category": "sector",
+    "tag": "규제",
+    "title": "임상 규제 완화",
+    "description": "신약 승인 절차 간소화 소식에 바이오 섹터가 급등합니다.",
+    "sector": "바이오"
+  },
+  {
+    "category": "sector",
+    "tag": "원가",
+    "title": "식자재 가격 급등",
+    "description": "식자재 가격 상승으로 요식업 마진 우려가 커집니다.",
+    "sector": "요식업"
+  },
+  {
+    "category": "sector",
+    "tag": "신용",
+    "title": "신용 스프레드 확대",
+    "description": "신용 경계감이 커지며 학원채 가격이 일제히 밀립니다.",
+    "sector": "채권"
+  },
+  {
+    "category": "sector",
+    "tag": "소비",
+    "title": "연휴 특수 기대",
+    "description": "긴 연휴를 앞두고 여행 수요가 빠르게 살아나고 있습니다.",
+    "sector": "관광"
+  },
+  {
+    "category": "sector",
+    "tag": "금융",
+    "title": "예대마진 개선 기대",
+    "description": "금리 환경 개선으로 금융사 수익성 기대가 커집니다.",
+    "sector": "금융"
+  },
+  {
+    "category": "sector",
+    "tag": "금융",
+    "title": "부실 채권 우려",
+    "description": "연체율 상승 조짐에 금융 섹터 경계감이 확산됩니다.",
+    "sector": "금융"
+  },
+  {
+    "category": "sector",
+    "tag": "유가",
+    "title": "에너지 가격 급등",
+    "description": "에너지 가격 강세로 관련 기업 실적 기대가 커집니다.",
+    "sector": "에너지"
+  },
+  {
+    "category": "sector",
+    "tag": "유가",
+    "title": "에너지 가격 급락",
+    "description": "수요 둔화 전망에 에너지 가격이 미끄러집니다.",
+    "sector": "에너지"
+  },
+  {
+    "category": "sector",
+    "tag": "AI",
+    "title": "AI 투자 붐",
+    "description": "연산 인프라 투자 확대에 기술주가 강세입니다.",
+    "sector": "기술"
+  },
+  {
+    "category": "sector",
+    "tag": "규제",
+    "title": "기술 규제 강화",
+    "description": "플랫폼·AI 규제 논의로 기술주에 매도 압력이 나타납니다.",
+    "sector": "기술"
+  },
+  {
+    "category": "sector",
+    "tag": "흥행",
+    "title": "콘텐츠 글로벌 흥행",
+    "description": "히트 콘텐츠 등장으로 엔터 섹터에 훈풍이 붑니다.",
+    "sector": "엔터"
+  },
+  {
+    "category": "sector",
+    "tag": "흥행",
+    "title": "시청률 부진",
+    "description": "기대작들의 성적 부진으로 엔터 섹터가 약세입니다.",
+    "sector": "엔터"
+  },
+  {
+    "category": "sector",
+    "tag": "지정학",
+    "title": "평화 협정 진전",
+    "description": "긴장 완화 소식에 방위 예산 축소 우려가 제기됩니다.",
+    "sector": "방산"
+  },
+  {
+    "category": "sector",
+    "tag": "치안",
+    "title": "과잉 진압 논란",
+    "description": "경비 업계의 과잉 대응 논란으로 규제 목소리가 커집니다.",
+    "sector": "PMC"
+  },
+  {
+    "category": "sector",
+    "tag": "신작",
+    "title": "기대작 혹평",
+    "description": "화제의 신작이 혹평을 받으며 게임 섹터가 흔들립니다.",
+    "sector": "게임"
+  },
+  {
+    "category": "sector",
+    "tag": "규제",
+    "title": "임상 실패 여파",
+    "description": "대형 임상 실패 소식에 바이오 투자 심리가 얼어붙습니다.",
+    "sector": "바이오"
+  },
+  {
+    "category": "sector",
+    "tag": "보안",
+    "title": "보안 예산 삭감",
+    "description": "긴축 기조로 보안 투자 예산이 줄어들 것이란 전망입니다.",
+    "sector": "보안"
+  },
+  {
+    "category": "sector",
+    "tag": "소비",
+    "title": "외식 수요 회복",
+    "description": "외식 소비가 살아나며 요식업 실적 기대가 커집니다.",
+    "sector": "요식업"
+  },
+  {
+    "category": "sector",
+    "tag": "신용",
+    "title": "안전자산 선호",
+    "description": "불확실성 회피 수요가 몰리며 학원채 가격이 오릅니다.",
+    "sector": "채권"
+  },
+  {
+    "category": "sector",
+    "tag": "소비",
+    "title": "악천후 여행 취소",
+    "description": "이상 기후로 여행 취소가 잇따르며 관광 섹터가 약세입니다.",
+    "sector": "관광"
+  },
+  {
+    "category": "company",
+    "tag": "수주",
+    "title": "{company} 대형 수주",
+    "description": "{company}이(가) 대형 공급 계약을 따내며 실적 기대가 커집니다."
+  },
+  {
+    "category": "company",
+    "tag": "신제품",
+    "title": "{company} 신제품 공개",
+    "description": "{company}의 신제품 발표가 시장의 호평을 받고 있습니다."
+  },
+  {
+    "category": "company",
+    "tag": "실적",
+    "title": "{company} 어닝 서프라이즈",
+    "description": "{company}의 분기 실적이 컨센서스를 크게 상회했습니다."
+  },
+  {
+    "category": "company",
+    "tag": "실적",
+    "title": "{company} 실적 쇼크",
+    "description": "{company}의 분기 실적이 예상을 크게 밑돌았습니다."
+  },
+  {
+    "category": "company",
+    "tag": "스캔들",
+    "title": "{company} 경영 리스크 부각",
+    "description": "{ceo} {title} 관련 루머가 확산되며 투자 심리가 흔들립니다.",
+    "requiresCharacter": true
+  },
+  {
+    "category": "company",
+    "tag": "행보",
+    "title": "{ceo}의 깜짝 발표",
+    "description": "{company} {ceo} {title}이(가) 이례적인 공개 행보로 화제를 모읍니다.",
+    "requiresCharacter": true
+  },
+  {
+    "category": "company",
+    "tag": "자사주 소각",
+    "title": "미노리 용역, 사보타주 성공 보수 전량 소각",
+    "description": "사보타주 의뢰 보수로 받은 자사주가 대량 소각되며 유통 물량이 급감했습니다. 공매도 상환이 겹쳐 강한 숏 스퀴즈가 발생합니다.",
+    "companyId": "minori"
+  },
+  {
+    "category": "company",
+    "tag": "보수 갈등",
+    "title": "미노리 용역, 보수 협상 결렬 후 의뢰주까지 사보타주",
+    "description": "의뢰 보수 협상이 결렬되자 의뢰 대상과 의뢰주 양쪽의 현장이 동시에 마비됐습니다. 전환사채와 신주 발행 우려까지 겹치며 매물이 쏟아집니다.",
+    "companyId": "minori"
+  },
+  {
+    "category": "company",
+    "tag": "AI",
+    "title": "나구사 야키토리, AI 자동 굽기 플랫폼 발표",
+    "description": "꼬치의 뒤집는 시점과 화력을 자동 조절하는 설비가 AI 신사업으로 소개됐습니다. 식품주가 순식간에 인공지능 테마주로 묶이며 매수세가 몰립니다.",
+    "companyId": "nagusa"
+  },
+  {
+    "category": "company",
+    "tag": "조류독감",
+    "title": "조류독감 확산, 닭고기 공급망 비상",
+    "description": "조류독감 확산으로 원료육 수급 차질과 매장 휴업 우려가 커졌습니다. 닭꼬치 생산 원가와 공급 불확실성이 동시에 부각되며 매물이 쏟아집니다.",
+    "companyId": "nagusa"
+  },
+  {
+    "category": "company",
+    "tag": "잠입 판매",
+    "title": "붉은겨울 출판부, 타 학원 잠입 판매 대성공",
+    "description": "트리니티 등 타 학원에 잠입한 특별 판매가 완판되며 「레드베어」와 학원 인쇄물 수요가 폭증했습니다. 유통 확장 기대가 겹치며 매수세가 몰립니다.",
+    "companyId": "yakumo"
+  },
+  {
+    "category": "company",
+    "tag": "금서 검열",
+    "title": "금서·검열 파동, 인쇄·출고 전면 중단",
+    "description": "검열 강화와 금서 지정으로 주요 간행물 출고가 멈춰 섰습니다. 재고 회수와 설비 가동 우려가 커지며 출판주 매물이 쏟아집니다.",
+    "companyId": "yakumo"
+  },
+  {
+    "category": "company",
+    "tag": "정보 매매",
+    "title": "파우스트 투자증권, 출처 불명 정보로 대형 수익",
+    "description": "공매도·옵션·경영권 포지션이 동시에 맞아떨어지며 분기 트레이딩 손익이 폭증했습니다. 정보가 어디서 왔는지는 밝히지 않았지만, 주주환원 여력까지 커졌다는 기대가 매수세를 부릅니다.",
+    "companyId": "faust"
+  },
+  {
+    "category": "company",
+    "tag": "정보 오판",
+    "title": "파우스트 투자증권, 정보 해석 실패로 대규모 손실",
+    "description": "출처 불분명한 정보를 바탕으로 쌓은 포지션이 한꺼번에 반대방향으로 움직였습니다. 회사가 휘청일 수준의 트레이딩 손실이 공개되며 매물이 쏟아집니다.",
+    "companyId": "faust"
+  },
+  {
+    "category": "company",
+    "tag": "월드투어",
+    "title": "미쿠 엔터테인먼트, 월드투어·신곡 동시 히트",
+    "description": "홀로그램 라이브 월드투어 매진과 신곡 차트 석권이 겹치며 굿즈·음원·티켓 매출 기대가 폭증했습니다. 버추얼 싱어 IP 테마로 매수세가 몰립니다.",
+    "companyId": "miku"
+  },
+  {
+    "category": "company",
+    "tag": "라이선스 분쟁",
+    "title": "미쿠 엔터테인먼트, 콜라보 라이선스 분쟁",
+    "description": "대형 브랜드 콜라보 계약의 판권·사용 범위를 둘러싼 분쟁이 불거졌습니다. 공연·굿즈 일정 차질 우려에 매물이 쏟아집니다.",
+    "companyId": "miku"
+  },
+  {
+    "category": "company",
+    "tag": "수확량",
+    "title": "캬롯 농장, 저비료 고수확 재배법 상용화",
+    "description": "적은 비료로 동일 면적에서 훨씬 많은 농축산물을 생산하는 재배법이 검증됐습니다. 원가 경쟁력과 장기 성장 기대가 높아집니다.",
+    "companyId": "carrot"
+  },
+  {
+    "category": "company",
+    "tag": "대풍작",
+    "title": "캬롯 농장만 기록적 대풍작, 공급 과잉 우려",
+    "description": "회사 소유 농장에 이례적인 대풍작이 발생해 시장 가격이 급락했습니다. 업계 전반의 채산성이 흔들리지만, 캬롯 농장은 쌓아 둔 유보금으로 손실을 방어합니다.",
+    "companyId": "carrot"
+  },
+  {
+    "category": "company",
+    "tag": "품질",
+    "title": "아스나 유업, 블라인드 품평회 압도적 1위",
+    "description": "동일 품종·동일 사료 조건의 유제품을 가린 채 진행한 품평회에서 아스나 유업이 맛과 신선도 모두 1위를 차지했습니다. 프리미엄 납품 계약 기대가 커집니다.",
+    "companyId": "asuna"
+  },
+  {
+    "category": "company",
+    "tag": "원유 리콜",
+    "title": "아스나 유업, 원유 품질 검사 이상으로 일부 리콜",
+    "description": "정기 품질 검사에서 기준 밖 수치가 발견돼 일부 제품을 선제 회수합니다. 회사는 원인을 추적 중이지만 단기 매출과 브랜드 신뢰 우려가 커집니다.",
+    "companyId": "asuna"
+  },
+  {
+    "category": "company",
+    "tag": "역행 투자",
+    "title": "까모투자증권, 섹터 급락 속 역행 포지션 대박",
+    "description": "업종 전반이 급락한 가운데 까모투자증권이 홀로 반대 방향 포지션을 구축한 사실이 공개됐습니다. 예상 밖의 대규모 운용 수익에 매수세가 몰립니다.",
+    "companyId": "wakamo"
+  },
+  {
+    "category": "company",
+    "tag": "엉뚱한 투자",
+    "title": "까모투자증권, 섹터 호황에도 엉뚱한 집중투자 손실",
+    "description": "금융주 전반이 강세를 보였지만 대표가 갑자기 꽂힌 비주력 자산에 자금을 집중해 대규모 평가손실이 발생했습니다. 낮은 현금 여력까지 부각됩니다.",
+    "companyId": "wakamo"
+  },
+  {
+    "category": "company",
+    "tag": "정보",
+    "title": "까모투자증권, 수감 시절 인맥에서 얻은 동향 적중",
+    "description": "시장에 알려지기 전 포착한 기업 동향을 바탕으로 구축한 포지션이 적중했습니다. 수익은 급증했지만 정보 출처를 둘러싼 감시 위험도 함께 커집니다.",
+    "companyId": "wakamo"
+  },
+  {
+    "category": "company",
+    "tag": "페로로 페스티벌",
+    "title": "모모톡프렌즈, 크루세이더 전차 경품으로 페로로 페스티벌 흥행",
+    "description": "트리니티의 낡은 크루세이더 전차를 건 여름 한정 이벤트가 폭발적인 화제를 모았습니다. 메신저 신규 가입과 페로로 굿즈 판매가 동시에 급증합니다.",
+    "companyId": "hifumi"
+  },
+  {
+    "category": "company",
+    "tag": "메신저 트래픽",
+    "title": "모모톡프렌즈, 모모톡 트래픽·페로로 굿즈 판매 동반 신기록",
+    "description": "메신저 일간 이용자와 캐릭터 머천다이징 주문이 나란히 최고치를 경신했습니다. 스컬맨 협업을 지휘한 CDO 시라스 아즈사의 신제품도 완판됐습니다.",
+    "companyId": "hifumi"
+  },
+  {
+    "category": "company",
+    "tag": "서비스 장애",
+    "title": "모모톡프렌즈, 페스티벌 트래픽 폭주로 메신저 장시간 장애",
+    "description": "이벤트 응모와 대화량이 한꺼번에 몰리며 모모톡 서비스가 멈췄습니다. 크루세이더 전차 복원·배송 비용까지 겹쳐 프로모션 수익성 우려가 커집니다.",
+    "companyId": "hifumi"
+  },
+  {
+    "category": "company",
+    "tag": "연료비 절감",
+    "title": "이프리트 화력발전, 대표 직접 화력 공급으로 연료비 급감",
+    "description": "이프리트가 발전 보일러에 안정적으로 직접 불을 공급해 연료 투입량을 크게 줄였습니다. 전력 판매 마진과 분기 실적 기대가 함께 높아집니다.",
+    "companyId": "ifrit"
+  },
+  {
+    "category": "company",
+    "tag": "화력조절 실패",
+    "title": "이프리트 화력발전, 화력조절 실패로 발전 부품 긴급 교체",
+    "description": "보일러 온도가 설계 범위를 넘어서며 핵심 부품 일부가 손상됐습니다. 절감한 연료비를 넘어설 수 있는 수리비와 가동률 저하 우려가 반영됩니다.",
+    "companyId": "ifrit"
+  },
+  {
+    "category": "company",
+    "tag": "유전 발견",
+    "title": "스피드웨건 오일, 대형 유전 매장량 확인",
+    "description": "탐사 광구에서 예상치를 웃도는 원유 매장량이 확인됐습니다. 장기 생산량과 정유 설비 가동률 개선 기대가 동시에 높아집니다.",
+    "companyId": "speedwagon"
+  },
+  {
+    "category": "company",
+    "tag": "비축유 공급",
+    "title": "스피드웨건 오일, 공급 충격에 비축 원유 방출",
+    "description": "원유 공급 차질이 발생하자 비축 물량을 시장에 풀어 높은 판매 마진과 공급 안정 성과를 함께 거뒀습니다.",
+    "companyId": "speedwagon"
+  },
+  {
+    "category": "company",
+    "tag": "탐사 실패",
+    "title": "스피드웨건 오일, 신규 광구 탐사 실패",
+    "description": "대규모 탐사 비용을 투입한 광구의 상업성이 기준에 미달했습니다. 개발비 손상과 향후 생산량 공백 우려가 반영됩니다.",
+    "companyId": "speedwagon"
+  },
+  {
+    "category": "company",
+    "tag": "시그니처 디자인",
+    "title": "에덴 오트쿠튀르, 시그니처 컬렉션 장기 계약",
+    "description": "유행을 타지 않는 대표 실루엣의 장기 주문과 라이선스 계약이 이어졌습니다. 디자인 정체성과 희소성이 반복 매출의 해자로 평가받습니다.",
+    "companyId": "dorothy"
+  },
+  {
+    "category": "company",
+    "tag": "품질 관리",
+    "title": "에덴 오트쿠튀르, 전 제품 품질 보증 강화",
+    "description": "도로시가 소재·봉제 전수 검수와 장기 수선 보증을 확대했습니다. 단기 비용은 늘었지만 브랜드 신뢰와 재구매율이 높아졌습니다.",
+    "companyId": "dorothy"
+  },
+  {
+    "category": "company",
+    "tag": "임상 성과",
+    "title": "엘리시아 파마, 핵심 신약 임상 목표 달성",
+    "description": "대사질환 치료제의 주요 임상 지표가 목표를 충족했습니다. 승인 가능성과 글로벌 공급 확대 기대가 함께 높아집니다.",
+    "companyId": "elysia"
+  },
+  {
+    "category": "company",
+    "tag": "선행",
+    "title": "엘리시아 파마, 의약품 기부·의료 봉사 확대",
+    "description": "취약 지역 의약품 무상 공급과 임직원 의료 봉사를 장기 프로그램으로 전환했습니다. 단기 비용보다 브랜드 신뢰와 장기 접근성 확대가 부각됩니다.",
+    "companyId": "elysia"
+  },
+  {
+    "category": "company",
+    "tag": "여행 수요",
+    "title": "분쟁 현장 해설 투어 예약 급증",
+    "description": "국제 정세와 역사적 분쟁에 대한 관심이 높아지며 베르길리우스의 전문 해설 투어가 연이어 매진됐습니다. 고가 맞춤 상품과 기관 연계 프로그램의 예약도 함께 늘어납니다.",
+    "companyId": "vergilius"
+  },
+  {
+    "category": "company",
+    "tag": "윤리 논란",
+    "title": "다크 투어리즘 상품 윤리성 조사",
+    "description": "비극의 현장을 상업화한다는 비판과 현지 주민 보호 문제로 일부 여행 상품에 대한 조사가 시작됐습니다. 일정 중단과 브랜드 신뢰 하락 우려가 커집니다.",
+    "companyId": "vergilius"
+  },
+  {
+    "category": "company",
+    "tag": "수주",
+    "title": "밀리테크, 통합 방위체계 대형 수주",
+    "description": "개인화기·중화기·전투 차량과 훈련·보안 지원을 묶은 장기 계약을 따냈습니다. 제조와 군사 서비스 양쪽의 수주잔고가 동시에 늘어납니다.",
+    "companyId": "militc"
+  },
+  {
+    "category": "company",
+    "tag": "스캔들",
+    "title": "밀리테크 장비 안전성·민간 피해 조사",
+    "description": "납품 장비와 사이버웨어의 안전성, 민간 피해 책임을 둘러싼 조사가 시작됐습니다. 계약 중단과 대규모 배상 위험이 함께 부각됩니다.",
+    "companyId": "militc"
+  },
+  {
+    "category": "company",
+    "tag": "항로 최적화",
+    "title": "이스마엘 해운, AI·숙련 항해사 통합 항로 5% 단축",
+    "description": "기상·조류 데이터와 숙련 항해사의 판단을 결합한 새 운항 체계가 같은 연료로 평균 운송시간을 5% 줄였습니다. 화물 회전율과 여객 정시성이 함께 개선됩니다.",
+    "companyId": "ishmael"
+  },
+  {
+    "category": "company",
+    "tag": "유가 방어",
+    "title": "유가 급등에도 이스마엘 해운 운임 경쟁력 유지",
+    "description": "경쟁 해운사들이 유류할증료를 올리는 동안 최적 항로와 저속·고속 운항 조합으로 원가 상승을 흡수했습니다. 장기 화주 계약이 이스마엘 해운으로 이동합니다.",
+    "companyId": "ishmael"
+  },
+  {
+    "category": "company",
+    "tag": "항만 차질",
+    "title": "핵심 항만 봉쇄, 이스마엘 해운 선복 회전 지연",
+    "description": "예상 밖의 항만 봉쇄와 적체로 대체 항로까지 포화됐습니다. 우회 운항 비용과 여객 일정 취소가 겹치며 단기 실적 우려가 커집니다.",
+    "companyId": "ishmael"
+  },
+  {
+    "category": "company",
+    "tag": "사모신용",
+    "title": "JB투자은행, 사모신용 포트폴리오 수익 확대",
+    "description": "기업 직접대출과 구조화 신용 포트폴리오의 이자 수익이 예상치를 웃돌았습니다. 보험·카드 자회사 실적까지 받쳐 주며 종합금융 수익성이 높아집니다.",
+    "companyId": "jbinvb"
+  },
+  {
+    "category": "company",
+    "tag": "벤처 엑시트",
+    "title": "JB투자은행, 벤처 투자 대형 엑시트",
+    "description": "초기 투자 기업의 인수합병이 성사돼 벤처캐피탈 부문에서 대규모 회수 이익을 기록했습니다.",
+    "companyId": "jbinvb"
+  },
+  {
+    "category": "company",
+    "tag": "신용",
+    "title": "JB투자은행, 사모신용 부실·보험 손해율 동반 상승",
+    "description": "직접대출 연체와 보험 자회사 손해율이 동시에 높아졌습니다. 펀드 환매 요구까지 겹치며 유동성 부담이 커집니다.",
+    "companyId": "jbinvb"
+  },
+  {
+    "category": "company",
+    "tag": "긴급 특송",
+    "title": "슈팡특송, 긴급 배송 수요 폭증",
+    "description": "일반 물류망이 처리하지 못한 긴급 화물이 슈팡특송으로 몰렸습니다. 높은 운임에도 빠른 배송이 선택되며 가동률과 현금흐름이 함께 개선됩니다.",
+    "companyId": "shupang"
+  },
+  {
+    "category": "company",
+    "tag": "현금 비축",
+    "title": "슈팡특송, 호황기 잉여현금 75% 비축",
+    "description": "경영진이 잉여현금흐름 대부분을 유보해 운송망 투자와 다음 불황의 주가 방어 재원을 확보했습니다.",
+    "companyId": "shupang"
+  },
+  {
+    "category": "company",
+    "tag": "연료비 급등",
+    "title": "연료비 급등, 슈팡특송 배송 원가 비상",
+    "description": "항공·육상 운송 연료 가격이 급등하며 긴급 배송의 높은 운임으로도 비용 상승을 흡수하기 어려워졌습니다. 평시 주가 방어선이 일시 해제됩니다.",
+    "companyId": "shupang"
+  },
+  {
+    "category": "company",
+    "tag": "특송 수요 붕괴",
+    "title": "긴급 특송 수요 붕괴, 슈팡특송 가동률 급락",
+    "description": "경기 충격으로 고가 긴급 배송 주문이 급감했습니다. 비축 현금에도 불구하고 물류망 고정비 부담이 커져 평시 주가 방어선이 일시 해제됩니다.",
+    "companyId": "shupang"
+  },
+  {
+    "category": "company",
+    "tag": "파생 적중",
+    "title": "NACM, 초고변동 파생 포지션 적중",
+    "description": "고빈도 파생 포지션이 연속으로 맞아떨어지며 운용 수익이 폭증했습니다. 위험 노출만큼 큰 보상이 실적에 반영됩니다.",
+    "companyId": "nacm"
+  },
+  {
+    "category": "company",
+    "tag": "투매 포착",
+    "title": "NACM, 시장 투매 구간 역방향 매매 성공",
+    "description": "강제 청산 물량을 빠르게 받아 낸 뒤 반등 구간에서 포지션을 정리해 대규모 트레이딩 이익을 기록했습니다.",
+    "companyId": "nacm"
+  },
+  {
+    "category": "company",
+    "tag": "포지션 청산",
+    "title": "NACM, 파생 증거금 부족으로 포지션 강제 청산",
+    "description": "초고변동 상품이 예상과 반대로 움직여 증거금이 부족해졌습니다. 연쇄 강제 청산이 발생하며 운용 자본이 크게 훼손됐습니다.",
+    "companyId": "nacm"
+  },
+  {
+    "category": "company",
+    "tag": "파산 위기",
+    "title": "NACM, 단 한 번의 파산 위험 현실화",
+    "description": "여러 번의 수익을 한 번에 되돌릴 수 있는 꼬리위험이 발생했습니다. 거래 상대방이 추가 담보를 요구하며 존속 가능성까지 흔들립니다.",
+    "companyId": "nacm"
+  },
+  {
+    "category": "company",
+    "tag": "공공보험 확대",
+    "title": "게헨나헬스, 키보토스 공공보험 위탁 권역 확대",
+    "description": "공공보험 가입자 관리와 진료 연계 성과를 인정받아 장기 위탁 권역이 확대됐습니다. 가입자 기반과 안정적인 보험료 수입이 함께 늘어납니다.",
+    "companyId": "ghh"
+  },
+  {
+    "category": "company",
+    "tag": "의료시설 효율화",
+    "title": "게헨나헬스, 의료시설 통합 운영 체계 정착",
+    "description": "보험 청구와 진료 예약, 시설 운영 데이터를 연결해 대기 시간과 중복 비용을 줄였습니다. 의료서비스 품질과 수익성이 동시에 개선됩니다.",
+    "companyId": "ghh"
+  },
+  {
+    "category": "company",
+    "tag": "의료비 상승",
+    "title": "진료비 급등, 게헨나헬스 보험 손해율 상승",
+    "description": "약제비와 의료 인건비가 예상보다 빠르게 오르며 보험금 지급 부담이 커졌습니다. 보험료 조정과 공공보험 수가 협상이 늦어져 단기 수익성이 압박받습니다.",
+    "companyId": "ghh"
+  },
+  {
+    "category": "company",
+    "tag": "공매도 적중",
+    "title": "Kusogaki Capital, 하락 종목 공매도 연속 적중",
+    "description": "과열된 종목의 회계·수급 약점을 먼저 포착한 공매도 포지션이 연이어 수익으로 전환됐습니다. 시장 하락과 함께 운용자산의 성과보수가 크게 늘어납니다.",
+    "companyId": "ksgk"
+  },
+  {
+    "category": "company",
+    "tag": "시장중립 차익",
+    "title": "Kusogaki Capital, 시장중립 차익거래 수익 확대",
+    "description": "롱·숏 포지션의 시장 노출을 상쇄한 채 가격 괴리만 회수하는 운용 전략이 안정적인 성과를 냈습니다. 변동성이 커질수록 거래 기회가 늘어납니다.",
+    "companyId": "ksgk"
+  },
+  {
+    "category": "company",
+    "tag": "숏 스퀴즈",
+    "title": "Kusogaki Capital, 예상 밖 급등에 숏 스퀴즈",
+    "description": "대규모 공매도 대상이 급등하며 담보 추가 납입과 강제 환매가 동시에 발생했습니다. 높은 레버리지와 좁아진 유동성이 손실을 증폭시킵니다.",
+    "companyId": "ksgk"
+  }
+]

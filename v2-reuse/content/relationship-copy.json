@@ -1,0 +1,30 @@
+{
+  "relationLabels": {
+    "locked": "미발견",
+    "direct": "일반 보유",
+    "coveredCall": "커버드콜 보유",
+    "hostile": "적대 포지션",
+    "leverage": "레버리지 동맹",
+    "bonded": "관계 영구 해금",
+    "userEtf": "유저 ETF 보유",
+    "userEtfCoveredCall": "유저 ETF · 커버드콜",
+    "userEtfLeverage": "유저 ETF · 레버리지"
+  },
+  "affinityMilestones": [
+    {
+      "score": 30,
+      "title": "이제 비공개로 이야기할게요",
+      "body": "중요한 사건과 실적 발표가 가까워지면 개인 단서를 보내드릴게요."
+    },
+    {
+      "score": 50,
+      "title": "전용 의뢰를 맡길 수 있겠네요",
+      "body": "당신에게만 맡기는 고난도 투자 의뢰가 열렸어요."
+    },
+    {
+      "score": 100,
+      "title": "가장 믿을 수 있는 특별한 관계",
+      "body": "앞으로 제 중요 사건에서는 함께 준비한 최상급 선택을 사용할 수 있어요."
+    }
+  ]
+}

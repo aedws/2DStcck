@@ -1,0 +1,6112 @@
+[
+  {
+    "id": "vnasdaq",
+    "ticker": "VNAS",
+    "name": "V-나스닥",
+    "kind": "index",
+    "sector": "지수",
+    "subsector": "시장대표 지수",
+    "description": "가상 시장 전 섹터를 아우르는 종합 벤치마크 지수. 반도체·금융·방어주까지 상장 종목 전체의 평균 흐름을 나타내며, 모든 시즌·의뢰의 초과수익(알파) 기준이 된다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vnasfut",
+    "ticker": "VNSF",
+    "name": "V-나스닥 선물",
+    "kind": "future",
+    "sector": "선물",
+    "subsector": "주가지수 선물",
+    "description": "V-NASDAQ 지수 선물. 지수보다 90초 먼저 움직이는 선행지표.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vnsl2",
+    "ticker": "VNSL2",
+    "name": "V-나스닥 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "V-NASDAQ의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 레버리지 ETF. 고위험 고수익.",
+    "underlyingId": "vnasdaq",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vnsi",
+    "ticker": "VNSI",
+    "name": "V-나스닥 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "지수가 1% 내리면 1% 오르는 인버스 ETF. 하락장 방어 수단.",
+    "underlyingId": "vnasdaq",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vnsi2",
+    "ticker": "VNSI2",
+    "name": "V-나스닥 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "하락에 2배로 베팅하는 곱버스 ETF. 방향을 맞추면 크게 벌고 틀리면 크게 잃는다.",
+    "underlyingId": "vnasdaq",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vncc",
+    "ticker": "VNCC",
+    "name": "V-나스닥 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "커버드콜 ETF",
+    "description": "V-NASDAQ을 보유하면서 콜옵션 프리미엄을 수취하는 커버드콜 ETF. 하락은 그대로 반영되고 상승 일부를 포기하는 대신, 변동 가능한 월 분배금을 20거래일마다 지급한다.",
+    "underlyingId": "vnasdaq",
+    "generatedDerivative": false
+  },
+  {
+    "id": "sbnd",
+    "ticker": "SBND",
+    "name": "단기채 ETF",
+    "kind": "etf",
+    "fundType": "bond",
+    "sector": "ETF",
+    "subsector": "단기채 ETF",
+    "description": "만기가 짧은 우량 채권에 투자하는 저변동 ETF. 주가 등락에 거의 흔들리지 않고 60거래일마다 이자 성격의 분기 분배금을 지급해 현금 대기·방어 자산으로 쓰인다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "gldx",
+    "ticker": "GLDX",
+    "name": "금 ETF",
+    "kind": "etf",
+    "fundType": "commodity",
+    "sector": "ETF",
+    "subsector": "금 ETF",
+    "description": "실물 금 가격을 추종하는 ETF. 시장이 흔들릴 때 오히려 강세를 보이는 경향이 있어 위기 국면의 헤지·분산 수단으로 쓰인다. 배당은 없다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bahina",
+    "ticker": "BAAKO",
+    "name": "선도부 방위산업",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "치안 서비스",
+    "marketTags": [
+      "PMC"
+    ],
+    "description": "게헨나 풍기위원회 직영의 최정예 방위 서비스.",
+    "characterId": "chr_baako",
+    "generatedDerivative": false
+  },
+  {
+    "id": "udnge",
+    "ticker": "UDGE",
+    "name": "레이센 제약",
+    "kind": "company",
+    "sector": "헬스케어",
+    "subsector": "제약",
+    "marketTags": [
+      "바이오"
+    ],
+    "description": "미혹의 죽림 깊은 곳 영원정에 자리한 제약사. 불사의 명약 '봉래약'을 개발 중이라는 소문이 돈다. 다만 간판 얼굴인 우동게는 정작 제조엔 손대지 않고, 마을에 행상인 행세로 들어가 약을 파는 판매만 맡는다 — 실제 조제는 따로 있다.",
+    "characterId": "chr_udnge",
+    "generatedDerivative": false
+  },
+  {
+    "id": "dante",
+    "ticker": "DNTE",
+    "name": "단테 정밀시계",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "고급 시계",
+    "marketTags": [
+      "명품"
+    ],
+    "description": "한 치의 오차도 허락하지 않는 하이엔드 기계식 시계 제조사. 초정밀 무브먼트와 극소량 생산으로 수집가들의 성지가 됐다. 시계에 진심인 창업자 단테가 직접 모든 무브먼트를 검수한다.",
+    "characterId": "chr_dante",
+    "generatedDerivative": false
+  },
+  {
+    "id": "hinafg",
+    "ticker": "HINA",
+    "name": "소라사키 히나 금융지주",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "금융지주",
+    "marketTags": [
+      "금융"
+    ],
+    "description": "키보토스 금융업계 최대 기업 가치를 지닌 종합 금융지주. 상업은행·투자은행·자산운용 3개 사업부를 거느리며, 풍기위원장 출신 회장 소라사키 히나가 잠도 잊은 결재 속도로 그룹 전체를 직접 통솔한다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_bahina",
+    "generatedDerivative": false
+  },
+  {
+    "id": "gsck",
+    "ticker": "GSCK",
+    "name": "키보토스 총학생회 금융지주",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "행정 지주회사",
+    "marketTags": [
+      "금융"
+    ],
+    "description": "키보토스 연방 예산과 금융 자산 운용, 9개 행정위원회·각 학원 거버넌스, 생텀 타워 인프라 관제를 총괄하는 행정 지주회사. 총학생회장 장기 부재 중에도 수석 행정관 나나가미 린의 쿨하고 철저한 일처리로 리스크를 최소화하며, 린의 직인이 찍히지 않은 합병 서류는 어떤 경우에도 효력이 없다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_baspy",
+    "generatedDerivative": false
+  },
+  {
+    "id": "yisang",
+    "ticker": "YSAN",
+    "name": "이상 연구소",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "특허 라이선싱",
+    "marketTags": [
+      "기술"
+    ],
+    "description": "26개의 메가코프가 지배하는 도시에서 연구개발로 확보한 특허를 판매하고 라이선싱하는 기술 사업화 연구소. 최연소 수석연구원 이상이 발명과 권리화를 총괄하며, 직접 생산보다 지식재산 사용료와 공동 연구 계약으로 수익을 낸다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_yisang",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nagusa",
+    "ticker": "NGSA",
+    "name": "나구사 야키토리&닭꼬치 주식회사",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "닭꼬치 제조·외식",
+    "marketTags": [
+      "식품"
+    ],
+    "description": "고료 나구사가 좋아하는 닭꼬치를 직접 굽고 유통하는 식품·외식 기업. 평소에는 숯불 야키토리와 축제 노점 사업에 집중하지만, 자동 굽기 설비를 AI 플랫폼으로 발표할 때마다 인공지능 테마주로 묶여 급등한다. 반대로 조류독감이 번지면 원료육 공급 우려로 급락하는 전형적인 테마주 성향을 보인다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_nagusa",
+    "generatedDerivative": false
+  },
+  {
+    "id": "yakumo",
+    "ticker": "YKMO",
+    "name": "붉은겨울 출판부",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "인쇄·출판·유통",
+    "marketTags": [
+      "미디어"
+    ],
+    "description": "아라마키 야쿠모가 이끄는 붉은겨울 연방학원 출판 독점 기업. 학원 인쇄물의 생산·관리·판매를 도맡으며 잡지 「레드베어」 편집까지 겸한다. 타 학원 잠입 판매나 특별호가 히트하면 급등하고, 금서·검열 파동이나 인쇄 설비 마비가 나면 급락하는 콘텐츠·유통 테마주 성향을 보인다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_yakumo",
+    "generatedDerivative": false
+  },
+  {
+    "id": "minori",
+    "ticker": "MNRI",
+    "name": "미노리 용역",
+    "kind": "company",
+    "sector": "산업재",
+    "subsector": "건설 용역·사보타주",
+    "marketTags": [
+      "건설"
+    ],
+    "description": "야스모리 미노리가 운영하는 건설 용역회사이자 의뢰 성공률 100%를 내세우는 사보타주 전문기업. 배당을 지급하지 않고 임직원 임금을 전환사채와 신주 발행으로 충당해 평시에는 희석 압력이 이어진다. 사보타주 보수로 받은 자사주를 대량 소각하면 갑작스러운 숏 스퀴즈가 발생하지만, 보수 협상이 틀어지면 의뢰 대상과 의뢰주를 함께 공격해 급락할 수 있다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_minori",
+    "generatedDerivative": false
+  },
+  {
+    "id": "faust",
+    "ticker": "FAUS",
+    "name": "파우스트 투자증권",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "증권",
+    "marketTags": [
+      "금융",
+      "증권"
+    ],
+    "description": "림버스 컴퍼니의 등장인물 파우스트가 대표로 있는 투자·증권사. 공매도·옵션·경영권 인수 등 다양한 포지션으로 수익을 내지만, 출처 불분명한 정보를 해석하다 회사가 휘청일 정도의 손실을 보기도 한다. 고위 임원 보수를 자사주와 현금 1:1로 지급해 영업이익의 상당 부분을 주주환원에 쓰는 고배당 구조다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_faust",
+    "generatedDerivative": false
+  },
+  {
+    "id": "miku",
+    "ticker": "MIKU",
+    "name": "미쿠 엔터테인먼트",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "버추얼 싱어 IP",
+    "marketTags": [
+      "미디어",
+      "콘텐츠"
+    ],
+    "description": "하츠네 미쿠로 대표되는 버추얼 싱어·캐릭터 IP를 중심으로 음악, 굿즈, 라이브 공연, 콜라보레이션을 전개하는 콘텐츠 기업. 신곡·월드투어·대형 브랜드 협업이 히트하면 테마주로 급등하고, 라이선스 분쟁이나 공연 차질이 나면 급락하는 IP 콘텐츠 성향을 보인다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_miku",
+    "generatedDerivative": false
+  },
+  {
+    "id": "carrot",
+    "ticker": "CROT",
+    "name": "캬롯 농장",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "농축산물 생산·판매",
+    "marketTags": [
+      "식품"
+    ],
+    "description": "캬롯이 대표로 있는 농축산물 판매기업. 적은 비료로도 높은 수확량을 내며, 드물게 회사 농장에만 기록적인 대풍작이 발생해 공급 과잉을 부르기도 한다. 유보금을 두텁게 쌓아 주주환원에는 소극적이며, 저변동 방어주 성격은 유지하되 과도한 호재 편향과 절대적인 하락 방어는 완화했다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_carrot",
+    "generatedDerivative": false
+  },
+  {
+    "id": "asuna",
+    "ticker": "ASNA",
+    "name": "아스나 유업",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "낙농·유제품",
+    "marketTags": [
+      "식품"
+    ],
+    "description": "밀레니엄 C&C의 이치노세 아스나가 운영하는 목축·유제품 기업. 같은 품종과 사육 환경에서도 유독 뛰어난 맛과 품질이 나온다는 소문으로 프리미엄을 얻는다. 악재가 발생하면 얼마 지나지 않아 회사 차원의 호재가 뒤따르는 경향이 있지만, 유상증자 흥행처럼 회사에는 이익이어도 기존 주주에게는 희석 손실이 되는 결말도 있다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_asuna",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wakamo",
+    "ticker": "KAMO",
+    "name": "까모투자증권",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "투자증권·자산운용",
+    "marketTags": [
+      "금융",
+      "증권"
+    ],
+    "description": "코사카 와카모가 대표로 있는 고변동 투자회사. 수감 시절의 인맥에서 얻은 내부 동향과 대표의 직감으로 시장을 앞서기도 하지만, 엉뚱한 대상에 빠져 섹터 호재 속 큰 손실을 내거나 섹터 악재 속 역행 수익을 내기도 한다. 자사주 매입 대신 높은 현금배당으로 주주 사랑을 표현하며, 낮은 현금 여력 때문에 하락장에서는 낙폭이 더 커진다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_wakamo",
+    "generatedDerivative": false
+  },
+  {
+    "id": "hifumi",
+    "ticker": "AHMF",
+    "name": "모모톡프렌즈",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "메신저 플랫폼·캐릭터 머천다이징",
+    "marketTags": [
+      "미디어",
+      "콘텐츠",
+      "기술"
+    ],
+    "description": "아지타니 히후미가 운영하는 메신저·캐릭터 머천다이징 기업. 대표 캐릭터 페로로를 앞세운 모모톡 트래픽과 굿즈 매출이 핵심이며, 여름 페로로 페스티벌에는 트리니티의 낡은 크루세이더 전차까지 경품으로 거는 고비용 올인 프로모션을 벌인다. 스컬맨을 좋아하는 시라스 아즈사가 CDO를 맡는다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_hifumi",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ifrit",
+    "ticker": "IFRT",
+    "name": "이프리트 화력발전",
+    "kind": "company",
+    "sector": "에너지·인프라",
+    "subsector": "화력발전",
+    "marketTags": [
+      "에너지",
+      "유틸리티"
+    ],
+    "description": "불의 정령 이프리트가 운영하는 화력발전 기업. 대표가 보일러에 직접 불을 공급해 연료비를 절감하므로 동종 발전사보다 높은 수익성을 내지만, 화력 조절에 실패하면 발전 설비와 부품 수리비가 한꺼번에 발생한다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_ifrit",
+    "generatedDerivative": false
+  },
+  {
+    "id": "speedwagon",
+    "ticker": "SPWO",
+    "name": "스피드웨건 오일",
+    "kind": "company",
+    "sector": "에너지",
+    "subsector": "석유 탐사·정유",
+    "marketTags": [
+      "에너지",
+      "원자재",
+      "인플레이션"
+    ],
+    "description": "로버트 E. O. 스피드왜건이 석유 사업으로 일군 종합 에너지 기업. 유전 탐사·원유 생산·정유를 수직계열화해 유가 상승기에는 높은 현금흐름을 만들고, 비축 원유와 재단 자금으로 공급 충격을 버틴다. 유가 급락과 탐사 실패에는 민감하지만 이익 일부를 연구 지원과 주주 배당에 꾸준히 돌린다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_speedwagon",
+    "generatedDerivative": false
+  },
+  {
+    "id": "dorothy",
+    "ticker": "EDEN",
+    "name": "에덴 오트쿠튀르",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "명품 의류·패션",
+    "marketTags": [
+      "명품",
+      "의류"
+    ],
+    "description": "도로시가 이끄는 명품 의류 기업. 계절마다 디자인을 갈아엎는 대신 한눈에 알아볼 수 있는 시그니처 실루엣과 엄격한 소재·봉제 기준을 고수해 고정적인 디자인 해자를 구축했습니다. 낮은 변동성과 정기 배당, 하방 방어 원칙으로 주주가치를 지키는 안정형 명품주입니다.",
+    "characterId": "chr_dorothy",
+    "generatedDerivative": false
+  },
+  {
+    "id": "elysia",
+    "ticker": "ELYS",
+    "name": "엘리시아 파마",
+    "kind": "company",
+    "sector": "헬스케어",
+    "subsector": "글로벌 빅파마",
+    "marketTags": [
+      "바이오",
+      "제약",
+      "선행"
+    ],
+    "description": "엘리시아가 이끄는 글로벌 제약사. 대사질환·희귀질환 치료제를 중심으로 장기 연구개발을 이어 가며, 인류를 향한 봉사와 사랑을 기업 원칙으로 삼아 의약품 기부와 임직원 자원봉사를 정례화했습니다. 단기 자극을 좇는 죄악주 테마와 반대되는 선행·신뢰 메타의 주주보호형 빅파마입니다.",
+    "characterId": "chr_elysia",
+    "generatedDerivative": false
+  },
+  {
+    "id": "iori",
+    "ticker": "IORI",
+    "name": "이오리 소프트웨어",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "종합 소프트웨어·클라우드",
+    "marketTags": [
+      "기술",
+      "소프트웨어",
+      "클라우드"
+    ],
+    "description": "키보토스 최대 IT 기업. 데스크톱 운영체제와 오피스 생산성 제품군으로 기업·가정용 컴퓨터 시장의 93%를 장악했고, 2010년대 이후로는 B2B 클라우드가 실적을 이끄는 성장 축이다. 압도적 점유율에서 나오는 반복 매출과 높은 전환 비용이 넓은 해자를 이루지만, 그만큼 반독점 규제 시선도 함께 받는다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_iori",
+    "generatedDerivative": false
+  },
+  {
+    "id": "jbinv",
+    "ticker": "JBINV",
+    "name": "주붕투자증권",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "투자회사",
+    "marketTags": [
+      "금융",
+      "증권"
+    ],
+    "description": "플레이어 @gudokza111이 설립한 투자회사. 각종 주식과 채권에 투자해 운용 수익을 추구하며, 네 차례의 자본 확충을 거쳐 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "honglu",
+    "ticker": "HONGL",
+    "name": "홍루 은행",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "상업은행",
+    "marketTags": [
+      "금융",
+      "은행"
+    ],
+    "description": "홍루가 운영하는 순수 상업은행. 증권·보험·카드 자회사 없이 예적금과 대출에 집중하며, 은행권 최대 규모와 높은 자기자본비율을 바탕으로 약세장·고금리에 강하고 강세장·저금리에는 상대적으로 둔한 방어적 금융주입니다.",
+    "characterId": "chr_honglu",
+    "generatedDerivative": false
+  },
+  {
+    "id": "pghg",
+    "ticker": "PGHG",
+    "name": "파급효과",
+    "kind": "company",
+    "sector": "에너지·인프라",
+    "subsector": "원자력·핵융합 발전",
+    "marketTags": [
+      "에너지",
+      "유틸리티",
+      "기술"
+    ],
+    "description": "플레이어 @sedim이 설립한 차세대 에너지 인프라 기업. 원자력 발전 설비 운영·유지보수, 핵융합로 핵심 부품·소재, 에너지 저장과 스마트 그리드 통합 기술을 개발합니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "amnw",
+    "ticker": "AMNW",
+    "name": "에이메스 네트웍스",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "사이버 보안",
+    "marketTags": [
+      "기술",
+      "보안",
+      "AI"
+    ],
+    "description": "플레이어 @titia8397이 라하이 로이에 설립한 사이버 보안 기업. 클라우드·원격 근무 접속 보안과 AI 기반 실시간 위협 탐지·자동 대응 플랫폼을 제공합니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "lcid",
+    "ticker": "LCID",
+    "name": "레이크루시드증권",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "증권",
+    "marketTags": [
+      "금융",
+      "증권"
+    ],
+    "description": "플레이어 @asset_management가 설립한 종합 증권사. 적극적인 자기매매와 안정적인 자산관리를 기반으로 성장했으며, 시장조성·유동성 공급 부문에서도 두각을 나타냅니다. 창업주 지분 100%로 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "levi",
+    "ticker": "LEVI",
+    "name": "레비 종합보조서비스",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "구독 생활 서비스",
+    "marketTags": [
+      "서비스",
+      "구독"
+    ],
+    "description": "레비가 이끄는 생활 보조 서비스 기업. 길찾기·배달·조리·탐색 등 일상의 사소한 불편을 구독형 소프트웨어로 해결합니다. 다양한 현장에서 쌓은 노하우로 사용자 충성도가 높고, 프랜차이즈·서비스 기업과의 B2B 계약으로 소비 경기 영향을 상대적으로 덜 받습니다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_levi",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nexr",
+    "ticker": "NEXR",
+    "name": "NexR",
+    "kind": "company",
+    "sector": "반도체",
+    "subsector": "종합 반도체·AI 가속기",
+    "marketTags": [
+      "반도체",
+      "AI",
+      "기술"
+    ],
+    "description": "플레이어 @luxury가 설립한 키보토스 최대 규모의 종합 반도체·AI 기업. 외장 GPU와 AI 칩 시장의 90%를 장악하고, 자체 칩·소프트웨어 생태계로 자율주행·AI 로봇 시뮬레이션 플랫폼에서도 강세입니다. 네 차례 자본 확충(창업주 지분 82.6%)을 거쳐 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "tehty",
+    "ticker": "TEHTY",
+    "name": "카르티시아 F&B",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "다이닝 프랜차이즈·식자재 유통",
+    "marketTags": [
+      "식품",
+      "외식"
+    ],
+    "description": "플레이어 @aemeath가 설립한 식품·외식 기업. 라군나 전통 미식 기반 다이닝 프랜차이즈와 식자재·주류 유통을 운영합니다. 창업주 지분 100%로 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "koyuki",
+    "ticker": "KOYU",
+    "name": "코유키 정보해석",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "정보보안·암호해석",
+    "marketTags": [
+      "기술",
+      "보안",
+      "AI"
+    ],
+    "description": "쿠로사키 코유키가 대표로 있는 정보보안 기업. 천재적인 암호해독 능력으로 정부 암호해석 의뢰를 수행하고, 금융·기술·방산·반도체 기업의 기밀을 확보해 직접투자·옵션거래로 안정적인 고수익을 낸다. 다만 주주환원이 매우 낮아 실적 대비 주가 상승은 완만한 우상향에 그친다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_koyuki",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ames",
+    "ticker": "WWAM",
+    "name": "에이메스 엔터테인먼트",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "음악·엔터테인먼트",
+    "marketTags": [
+      "미디어",
+      "콘텐츠",
+      "엔터"
+    ],
+    "description": "과거 '플릿 스노우플러프'라는 예명으로 활동한 싱어송라이터 에이메스가 설립한 음악·엔터 기업. 대표가 대부분의 곡을 직접 작사·작곡해 외부 권리 관계가 단순하지만, 대표가 다른 사업에도 직접 관여해 신곡 발매가 늦어질 수 있는 불안 요소가 있다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_ames",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkcl",
+    "ticker": "NKCL",
+    "name": "누카-콜라",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "음료·소비재",
+    "marketTags": [
+      "식품",
+      "소비재"
+    ],
+    "description": "플레이어가 설립한 누카-콜라 제조 기업. 방사능 특유의 '톡 쏘는 맛'을 구현한 주력 음료가 폭발적 인기를 끌었고, 일부 지역에서는 병뚜껑이 화폐로 통용될 정도다. 창립자 실종에도 테마파크 운영·무기 프로젝트·M&A·신제품으로 사업을 확장한다. 창업주 지분 90.91%로 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vergilius",
+    "ticker": "VRGL",
+    "name": "베르길리우스 다크 투어리즘",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "다크 투어리즘",
+    "marketTags": [
+      "관광",
+      "지정학",
+      "역사"
+    ],
+    "description": "가이드 베르길리우스가 설립한 다크 투어리즘 기업. 비극적 사건과 역사적 분쟁의 현장을 해설하는 여행 상품을 운영하며, 지정학·역사·사회적 갈등이 커질수록 수요가 늘지만 여행 제한과 윤리 논란에 민감하다. 대표 문구는 ‘지옥으로 출발하지’. 유저 종목 요청으로 상장.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "militc",
+    "ticker": "MILITC",
+    "name": "밀리테크 인터내셔널 아머먼츠",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "무기 제조·용병·군사 지원",
+    "marketTags": [
+      "방산",
+      "치안",
+      "기술"
+    ],
+    "description": "플레이어 @qprjsngls가 설립한 종합 방산 기업. 개인화기와 중화기, 군용 장비·차량, 사이버웨어를 제조하고 전투 자문·훈련·경비·용병 및 군사 지원 서비스를 함께 제공합니다. 지정학적 긴장과 국방 수요에는 강하지만 대형 계약 의존도와 무기 안전·민간 피해 논란에 민감합니다. 창업주 지분 100%로 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ishmael",
+    "ticker": "ISML",
+    "name": "이스마엘 해운",
+    "kind": "company",
+    "sector": "산업재",
+    "subsector": "종합 해운·물류",
+    "marketTags": [
+      "물류",
+      "운송",
+      "에너지"
+    ],
+    "description": "이스마엘이 이끄는 종합 해운사. 숙련된 항해술과 인력·AI 항로 최적화로 동종사보다 평균 운송시간을 약 5% 줄여 연료비 상승과 긴급 항로 변경에 강합니다. 안정적인 분기 배당을 지급하되 주가가 공모가 아래로 내려가면 배당을 잠시 멈추고 같은 재원을 자사주 매입·소각에 투입해 장기 주주가치를 방어합니다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_ishmael",
+    "generatedDerivative": false
+  },
+  {
+    "id": "jbinvb",
+    "ticker": "JBINVB",
+    "name": "JB투자은행",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "사모신용·종합금융",
+    "marketTags": [
+      "금융",
+      "증권",
+      "보험",
+      "신용"
+    ],
+    "description": "플레이어 @warning이 설립한 주붕투자증권의 금융 자회사. 사모신용을 중심으로 사모펀드·헤지펀드·벤처캐피탈을 운용하며 보험, 신용카드, 할부금융 자회사를 함께 거느립니다. 누적 소각 $1.06T, 창업주 지분 100%, 회사 프레스티지 500으로 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "shupang",
+    "ticker": "SHPG",
+    "name": "슈팡특송",
+    "kind": "company",
+    "sector": "산업재",
+    "subsector": "긴급 특송·종합물류",
+    "marketTags": [
+      "물류",
+      "운송",
+      "에너지",
+      "경기민감"
+    ],
+    "description": "슈팡이 이끄는 긴급 특송·종합물류 기업. 높은 유류비를 감수하고도 빠른 배송망으로 특송 시장을 선도하며, 호황기 잉여현금흐름의 약 75%를 비축해 평시 주가를 공모가의 50% 이상으로 방어합니다. 다만 시장 위기·버블 붕괴·연료비 급등·특송 수요 붕괴 때에는 이 방어선도 해제됩니다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_shupang",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nacm",
+    "ticker": "NACM",
+    "name": "NatsumeAnan Capital Management",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "고빈도 파생·자산운용",
+    "marketTags": [
+      "금융",
+      "증권",
+      "파생",
+      "성장"
+    ],
+    "description": "플레이어 @natsume_anan이 설립한 초고위험 자산운용사. 고빈도 파생상품 트레이딩과 투매 구간 포착, 초고변동성 상품 투기를 전문으로 하며, 반복 수익 가능성과 단 한 번의 파산 위험을 함께 안고 있습니다. 누적 소각 자본과 창업주 지분 100%, 회사 프레스티지 500을 반영해 고가·초고변동 IPO로 승인했습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ghh",
+    "ticker": "GHH",
+    "name": "게헨나헬스 그룹",
+    "kind": "company",
+    "sector": "헬스케어",
+    "subsector": "의료보험·의료시설 운영",
+    "marketTags": [
+      "헬스케어",
+      "보험",
+      "의료",
+      "방어"
+    ],
+    "description": "히노미야 치나츠가 이끄는 키보토스 최대 종합 헬스케어 기업. 개인·단체 의료보험을 중심으로 의료시설 운영·관리, 진료 지원 서비스를 함께 제공하며 민간 보험뿐 아니라 키보토스 공공보험 위탁 사업에도 참여합니다. 높은 가입자 점유율과 안정적인 보험료 현금흐름을 갖춘 방어형 대기업이지만 의료비 상승과 공공보험 규제 변화에는 민감합니다. 유저 종목 요청으로 상장.",
+    "characterId": "chr_chinatsu",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ksgk",
+    "ticker": "KSGK",
+    "name": "Kusogaki Capital",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "증권·공매도·자산운용",
+    "marketTags": [
+      "금융",
+      "증권",
+      "공매도",
+      "자산운용"
+    ],
+    "description": "플레이어 @live5080이 설립한 헤지펀드·증권 운용사. 소악마 쿠소가키 트레이더들이 공매도와 시장중립 차익거래를 운용해 하락장에서 강한 역상관 수익을 노립니다. 방향을 맞히면 큰 이익을 내지만 숏 스퀴즈와 증거금 압박에는 손실이 확대되는 고변동 금융사입니다. 천문학적 누적 소각과 창업주 지분 약 99.98%, 회사 프레스티지 500으로 IPO 승인을 받았습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "iga",
+    "ticker": "LEE",
+    "name": "이가 증권",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "금융지주",
+    "marketTags": [
+      "금융",
+      "증권",
+      "지주"
+    ],
+    "description": "플레이어가 설립한 금융지주. 공격적인 투자로 안정적인 수익 창출을 노리며 시장에서 오래 살아남는 것을 목표로 합니다. 천문학적 누적 소각과 창업주 지분 100%, 회사 프레스티지 500으로 IPO 승인을 받았으며, 비정상적으로 큰 장부 가치는 시세 왜곡을 막기 위해 공모가에 상한을 적용했습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "omniro",
+    "ticker": "ORI",
+    "name": "Omni Robotics Industry",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "로봇·안드로이드",
+    "marketTags": [
+      "기술",
+      "로봇",
+      "AI"
+    ],
+    "description": "플레이어가 설립한 로봇 제작 기업으로 밀리테크의 로봇공학 전문 자회사. 산업용·군사용 로봇과 인간에 준하는 안드로이드를 연구·개발·생산하며, 성격·행동까지 맞춤 설계하는 개인 복지용 안드로이드에서 높은 점유율을 자랑합니다. 천문학적 누적 소각과 창업주 지분 100%, 회사 프레스티지 500으로 IPO 승인을 받았으며, 비정상적으로 큰 장부 가치는 시세 왜곡을 막기 위해 공모가에 상한을 적용했습니다.",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baridc",
+    "ticker": "BARIDC",
+    "name": "리오 방위산업",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "방위 시스템",
+    "marketTags": [
+      "방산"
+    ],
+    "description": "궤도 방위 시스템과 전술 AI를 개발하는 방산 기업.",
+    "characterId": "chr_baridc",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baqqq",
+    "ticker": "BAQQQ",
+    "name": "밀레니엄 테크 100",
+    "kind": "etf",
+    "fundType": "growth",
+    "sector": "ETF",
+    "subsector": "기술주 ETF",
+    "description": "반도체·기술·게임 등 성장주에 집중 투자하는 기술주 ETF.",
+    "characterId": "chr_baqqq",
+    "composition": [
+      {
+        "stockId": "aeyvn",
+        "weight": 0.15
+      },
+      {
+        "stockId": "nkmna",
+        "weight": 0.12
+      },
+      {
+        "stockId": "nkccl",
+        "weight": 0.1
+      },
+      {
+        "stockId": "wwmne",
+        "weight": 0.1
+      },
+      {
+        "stockId": "wwlcl",
+        "weight": 0.08
+      },
+      {
+        "stockId": "wwxly",
+        "weight": 0.12
+      },
+      {
+        "stockId": "bagdi",
+        "weight": 0.08
+      },
+      {
+        "stockId": "nkexa",
+        "weight": 0.08
+      },
+      {
+        "stockId": "bavts",
+        "weight": 0.07
+      },
+      {
+        "stockId": "baui",
+        "weight": 0.05
+      },
+      {
+        "stockId": "nkvol",
+        "weight": 0.05
+      }
+    ],
+    "generatedDerivative": false
+  },
+  {
+    "id": "bamlb",
+    "ticker": "BAMLB",
+    "name": "밀레니엄 학원채",
+    "kind": "company",
+    "sector": "채권",
+    "subsector": "학원채",
+    "marketTags": [
+      "채권"
+    ],
+    "description": "밀레니엄 사이언스 스쿨이 발행한 우량 학원채.",
+    "characterId": "chr_bamlb",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bagdi",
+    "ticker": "BAGDI",
+    "name": "게임개발 인터랙티브",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "게임 개발",
+    "marketTags": [
+      "게임"
+    ],
+    "description": "화제작을 연달아 내놓는 소규모 게임 스튜디오.",
+    "characterId": "chr_bagdi",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bavts",
+    "ticker": "BAVTS",
+    "name": "베리타스 시큐리티",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "사이버 보안",
+    "marketTags": [
+      "보안"
+    ],
+    "description": "해킹 방어와 침투 테스트를 수행하는 보안 기업.",
+    "characterId": "chr_bavts",
+    "generatedDerivative": false
+  },
+  {
+    "id": "banru",
+    "ticker": "BANRU",
+    "name": "네루 택티컬 그룹",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "민간 군사",
+    "marketTags": [
+      "PMC"
+    ],
+    "description": "물불 가리지 않는 실전파 경호·경비 회사.",
+    "characterId": "chr_banru",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bahbk",
+    "ticker": "BAHBK",
+    "name": "히비키 병기 시스템",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "병기 제조",
+    "marketTags": [
+      "방산"
+    ],
+    "description": "자주포 드론과 지원 화기를 설계하는 방산 기업.",
+    "characterId": "chr_bahbk",
+    "generatedDerivative": false
+  },
+  {
+    "id": "basmr",
+    "ticker": "BASMR",
+    "name": "밀레니엄 메디컬",
+    "kind": "company",
+    "sector": "헬스케어",
+    "subsector": "의료 서비스",
+    "marketTags": [
+      "헬스케어"
+    ],
+    "description": "학생 건강관리와 원격 진료 서비스를 제공하는 의료 기업.",
+    "characterId": "chr_basmr",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baspy",
+    "ticker": "BASPY",
+    "name": "키보토스 종합지수",
+    "kind": "etf",
+    "fundType": "broad",
+    "sector": "ETF",
+    "subsector": "시장대표 ETF",
+    "description": "전 섹터 대표 23종목에 분산 투자하는 종합 지수 ETF.",
+    "characterId": "chr_baspy",
+    "composition": [
+      {
+        "stockId": "nkccl",
+        "weight": 0.07
+      },
+      {
+        "stockId": "nkmna",
+        "weight": 0.07
+      },
+      {
+        "stockId": "aeyvn",
+        "weight": 0.07
+      },
+      {
+        "stockId": "wwlcl",
+        "weight": 0.05
+      },
+      {
+        "stockId": "wwmne",
+        "weight": 0.04
+      },
+      {
+        "stockId": "bahina",
+        "weight": 0.06
+      },
+      {
+        "stockId": "bahbk",
+        "weight": 0.05
+      },
+      {
+        "stockId": "baridc",
+        "weight": 0.04
+      },
+      {
+        "stockId": "bavts",
+        "weight": 0.03
+      },
+      {
+        "stockId": "wwjin",
+        "weight": 0.04
+      },
+      {
+        "stockId": "ersua",
+        "weight": 0.04
+      },
+      {
+        "stockId": "basena",
+        "weight": 0.05
+      },
+      {
+        "stockId": "basmr",
+        "weight": 0.04
+      },
+      {
+        "stockId": "aegil",
+        "weight": 0.04
+      },
+      {
+        "stockId": "wwchl",
+        "weight": 0.04
+      },
+      {
+        "stockId": "nkilg",
+        "weight": 0.04
+      },
+      {
+        "stockId": "wwxly",
+        "weight": 0.04
+      },
+      {
+        "stockId": "bagdi",
+        "weight": 0.03
+      },
+      {
+        "stockId": "nkvol",
+        "weight": 0.03
+      },
+      {
+        "stockId": "wwlne",
+        "weight": 0.04
+      },
+      {
+        "stockId": "bahrn",
+        "weight": 0.03
+      },
+      {
+        "stockId": "bakrr",
+        "weight": 0.03
+      },
+      {
+        "stockId": "nkneo",
+        "weight": 0.03
+      }
+    ],
+    "generatedDerivative": false
+  },
+  {
+    "id": "bakaya",
+    "ticker": "BAKAYA",
+    "name": "시라누이 중공업",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "중공업",
+    "marketTags": [
+      "방산"
+    ],
+    "description": "장갑 차량과 중화기를 양산하는 중공업 방산사.",
+    "characterId": "chr_bakaya",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bakvb",
+    "ticker": "BAKVB",
+    "name": "키보토스 지방채",
+    "kind": "company",
+    "sector": "채권",
+    "subsector": "지방채",
+    "marketTags": [
+      "채권"
+    ],
+    "description": "연방학생회가 발행한 키보토스 지역 채권.",
+    "characterId": "chr_bakvb",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baabs",
+    "ticker": "BAABS",
+    "name": "아비도스 시큐리티",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "시설 경비",
+    "marketTags": [
+      "PMC"
+    ],
+    "description": "인원은 적지만 실전에서 가장 믿을 수 있는 경비회사.",
+    "characterId": "chr_baabs",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baabb",
+    "ticker": "BAABB",
+    "name": "아비도스 학원채",
+    "kind": "company",
+    "sector": "채권",
+    "subsector": "학원채",
+    "marketTags": [
+      "채권"
+    ],
+    "description": "재정난의 아비도스가 발행한 고수익 학원채.",
+    "characterId": "chr_baabb",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ba68",
+    "ticker": "BA68",
+    "name": "흥신소 68",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "조사·해결 서비스",
+    "marketTags": [
+      "PMC"
+    ],
+    "description": "의뢰를 가리지 않는 자칭 하드보일드 해결사 사무소.",
+    "characterId": "chr_ba68",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bahrn",
+    "ticker": "BAHRN",
+    "name": "미식연구회 다이닝",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "외식",
+    "marketTags": [
+      "요식업"
+    ],
+    "description": "미식의 극한을 추구하는 프리미엄 레스토랑 체인.",
+    "characterId": "chr_bahrn",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bafka",
+    "ticker": "BAFKA",
+    "name": "게헨나 키친 푸드",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "식품 서비스",
+    "marketTags": [
+      "요식업"
+    ],
+    "description": "대량 급식과 도시락 사업을 운영하는 푸드 서비스.",
+    "characterId": "chr_bafka",
+    "generatedDerivative": false
+  },
+  {
+    "id": "basena",
+    "ticker": "BASENA",
+    "name": "구호기사단 바이오텍",
+    "kind": "company",
+    "sector": "헬스케어",
+    "subsector": "바이오테크",
+    "marketTags": [
+      "바이오"
+    ],
+    "description": "응급 의료와 구호 기술을 연구하는 바이오 기업.",
+    "characterId": "chr_basena",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baksm",
+    "ticker": "BAKSM",
+    "name": "카스미 건설",
+    "kind": "company",
+    "sector": "산업재",
+    "subsector": "종합 건설",
+    "marketTags": [
+      "건설"
+    ],
+    "description": "부수는 것도 짓는 것도 빠른 종합 건설사.",
+    "characterId": "chr_baksm",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bakrr",
+    "ticker": "BAKRR",
+    "name": "키라라 코스메틱",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "화장품 제조",
+    "marketTags": [
+      "화장품"
+    ],
+    "description": "트렌드를 이끄는 뷰티·코스메틱 브랜드.",
+    "characterId": "chr_bakrr",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baghb",
+    "ticker": "BAGHB",
+    "name": "게헨나 학원채",
+    "kind": "company",
+    "sector": "채권",
+    "subsector": "학원채",
+    "marketTags": [
+      "채권"
+    ],
+    "description": "변동성이 큰 게헨나 발행 학원채. 고위험 고수익.",
+    "characterId": "chr_baghb",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bahnk",
+    "ticker": "BAHNK",
+    "name": "하나코 교육그룹",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "교육 서비스",
+    "marketTags": [
+      "교육"
+    ],
+    "description": "보충수업 노하우로 만든 온라인 교육 플랫폼.",
+    "characterId": "chr_bahnk",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baszm",
+    "ticker": "BASZM",
+    "name": "스즈미 경비서비스",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "민간 경호",
+    "marketTags": [
+      "PMC"
+    ],
+    "description": "행사 경비와 신변 보호를 전문으로 하는 경비회사.",
+    "characterId": "chr_baszm",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baui",
+    "ticker": "BAUI",
+    "name": "아카이브 미디어웍스",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "콘텐츠 제작",
+    "marketTags": [
+      "미디어"
+    ],
+    "description": "전자책과 아카이브 서비스를 운영하는 미디어 기업.",
+    "characterId": "chr_baui",
+    "generatedDerivative": false
+  },
+  {
+    "id": "baair",
+    "ticker": "BAAIR",
+    "name": "아이리 커피",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "카페",
+    "marketTags": [
+      "요식업"
+    ],
+    "description": "골목마다 늘어나는 아늑한 카페 프랜차이즈.",
+    "characterId": "chr_baair",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bamine",
+    "ticker": "BAMINE",
+    "name": "미네 제약",
+    "kind": "company",
+    "sector": "헬스케어",
+    "subsector": "제약",
+    "marketTags": [
+      "바이오"
+    ],
+    "description": "신약 파이프라인에 모든 것을 건 제약 벤처.",
+    "characterId": "chr_bamine",
+    "generatedDerivative": false
+  },
+  {
+    "id": "batrg",
+    "ticker": "BATRG",
+    "name": "정의실현부 시큐리티",
+    "kind": "company",
+    "sector": "방산·치안",
+    "subsector": "치안 서비스",
+    "marketTags": [
+      "PMC"
+    ],
+    "description": "불의를 보면 견적보다 출동이 먼저인 경비회사.",
+    "characterId": "chr_batrg",
+    "generatedDerivative": false
+  },
+  {
+    "id": "bamari",
+    "ticker": "BAMARI",
+    "name": "마리 성지순례 관광",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "여행 서비스",
+    "marketTags": [
+      "관광"
+    ],
+    "description": "성지 순례 코스로 유명한 여행 전문사.",
+    "characterId": "chr_bamari",
+    "generatedDerivative": false
+  },
+  {
+    "id": "batrb",
+    "ticker": "BATRB",
+    "name": "트리니티 학원채",
+    "kind": "company",
+    "sector": "채권",
+    "subsector": "학원채",
+    "marketTags": [
+      "채권"
+    ],
+    "description": "유서 깊은 트리니티가 발행한 최우량 학원채.",
+    "characterId": "chr_batrb",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwjin",
+    "ticker": "WWJIN",
+    "name": "금주 금융그룹",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "금융지주",
+    "marketTags": [
+      "금융"
+    ],
+    "description": "금주와 려강을 잇는 종합 금융지주.",
+    "characterId": "chr_wwjin",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwchl",
+    "ticker": "WWCHL",
+    "name": "장리 에너지 홀딩스",
+    "kind": "company",
+    "sector": "에너지·인프라",
+    "subsector": "종합 에너지",
+    "marketTags": [
+      "에너지"
+    ],
+    "description": "화력·신재생을 아우르는 에너지 지주회사.",
+    "characterId": "chr_wwchl",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwxly",
+    "ticker": "WWXLY",
+    "name": "상리요 연구소",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "기술 연구개발",
+    "marketTags": [
+      "기술"
+    ],
+    "description": "전술 인형과 연산 코어를 개발하는 첨단 기술 기업.",
+    "characterId": "chr_wwxly",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwjyn",
+    "ticker": "WWJYN",
+    "name": "청룡 항공물류",
+    "kind": "company",
+    "sector": "산업재",
+    "subsector": "항공 물류",
+    "marketTags": [
+      "운송"
+    ],
+    "description": "하늘길을 여는 항공 화물·물류 전문사.",
+    "characterId": "chr_wwjyn",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwskp",
+    "ticker": "WWSKP",
+    "name": "블랙쇼어 텔레콤",
+    "kind": "company",
+    "sector": "에너지·인프라",
+    "subsector": "통신 서비스",
+    "marketTags": [
+      "통신"
+    ],
+    "description": "해안 관측망 기반의 통신 네트워크 사업자.",
+    "characterId": "chr_wwskp",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwcam",
+    "ticker": "WWCAM",
+    "name": "카멜리아 보태니컬",
+    "kind": "company",
+    "sector": "식품·외식",
+    "subsector": "원예·식물",
+    "marketTags": [
+      "농업"
+    ],
+    "description": "희귀 화훼와 특수 작물을 재배하는 농업 기업.",
+    "characterId": "chr_wwcam",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkltr",
+    "ticker": "NKLTR",
+    "name": "리타 개발",
+    "kind": "company",
+    "sector": "산업재",
+    "subsector": "부동산 개발",
+    "marketTags": [
+      "부동산"
+    ],
+    "description": "무너진 도시를 다시 세우는 부동산 개발사.",
+    "characterId": "chr_nkltr",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkvol",
+    "ticker": "NKVOL",
+    "name": "볼륨 방송",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "방송",
+    "marketTags": [
+      "엔터"
+    ],
+    "description": "예능과 라이브 방송을 만드는 종합 엔터테인먼트사.",
+    "characterId": "chr_nkvol",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkneo",
+    "ticker": "NKNEO",
+    "name": "네온 메가스토어",
+    "kind": "company",
+    "sector": "소비재·서비스",
+    "subsector": "종합 소매",
+    "marketTags": [
+      "유통"
+    ],
+    "description": "없는 게 없는 대형 유통 체인.",
+    "characterId": "chr_nkneo",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkexa",
+    "ticker": "NKEXA",
+    "name": "엑시아 인터랙티브",
+    "kind": "company",
+    "sector": "미디어·콘텐츠",
+    "subsector": "게임 개발",
+    "marketTags": [
+      "게임"
+    ],
+    "description": "e스포츠와 온라인 게임을 운영하는 게임사.",
+    "characterId": "chr_nkexa",
+    "generatedDerivative": false
+  },
+  {
+    "id": "pmcx",
+    "ticker": "PMCX",
+    "name": "키보토스 치안 ETF",
+    "kind": "etf",
+    "fundType": "sector",
+    "sector": "ETF",
+    "subsector": "치안·보안 ETF",
+    "description": "키보토스 치안·경비(PMC) 6개사에 분산 투자하는 섹터 ETF.",
+    "composition": [
+      {
+        "stockId": "bahina",
+        "weight": 0.25
+      },
+      {
+        "stockId": "baabs",
+        "weight": 0.2
+      },
+      {
+        "stockId": "banru",
+        "weight": 0.15
+      },
+      {
+        "stockId": "batrg",
+        "weight": 0.15
+      },
+      {
+        "stockId": "baszm",
+        "weight": 0.15
+      },
+      {
+        "stockId": "ba68",
+        "weight": 0.1
+      }
+    ],
+    "generatedDerivative": false
+  },
+  {
+    "id": "bndx",
+    "ticker": "BNDX",
+    "name": "학원채 ETF",
+    "kind": "etf",
+    "fundType": "bond",
+    "sector": "ETF",
+    "subsector": "채권 ETF",
+    "description": "학원채·지역채 5종을 담은 채권 ETF.",
+    "composition": [
+      {
+        "stockId": "batrb",
+        "weight": 0.25
+      },
+      {
+        "stockId": "bamlb",
+        "weight": 0.25
+      },
+      {
+        "stockId": "bakvb",
+        "weight": 0.2
+      },
+      {
+        "stockId": "baghb",
+        "weight": 0.15
+      },
+      {
+        "stockId": "baabb",
+        "weight": 0.15
+      }
+    ],
+    "generatedDerivative": false
+  },
+  {
+    "id": "aeyvn",
+    "ticker": "AEYVN",
+    "name": "이본 마이크로시스템즈",
+    "kind": "company",
+    "sector": "반도체",
+    "subsector": "팹리스",
+    "marketTags": [
+      "팹리스"
+    ],
+    "description": "AI 가속기와 GPU를 설계하는 팹리스 반도체 기업. 생산은 위탁하고 설계에 집중한다.",
+    "characterId": "chr_aeyvn",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkilg",
+    "ticker": "NKILG",
+    "name": "일레그 전력망",
+    "kind": "company",
+    "sector": "에너지·인프라",
+    "marketTags": [
+      "유틸리티"
+    ],
+    "description": "도시 전력망과 송배전 인프라를 운영하는 전력 유틸리티.",
+    "characterId": "chr_nkilg",
+    "generatedDerivative": false
+  },
+  {
+    "id": "aegil",
+    "ticker": "AEGIL",
+    "name": "질베르타 첨단소재",
+    "kind": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "소재"
+    ],
+    "description": "합금·2차전지 소재를 연구·공급하는 소재공학 기업.",
+    "characterId": "chr_aegil",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwlne",
+    "ticker": "WWLNE",
+    "name": "린네 모빌리티",
+    "kind": "company",
+    "sector": "산업재",
+    "marketTags": [
+      "모빌리티"
+    ],
+    "description": "전기차와 차세대 이동수단을 개발하는 모빌리티 기업.",
+    "characterId": "chr_wwlne",
+    "generatedDerivative": false
+  },
+  {
+    "id": "ersua",
+    "ticker": "ERSUA",
+    "name": "수아 보험",
+    "kind": "company",
+    "sector": "금융",
+    "marketTags": [
+      "보험"
+    ],
+    "description": "손해·생명보험과 리스크 관리를 제공하는 보험사.",
+    "characterId": "chr_ersua",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkmna",
+    "ticker": "NKMNA",
+    "name": "마나 파운드리",
+    "kind": "company",
+    "sector": "반도체",
+    "subsector": "파운드리",
+    "marketTags": [
+      "파운드리"
+    ],
+    "description": "팹리스 기업의 칩을 위탁 생산하는 첨단 파운드리 기업.",
+    "characterId": "chr_nkmna",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwmne",
+    "ticker": "WWMNE",
+    "name": "모니에 메모리",
+    "kind": "company",
+    "sector": "반도체",
+    "subsector": "메모리",
+    "marketTags": [
+      "메모리"
+    ],
+    "description": "DRAM·낸드 메모리를 양산하는 반도체 기업. 업황 사이클이 극심하다.",
+    "characterId": "chr_wwmne",
+    "generatedDerivative": false
+  },
+  {
+    "id": "wwlcl",
+    "ticker": "WWLCL",
+    "name": "루실라 시스템즈",
+    "kind": "company",
+    "sector": "반도체",
+    "subsector": "시스템반도체",
+    "marketTags": [
+      "시스템반도체"
+    ],
+    "description": "CPU와 시스템 반도체를 설계·생산하는 종합반도체(IDM) 기업.",
+    "characterId": "chr_wwlcl",
+    "generatedDerivative": false
+  },
+  {
+    "id": "nkccl",
+    "ticker": "NKCCL",
+    "name": "세실 노광장비",
+    "kind": "company",
+    "sector": "반도체",
+    "subsector": "반도체장비",
+    "marketTags": [
+      "반도체장비"
+    ],
+    "description": "극자외선(EUV) 노광 장비를 독점 공급하는 반도체 장비 기업.",
+    "characterId": "chr_nkccl",
+    "generatedDerivative": false
+  },
+  {
+    "id": "semix",
+    "ticker": "SEMIX",
+    "name": "반도체 섹터 ETF",
+    "kind": "etf",
+    "fundType": "sector",
+    "sector": "ETF",
+    "description": "반도체 밸류체인 5개사(팹리스·파운드리·메모리·시스템·장비)에 분산 투자하는 섹터 ETF.",
+    "composition": [
+      {
+        "stockId": "aeyvn",
+        "weight": 0.3
+      },
+      {
+        "stockId": "nkmna",
+        "weight": 0.22
+      },
+      {
+        "stockId": "wwmne",
+        "weight": 0.18
+      },
+      {
+        "stockId": "wwlcl",
+        "weight": 0.15
+      },
+      {
+        "stockId": "nkccl",
+        "weight": 0.15
+      }
+    ],
+    "generatedDerivative": false
+  },
+  {
+    "id": "divx",
+    "ticker": "DIVX",
+    "name": "가디언 배당 방어 ETF",
+    "kind": "etf",
+    "fundType": "income",
+    "sector": "ETF",
+    "description": "저변동 배당주(유틸리티·보험·헬스케어·통신·방산)와 우량 채권을 함께 담아 방어와 인컴을 노리는 배당 방어 ETF. 하락장에 강하고 분배금이 크다.",
+    "composition": [
+      {
+        "stockId": "nkilg",
+        "weight": 0.18
+      },
+      {
+        "stockId": "ersua",
+        "weight": 0.15
+      },
+      {
+        "stockId": "basmr",
+        "weight": 0.13
+      },
+      {
+        "stockId": "wwskp",
+        "weight": 0.1
+      },
+      {
+        "stockId": "baridc",
+        "weight": 0.09
+      },
+      {
+        "stockId": "batrb",
+        "weight": 0.13
+      },
+      {
+        "stockId": "bamlb",
+        "weight": 0.12
+      },
+      {
+        "stockId": "bakvb",
+        "weight": 0.1
+      }
+    ],
+    "generatedDerivative": false
+  },
+  {
+    "id": "mksa",
+    "ticker": "MKSA",
+    "name": "마카샤 연구소",
+    "kind": "company",
+    "sector": "기술",
+    "subsector": "연구개발",
+    "marketTags": [
+      "기술"
+    ],
+    "description": "대표 마카샤의 직관으로 기술을 개발하는 연구소. 외부 사건 영향은 적지만 기술 성패에 따라 자체 변동성이 매우 크고, 잉여 현금을 자사주 매입과 배당으로 환원한다.",
+    "characterId": "chr_mksa",
+    "generatedDerivative": false
+  },
+  {
+    "id": "monc",
+    "ticker": "MONC",
+    "name": "몬텔리 캐피탈",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "사모·BDC",
+    "marketTags": [
+      "금융"
+    ],
+    "description": "라군나 스타트업 채권에 고정금리로 투자해 이자 수익을 배당하는 BDC. 부실채권을 히트맨으로 압류한다는 소문이 돈다.",
+    "characterId": "chr_monc",
+    "generatedDerivative": false
+  },
+  {
+    "id": "htcl",
+    "ticker": "HTCL",
+    "name": "히스클리프 리츠운용",
+    "kind": "company",
+    "sector": "금융",
+    "subsector": "리츠",
+    "marketTags": [
+      "금융"
+    ],
+    "description": "히스클리프의 직감으로 부동산 리츠를 운용하는 회사. 현금흐름 전액을 배당하며, 위기 때 전환사채로 급락한 뒤 대표가 이를 되사들여 급등한다.",
+    "characterId": "chr_htcl",
+    "generatedDerivative": false
+  },
+  {
+    "id": "vnasfut-inverse",
+    "ticker": "VNSFI",
+    "name": "V-나스닥 선물 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "V-나스닥 선물의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "vnasfut",
+    "generatedDerivative": true
+  },
+  {
+    "id": "vnasfut-inverse-2x",
+    "ticker": "VNSFI2",
+    "name": "V-나스닥 선물 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "V-나스닥 선물의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "vnasfut",
+    "generatedDerivative": true
+  },
+  {
+    "id": "vnasfut-leverage-2x",
+    "ticker": "VNSFL2",
+    "name": "V-나스닥 선물 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "V-나스닥 선물의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "vnasfut",
+    "generatedDerivative": true
+  },
+  {
+    "id": "sbnd-inverse",
+    "ticker": "SBNDI",
+    "name": "단기채 ETF 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "단기채 ETF의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "sbnd",
+    "generatedDerivative": true
+  },
+  {
+    "id": "sbnd-inverse-2x",
+    "ticker": "SBNDI2",
+    "name": "단기채 ETF 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "단기채 ETF의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "sbnd",
+    "generatedDerivative": true
+  },
+  {
+    "id": "sbnd-leverage-2x",
+    "ticker": "SBNDL2",
+    "name": "단기채 ETF 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "단기채 ETF의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "sbnd",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gldx-inverse",
+    "ticker": "GLDXI",
+    "name": "금 ETF 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "금 ETF의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "gldx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gldx-inverse-2x",
+    "ticker": "GLDXI2",
+    "name": "금 ETF 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "금 ETF의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "gldx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gldx-leverage-2x",
+    "ticker": "GLDXL2",
+    "name": "금 ETF 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "금 ETF의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "gldx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahina-inverse",
+    "ticker": "BAAKOI",
+    "name": "선도부 방위산업 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "선도부 방위산업의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahina",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahina-inverse-2x",
+    "ticker": "BAAKOI2",
+    "name": "선도부 방위산업 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "선도부 방위산업의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahina",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahina-leverage-2x",
+    "ticker": "BAAKOL2",
+    "name": "선도부 방위산업 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "선도부 방위산업의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahina",
+    "generatedDerivative": true
+  },
+  {
+    "id": "udnge-inverse",
+    "ticker": "UDGEI",
+    "name": "레이센 제약 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "레이센 제약의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "udnge",
+    "generatedDerivative": true
+  },
+  {
+    "id": "udnge-inverse-2x",
+    "ticker": "UDGEI2",
+    "name": "레이센 제약 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "레이센 제약의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "udnge",
+    "generatedDerivative": true
+  },
+  {
+    "id": "udnge-leverage-2x",
+    "ticker": "UDGEL2",
+    "name": "레이센 제약 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "레이센 제약의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "udnge",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dante-inverse",
+    "ticker": "DNTEI",
+    "name": "단테 정밀시계 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "단테 정밀시계의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "dante",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dante-inverse-2x",
+    "ticker": "DNTEI2",
+    "name": "단테 정밀시계 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "단테 정밀시계의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "dante",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dante-leverage-2x",
+    "ticker": "DNTEL2",
+    "name": "단테 정밀시계 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "단테 정밀시계의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "dante",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hinafg-inverse",
+    "ticker": "HINAI",
+    "name": "소라사키 히나 금융지주 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "소라사키 히나 금융지주의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "hinafg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hinafg-inverse-2x",
+    "ticker": "HINAI2",
+    "name": "소라사키 히나 금융지주 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "소라사키 히나 금융지주의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "hinafg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hinafg-leverage-2x",
+    "ticker": "HINAL2",
+    "name": "소라사키 히나 금융지주 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "소라사키 히나 금융지주의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "hinafg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gsck-inverse",
+    "ticker": "GSCKI",
+    "name": "키보토스 총학생회 금융지주 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "키보토스 총학생회 금융지주의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "gsck",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gsck-inverse-2x",
+    "ticker": "GSCKI2",
+    "name": "키보토스 총학생회 금융지주 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "키보토스 총학생회 금융지주의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "gsck",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gsck-leverage-2x",
+    "ticker": "GSCKL2",
+    "name": "키보토스 총학생회 금융지주 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "키보토스 총학생회 금융지주의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "gsck",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yisang-inverse",
+    "ticker": "YSANI",
+    "name": "이상 연구소 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "이상 연구소의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "yisang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yisang-inverse-2x",
+    "ticker": "YSANI2",
+    "name": "이상 연구소 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "이상 연구소의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "yisang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yisang-leverage-2x",
+    "ticker": "YSANL2",
+    "name": "이상 연구소 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "이상 연구소의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "yisang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nagusa-inverse",
+    "ticker": "NGSAI",
+    "name": "나구사 야키토리&닭꼬치 주식회사 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "나구사 야키토리&닭꼬치 주식회사의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nagusa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nagusa-inverse-2x",
+    "ticker": "NGSAI2",
+    "name": "나구사 야키토리&닭꼬치 주식회사 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "나구사 야키토리&닭꼬치 주식회사의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nagusa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nagusa-leverage-2x",
+    "ticker": "NGSAL2",
+    "name": "나구사 야키토리&닭꼬치 주식회사 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "나구사 야키토리&닭꼬치 주식회사의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nagusa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yakumo-inverse",
+    "ticker": "YKMOI",
+    "name": "붉은겨울 출판부 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "붉은겨울 출판부의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "yakumo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yakumo-inverse-2x",
+    "ticker": "YKMOI2",
+    "name": "붉은겨울 출판부 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "붉은겨울 출판부의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "yakumo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yakumo-leverage-2x",
+    "ticker": "YKMOL2",
+    "name": "붉은겨울 출판부 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "붉은겨울 출판부의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "yakumo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "minori-inverse",
+    "ticker": "MNRII",
+    "name": "미노리 용역 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "미노리 용역의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "minori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "minori-inverse-2x",
+    "ticker": "MNRII2",
+    "name": "미노리 용역 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "미노리 용역의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "minori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "minori-leverage-2x",
+    "ticker": "MNRIL2",
+    "name": "미노리 용역 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "미노리 용역의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "minori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "faust-inverse",
+    "ticker": "FAUSI",
+    "name": "파우스트 투자증권 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "파우스트 투자증권의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "faust",
+    "generatedDerivative": true
+  },
+  {
+    "id": "faust-inverse-2x",
+    "ticker": "FAUSI2",
+    "name": "파우스트 투자증권 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "파우스트 투자증권의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "faust",
+    "generatedDerivative": true
+  },
+  {
+    "id": "faust-leverage-2x",
+    "ticker": "FAUSL2",
+    "name": "파우스트 투자증권 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "파우스트 투자증권의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "faust",
+    "generatedDerivative": true
+  },
+  {
+    "id": "miku-inverse",
+    "ticker": "MIKUI",
+    "name": "미쿠 엔터테인먼트 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "미쿠 엔터테인먼트의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "miku",
+    "generatedDerivative": true
+  },
+  {
+    "id": "miku-inverse-2x",
+    "ticker": "MIKUI2",
+    "name": "미쿠 엔터테인먼트 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "미쿠 엔터테인먼트의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "miku",
+    "generatedDerivative": true
+  },
+  {
+    "id": "miku-leverage-2x",
+    "ticker": "MIKUL2",
+    "name": "미쿠 엔터테인먼트 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "미쿠 엔터테인먼트의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "miku",
+    "generatedDerivative": true
+  },
+  {
+    "id": "carrot-inverse",
+    "ticker": "CROTI",
+    "name": "캬롯 농장 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "캬롯 농장의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "carrot",
+    "generatedDerivative": true
+  },
+  {
+    "id": "carrot-inverse-2x",
+    "ticker": "CROTI2",
+    "name": "캬롯 농장 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "캬롯 농장의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "carrot",
+    "generatedDerivative": true
+  },
+  {
+    "id": "carrot-leverage-2x",
+    "ticker": "CROTL2",
+    "name": "캬롯 농장 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "캬롯 농장의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "carrot",
+    "generatedDerivative": true
+  },
+  {
+    "id": "asuna-inverse",
+    "ticker": "ASNAI",
+    "name": "아스나 유업 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "아스나 유업의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "asuna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "asuna-inverse-2x",
+    "ticker": "ASNAI2",
+    "name": "아스나 유업 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "아스나 유업의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "asuna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "asuna-leverage-2x",
+    "ticker": "ASNAL2",
+    "name": "아스나 유업 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "아스나 유업의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "asuna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wakamo-inverse",
+    "ticker": "KAMOI",
+    "name": "까모투자증권 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "까모투자증권의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wakamo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wakamo-inverse-2x",
+    "ticker": "KAMOI2",
+    "name": "까모투자증권 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "까모투자증권의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wakamo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wakamo-leverage-2x",
+    "ticker": "KAMOL2",
+    "name": "까모투자증권 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "까모투자증권의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wakamo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hifumi-inverse",
+    "ticker": "AHMFI",
+    "name": "모모톡프렌즈 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "모모톡프렌즈의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "hifumi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hifumi-inverse-2x",
+    "ticker": "AHMFI2",
+    "name": "모모톡프렌즈 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "모모톡프렌즈의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "hifumi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hifumi-leverage-2x",
+    "ticker": "AHMFL2",
+    "name": "모모톡프렌즈 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "모모톡프렌즈의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "hifumi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ifrit-inverse",
+    "ticker": "IFRTI",
+    "name": "이프리트 화력발전 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "이프리트 화력발전의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ifrit",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ifrit-inverse-2x",
+    "ticker": "IFRTI2",
+    "name": "이프리트 화력발전 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "이프리트 화력발전의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ifrit",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ifrit-leverage-2x",
+    "ticker": "IFRTL2",
+    "name": "이프리트 화력발전 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "이프리트 화력발전의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ifrit",
+    "generatedDerivative": true
+  },
+  {
+    "id": "speedwagon-inverse",
+    "ticker": "SPWOI",
+    "name": "스피드웨건 오일 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "스피드웨건 오일의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "speedwagon",
+    "generatedDerivative": true
+  },
+  {
+    "id": "speedwagon-inverse-2x",
+    "ticker": "SPWOI2",
+    "name": "스피드웨건 오일 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "스피드웨건 오일의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "speedwagon",
+    "generatedDerivative": true
+  },
+  {
+    "id": "speedwagon-leverage-2x",
+    "ticker": "SPWOL2",
+    "name": "스피드웨건 오일 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "스피드웨건 오일의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "speedwagon",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dorothy-inverse",
+    "ticker": "EDENI",
+    "name": "에덴 오트쿠튀르 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "에덴 오트쿠튀르의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "dorothy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dorothy-inverse-2x",
+    "ticker": "EDENI2",
+    "name": "에덴 오트쿠튀르 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "에덴 오트쿠튀르의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "dorothy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dorothy-leverage-2x",
+    "ticker": "EDENL2",
+    "name": "에덴 오트쿠튀르 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "에덴 오트쿠튀르의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "dorothy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "elysia-inverse",
+    "ticker": "ELYSI",
+    "name": "엘리시아 파마 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "엘리시아 파마의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "elysia",
+    "generatedDerivative": true
+  },
+  {
+    "id": "elysia-inverse-2x",
+    "ticker": "ELYSI2",
+    "name": "엘리시아 파마 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "엘리시아 파마의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "elysia",
+    "generatedDerivative": true
+  },
+  {
+    "id": "elysia-leverage-2x",
+    "ticker": "ELYSL2",
+    "name": "엘리시아 파마 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "엘리시아 파마의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "elysia",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iori-inverse",
+    "ticker": "IORII",
+    "name": "이오리 소프트웨어 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "이오리 소프트웨어의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "iori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iori-inverse-2x",
+    "ticker": "IORII2",
+    "name": "이오리 소프트웨어 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "이오리 소프트웨어의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "iori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iori-leverage-2x",
+    "ticker": "IORIL2",
+    "name": "이오리 소프트웨어 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "이오리 소프트웨어의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "iori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "jbinv-inverse",
+    "ticker": "JBINVI",
+    "name": "주붕투자증권 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "주붕투자증권의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "jbinv",
+    "generatedDerivative": true
+  },
+  {
+    "id": "jbinv-inverse-2x",
+    "ticker": "JBINVI2",
+    "name": "주붕투자증권 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "주붕투자증권의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "jbinv",
+    "generatedDerivative": true
+  },
+  {
+    "id": "jbinv-leverage-2x",
+    "ticker": "JBINVL2",
+    "name": "주붕투자증권 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "주붕투자증권의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "jbinv",
+    "generatedDerivative": true
+  },
+  {
+    "id": "honglu-inverse",
+    "ticker": "HONGLI",
+    "name": "홍루 은행 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "홍루 은행의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "honglu",
+    "generatedDerivative": true
+  },
+  {
+    "id": "honglu-inverse-2x",
+    "ticker": "HONGLI2",
+    "name": "홍루 은행 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "홍루 은행의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "honglu",
+    "generatedDerivative": true
+  },
+  {
+    "id": "honglu-leverage-2x",
+    "ticker": "HONGLL2",
+    "name": "홍루 은행 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "홍루 은행의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "honglu",
+    "generatedDerivative": true
+  },
+  {
+    "id": "pghg-inverse",
+    "ticker": "PGHGI",
+    "name": "파급효과 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "파급효과의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "pghg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "pghg-inverse-2x",
+    "ticker": "PGHGI2",
+    "name": "파급효과 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "파급효과의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "pghg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "pghg-leverage-2x",
+    "ticker": "PGHGL2",
+    "name": "파급효과 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "파급효과의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "pghg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "amnw-inverse",
+    "ticker": "AMNWI",
+    "name": "에이메스 네트웍스 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "에이메스 네트웍스의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "amnw",
+    "generatedDerivative": true
+  },
+  {
+    "id": "amnw-inverse-2x",
+    "ticker": "AMNWI2",
+    "name": "에이메스 네트웍스 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "에이메스 네트웍스의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "amnw",
+    "generatedDerivative": true
+  },
+  {
+    "id": "amnw-leverage-2x",
+    "ticker": "AMNWL2",
+    "name": "에이메스 네트웍스 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "에이메스 네트웍스의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "amnw",
+    "generatedDerivative": true
+  },
+  {
+    "id": "lcid-inverse",
+    "ticker": "LCIDI",
+    "name": "레이크루시드증권 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "레이크루시드증권의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "lcid",
+    "generatedDerivative": true
+  },
+  {
+    "id": "lcid-inverse-2x",
+    "ticker": "LCIDI2",
+    "name": "레이크루시드증권 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "레이크루시드증권의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "lcid",
+    "generatedDerivative": true
+  },
+  {
+    "id": "lcid-leverage-2x",
+    "ticker": "LCIDL2",
+    "name": "레이크루시드증권 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "레이크루시드증권의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "lcid",
+    "generatedDerivative": true
+  },
+  {
+    "id": "levi-inverse",
+    "ticker": "LEVII",
+    "name": "레비 종합보조서비스 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "레비 종합보조서비스의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "levi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "levi-inverse-2x",
+    "ticker": "LEVII2",
+    "name": "레비 종합보조서비스 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "레비 종합보조서비스의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "levi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "levi-leverage-2x",
+    "ticker": "LEVIL2",
+    "name": "레비 종합보조서비스 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "레비 종합보조서비스의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "levi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nexr-inverse",
+    "ticker": "NEXRI",
+    "name": "NexR 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "NexR의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nexr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nexr-inverse-2x",
+    "ticker": "NEXRI2",
+    "name": "NexR 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "NexR의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nexr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nexr-leverage-2x",
+    "ticker": "NEXRL2",
+    "name": "NexR 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "NexR의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nexr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "tehty-inverse",
+    "ticker": "TEHTYI",
+    "name": "카르티시아 F&B 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "카르티시아 F&B의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "tehty",
+    "generatedDerivative": true
+  },
+  {
+    "id": "tehty-inverse-2x",
+    "ticker": "TEHTYI2",
+    "name": "카르티시아 F&B 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "카르티시아 F&B의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "tehty",
+    "generatedDerivative": true
+  },
+  {
+    "id": "tehty-leverage-2x",
+    "ticker": "TEHTYL2",
+    "name": "카르티시아 F&B 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "카르티시아 F&B의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "tehty",
+    "generatedDerivative": true
+  },
+  {
+    "id": "koyuki-inverse",
+    "ticker": "KOYUI",
+    "name": "코유키 정보해석 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "코유키 정보해석의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "koyuki",
+    "generatedDerivative": true
+  },
+  {
+    "id": "koyuki-inverse-2x",
+    "ticker": "KOYUI2",
+    "name": "코유키 정보해석 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "코유키 정보해석의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "koyuki",
+    "generatedDerivative": true
+  },
+  {
+    "id": "koyuki-leverage-2x",
+    "ticker": "KOYUL2",
+    "name": "코유키 정보해석 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "코유키 정보해석의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "koyuki",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ames-inverse",
+    "ticker": "WWAMI",
+    "name": "에이메스 엔터테인먼트 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "에이메스 엔터테인먼트의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ames",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ames-inverse-2x",
+    "ticker": "WWAMI2",
+    "name": "에이메스 엔터테인먼트 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "에이메스 엔터테인먼트의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ames",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ames-leverage-2x",
+    "ticker": "WWAML2",
+    "name": "에이메스 엔터테인먼트 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "에이메스 엔터테인먼트의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ames",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkcl-inverse",
+    "ticker": "NKCLI",
+    "name": "누카-콜라 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "누카-콜라의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkcl-inverse-2x",
+    "ticker": "NKCLI2",
+    "name": "누카-콜라 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "누카-콜라의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkcl-leverage-2x",
+    "ticker": "NKCLL2",
+    "name": "누카-콜라 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "누카-콜라의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "vergilius-inverse",
+    "ticker": "VRGLI",
+    "name": "베르길리우스 다크 투어리즘 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "베르길리우스 다크 투어리즘의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "vergilius",
+    "generatedDerivative": true
+  },
+  {
+    "id": "vergilius-inverse-2x",
+    "ticker": "VRGLI2",
+    "name": "베르길리우스 다크 투어리즘 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "베르길리우스 다크 투어리즘의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "vergilius",
+    "generatedDerivative": true
+  },
+  {
+    "id": "vergilius-leverage-2x",
+    "ticker": "VRGLL2",
+    "name": "베르길리우스 다크 투어리즘 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "베르길리우스 다크 투어리즘의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "vergilius",
+    "generatedDerivative": true
+  },
+  {
+    "id": "militc-inverse",
+    "ticker": "MILITCI",
+    "name": "밀리테크 인터내셔널 아머먼츠 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "밀리테크 인터내셔널 아머먼츠의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "militc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "militc-inverse-2x",
+    "ticker": "MILITCI2",
+    "name": "밀리테크 인터내셔널 아머먼츠 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "밀리테크 인터내셔널 아머먼츠의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "militc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "militc-leverage-2x",
+    "ticker": "MILITCL2",
+    "name": "밀리테크 인터내셔널 아머먼츠 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "밀리테크 인터내셔널 아머먼츠의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "militc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ishmael-inverse",
+    "ticker": "ISMLI",
+    "name": "이스마엘 해운 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "이스마엘 해운의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ishmael",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ishmael-inverse-2x",
+    "ticker": "ISMLI2",
+    "name": "이스마엘 해운 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "이스마엘 해운의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ishmael",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ishmael-leverage-2x",
+    "ticker": "ISMLL2",
+    "name": "이스마엘 해운 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "이스마엘 해운의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ishmael",
+    "generatedDerivative": true
+  },
+  {
+    "id": "jbinvb-inverse",
+    "ticker": "JBINVBI",
+    "name": "JB투자은행 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "JB투자은행의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "jbinvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "jbinvb-inverse-2x",
+    "ticker": "JBINVBI2",
+    "name": "JB투자은행 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "JB투자은행의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "jbinvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "jbinvb-leverage-2x",
+    "ticker": "JBINVBL2",
+    "name": "JB투자은행 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "JB투자은행의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "jbinvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "shupang-inverse",
+    "ticker": "SHPGI",
+    "name": "슈팡특송 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "슈팡특송의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "shupang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "shupang-inverse-2x",
+    "ticker": "SHPGI2",
+    "name": "슈팡특송 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "슈팡특송의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "shupang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "shupang-leverage-2x",
+    "ticker": "SHPGL2",
+    "name": "슈팡특송 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "슈팡특송의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "shupang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nacm-inverse",
+    "ticker": "NACMI",
+    "name": "NatsumeAnan Capital Management 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "NatsumeAnan Capital Management의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nacm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nacm-inverse-2x",
+    "ticker": "NACMI2",
+    "name": "NatsumeAnan Capital Management 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "NatsumeAnan Capital Management의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nacm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nacm-leverage-2x",
+    "ticker": "NACML2",
+    "name": "NatsumeAnan Capital Management 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "NatsumeAnan Capital Management의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nacm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ghh-inverse",
+    "ticker": "GHHI",
+    "name": "게헨나헬스 그룹 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "게헨나헬스 그룹의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ghh",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ghh-inverse-2x",
+    "ticker": "GHHI2",
+    "name": "게헨나헬스 그룹 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "게헨나헬스 그룹의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ghh",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ghh-leverage-2x",
+    "ticker": "GHHL2",
+    "name": "게헨나헬스 그룹 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "게헨나헬스 그룹의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ghh",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ksgk-inverse",
+    "ticker": "KSGKI",
+    "name": "Kusogaki Capital 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "Kusogaki Capital의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ksgk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ksgk-inverse-2x",
+    "ticker": "KSGKI2",
+    "name": "Kusogaki Capital 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "Kusogaki Capital의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ksgk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ksgk-leverage-2x",
+    "ticker": "KSGKL2",
+    "name": "Kusogaki Capital 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "Kusogaki Capital의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ksgk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iga-inverse",
+    "ticker": "LEEI",
+    "name": "이가 증권 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "이가 증권의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "iga",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iga-inverse-2x",
+    "ticker": "LEEI2",
+    "name": "이가 증권 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "이가 증권의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "iga",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iga-leverage-2x",
+    "ticker": "LEEL2",
+    "name": "이가 증권 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "이가 증권의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "iga",
+    "generatedDerivative": true
+  },
+  {
+    "id": "omniro-inverse",
+    "ticker": "ORII",
+    "name": "Omni Robotics Industry 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "Omni Robotics Industry의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "omniro",
+    "generatedDerivative": true
+  },
+  {
+    "id": "omniro-inverse-2x",
+    "ticker": "ORII2",
+    "name": "Omni Robotics Industry 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "Omni Robotics Industry의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "omniro",
+    "generatedDerivative": true
+  },
+  {
+    "id": "omniro-leverage-2x",
+    "ticker": "ORIL2",
+    "name": "Omni Robotics Industry 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "Omni Robotics Industry의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "omniro",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baridc-inverse",
+    "ticker": "BARIDCI",
+    "name": "리오 방위산업 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "리오 방위산업의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baridc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baridc-inverse-2x",
+    "ticker": "BARIDCI2",
+    "name": "리오 방위산업 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "리오 방위산업의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baridc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baridc-leverage-2x",
+    "ticker": "BARIDCL2",
+    "name": "리오 방위산업 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "리오 방위산업의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baridc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baqqq-inverse",
+    "ticker": "BAQQQI",
+    "name": "밀레니엄 테크 100 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "밀레니엄 테크 100의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baqqq",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baqqq-inverse-2x",
+    "ticker": "BAQQQI2",
+    "name": "밀레니엄 테크 100 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "밀레니엄 테크 100의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baqqq",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baqqq-leverage-2x",
+    "ticker": "BAQQQL2",
+    "name": "밀레니엄 테크 100 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "밀레니엄 테크 100의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baqqq",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamlb-inverse",
+    "ticker": "BAMLBI",
+    "name": "밀레니엄 학원채 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "밀레니엄 학원채의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamlb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamlb-inverse-2x",
+    "ticker": "BAMLBI2",
+    "name": "밀레니엄 학원채 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "밀레니엄 학원채의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamlb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamlb-leverage-2x",
+    "ticker": "BAMLBL2",
+    "name": "밀레니엄 학원채 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "밀레니엄 학원채의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamlb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bagdi-inverse",
+    "ticker": "BAGDII",
+    "name": "게임개발 인터랙티브 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "게임개발 인터랙티브의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bagdi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bagdi-inverse-2x",
+    "ticker": "BAGDII2",
+    "name": "게임개발 인터랙티브 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "게임개발 인터랙티브의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bagdi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bagdi-leverage-2x",
+    "ticker": "BAGDIL2",
+    "name": "게임개발 인터랙티브 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "게임개발 인터랙티브의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bagdi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bavts-inverse",
+    "ticker": "BAVTSI",
+    "name": "베리타스 시큐리티 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "베리타스 시큐리티의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bavts",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bavts-inverse-2x",
+    "ticker": "BAVTSI2",
+    "name": "베리타스 시큐리티 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "베리타스 시큐리티의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bavts",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bavts-leverage-2x",
+    "ticker": "BAVTSL2",
+    "name": "베리타스 시큐리티 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "베리타스 시큐리티의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bavts",
+    "generatedDerivative": true
+  },
+  {
+    "id": "banru-inverse",
+    "ticker": "BANRUI",
+    "name": "네루 택티컬 그룹 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "네루 택티컬 그룹의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "banru",
+    "generatedDerivative": true
+  },
+  {
+    "id": "banru-inverse-2x",
+    "ticker": "BANRUI2",
+    "name": "네루 택티컬 그룹 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "네루 택티컬 그룹의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "banru",
+    "generatedDerivative": true
+  },
+  {
+    "id": "banru-leverage-2x",
+    "ticker": "BANRUL2",
+    "name": "네루 택티컬 그룹 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "네루 택티컬 그룹의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "banru",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahbk-inverse",
+    "ticker": "BAHBKI",
+    "name": "히비키 병기 시스템 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "히비키 병기 시스템의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahbk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahbk-inverse-2x",
+    "ticker": "BAHBKI2",
+    "name": "히비키 병기 시스템 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "히비키 병기 시스템의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahbk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahbk-leverage-2x",
+    "ticker": "BAHBKL2",
+    "name": "히비키 병기 시스템 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "히비키 병기 시스템의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahbk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basmr-inverse",
+    "ticker": "BASMRI",
+    "name": "밀레니엄 메디컬 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "밀레니엄 메디컬의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "basmr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basmr-inverse-2x",
+    "ticker": "BASMRI2",
+    "name": "밀레니엄 메디컬 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "밀레니엄 메디컬의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "basmr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basmr-leverage-2x",
+    "ticker": "BASMRL2",
+    "name": "밀레니엄 메디컬 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "밀레니엄 메디컬의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "basmr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baspy-inverse",
+    "ticker": "BASPYI",
+    "name": "키보토스 종합지수 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "키보토스 종합지수의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baspy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baspy-inverse-2x",
+    "ticker": "BASPYI2",
+    "name": "키보토스 종합지수 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "키보토스 종합지수의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baspy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baspy-leverage-2x",
+    "ticker": "BASPYL2",
+    "name": "키보토스 종합지수 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "키보토스 종합지수의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baspy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakaya-inverse",
+    "ticker": "BAKAYAI",
+    "name": "시라누이 중공업 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "시라누이 중공업의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakaya",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakaya-inverse-2x",
+    "ticker": "BAKAYAI2",
+    "name": "시라누이 중공업 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "시라누이 중공업의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakaya",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakaya-leverage-2x",
+    "ticker": "BAKAYAL2",
+    "name": "시라누이 중공업 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "시라누이 중공업의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakaya",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakvb-inverse",
+    "ticker": "BAKVBI",
+    "name": "키보토스 지방채 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "키보토스 지방채의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakvb-inverse-2x",
+    "ticker": "BAKVBI2",
+    "name": "키보토스 지방채 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "키보토스 지방채의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakvb-leverage-2x",
+    "ticker": "BAKVBL2",
+    "name": "키보토스 지방채 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "키보토스 지방채의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabs-inverse",
+    "ticker": "BAABSI",
+    "name": "아비도스 시큐리티 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "아비도스 시큐리티의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baabs",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabs-inverse-2x",
+    "ticker": "BAABSI2",
+    "name": "아비도스 시큐리티 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "아비도스 시큐리티의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baabs",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabs-leverage-2x",
+    "ticker": "BAABSL2",
+    "name": "아비도스 시큐리티 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "아비도스 시큐리티의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baabs",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabb-inverse",
+    "ticker": "BAABBI",
+    "name": "아비도스 학원채 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "아비도스 학원채의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baabb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabb-inverse-2x",
+    "ticker": "BAABBI2",
+    "name": "아비도스 학원채 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "아비도스 학원채의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baabb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabb-leverage-2x",
+    "ticker": "BAABBL2",
+    "name": "아비도스 학원채 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "아비도스 학원채의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baabb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ba68-inverse",
+    "ticker": "BA68I",
+    "name": "흥신소 68 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "흥신소 68의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ba68",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ba68-inverse-2x",
+    "ticker": "BA68I2",
+    "name": "흥신소 68 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "흥신소 68의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ba68",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ba68-leverage-2x",
+    "ticker": "BA68L2",
+    "name": "흥신소 68 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "흥신소 68의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ba68",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahrn-inverse",
+    "ticker": "BAHRNI",
+    "name": "미식연구회 다이닝 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "미식연구회 다이닝의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahrn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahrn-inverse-2x",
+    "ticker": "BAHRNI2",
+    "name": "미식연구회 다이닝 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "미식연구회 다이닝의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahrn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahrn-leverage-2x",
+    "ticker": "BAHRNL2",
+    "name": "미식연구회 다이닝 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "미식연구회 다이닝의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahrn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bafka-inverse",
+    "ticker": "BAFKAI",
+    "name": "게헨나 키친 푸드 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "게헨나 키친 푸드의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bafka",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bafka-inverse-2x",
+    "ticker": "BAFKAI2",
+    "name": "게헨나 키친 푸드 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "게헨나 키친 푸드의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bafka",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bafka-leverage-2x",
+    "ticker": "BAFKAL2",
+    "name": "게헨나 키친 푸드 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "게헨나 키친 푸드의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bafka",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basena-inverse",
+    "ticker": "BASENAI",
+    "name": "구호기사단 바이오텍 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "구호기사단 바이오텍의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "basena",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basena-inverse-2x",
+    "ticker": "BASENAI2",
+    "name": "구호기사단 바이오텍 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "구호기사단 바이오텍의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "basena",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basena-leverage-2x",
+    "ticker": "BASENAL2",
+    "name": "구호기사단 바이오텍 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "구호기사단 바이오텍의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "basena",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baksm-inverse",
+    "ticker": "BAKSMI",
+    "name": "카스미 건설 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "카스미 건설의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baksm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baksm-inverse-2x",
+    "ticker": "BAKSMI2",
+    "name": "카스미 건설 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "카스미 건설의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baksm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baksm-leverage-2x",
+    "ticker": "BAKSML2",
+    "name": "카스미 건설 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "카스미 건설의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baksm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakrr-inverse",
+    "ticker": "BAKRRI",
+    "name": "키라라 코스메틱 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "키라라 코스메틱의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakrr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakrr-inverse-2x",
+    "ticker": "BAKRRI2",
+    "name": "키라라 코스메틱 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "키라라 코스메틱의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakrr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakrr-leverage-2x",
+    "ticker": "BAKRRL2",
+    "name": "키라라 코스메틱 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "키라라 코스메틱의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bakrr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baghb-inverse",
+    "ticker": "BAGHBI",
+    "name": "게헨나 학원채 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "게헨나 학원채의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baghb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baghb-inverse-2x",
+    "ticker": "BAGHBI2",
+    "name": "게헨나 학원채 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "게헨나 학원채의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baghb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baghb-leverage-2x",
+    "ticker": "BAGHBL2",
+    "name": "게헨나 학원채 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "게헨나 학원채의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baghb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahnk-inverse",
+    "ticker": "BAHNKI",
+    "name": "하나코 교육그룹 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "하나코 교육그룹의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahnk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahnk-inverse-2x",
+    "ticker": "BAHNKI2",
+    "name": "하나코 교육그룹 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "하나코 교육그룹의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahnk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahnk-leverage-2x",
+    "ticker": "BAHNKL2",
+    "name": "하나코 교육그룹 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "하나코 교육그룹의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bahnk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baszm-inverse",
+    "ticker": "BASZMI",
+    "name": "스즈미 경비서비스 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "스즈미 경비서비스의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baszm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baszm-inverse-2x",
+    "ticker": "BASZMI2",
+    "name": "스즈미 경비서비스 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "스즈미 경비서비스의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baszm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baszm-leverage-2x",
+    "ticker": "BASZML2",
+    "name": "스즈미 경비서비스 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "스즈미 경비서비스의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baszm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baui-inverse",
+    "ticker": "BAUII",
+    "name": "아카이브 미디어웍스 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "아카이브 미디어웍스의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baui",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baui-inverse-2x",
+    "ticker": "BAUII2",
+    "name": "아카이브 미디어웍스 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "아카이브 미디어웍스의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baui",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baui-leverage-2x",
+    "ticker": "BAUIL2",
+    "name": "아카이브 미디어웍스 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "아카이브 미디어웍스의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baui",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baair-inverse",
+    "ticker": "BAAIRI",
+    "name": "아이리 커피 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "아이리 커피의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baair",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baair-inverse-2x",
+    "ticker": "BAAIRI2",
+    "name": "아이리 커피 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "아이리 커피의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baair",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baair-leverage-2x",
+    "ticker": "BAAIRL2",
+    "name": "아이리 커피 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "아이리 커피의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "baair",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamine-inverse",
+    "ticker": "BAMINEI",
+    "name": "미네 제약 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "미네 제약의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamine",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamine-inverse-2x",
+    "ticker": "BAMINEI2",
+    "name": "미네 제약 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "미네 제약의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamine",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamine-leverage-2x",
+    "ticker": "BAMINEL2",
+    "name": "미네 제약 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "미네 제약의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamine",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrg-inverse",
+    "ticker": "BATRGI",
+    "name": "정의실현부 시큐리티 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "정의실현부 시큐리티의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "batrg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrg-inverse-2x",
+    "ticker": "BATRGI2",
+    "name": "정의실현부 시큐리티 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "정의실현부 시큐리티의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "batrg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrg-leverage-2x",
+    "ticker": "BATRGL2",
+    "name": "정의실현부 시큐리티 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "정의실현부 시큐리티의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "batrg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamari-inverse",
+    "ticker": "BAMARII",
+    "name": "마리 성지순례 관광 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "마리 성지순례 관광의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamari",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamari-inverse-2x",
+    "ticker": "BAMARII2",
+    "name": "마리 성지순례 관광 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "마리 성지순례 관광의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamari",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamari-leverage-2x",
+    "ticker": "BAMARIL2",
+    "name": "마리 성지순례 관광 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "마리 성지순례 관광의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bamari",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrb-inverse",
+    "ticker": "BATRBI",
+    "name": "트리니티 학원채 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "트리니티 학원채의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "batrb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrb-inverse-2x",
+    "ticker": "BATRBI2",
+    "name": "트리니티 학원채 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "트리니티 학원채의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "batrb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrb-leverage-2x",
+    "ticker": "BATRBL2",
+    "name": "트리니티 학원채 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "트리니티 학원채의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "batrb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjin-inverse",
+    "ticker": "WWJINI",
+    "name": "금주 금융그룹 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "금주 금융그룹의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwjin",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjin-inverse-2x",
+    "ticker": "WWJINI2",
+    "name": "금주 금융그룹 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "금주 금융그룹의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwjin",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjin-leverage-2x",
+    "ticker": "WWJINL2",
+    "name": "금주 금융그룹 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "금주 금융그룹의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwjin",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwchl-inverse",
+    "ticker": "WWCHLI",
+    "name": "장리 에너지 홀딩스 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "장리 에너지 홀딩스의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwchl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwchl-inverse-2x",
+    "ticker": "WWCHLI2",
+    "name": "장리 에너지 홀딩스 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "장리 에너지 홀딩스의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwchl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwchl-leverage-2x",
+    "ticker": "WWCHLL2",
+    "name": "장리 에너지 홀딩스 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "장리 에너지 홀딩스의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwchl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwxly-inverse",
+    "ticker": "WWXLYI",
+    "name": "상리요 연구소 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "상리요 연구소의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwxly",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwxly-inverse-2x",
+    "ticker": "WWXLYI2",
+    "name": "상리요 연구소 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "상리요 연구소의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwxly",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwxly-leverage-2x",
+    "ticker": "WWXLYL2",
+    "name": "상리요 연구소 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "상리요 연구소의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwxly",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjyn-inverse",
+    "ticker": "WWJYNI",
+    "name": "청룡 항공물류 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "청룡 항공물류의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwjyn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjyn-inverse-2x",
+    "ticker": "WWJYNI2",
+    "name": "청룡 항공물류 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "청룡 항공물류의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwjyn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjyn-leverage-2x",
+    "ticker": "WWJYNL2",
+    "name": "청룡 항공물류 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "청룡 항공물류의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwjyn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwskp-inverse",
+    "ticker": "WWSKPI",
+    "name": "블랙쇼어 텔레콤 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "블랙쇼어 텔레콤의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwskp",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwskp-inverse-2x",
+    "ticker": "WWSKPI2",
+    "name": "블랙쇼어 텔레콤 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "블랙쇼어 텔레콤의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwskp",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwskp-leverage-2x",
+    "ticker": "WWSKPL2",
+    "name": "블랙쇼어 텔레콤 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "블랙쇼어 텔레콤의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwskp",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwcam-inverse",
+    "ticker": "WWCAMI",
+    "name": "카멜리아 보태니컬 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "카멜리아 보태니컬의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwcam",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwcam-inverse-2x",
+    "ticker": "WWCAMI2",
+    "name": "카멜리아 보태니컬 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "카멜리아 보태니컬의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwcam",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwcam-leverage-2x",
+    "ticker": "WWCAML2",
+    "name": "카멜리아 보태니컬 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "카멜리아 보태니컬의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwcam",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkltr-inverse",
+    "ticker": "NKLTRI",
+    "name": "리타 개발 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "리타 개발의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkltr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkltr-inverse-2x",
+    "ticker": "NKLTRI2",
+    "name": "리타 개발 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "리타 개발의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkltr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkltr-leverage-2x",
+    "ticker": "NKLTRL2",
+    "name": "리타 개발 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "리타 개발의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkltr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkvol-inverse",
+    "ticker": "NKVOLI",
+    "name": "볼륨 방송 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "볼륨 방송의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkvol",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkvol-inverse-2x",
+    "ticker": "NKVOLI2",
+    "name": "볼륨 방송 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "볼륨 방송의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkvol",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkvol-leverage-2x",
+    "ticker": "NKVOLL2",
+    "name": "볼륨 방송 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "볼륨 방송의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkvol",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkneo-inverse",
+    "ticker": "NKNEOI",
+    "name": "네온 메가스토어 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "네온 메가스토어의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkneo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkneo-inverse-2x",
+    "ticker": "NKNEOI2",
+    "name": "네온 메가스토어 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "네온 메가스토어의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkneo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkneo-leverage-2x",
+    "ticker": "NKNEOL2",
+    "name": "네온 메가스토어 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "네온 메가스토어의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkneo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkexa-inverse",
+    "ticker": "NKEXAI",
+    "name": "엑시아 인터랙티브 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "엑시아 인터랙티브의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkexa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkexa-inverse-2x",
+    "ticker": "NKEXAI2",
+    "name": "엑시아 인터랙티브 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "엑시아 인터랙티브의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkexa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkexa-leverage-2x",
+    "ticker": "NKEXAL2",
+    "name": "엑시아 인터랙티브 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "엑시아 인터랙티브의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkexa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "pmcx-inverse",
+    "ticker": "PMCXI",
+    "name": "키보토스 치안 ETF 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "키보토스 치안 ETF의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "pmcx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "pmcx-inverse-2x",
+    "ticker": "PMCXI2",
+    "name": "키보토스 치안 ETF 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "키보토스 치안 ETF의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "pmcx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "pmcx-leverage-2x",
+    "ticker": "PMCXL2",
+    "name": "키보토스 치안 ETF 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "키보토스 치안 ETF의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "pmcx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bndx-inverse",
+    "ticker": "BNDXI",
+    "name": "학원채 ETF 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "학원채 ETF의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bndx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bndx-inverse-2x",
+    "ticker": "BNDXI2",
+    "name": "학원채 ETF 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "학원채 ETF의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bndx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bndx-leverage-2x",
+    "ticker": "BNDXL2",
+    "name": "학원채 ETF 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "학원채 ETF의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "bndx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aeyvn-inverse",
+    "ticker": "AEYVNI",
+    "name": "이본 마이크로시스템즈 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "이본 마이크로시스템즈의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "aeyvn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aeyvn-inverse-2x",
+    "ticker": "AEYVNI2",
+    "name": "이본 마이크로시스템즈 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "이본 마이크로시스템즈의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "aeyvn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aeyvn-leverage-2x",
+    "ticker": "AEYVNL2",
+    "name": "이본 마이크로시스템즈 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "이본 마이크로시스템즈의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "aeyvn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkilg-inverse",
+    "ticker": "NKILGI",
+    "name": "일레그 전력망 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "일레그 전력망의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkilg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkilg-inverse-2x",
+    "ticker": "NKILGI2",
+    "name": "일레그 전력망 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "일레그 전력망의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkilg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkilg-leverage-2x",
+    "ticker": "NKILGL2",
+    "name": "일레그 전력망 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "일레그 전력망의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkilg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aegil-inverse",
+    "ticker": "AEGILI",
+    "name": "질베르타 첨단소재 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "질베르타 첨단소재의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "aegil",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aegil-inverse-2x",
+    "ticker": "AEGILI2",
+    "name": "질베르타 첨단소재 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "질베르타 첨단소재의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "aegil",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aegil-leverage-2x",
+    "ticker": "AEGILL2",
+    "name": "질베르타 첨단소재 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "질베르타 첨단소재의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "aegil",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlne-inverse",
+    "ticker": "WWLNEI",
+    "name": "린네 모빌리티 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "린네 모빌리티의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwlne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlne-inverse-2x",
+    "ticker": "WWLNEI2",
+    "name": "린네 모빌리티 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "린네 모빌리티의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwlne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlne-leverage-2x",
+    "ticker": "WWLNEL2",
+    "name": "린네 모빌리티 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "린네 모빌리티의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwlne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ersua-inverse",
+    "ticker": "ERSUAI",
+    "name": "수아 보험 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "수아 보험의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ersua",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ersua-inverse-2x",
+    "ticker": "ERSUAI2",
+    "name": "수아 보험 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "수아 보험의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ersua",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ersua-leverage-2x",
+    "ticker": "ERSUAL2",
+    "name": "수아 보험 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "수아 보험의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "ersua",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkmna-inverse",
+    "ticker": "NKMNAI",
+    "name": "마나 파운드리 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "마나 파운드리의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkmna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkmna-inverse-2x",
+    "ticker": "NKMNAI2",
+    "name": "마나 파운드리 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "마나 파운드리의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkmna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkmna-leverage-2x",
+    "ticker": "NKMNAL2",
+    "name": "마나 파운드리 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "마나 파운드리의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkmna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwmne-inverse",
+    "ticker": "WWMNEI",
+    "name": "모니에 메모리 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "모니에 메모리의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwmne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwmne-inverse-2x",
+    "ticker": "WWMNEI2",
+    "name": "모니에 메모리 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "모니에 메모리의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwmne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwmne-leverage-2x",
+    "ticker": "WWMNEL2",
+    "name": "모니에 메모리 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "모니에 메모리의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwmne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlcl-inverse",
+    "ticker": "WWLCLI",
+    "name": "루실라 시스템즈 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "루실라 시스템즈의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwlcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlcl-inverse-2x",
+    "ticker": "WWLCLI2",
+    "name": "루실라 시스템즈 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "루실라 시스템즈의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwlcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlcl-leverage-2x",
+    "ticker": "WWLCLL2",
+    "name": "루실라 시스템즈 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "루실라 시스템즈의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "wwlcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkccl-inverse",
+    "ticker": "NKCCLI",
+    "name": "세실 노광장비 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "세실 노광장비의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkccl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkccl-inverse-2x",
+    "ticker": "NKCCLI2",
+    "name": "세실 노광장비 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "세실 노광장비의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkccl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkccl-leverage-2x",
+    "ticker": "NKCCLL2",
+    "name": "세실 노광장비 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "세실 노광장비의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "nkccl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "semix-inverse",
+    "ticker": "SEMIXI",
+    "name": "반도체 섹터 ETF 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "반도체 섹터 ETF의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "semix",
+    "generatedDerivative": true
+  },
+  {
+    "id": "semix-inverse-2x",
+    "ticker": "SEMIXI2",
+    "name": "반도체 섹터 ETF 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "반도체 섹터 ETF의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "semix",
+    "generatedDerivative": true
+  },
+  {
+    "id": "semix-leverage-2x",
+    "ticker": "SEMIXL2",
+    "name": "반도체 섹터 ETF 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "반도체 섹터 ETF의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "semix",
+    "generatedDerivative": true
+  },
+  {
+    "id": "divx-inverse",
+    "ticker": "DIVXI",
+    "name": "가디언 배당 방어 ETF 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "가디언 배당 방어 ETF의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "divx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "divx-inverse-2x",
+    "ticker": "DIVXI2",
+    "name": "가디언 배당 방어 ETF 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "가디언 배당 방어 ETF의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "divx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "divx-leverage-2x",
+    "ticker": "DIVXL2",
+    "name": "가디언 배당 방어 ETF 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "가디언 배당 방어 ETF의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "divx",
+    "generatedDerivative": true
+  },
+  {
+    "id": "mksa-inverse",
+    "ticker": "MKSAI",
+    "name": "마카샤 연구소 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "마카샤 연구소의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "mksa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "mksa-inverse-2x",
+    "ticker": "MKSAI2",
+    "name": "마카샤 연구소 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "마카샤 연구소의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "mksa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "mksa-leverage-2x",
+    "ticker": "MKSAL2",
+    "name": "마카샤 연구소 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "마카샤 연구소의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "mksa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "monc-inverse",
+    "ticker": "MONCI",
+    "name": "몬텔리 캐피탈 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "몬텔리 캐피탈의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "monc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "monc-inverse-2x",
+    "ticker": "MONCI2",
+    "name": "몬텔리 캐피탈 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "몬텔리 캐피탈의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "monc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "monc-leverage-2x",
+    "ticker": "MONCL2",
+    "name": "몬텔리 캐피탈 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "몬텔리 캐피탈의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "monc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "htcl-inverse",
+    "ticker": "HTCLI",
+    "name": "히스클리프 리츠운용 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse",
+    "sector": "ETF",
+    "subsector": "인버스 ETF",
+    "description": "히스클리프 리츠운용의 1거래일 누적수익률을 -1배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "htcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "htcl-inverse-2x",
+    "ticker": "HTCLI2",
+    "name": "히스클리프 리츠운용 2배 인버스",
+    "kind": "strategy",
+    "strategyType": "inverse-2x",
+    "sector": "ETF",
+    "subsector": "곱버스 ETF",
+    "description": "히스클리프 리츠운용의 1거래일 누적수익률을 -2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "htcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "htcl-leverage-2x",
+    "ticker": "HTCLL2",
+    "name": "히스클리프 리츠운용 2배 레버리지",
+    "kind": "strategy",
+    "strategyType": "leverage",
+    "sector": "ETF",
+    "subsector": "레버리지 ETF",
+    "description": "히스클리프 리츠운용의 1거래일 누적수익률을 2배로 추종하고 매 거래일 기준가를 재설정하는 합성 ETF.",
+    "underlyingId": "htcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahina-covered-call",
+    "ticker": "BAAKOCC",
+    "name": "선도부 방위산업 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "선도부 방위산업의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bahina",
+    "generatedDerivative": true
+  },
+  {
+    "id": "udnge-covered-call",
+    "ticker": "UDGECC",
+    "name": "레이센 제약 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "레이센 제약의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "udnge",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dante-covered-call",
+    "ticker": "DNTECC",
+    "name": "단테 정밀시계 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "단테 정밀시계의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "dante",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hinafg-covered-call",
+    "ticker": "HINACC",
+    "name": "소라사키 히나 금융지주 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "소라사키 히나 금융지주의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "hinafg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "gsck-covered-call",
+    "ticker": "GSCKCC",
+    "name": "키보토스 총학생회 금융지주 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "키보토스 총학생회 금융지주의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "gsck",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yisang-covered-call",
+    "ticker": "YSANCC",
+    "name": "이상 연구소 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "이상 연구소의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "yisang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nagusa-covered-call",
+    "ticker": "NGSACC",
+    "name": "나구사 야키토리&닭꼬치 주식회사 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "나구사 야키토리&닭꼬치 주식회사의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nagusa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "yakumo-covered-call",
+    "ticker": "YKMOCC",
+    "name": "붉은겨울 출판부 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "붉은겨울 출판부의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "yakumo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "minori-covered-call",
+    "ticker": "MNRICC",
+    "name": "미노리 용역 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "미노리 용역의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "minori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "faust-covered-call",
+    "ticker": "FAUSCC",
+    "name": "파우스트 투자증권 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "파우스트 투자증권의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "faust",
+    "generatedDerivative": true
+  },
+  {
+    "id": "miku-covered-call",
+    "ticker": "MIKUCC",
+    "name": "미쿠 엔터테인먼트 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "미쿠 엔터테인먼트의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "miku",
+    "generatedDerivative": true
+  },
+  {
+    "id": "carrot-covered-call",
+    "ticker": "CROTCC",
+    "name": "캬롯 농장 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "캬롯 농장의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "carrot",
+    "generatedDerivative": true
+  },
+  {
+    "id": "asuna-covered-call",
+    "ticker": "ASNACC",
+    "name": "아스나 유업 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "아스나 유업의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "asuna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wakamo-covered-call",
+    "ticker": "KAMOCC",
+    "name": "까모투자증권 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "까모투자증권의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wakamo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "hifumi-covered-call",
+    "ticker": "AHMFCC",
+    "name": "모모톡프렌즈 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "모모톡프렌즈의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "hifumi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ifrit-covered-call",
+    "ticker": "IFRTCC",
+    "name": "이프리트 화력발전 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "이프리트 화력발전의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "ifrit",
+    "generatedDerivative": true
+  },
+  {
+    "id": "speedwagon-covered-call",
+    "ticker": "SPWOCC",
+    "name": "스피드웨건 오일 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "스피드웨건 오일의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "speedwagon",
+    "generatedDerivative": true
+  },
+  {
+    "id": "dorothy-covered-call",
+    "ticker": "EDENCC",
+    "name": "에덴 오트쿠튀르 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "에덴 오트쿠튀르의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "dorothy",
+    "generatedDerivative": true
+  },
+  {
+    "id": "elysia-covered-call",
+    "ticker": "ELYSCC",
+    "name": "엘리시아 파마 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "엘리시아 파마의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "elysia",
+    "generatedDerivative": true
+  },
+  {
+    "id": "iori-covered-call",
+    "ticker": "IORICC",
+    "name": "이오리 소프트웨어 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "이오리 소프트웨어의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "iori",
+    "generatedDerivative": true
+  },
+  {
+    "id": "honglu-covered-call",
+    "ticker": "HONGLCC",
+    "name": "홍루 은행 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "홍루 은행의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "honglu",
+    "generatedDerivative": true
+  },
+  {
+    "id": "levi-covered-call",
+    "ticker": "LEVICC",
+    "name": "레비 종합보조서비스 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "레비 종합보조서비스의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "levi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "koyuki-covered-call",
+    "ticker": "KOYUCC",
+    "name": "코유키 정보해석 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "코유키 정보해석의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "koyuki",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ames-covered-call",
+    "ticker": "WWAMCC",
+    "name": "에이메스 엔터테인먼트 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "에이메스 엔터테인먼트의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "ames",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ishmael-covered-call",
+    "ticker": "ISMLCC",
+    "name": "이스마엘 해운 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "이스마엘 해운의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "ishmael",
+    "generatedDerivative": true
+  },
+  {
+    "id": "shupang-covered-call",
+    "ticker": "SHPGCC",
+    "name": "슈팡특송 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "슈팡특송의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "shupang",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ghh-covered-call",
+    "ticker": "GHHCC",
+    "name": "게헨나헬스 그룹 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "게헨나헬스 그룹의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "ghh",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baridc-covered-call",
+    "ticker": "BARIDCCC",
+    "name": "리오 방위산업 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "리오 방위산업의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baridc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamlb-covered-call",
+    "ticker": "BAMLBCC",
+    "name": "밀레니엄 학원채 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "밀레니엄 학원채의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bamlb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bagdi-covered-call",
+    "ticker": "BAGDICC",
+    "name": "게임개발 인터랙티브 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "게임개발 인터랙티브의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bagdi",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bavts-covered-call",
+    "ticker": "BAVTSCC",
+    "name": "베리타스 시큐리티 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "베리타스 시큐리티의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bavts",
+    "generatedDerivative": true
+  },
+  {
+    "id": "banru-covered-call",
+    "ticker": "BANRUCC",
+    "name": "네루 택티컬 그룹 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "네루 택티컬 그룹의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "banru",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahbk-covered-call",
+    "ticker": "BAHBKCC",
+    "name": "히비키 병기 시스템 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "히비키 병기 시스템의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bahbk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basmr-covered-call",
+    "ticker": "BASMRCC",
+    "name": "밀레니엄 메디컬 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "밀레니엄 메디컬의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "basmr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakaya-covered-call",
+    "ticker": "BAKAYACC",
+    "name": "시라누이 중공업 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "시라누이 중공업의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bakaya",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakvb-covered-call",
+    "ticker": "BAKVBCC",
+    "name": "키보토스 지방채 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "키보토스 지방채의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bakvb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabs-covered-call",
+    "ticker": "BAABSCC",
+    "name": "아비도스 시큐리티 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "아비도스 시큐리티의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baabs",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baabb-covered-call",
+    "ticker": "BAABBCC",
+    "name": "아비도스 학원채 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "아비도스 학원채의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baabb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ba68-covered-call",
+    "ticker": "BA68CC",
+    "name": "흥신소 68 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "흥신소 68의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "ba68",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahrn-covered-call",
+    "ticker": "BAHRNCC",
+    "name": "미식연구회 다이닝 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "미식연구회 다이닝의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bahrn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bafka-covered-call",
+    "ticker": "BAFKACC",
+    "name": "게헨나 키친 푸드 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "게헨나 키친 푸드의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bafka",
+    "generatedDerivative": true
+  },
+  {
+    "id": "basena-covered-call",
+    "ticker": "BASENACC",
+    "name": "구호기사단 바이오텍 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "구호기사단 바이오텍의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "basena",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baksm-covered-call",
+    "ticker": "BAKSMCC",
+    "name": "카스미 건설 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "카스미 건설의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baksm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bakrr-covered-call",
+    "ticker": "BAKRRCC",
+    "name": "키라라 코스메틱 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "키라라 코스메틱의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bakrr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baghb-covered-call",
+    "ticker": "BAGHBCC",
+    "name": "게헨나 학원채 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "게헨나 학원채의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baghb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bahnk-covered-call",
+    "ticker": "BAHNKCC",
+    "name": "하나코 교육그룹 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "하나코 교육그룹의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bahnk",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baszm-covered-call",
+    "ticker": "BASZMCC",
+    "name": "스즈미 경비서비스 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "스즈미 경비서비스의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baszm",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baui-covered-call",
+    "ticker": "BAUICC",
+    "name": "아카이브 미디어웍스 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "아카이브 미디어웍스의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baui",
+    "generatedDerivative": true
+  },
+  {
+    "id": "baair-covered-call",
+    "ticker": "BAAIRCC",
+    "name": "아이리 커피 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "아이리 커피의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "baair",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamine-covered-call",
+    "ticker": "BAMINECC",
+    "name": "미네 제약 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "미네 제약의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bamine",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrg-covered-call",
+    "ticker": "BATRGCC",
+    "name": "정의실현부 시큐리티 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "정의실현부 시큐리티의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "batrg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "bamari-covered-call",
+    "ticker": "BAMARICC",
+    "name": "마리 성지순례 관광 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "마리 성지순례 관광의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "bamari",
+    "generatedDerivative": true
+  },
+  {
+    "id": "batrb-covered-call",
+    "ticker": "BATRBCC",
+    "name": "트리니티 학원채 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "트리니티 학원채의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "batrb",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjin-covered-call",
+    "ticker": "WWJINCC",
+    "name": "금주 금융그룹 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "금주 금융그룹의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwjin",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwchl-covered-call",
+    "ticker": "WWCHLCC",
+    "name": "장리 에너지 홀딩스 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "장리 에너지 홀딩스의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwchl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwxly-covered-call",
+    "ticker": "WWXLYCC",
+    "name": "상리요 연구소 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "상리요 연구소의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwxly",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwjyn-covered-call",
+    "ticker": "WWJYNCC",
+    "name": "청룡 항공물류 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "청룡 항공물류의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwjyn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwskp-covered-call",
+    "ticker": "WWSKPCC",
+    "name": "블랙쇼어 텔레콤 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "블랙쇼어 텔레콤의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwskp",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwcam-covered-call",
+    "ticker": "WWCAMCC",
+    "name": "카멜리아 보태니컬 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "카멜리아 보태니컬의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwcam",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkltr-covered-call",
+    "ticker": "NKLTRCC",
+    "name": "리타 개발 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "리타 개발의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkltr",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkvol-covered-call",
+    "ticker": "NKVOLCC",
+    "name": "볼륨 방송 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "볼륨 방송의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkvol",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkneo-covered-call",
+    "ticker": "NKNEOCC",
+    "name": "네온 메가스토어 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "네온 메가스토어의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkneo",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkexa-covered-call",
+    "ticker": "NKEXACC",
+    "name": "엑시아 인터랙티브 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "엑시아 인터랙티브의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkexa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aeyvn-covered-call",
+    "ticker": "AEYVNCC",
+    "name": "이본 마이크로시스템즈 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "이본 마이크로시스템즈의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "aeyvn",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkilg-covered-call",
+    "ticker": "NKILGCC",
+    "name": "일레그 전력망 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "일레그 전력망의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkilg",
+    "generatedDerivative": true
+  },
+  {
+    "id": "aegil-covered-call",
+    "ticker": "AEGILCC",
+    "name": "질베르타 첨단소재 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "질베르타 첨단소재의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "aegil",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlne-covered-call",
+    "ticker": "WWLNECC",
+    "name": "린네 모빌리티 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "린네 모빌리티의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwlne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "ersua-covered-call",
+    "ticker": "ERSUACC",
+    "name": "수아 보험 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "수아 보험의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "ersua",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkmna-covered-call",
+    "ticker": "NKMNACC",
+    "name": "마나 파운드리 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "마나 파운드리의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkmna",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwmne-covered-call",
+    "ticker": "WWMNECC",
+    "name": "모니에 메모리 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "모니에 메모리의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwmne",
+    "generatedDerivative": true
+  },
+  {
+    "id": "wwlcl-covered-call",
+    "ticker": "WWLCLCC",
+    "name": "루실라 시스템즈 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "루실라 시스템즈의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "wwlcl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "nkccl-covered-call",
+    "ticker": "NKCCLCC",
+    "name": "세실 노광장비 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "세실 노광장비의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "nkccl",
+    "generatedDerivative": true
+  },
+  {
+    "id": "mksa-covered-call",
+    "ticker": "MKSACC",
+    "name": "마카샤 연구소 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "마카샤 연구소의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "mksa",
+    "generatedDerivative": true
+  },
+  {
+    "id": "monc-covered-call",
+    "ticker": "MONCCC",
+    "name": "몬텔리 캐피탈 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "몬텔리 캐피탈의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "monc",
+    "generatedDerivative": true
+  },
+  {
+    "id": "htcl-covered-call",
+    "ticker": "HTCLCC",
+    "name": "히스클리프 리츠운용 커버드콜",
+    "kind": "strategy",
+    "strategyType": "covered-call",
+    "sector": "ETF",
+    "subsector": "단일 종목 커버드콜",
+    "description": "히스클리프 리츠운용의 상승·하락을 0.9배로 추종하고 5거래일마다 옵션 프리미엄을 분배하는 단일 종목 커버드콜 ETF.",
+    "underlyingId": "htcl",
+    "generatedDerivative": true
+  }
+]

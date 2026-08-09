@@ -1,0 +1,18 @@
+{
+  "package": "2DStock V2 reuse handoff",
+  "exportedAt": "2026-08-09",
+  "counts": {
+    "instruments": 472,
+    "baseInstruments": 103,
+    "generatedDerivatives": 369,
+    "characters": 76,
+    "characterQuoteEntries": 94,
+    "eventCopyEntries": 89
+  },
+  "excluded": [
+    "market simulation and price generation",
+    "wallet, ledger, cloud save, and recovery logic",
+    "orders, settlement, derivatives, and preferred-share mechanics",
+    "Supabase schema and migrations"
+  ]
+}
