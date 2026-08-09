@@ -5604,20 +5604,16 @@ export const useMarketStore = create<MarketStore>()(
           ]);
           const latest = get();
           if (latest.playerCompany) return;
-          const afterReset = (createdAt: string) => {
-            const created = Date.parse(createdAt);
-            return (
-              latest.accountResetAt <= 0 ||
-              (Number.isFinite(created) && created > latest.accountResetAt)
-            );
-          };
           const now = Date.now();
+          // 법인은 개인 금융자산 리셋과 분리해 존속한다. 설립 완료 서버 원장을
+          // accountResetAt으로 거르면 원 회사 티커만 남고 객체가 복구되지 않아
+          // 재설립도 중복 티커에 막히므로 전체 서버 원장을 복구 근거로 사용한다.
           const recovered = recoverPlayerCompanyFromServerRecords(
-            requests.filter((request) => afterReset(request.createdAt)),
+            requests,
             latest.cashPayments,
             Math.floor(now / SESSION_DURATION_MS),
             now,
-            stockRequests.filter((request) => afterReset(request.created_at)),
+            stockRequests,
           );
           if (!recovered) return;
           set({ playerCompany: recovered.entity });
@@ -5639,6 +5635,14 @@ export const useMarketStore = create<MarketStore>()(
         }
         if (state.playerCompany) {
           return { success: false, message: "계정당 회사는 1개만 설립할 수 있습니다." };
+        }
+        await state.refreshServerPlayerCompany();
+        const restoredState = get();
+        if (restoredState.playerCompany) {
+          return {
+            success: true,
+            message: `${restoredState.playerCompany.name} 기존 회사를 서버 원장에서 복구했습니다.`,
+          };
         }
         if (
           !approvalRequestId ||

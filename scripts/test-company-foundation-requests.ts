@@ -114,6 +114,20 @@ assert.equal(
 );
 assert.equal(recovered.shouldMarkShipped, true);
 
+const shipped = { ...parsed, status: "shipped" as const };
+const recoveredAfterPersonalReset = recoverPlayerCompanyFromServerRecords(
+  [shipped],
+  [],
+  500,
+);
+assert.ok(recoveredAfterPersonalReset);
+assert.equal(recoveredAfterPersonalReset.entity.ticker, "AURA");
+assert.equal(
+  recoveredAfterPersonalReset.shouldMarkShipped,
+  false,
+  "개인 자산 리셋 뒤에도 설립 완료 법인은 별도 결제 기록 없이 복구한다",
+);
+
 const ipoRequest: StockRequestRow = {
   ...regularRow,
   id: "ipo-1",

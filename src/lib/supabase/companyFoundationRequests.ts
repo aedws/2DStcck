@@ -139,12 +139,14 @@ export async function submitCompanyFoundationRequest(
   const existing = await listMyCompanyFoundationRequests();
   if (
     existing.some((request) =>
-      ["pending", "reviewing", "accepted"].includes(request.status),
+      ["pending", "reviewing", "accepted", "shipped"].includes(request.status),
     )
   ) {
     return {
       success: false,
-      message: "이미 심사 중이거나 허가된 회사 설립 신청이 있습니다.",
+      message: existing.some((request) => request.status === "shipped")
+        ? "기존 설립 완료 회사를 서버에서 복구 중입니다. 새 신청 없이 잠시 후 다시 확인해 주세요."
+        : "이미 심사 중이거나 허가된 회사 설립 신청이 있습니다.",
     };
   }
   return submitStockRequest({
