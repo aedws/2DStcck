@@ -99,9 +99,11 @@ export function ManualCloudSaveButton() {
 
   const label = saving
     ? "저장 중"
-    : remainingSeconds > 0
-      ? remainingLabel
-      : "저장";
+    : userId && !cloudSyncReady
+      ? "확인 중"
+      : remainingSeconds > 0
+        ? remainingLabel
+        : "저장";
 
   return (
     <button
@@ -111,6 +113,8 @@ export function ManualCloudSaveButton() {
       title={
         !userId
           ? "로그인 후 수동 저장할 수 있습니다"
+          : !cloudSyncReady
+            ? "서버 계좌 상태를 확인하고 있습니다"
           : remainingSeconds > 0
             ? `${remainingDescription} 후 다시 저장할 수 있습니다`
             : "현재 계좌를 Supabase에 수동 저장"

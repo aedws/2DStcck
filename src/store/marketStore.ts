@@ -3101,13 +3101,19 @@ export const useMarketStore = create<MarketStore>()(
 
         if (saveResult === "recovery_locked") {
           // A server-side recovery freeze is authoritative. Reload the audited
-          // wallet and do not mark local activity as a failed save that could be
-          // uploaded after maintenance ends.
+          // wallet. Keep sync available after a successful reload so a lock
+          // released by operations does not leave this browser permanently
+          // disabled until logout or a hard refresh.
           set({ cloudSyncReady: false, cloudSaveFailedAt: 0 });
-          await get().loadCloudSave();
-          set({ cloudSyncReady: false, cloudSaveFailedAt: 0 });
+          const reloadResult = await get().loadCloudSave();
+          set({
+            cloudSyncReady: reloadResult !== "offline",
+            cloudSaveFailedAt: 0,
+          });
           useToastStore.getState().push(
-            "계좌 안전 복구 중입니다. 서버 원장이 확정될 때까지 거래 저장이 잠시 중단됩니다.",
+            reloadResult === "offline"
+              ? "계좌 안전 복구 상태를 확인하지 못했습니다. 연결 후 다시 시도해 주세요."
+              : "서버의 안전 복구 계좌를 다시 불러왔습니다. 잠금 해제 후 저장을 다시 시도할 수 있습니다.",
             "info",
           );
           return false;
