@@ -66,7 +66,7 @@ export default function LoginPage() {
     }
 
     if (error) setMessage("아이디 또는 PIN이 일치하지 않습니다.");
-    else router.push("/");
+    else router.push(feedbackOnlyMode ? "/service-update" : "/");
     setLoading(false);
   }
 

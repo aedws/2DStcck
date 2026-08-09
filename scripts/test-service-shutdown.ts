@@ -36,4 +36,17 @@ assert.match(feedbackMigration, /tg_table_name = 'feedback'/);
 assert.doesNotMatch(feedbackMigration, /tg_table_name = 'game_saves'/);
 assert.doesNotMatch(feedbackMigration, /tg_table_name = 'bug_reports'/);
 
+const feedbackOnlyUnlockMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260810013000_unprotect_feedback_only.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+assert.match(
+  feedbackOnlyUnlockMigration,
+  /drop trigger if exists service_rebuild_shutdown_guard on public\.feedback/i,
+);
+assert.doesNotMatch(feedbackOnlyUnlockMigration, /game_saves|player_companies|stock_requests/i);
+
 console.log("service shutdown cutoff tests passed");
