@@ -2084,6 +2084,18 @@ function applyLocalBuySell(
 
 let playerCompanyRegularDividendProcessing = false;
 
+function derivativeTradingReadinessError(
+  state: Pick<MarketStore, "isReady" | "userId" | "cloudSyncReady">,
+): OrderResult | null {
+  if (!state.isReady || (state.userId !== null && !state.cloudSyncReady)) {
+    return {
+      success: false,
+      message: "서버 원장과 실시간 가격을 불러오는 중입니다. 동기화가 끝난 뒤 다시 주문해 주세요.",
+    };
+  }
+  return null;
+}
+
 export const useMarketStore = create<MarketStore>()(
   persist(
     (set, get) => ({
@@ -5008,6 +5020,8 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       openShortPosition: (stockId, quantity, displayedPrice) => {
+        const readinessError = derivativeTradingReadinessError(get());
+        if (readinessError) return readinessError;
         get().settleCashflows();
         const rawState = get();
         const preTradeSplit = reconcileLeveragePositionSplits(
@@ -5100,6 +5114,8 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       coverShortPosition: (stockId, quantity, displayedPrice) => {
+        const readinessError = derivativeTradingReadinessError(get());
+        if (readinessError) return readinessError;
         get().settleCashflows();
         const rawState = get();
         const preTradeSplit = reconcileLeveragePositionSplits(
@@ -5180,6 +5196,8 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       buyOption: (stockId, kind, strike, expirySession, quantity) => {
+        const readinessError = derivativeTradingReadinessError(get());
+        if (readinessError) return readinessError;
         get().settleCashflows();
         const state = get();
         const now = Date.now();
@@ -5303,6 +5321,8 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       writeOption: (stockId, kind, strike, expirySession, quantity) => {
+        const readinessError = derivativeTradingReadinessError(get());
+        if (readinessError) return readinessError;
         get().settleCashflows();
         const state = get();
         const now = Date.now();
@@ -5413,6 +5433,8 @@ export const useMarketStore = create<MarketStore>()(
       },
 
       closeOption: (optionId, quantity) => {
+        const readinessError = derivativeTradingReadinessError(get());
+        if (readinessError) return readinessError;
         get().settleCashflows();
         const state = get();
         const now = Date.now();

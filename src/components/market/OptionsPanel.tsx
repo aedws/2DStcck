@@ -64,6 +64,9 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
   const writeOption = useMarketStore((s) => s.writeOption);
   const closeOption = useMarketStore((s) => s.closeOption);
   const getRateLevel = useMarketStore((s) => s.getRateLevel);
+  const tradingReady = useMarketStore(
+    (s) => s.isReady && (s.userId === null || s.cloudSyncReady),
+  );
 
   // 입력 중에는 문자열을 그대로 유지한다. number 상태로 왕복시키면 1e21 이상에서
   // 브라우저가 지수 표기로 바꾸고, 다음 숫자 입력 때 값이 훼손된다.
@@ -133,6 +136,11 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
 
   return (
     <div className="max-w-2xl space-y-4">
+      {!tradingReady && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
+          서버 원장과 실시간 가격을 확인하는 중입니다. 완료될 때까지 옵션 주문이 잠시 잠깁니다.
+        </p>
+      )}
       {activeTutorial && (
         <FeatureTutorialModal
           key={activeTutorial}
@@ -273,6 +281,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
                   <ChainCell
                     label="콜"
                     premium={call}
+                    disabled={!tradingReady}
                     onBuy={() =>
                       actWithQuantity((orderQuantity) =>
                         buyOption(stock.id, "call", strike, activeExpiry, orderQuantity),
@@ -287,6 +296,7 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
                   <ChainCell
                     label="풋"
                     premium={put}
+                    disabled={!tradingReady}
                     onBuy={() =>
                       actWithQuantity((orderQuantity) =>
                         buyOption(stock.id, "put", strike, activeExpiry, orderQuantity),
@@ -350,7 +360,8 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
                   </div>
                   <button
                     onClick={() => act(() => closeOption(pos.id, pos.quantity))}
-                    className="shrink-0 rounded-lg bg-[var(--surface)] px-3 py-1.5 text-xs hover:text-[var(--foreground)]"
+                    disabled={!tradingReady}
+                    className="shrink-0 rounded-lg bg-[var(--surface)] px-3 py-1.5 text-xs hover:text-[var(--foreground)] disabled:opacity-40"
                   >
                     청산
                   </button>
@@ -367,11 +378,13 @@ export function OptionsPanel({ stock }: { stock: StockState }) {
 function ChainCell({
   label,
   premium,
+  disabled,
   onBuy,
   onWrite,
 }: {
   label: string;
   premium: number;
+  disabled?: boolean;
   onBuy: () => void;
   onWrite: () => void;
 }) {
@@ -386,13 +399,15 @@ function ChainCell({
       <div className="grid grid-cols-2 gap-1">
         <button
           onClick={onBuy}
-          className="rounded-lg bg-[var(--up)]/15 py-1.5 text-[11px] font-semibold text-[var(--up)] hover:bg-[var(--up)]/25"
+          disabled={disabled}
+          className="rounded-lg bg-[var(--up)]/15 py-1.5 text-[11px] font-semibold text-[var(--up)] hover:bg-[var(--up)]/25 disabled:opacity-40"
         >
           매수
         </button>
         <button
           onClick={onWrite}
-          className="rounded-lg bg-[var(--down)]/15 py-1.5 text-[11px] font-semibold text-[var(--down)] hover:bg-[var(--down)]/25"
+          disabled={disabled}
+          className="rounded-lg bg-[var(--down)]/15 py-1.5 text-[11px] font-semibold text-[var(--down)] hover:bg-[var(--down)]/25 disabled:opacity-40"
         >
           발행
         </button>

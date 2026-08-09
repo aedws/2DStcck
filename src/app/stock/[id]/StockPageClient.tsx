@@ -276,9 +276,15 @@ function StockNewsTab({
   stock: StockState;
   events: MarketEvent[];
 }) {
+  const underlyingId =
+    stock.leverageUnderlyingId ?? stock.coveredCallUnderlyingId ?? null;
   const related = [...events]
     .reverse()
-    .filter((e) => e.affectedStockIds.includes(stock.id));
+    .filter(
+      (event) =>
+        event.affectedStockIds.includes(stock.id) ||
+        (underlyingId !== null && event.affectedStockIds.includes(underlyingId)),
+    );
 
   if (related.length === 0) {
     return (
@@ -296,6 +302,13 @@ function StockNewsTab({
             <span className={`text-xs ${upDownClass(event.impact)}`}>
               {event.impact >= 0 ? "▲" : "▼"}
             </span>
+            {underlyingId !== null &&
+              !event.affectedStockIds.includes(stock.id) &&
+              event.affectedStockIds.includes(underlyingId) && (
+                <span className="shrink-0 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-400">
+                  기초자산 뉴스
+                </span>
+              )}
             <p className="min-w-0 flex-1 truncate text-sm font-semibold">
               {event.title}
             </p>

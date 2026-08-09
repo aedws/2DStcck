@@ -57,6 +57,7 @@ import {
   type FeedbackStatus,
 } from "@/lib/supabase/feedback";
 import { IpoComposer } from "@/components/admin/IpoComposer";
+import { AssetRecoveryReviewPanel } from "@/components/admin/AssetRecoveryReviewPanel";
 
 const STOCK_STATUSES: StockRequestStatus[] = [
   "pending",
@@ -117,6 +118,7 @@ type Tab =
   | "etf"
   | "stocks"
   | "bugs"
+  | "recovery"
   | "feedback"
   | "dialogue"
   | "phase"
@@ -434,6 +436,17 @@ export default function AdminPage() {
           }`}
         >
           🐞 버그 리포트 {openBugs > 0 && `· ${openBugs}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("recovery")}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+            tab === "recovery"
+              ? "bg-[var(--accent)] text-white"
+              : "border border-[var(--border)] text-[var(--muted)]"
+          }`}
+        >
+          🧾 자산복구 심사
         </button>
         <button
           type="button"
@@ -1073,6 +1086,8 @@ export default function AdminPage() {
             </ul>
           )}
         </>
+      ) : tab === "recovery" ? (
+        <AssetRecoveryReviewPanel />
       ) : tab === "bugs" ? (
         <>
           <p className="text-sm text-[var(--muted)]">
