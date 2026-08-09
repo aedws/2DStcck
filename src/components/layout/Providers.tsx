@@ -13,21 +13,27 @@ import { BugResponseWatcher } from "@/components/layout/BugResponseWatcher";
 import { ModalQueueProvider } from "@/components/layout/ModalQueue";
 import { Toaster } from "@/components/layout/Toaster";
 import { TradeSectionTabs } from "@/components/layout/TradeSectionTabs";
+import { ServiceShutdownGate } from "@/components/layout/ServiceShutdownGate";
 import {
   isTradePath,
   normalizePathname,
 } from "@/lib/navigation/paths";
+import { SERVICE_UPDATE_PATH } from "@/lib/serviceShutdown";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const normalizedPathname = normalizePathname(pathname);
+  if (normalizedPathname === SERVICE_UPDATE_PATH) return children;
+
   const fullWidth =
     normalizedPathname === "/" ||
     isTradePath(pathname);
 
   return (
-    <StoreHydration>
-      <ModalQueueProvider>
+    <>
+      <ServiceShutdownGate />
+      <StoreHydration>
+        <ModalQueueProvider>
         <div className="min-h-screen min-w-0 max-w-full overflow-x-clip bg-[var(--background)] pb-[calc(4rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0">
           <TossHeader />
           <TradeSectionTabs />
@@ -46,7 +52,8 @@ export function Providers({ children }: { children: ReactNode }) {
         <FirstTradeCelebration />
         <LearningJourneyController />
         <Toaster />
-      </ModalQueueProvider>
-    </StoreHydration>
+        </ModalQueueProvider>
+      </StoreHydration>
+    </>
   );
 }
