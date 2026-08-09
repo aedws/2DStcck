@@ -193,12 +193,14 @@ import {
   type StoredIpoListing,
 } from "@/lib/market/dynamicListings";
 import {
-  applyDuePlayerCompanyMarketActions,
   getPlayerCompanyMarketActions,
   setPlayerCompanyMarketActions,
   type PlayerCompanyMarketAction,
   type PlayerCompanyMarketActionType,
 } from "@/lib/market/playerCompanyMarketActions";
+import {
+  reconcilePlayerCompanyMarketActionPrices,
+} from "@/lib/market/playerCompanyDerivativeReconciliation";
 import {
   COVERED_CALL_INTERVAL_DAYS,
   QUARTERLY_DIVIDEND_INTERVAL_DAYS,
@@ -4446,8 +4448,10 @@ export const useMarketStore = create<MarketStore>()(
       reconcilePlayerCompanyMarketActions: (actions) => {
         setPlayerCompanyMarketActions(actions);
         const state = get();
-        const stocks = state.stocks.map((stock) =>
-          applyDuePlayerCompanyMarketActions(stock, state.tick),
+        const stocks = reconcilePlayerCompanyMarketActionPrices(
+          state.stocks,
+          getPlayerCompanyMarketActions(),
+          state.tick,
         );
         if (
           stocks.some(

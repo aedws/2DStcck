@@ -8,6 +8,9 @@ import {
   type PlayerCompanyMarketAction,
 } from "../src/lib/market/playerCompanyMarketActions";
 import { replayMarket } from "../src/lib/market/localSim";
+import {
+  reconcilePlayerCompanyMarketActionPrices,
+} from "../src/lib/market/playerCompanyDerivativeReconciliation";
 import type { StockState } from "../src/lib/types/market";
 
 assert.equal(
@@ -104,6 +107,65 @@ assert.equal(
   single.lastPlayerCompanyActionSequence,
 );
 assert.equal(single.lastPlayerCompanyActionSequence, 1);
+
+const jbinvDefinitions = getRuntimeStockDefinitions().filter(
+  (stock) =>
+    stock.id === "jbinv" ||
+    stock.leverageUnderlyingId === "jbinv" ||
+    stock.coveredCallUnderlyingId === "jbinv",
+);
+assert.equal(jbinvDefinitions.length, 4, "JBINV 본주와 파생상품 3종이 필요함");
+const jbinvStocks = [
+  ...jbinvDefinitions.map((stock) => createInitialStockState(stock, 0)),
+  createInitialStockState(
+    {
+      id: "jbinv-test-covered-call",
+      ticker: "JBINVCC",
+      name: "JBINV 커버드콜 회귀 검증",
+      sector: "ETF",
+      initialPrice: 10_000,
+      volatility: 0,
+      drift: 0,
+      coveredCallUnderlyingId: "jbinv",
+      coveredCallUpsideCapture: 0.9,
+    },
+    0,
+  ),
+];
+const jbinvAction: PlayerCompanyMarketAction = {
+  ...action,
+  id: "jbinv-action",
+  stockId: "jbinv",
+  ticker: "JBINV",
+  priceFactor: 1.1,
+  effectiveTick: 20,
+};
+setPlayerCompanyMarketActions([jbinvAction]);
+const reconciled = reconcilePlayerCompanyMarketActionPrices(
+  jbinvStocks,
+  [jbinvAction],
+  20,
+);
+const reconciledById = new Map(reconciled.map((stock) => [stock.id, stock]));
+assert.equal(reconciledById.get("jbinv")?.currentPrice, 83_600);
+assert.equal(reconciledById.get("jbinv-leverage-2x")?.currentPrice, 12_000);
+assert.equal(reconciledById.get("jbinv-inverse")?.currentPrice, 9_000);
+assert.equal(reconciledById.get("jbinv-inverse-2x")?.currentPrice, 8_000);
+assert.equal(
+  reconciledById.get("jbinv-test-covered-call")?.currentPrice,
+  10_900,
+);
+
+const reconciledAgain = reconcilePlayerCompanyMarketActionPrices(
+  reconciled,
+  [jbinvAction],
+  20,
+);
+assert.deepEqual(
+  reconciledAgain.map((stock) => stock.currentPrice),
+  reconciled.map((stock) => stock.currentPrice),
+  "같은 기업행동 원장을 다시 받아도 본주와 파생상품이 중복 조정되면 안 됨",
+);
 
 setPlayerCompanyMarketActions([]);
 console.log("player company market action tests passed");
