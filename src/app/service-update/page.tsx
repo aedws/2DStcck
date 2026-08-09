@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { FeedbackForm } from "@/components/market/FeedbackForm";
+import { MyRequestHistory } from "@/components/market/MyRequestHistory";
 
 export const metadata: Metadata = {
   title: "완전한 금융 시장으로 재구축 중 | 2DStock",
@@ -9,7 +11,7 @@ export default function ServiceUpdatePage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#090b0e] px-5 py-12 text-[#f2f4f6]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(49,130,246,0.18),_transparent_42%)]" />
-      <section className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-white/[0.045] p-7 shadow-2xl backdrop-blur sm:p-10">
+      <section className="relative w-full max-w-3xl rounded-3xl border border-white/10 bg-white/[0.045] p-7 shadow-2xl backdrop-blur sm:p-10">
         <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1.5 text-xs font-bold text-sky-300">
           <span className="h-2 w-2 animate-pulse rounded-full bg-sky-300" />
           FINANCIAL MARKET REBUILD
@@ -63,6 +65,32 @@ export default function ServiceUpdatePage() {
           매칭 엔진과 결제·정산, 시장 위험 관리 검증을 마친 뒤 재오픈 일정을
           별도로 안내하겠습니다.
         </p>
+
+        <div className="mt-8 border-t border-white/10 pt-8">
+          <div className="mb-4">
+            <p className="text-xs font-bold tracking-widest text-sky-300">
+              EARLY PLAYER COUNCIL
+            </p>
+            <h2 className="mt-2 text-xl font-black">최초 플레이어 개선안 접수</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              V1을 직접 플레이한 경험을 V2 설계의 첫 기준으로 삼겠습니다. 꼭
+              남겨야 할 재미, 제거할 불편, 필요한 시장 기능을 자유롭게 제안해
+              주세요. 거래 원장은 닫혀 있어도 개선안 접수와 처리 상태 확인은
+              계속 이용할 수 있습니다.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <FeedbackForm
+              heading="💡 V2 개선안·기능 요청"
+              intro="시장 구조, 거래·체결, 회사·ETF, 캐릭터 콘텐츠와 이용 경험에 대한 제안을 받습니다."
+              categories={["시장 구조", "거래·체결", "회사·ETF", "캐릭터 콘텐츠", "UI·접근성", "기타"]}
+              categoryPrefix="V2 최초 플레이어"
+              showReward={false}
+              openLabel="V2 개선안 남기기"
+            />
+            <MyRequestHistory />
+          </div>
+        </div>
       </section>
     </main>
   );

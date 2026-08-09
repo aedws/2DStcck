@@ -233,6 +233,15 @@ export interface FeedbackInput {
   description?: string;
 }
 
+export function serializeFeedbackCategory(
+  category?: string,
+  prefix?: string,
+): string | undefined {
+  const parts = [prefix?.trim(), category?.trim()].filter(Boolean) as string[];
+  const value = parts.join(" · ");
+  return value ? value.slice(0, 40) : undefined;
+}
+
 export interface FeedbackRow {
   id: string;
   user_id: string;

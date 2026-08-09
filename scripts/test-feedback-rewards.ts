@@ -5,6 +5,7 @@ import {
   MARKET_PHASE_CATEGORY,
   MARKET_PHASE_REWARD_CENTS,
   feedbackResponseEffectCents,
+  serializeFeedbackCategory,
 } from "../src/lib/supabase/feedback";
 
 assert.equal(
@@ -27,5 +28,11 @@ assert.equal(
   FEEDBACK_REWARD_CENTS,
   "캐릭터 대사 보상은 기존 금액 유지",
 );
+assert.equal(
+  serializeFeedbackCategory("거래·체결", "V2 최초 플레이어"),
+  "V2 최초 플레이어 · 거래·체결",
+);
+assert.equal(serializeFeedbackCategory(undefined, "V2 최초 플레이어"), "V2 최초 플레이어");
+assert.equal(serializeFeedbackCategory("  기타  "), "기타");
 
 console.log("feedback reward policy tests passed");

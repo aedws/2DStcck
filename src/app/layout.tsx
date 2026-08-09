@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Providers } from "@/components/layout/Providers";
 import {
   SERVICE_REBUILD_CUTOFF_MS,
-  SERVICE_UPDATE_PATH,
+  SERVICE_REBUILD_PUBLIC_PATHS,
   serviceUpdateHref,
 } from "@/lib/serviceShutdown";
 import "./globals.css";
@@ -22,10 +22,11 @@ export default function RootLayout({
   );
   const redirectBeforeHydration = `(() => {
     const cutoff = ${SERVICE_REBUILD_CUTOFF_MS};
-    const updatePath = ${JSON.stringify(SERVICE_UPDATE_PATH)};
+    const publicPaths = ${JSON.stringify(SERVICE_REBUILD_PUBLIC_PATHS)};
     const target = ${JSON.stringify(updateHref)};
     const pathname = window.location.pathname.replace(/\\/+$/, "") || "/";
-    if (Date.now() >= cutoff && !pathname.endsWith(updatePath)) {
+    const isPublicPath = publicPaths.some((path) => pathname === path || pathname.endsWith(path));
+    if (Date.now() >= cutoff && !isPublicPath) {
       window.location.replace(target);
     }
   })();`;

@@ -4,16 +4,36 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToastStore } from "@/store/toastStore";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
-import { submitFeedback, FEEDBACK_REWARD_CENTS } from "@/lib/supabase/feedback";
+import {
+  submitFeedback,
+  FEEDBACK_REWARD_CENTS,
+  serializeFeedbackCategory,
+} from "@/lib/supabase/feedback";
 import { formatPrice } from "@/lib/market/engine";
 
-const CATEGORIES = ["기능 추가", "밸런스", "UI·편의", "기타"];
+const DEFAULT_CATEGORIES = ["기능 추가", "밸런스", "UI·편의", "기타"];
+
+interface FeedbackFormProps {
+  heading?: string;
+  intro?: string;
+  categories?: readonly string[];
+  categoryPrefix?: string;
+  showReward?: boolean;
+  openLabel?: string;
+}
 
 /**
  * 피드백·요청 사항 폼 — 원하는 기능·개선을 무료로 제안한다. 로그인 필수.
  * 제출 내역은 관리자(dorothy)만 열람한다.
  */
-export function FeedbackForm() {
+export function FeedbackForm({
+  heading = "💡 피드백·요청 사항",
+  intro = "원하는 기능·개선을 제안해 주세요. 무료이고, 검토 후 반영될 수 있어요.",
+  categories = DEFAULT_CATEGORIES,
+  categoryPrefix,
+  showReward = true,
+  openLabel = "제안 남기기",
+}: FeedbackFormProps = {}) {
   const push = useToastStore((s) => s.push);
   const [mounted, setMounted] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -40,7 +60,7 @@ export function FeedbackForm() {
     setSubmitting(true);
     const res = await submitFeedback({
       title: trimmed,
-      category: category || undefined,
+      category: serializeFeedbackCategory(category, categoryPrefix),
       description: description || undefined,
     });
     if (!res.success) {
@@ -59,13 +79,15 @@ export function FeedbackForm() {
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="min-w-0">
-        <h2 className="text-sm font-bold">💡 피드백·요청 사항</h2>
+        <h2 className="text-sm font-bold">{heading}</h2>
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-          원하는 기능·개선을 제안해 주세요. 무료이고, 검토 후 반영될 수 있어요.
+          {intro}
         </p>
-        <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-400">
-          🎁 채택(반영 완료) 시 보상 {formatPrice(FEEDBACK_REWARD_CENTS)} 지급
-        </p>
+        {showReward && (
+          <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-400">
+            🎁 채택(반영 완료) 시 보상 {formatPrice(FEEDBACK_REWARD_CENTS)} 지급
+          </p>
+        )}
       </div>
 
       {loggedIn === false ? (
@@ -81,7 +103,7 @@ export function FeedbackForm() {
           onClick={() => setOpen(true)}
           className="mt-3 w-full rounded-xl bg-[var(--accent)] py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
         >
-          제안 남기기
+          {openLabel}
         </button>
       ) : (
         <div className="mt-3 space-y-2">
@@ -92,7 +114,7 @@ export function FeedbackForm() {
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           />
           <div className="flex flex-wrap gap-1.5">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c}
                 type="button"

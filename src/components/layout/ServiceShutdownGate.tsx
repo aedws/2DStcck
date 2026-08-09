@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
   isServiceRebuildClosed,
+  isServiceRebuildPublicPath,
   SERVICE_REBUILD_CUTOFF_MS,
-  SERVICE_UPDATE_PATH,
   serviceUpdateHref,
 } from "@/lib/serviceShutdown";
 import { normalizePathname } from "@/lib/navigation/paths";
@@ -17,7 +17,7 @@ export function ServiceShutdownGate() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (normalizePathname(pathname) === SERVICE_UPDATE_PATH) return;
+    if (isServiceRebuildPublicPath(normalizePathname(pathname))) return;
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -61,4 +61,3 @@ export function ServiceShutdownGate() {
 
   return null;
 }
-

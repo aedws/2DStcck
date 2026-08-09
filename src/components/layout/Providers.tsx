@@ -18,12 +18,14 @@ import {
   isTradePath,
   normalizePathname,
 } from "@/lib/navigation/paths";
-import { SERVICE_UPDATE_PATH } from "@/lib/serviceShutdown";
+import { isServiceRebuildPublicPath } from "@/lib/serviceShutdown";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const normalizedPathname = normalizePathname(pathname);
-  if (normalizedPathname === SERVICE_UPDATE_PATH) return children;
+  if (isServiceRebuildPublicPath(normalizedPathname)) {
+    return <>{children}<Toaster /></>;
+  }
 
   const fullWidth =
     normalizedPathname === "/" ||
