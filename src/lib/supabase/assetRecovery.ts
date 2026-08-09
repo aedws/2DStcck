@@ -26,8 +26,8 @@ export interface AssetRecoveryRequestRow {
 }
 
 export const ASSET_RECOVERY_STATUS_LABEL: Record<AssetRecoveryStatus, string> = {
-  under_review: "증거 확인 중",
-  verified: "지급액 검증 완료",
+  under_review: "지급액 확인 중",
+  verified: "지급액 확정 완료",
   paid: "복구 지급 완료",
   corrected: "오염분 교정 완료",
   rejected: "근거 불충분",
@@ -59,7 +59,7 @@ export async function verifyAssetRecoveryRequest(
   });
   return error
     ? { success: false, message: error.message }
-    : { success: true, message: "서버 증거와 지급액을 검증했습니다." };
+    : { success: true, message: "지급 사유와 복구액을 확정했습니다." };
 }
 
 export async function payVerifiedAssetRecovery(
@@ -73,19 +73,5 @@ export async function payVerifiedAssetRecovery(
   });
   return error
     ? { success: false, message: error.message }
-    : { success: true, message: "검증액을 1회 복구 지급했습니다." };
-}
-
-export async function rejectAssetRecoveryRequest(
-  requestId: string,
-  resolutionNote: string,
-): Promise<{ success: boolean; message: string }> {
-  const supabase = createClient();
-  const { error } = await supabase.rpc("reject_asset_recovery_request", {
-    p_request_id: requestId,
-    p_resolution_note: resolutionNote,
-  });
-  return error
-    ? { success: false, message: error.message }
-    : { success: true, message: "근거 불충분 사유를 기록하고 회신했습니다." };
+    : { success: true, message: "확정액을 1회 복구 지급했습니다." };
 }
