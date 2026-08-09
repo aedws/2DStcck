@@ -171,6 +171,7 @@ import {
   OVERFLOW_BROKEN_NET_WORTH_FLOOR,
   OVERFLOW_BROKEN_NET_WORTH_CEILING,
 } from "@/lib/market/constants";
+import { isExactBackedFiniteAmount } from "@/lib/market/overflowRecovery";
 import { settleLocalCashflows } from "@/lib/market/cashflows";
 import {
   alignSessionToGrid,
@@ -1539,6 +1540,7 @@ interface OverflowRepair {
  * 않으며, 정상 플레이의 소소한 마이너스(공매도·마진 손실)는 대상이 아니다. */
 function recoverFromOverflow(state: {
   cash: number;
+  cashExact?: unknown;
   holdings: Holding[];
   shorts: ShortPosition[];
   options: OptionPosition[];
@@ -1570,6 +1572,10 @@ function recoverFromOverflow(state: {
     cleanShorts.length !== state.shorts.length ||
     cleanOptions.length !== state.options.length;
   const cashFinite = Number.isFinite(state.cash);
+  const exactBackedCash = isExactBackedFiniteAmount(
+    state.cash,
+    state.cashExact,
+  );
 
   // 오염 포지션을 걷어낸 상태에서 순자산을 다시 평가한다.
   const equity = fullEquityOf({
@@ -1584,8 +1590,9 @@ function recoverFromOverflow(state: {
     hadCorruptPosition ||
     !Number.isFinite(equity) ||
     equity < OVERFLOW_BROKEN_NET_WORTH_FLOOR ||
-    equity > OVERFLOW_BROKEN_NET_WORTH_CEILING ||
-    Math.abs(state.cash) > OVERFLOW_BROKEN_NET_WORTH_CEILING;
+    (!exactBackedCash &&
+      (equity > OVERFLOW_BROKEN_NET_WORTH_CEILING ||
+        Math.abs(state.cash) > OVERFLOW_BROKEN_NET_WORTH_CEILING));
 
   if (!broken) {
     return {
@@ -2792,6 +2799,7 @@ export const useMarketStore = create<MarketStore>()(
               normalizeExactAmount(wallet.cash ?? 0),
             ),
           ),
+          cashExact: wallet.cashExact,
           holdings: reconcileLeverageSplits(
             normalizePositionExactQuantities(wallet.holdings ?? []),
             get().stocks,
@@ -8888,6 +8896,7 @@ export const useMarketStore = create<MarketStore>()(
               ),
             ),
           ),
+          cashExact: (walletSource as Partial<MarketStore>).cashExact,
           holdings: reconciledHoldings,
           shorts: reconciledShorts,
           options: Array.isArray((walletSource as Partial<MarketStore>).options)

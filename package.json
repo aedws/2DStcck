@@ -34,6 +34,7 @@
     "test:compensation": "tsx scripts/test-operational-compensation.ts",
     "test:server-compensation": "tsx scripts/test-service-instability-compensation.ts",
     "test:service-shutdown": "tsx scripts/test-service-shutdown.ts",
+    "test:overflow-exact": "tsx scripts/test-overflow-exact-balance.ts",
     "test:myroom": "tsx scripts/test-myroom.ts",
     "test:taxonomy": "tsx scripts/test-market-taxonomy.ts",
     "test:company": "tsx scripts/test-player-company.ts",
