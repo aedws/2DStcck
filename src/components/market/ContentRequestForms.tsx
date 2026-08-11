@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useToastStore } from "@/store/toastStore";
 import { useMarketStore } from "@/store/marketStore";
 import { getCurrentAuth } from "@/lib/supabase/stockRequests";
+import { submitFeedback } from "@/lib/googleSheets/feedback";
 import {
-  submitFeedback,
   serializeCharacterDialogueDescription,
   CHARACTER_DIALOGUE_CATEGORY,
   DEX_REFLECTION_CATEGORY,

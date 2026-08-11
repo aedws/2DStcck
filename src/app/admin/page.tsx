@@ -58,6 +58,15 @@ import {
 } from "@/lib/supabase/feedback";
 import { IpoComposer } from "@/components/admin/IpoComposer";
 
+const GOOGLE_FEEDBACK_SHEET_URL =
+  process.env.NEXT_PUBLIC_GOOGLE_FEEDBACK_SHEET_URL?.trim() ?? "";
+const GOOGLE_FEEDBACK_SHEET_LINK =
+  /^https:\/\/docs\.google\.com\/spreadsheets\//.test(
+    GOOGLE_FEEDBACK_SHEET_URL,
+  )
+    ? GOOGLE_FEEDBACK_SHEET_URL
+    : "";
+
 const STOCK_STATUSES: StockRequestStatus[] = [
   "pending",
   "reviewing",
@@ -1255,8 +1264,31 @@ export default function AdminPage() {
         </>
       ) : (
         <>
+          <div className="rounded-2xl border border-sky-500/25 bg-sky-500/10 p-4 text-sm">
+            <p className="font-semibold text-sky-300">
+              신규 V1 피드백은 Google 스프레드시트에서 관리합니다.
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+              아래 목록은 전환 이전 Supabase 기존 기록입니다. 신규 접수의 상태와
+              운영 메모는 시트의 status·admin_note 열에서 관리해 주세요.
+            </p>
+            {GOOGLE_FEEDBACK_SHEET_LINK ? (
+              <a
+                href={GOOGLE_FEEDBACK_SHEET_LINK}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                Google 피드백 시트 열기 ↗
+              </a>
+            ) : (
+              <p className="mt-2 text-[11px] text-amber-300">
+                관리자 시트 링크 환경변수가 아직 설정되지 않았습니다.
+              </p>
+            )}
+          </div>
           <p className="text-sm text-[var(--muted)]">
-            총 {visibleFeedbackRows.length}건 · 접수{" "}
+            기존 기록 총 {visibleFeedbackRows.length}건 · 접수{" "}
             {visibleFeedbackRows.filter((r) => r.status === "open").length}건
           </p>
           {visibleFeedbackRows.length === 0 ? (

@@ -75,8 +75,8 @@ export default function ServiceUpdatePage() {
             <p className="mt-2 text-sm leading-6 text-slate-400">
               V1을 직접 플레이한 경험을 V2 설계의 첫 기준으로 삼겠습니다. 꼭
               남겨야 할 재미, 제거할 불편, 필요한 시장 기능을 자유롭게 제안해
-              주세요. 거래 원장은 닫혀 있어도 개선안 접수와 처리 상태 확인은
-              계속 이용할 수 있습니다.
+              주세요. 거래 원장과 Supabase 로그인은 닫혀 있어도 개선안은 별도
+              Google 스프레드시트에 계속 접수됩니다.
             </p>
           </div>
           <div className="space-y-4">

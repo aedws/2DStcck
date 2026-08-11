@@ -226,9 +226,9 @@ import {
   verifyCompanyFoundationApproval,
 } from "@/lib/supabase/companyFoundationRequests";
 import {
-  submitFeedback,
   MARKET_PHASE_CATEGORY,
 } from "@/lib/supabase/feedback";
+import { submitFeedback } from "@/lib/googleSheets/feedback";
 import {
   declarePlayerCompanyDividend as declareDividendServer,
   hasPlayerCompanyDividend,

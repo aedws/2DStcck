@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useToastStore } from "@/store/toastStore";
-import { getCurrentAuth } from "@/lib/supabase/stockRequests";
 import {
-  submitFeedback,
   FEEDBACK_REWARD_CENTS,
   serializeFeedbackCategory,
 } from "@/lib/supabase/feedback";
+import {
+  getSavedFeedbackPlayerId,
+  submitFeedback,
+} from "@/lib/googleSheets/feedback";
 import { formatPrice } from "@/lib/market/engine";
 
 const DEFAULT_CATEGORIES = ["기능 추가", "밸런스", "UI·편의", "기타"];
@@ -23,8 +24,7 @@ interface FeedbackFormProps {
 }
 
 /**
- * 피드백·요청 사항 폼 — 원하는 기능·개선을 무료로 제안한다. 로그인 필수.
- * 제출 내역은 관리자(dorothy)만 열람한다.
+ * 피드백·요청 사항 폼 — Supabase 로그인 없이 Google Sheets에 직접 접수한다.
  */
 export function FeedbackForm({
   heading = "💡 피드백·요청 사항",
@@ -36,8 +36,8 @@ export function FeedbackForm({
 }: FeedbackFormProps = {}) {
   const push = useToastStore((s) => s.push);
   const [mounted, setMounted] = useState(false);
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [open, setOpen] = useState(false);
+  const [playerId, setPlayerId] = useState("");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
@@ -45,7 +45,7 @@ export function FeedbackForm({
 
   useEffect(() => {
     setMounted(true);
-    getCurrentAuth().then((a) => setLoggedIn(Boolean(a)));
+    setPlayerId(getSavedFeedbackPlayerId());
   }, []);
 
   if (!mounted) return null;
@@ -62,6 +62,7 @@ export function FeedbackForm({
       title: trimmed,
       category: serializeFeedbackCategory(category, categoryPrefix),
       description: description || undefined,
+      playerId: playerId || undefined,
     });
     if (!res.success) {
       push(res.message, "error");
@@ -90,14 +91,7 @@ export function FeedbackForm({
         )}
       </div>
 
-      {loggedIn === false ? (
-        <div className="mt-3 rounded-xl bg-[var(--background)] p-3 text-xs text-[var(--muted)]">
-          제안을 저장하려면 로그인이 필요합니다.{" "}
-          <Link href="/login" className="font-semibold text-[var(--accent)]">
-            로그인하기 →
-          </Link>
-        </div>
-      ) : !open ? (
+      {!open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -107,6 +101,13 @@ export function FeedbackForm({
         </button>
       ) : (
         <div className="mt-3 space-y-2">
+          <input
+            value={playerId}
+            onChange={(e) => setPlayerId(e.target.value.slice(0, 40))}
+            placeholder="V1 아이디 (선택 · PIN은 입력하지 마세요)"
+            autoComplete="username"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+          />
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value.slice(0, 80))}

@@ -227,12 +227,6 @@ export interface FeedbackResponse {
   rewardCents: number;
 }
 
-export interface FeedbackInput {
-  category?: string;
-  title: string;
-  description?: string;
-}
-
 export function serializeFeedbackCategory(
   category?: string,
   prefix?: string,
@@ -253,66 +247,6 @@ export interface FeedbackRow {
   admin_note: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface SubmitFeedbackResult {
-  success: boolean;
-  message: string;
-  cooldown?: boolean;
-  requestId?: string;
-}
-
-/** 피드백·요청 제출. */
-export async function submitFeedback(
-  input: FeedbackInput,
-): Promise<SubmitFeedbackResult> {
-  const auth = await getCurrentAuth();
-  if (!auth) {
-    return { success: false, message: "로그인 후 남길 수 있습니다." };
-  }
-  const title = input.title.trim();
-  if (title.length < 1 || title.length > 80) {
-    return { success: false, message: "제목은 1~80자로 입력해 주세요." };
-  }
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("feedback")
-    .insert({
-      user_id: auth.userId,
-      game_id: auth.gameId,
-      category: input.category?.trim() || null,
-      title,
-      description: input.description?.trim() || null,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    if (
-      error.message?.includes("feedback_cooldown") ||
-      (error as { hint?: string }).hint?.includes("잠시 후")
-    ) {
-      return {
-        success: false,
-        message: "잠시 후 다시 제출해 주세요.",
-        cooldown: true,
-      };
-    }
-    if (error.code === "42P01") {
-      return {
-        success: false,
-        message: "피드백 기능이 아직 준비되지 않았습니다(테이블 없음).",
-      };
-    }
-    return {
-      success: false,
-      message: "제출에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-    };
-  }
-  return {
-    success: true,
-    message: "피드백이 접수되었습니다. 고마워요!",
-    requestId: (data as { id: string } | null)?.id,
-  };
 }
 
 /** (관리자) 전체 피드백 목록. 비관리자는 RLS 로 본인 것만 반환된다. */

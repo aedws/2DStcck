@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useToastStore } from "@/store/toastStore";
+import { submitFeedback } from "@/lib/googleSheets/feedback";
 import {
-  submitFeedback,
   serializeCharacterDialogueDescription,
   listDirectorNews,
   DIRECTOR_NEWS_CATEGORY,
