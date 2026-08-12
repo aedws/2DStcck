@@ -35,3 +35,16 @@ GitHub Pages도 함께 쓴다면 저장소의 Actions variable에 같은 이름�
   수식 주입 방지가 적용되어 있습니다.
 - 사용자에게 제공되는 최근 접수 내역은 해당 브라우저 로컬 기록이며, 시트의
   `status` 변경을 다시 공개하지 않습니다.
+
+## V2 관리자 받은편지함 연결
+
+V2는 브라우저에 시트 주소나 관리자 토큰을 노출하지 않습니다. Apps Script의
+스크립트 속성에 충분히 긴 `ADMIN_TOKEN`을 추가하고, 같은 값을 V2 Cloudflare
+Worker의 `GOOGLE_FEEDBACK_ADMIN_TOKEN` secret으로 등록합니다. 운영 배포본은
+스크립트 속성을 수정할 수 없는 상황에서도 해시만 고정해 검증할 수 있으며,
+토큰 원문은 저장소에 남기지 않습니다. V2 Worker에는
+`GOOGLE_FEEDBACK_WEB_APP_URL`도 secret으로 등록합니다.
+
+관리자 조회는 로그인된 V2 소유자 세션만 `/api/admin/feedback`을 호출할 수 있고,
+Worker가 서버 간 요청으로 `action=list`를 전달합니다. Apps Script를 수정한 뒤에는
+기존 웹 앱 배포를 새 버전으로 다시 배포해야 합니다.

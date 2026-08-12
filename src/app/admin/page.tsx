@@ -365,13 +365,21 @@ export default function AdminPage() {
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">🛠️ 관리자</h1>
-        <button
-          type="button"
-          onClick={refresh}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          새로고침
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="https://vstock-v2.aedws98.workers.dev/admin"
+            className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            V1·V2 통합 피드백 ↗
+          </a>
+          <button
+            type="button"
+            onClick={refresh}
+            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            새로고침
+          </button>
+        </div>
       </div>
 
       <DevStatusControl />

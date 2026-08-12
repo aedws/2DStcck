@@ -6,6 +6,7 @@ var CONFIG = Object.freeze({
   MAX_DESCRIPTION_LENGTH: 2000,
   MAX_PLAYER_ID_LENGTH: 40,
   RESPONSE_SOURCE: "vstock-google-feedback",
+  ADMIN_TOKEN_SHA256: "494afe15d533db2b873dd081ba9b2b0463a7968a6dbfacf6a58dfb0152d80369",
 });
 
 var HEADERS = Object.freeze([
@@ -42,17 +43,20 @@ function setupFeedbackSheet() {
   sheet.autoResizeColumns(1, HEADERS.length);
 }
 
-function doGet() {
-  return ContentService.createTextOutput(
-    JSON.stringify({ ok: true, service: "vstock-v1-feedback" }),
-  ).setMimeType(ContentService.MimeType.JSON);
+function doGet(e) {
+  var action = parameter_(e, "action");
+  if (action === "list") return listFeedbackForAdmin_(e);
+  if (action === "submit") return doPost(e);
+  return jsonResponse_({ ok: true, service: "vstock-feedback" });
 }
 
 function doPost(e) {
+  if (parameter_(e, "action") === "list") return listFeedbackForAdmin_(e);
   var requestId = cleanText_(parameter_(e, "request_id"), 80);
+  var responseMode = parameter_(e, "response");
   try {
     if (parameter_(e, "website")) {
-      return responseHtml_(requestId, false, "rejected", "요청을 처리할 수 없습니다.");
+      return clientResponse_(responseMode, requestId, false, "rejected", "요청을 처리할 수 없습니다.");
     }
 
     var clientId = cleanText_(parameter_(e, "client_id"), 100);
@@ -69,13 +73,14 @@ function doPost(e) {
     var appVersion = cleanText_(parameter_(e, "app_version"), 60);
 
     if (!/^[a-z0-9-]{16,80}$/i.test(requestId) || !clientId || !title) {
-      return responseHtml_(requestId, false, "invalid", "필수 항목이 올바르지 않습니다.");
+      return clientResponse_(responseMode, requestId, false, "invalid", "필수 항목이 올바르지 않습니다.");
     }
 
     var cache = CacheService.getScriptCache();
     var cooldownKey = "cooldown:" + digest_(clientId);
     if (cache.get(cooldownKey)) {
-      return responseHtml_(
+      return clientResponse_(
+        responseMode,
         requestId,
         false,
         "cooldown",
@@ -85,13 +90,13 @@ function doPost(e) {
 
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(10000)) {
-      return responseHtml_(requestId, false, "busy", "접수가 몰리고 있습니다. 잠시 후 다시 시도해 주세요.");
+      return clientResponse_(responseMode, requestId, false, "busy", "접수가 몰리고 있습니다. 잠시 후 다시 시도해 주세요.");
     }
     try {
       var spreadsheet = openSpreadsheet_();
       var sheet = getOrCreateSheet_(spreadsheet);
       if (hasRequestId_(sheet, requestId)) {
-        return responseHtml_(requestId, true, "duplicate", "이미 접수된 요청입니다.");
+        return clientResponse_(responseMode, requestId, true, "duplicate", "이미 접수된 요청입니다.");
       }
 
       var row = [
@@ -117,11 +122,33 @@ function doPost(e) {
       lock.releaseLock();
     }
 
-    return responseHtml_(requestId, true, "created", "피드백이 접수되었습니다.");
+    return clientResponse_(responseMode, requestId, true, "created", "피드백이 접수되었습니다.");
   } catch (error) {
     console.error(error && error.stack ? error.stack : error);
-    return responseHtml_(requestId, false, "server_error", "저장 중 오류가 발생했습니다.");
+    return clientResponse_(responseMode, requestId, false, "server_error", "저장 중 오류가 발생했습니다.");
   }
+}
+
+function listFeedbackForAdmin_(event) {
+  var expectedToken = PropertiesService.getScriptProperties().getProperty("ADMIN_TOKEN") || "";
+  var actualToken = parameter_(event, "admin_token");
+  var matchesProperty = expectedToken && secureEqual_(expectedToken, actualToken);
+  var matchesPinnedHash = CONFIG.ADMIN_TOKEN_SHA256 &&
+    secureEqual_(CONFIG.ADMIN_TOKEN_SHA256, sha256Hex_(actualToken));
+  if (!matchesProperty && !matchesPinnedHash) {
+    return jsonResponse_({ ok: false, code: "forbidden", message: "관리자 권한이 없습니다." });
+  }
+
+  var sheet = getOrCreateSheet_(openSpreadsheet_());
+  var values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return jsonResponse_({ ok: true, feedback: [], count: 0 });
+  var headers = values[0];
+  var feedback = values.slice(1).reverse().slice(0, 500).map(function (row) {
+    var item = {};
+    headers.forEach(function (header, index) { item[header] = row[index] || ""; });
+    return item;
+  });
+  return jsonResponse_({ ok: true, feedback: feedback, count: feedback.length });
 }
 
 function parameter_(event, name) {
@@ -187,6 +214,47 @@ function hasRequestId_(sheet, requestId) {
       .matchEntireCell(true)
       .findNext(),
   );
+}
+
+function secureEqual_(left, right) {
+  left = String(left || "");
+  right = String(right || "");
+  var difference = left.length ^ right.length;
+  var length = Math.max(left.length, right.length);
+  for (var index = 0; index < length; index += 1) {
+    difference |= (left.charCodeAt(index % Math.max(1, left.length)) || 0) ^
+      (right.charCodeAt(index % Math.max(1, right.length)) || 0);
+  }
+  return difference === 0;
+}
+
+function sha256Hex_(value) {
+  return Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(value || ""),
+    Utilities.Charset.UTF_8,
+  ).map(function (byte) {
+    var unsigned = byte < 0 ? byte + 256 : byte;
+    return ("0" + unsigned.toString(16)).slice(-2);
+  }).join("");
+}
+
+function jsonResponse_(payload) {
+  return ContentService.createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function clientResponse_(mode, requestId, success, code, message) {
+  if (mode === "json") {
+    return jsonResponse_({
+      source: CONFIG.RESPONSE_SOURCE,
+      requestId: requestId,
+      success: success,
+      code: code,
+      message: message,
+    });
+  }
+  return responseHtml_(requestId, success, code, message);
 }
 
 function responseHtml_(requestId, success, code, message) {

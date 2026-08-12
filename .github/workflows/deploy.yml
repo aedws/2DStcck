@@ -37,6 +37,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_wjbouYDV_guTjnZvZN9v-w_sAYeK6zj
           NEXT_PUBLIC_GOOGLE_FEEDBACK_WEB_APP_URL: ${{ vars.NEXT_PUBLIC_GOOGLE_FEEDBACK_WEB_APP_URL }}
           NEXT_PUBLIC_GOOGLE_FEEDBACK_SHEET_URL: ${{ vars.NEXT_PUBLIC_GOOGLE_FEEDBACK_SHEET_URL }}
+          NEXT_PUBLIC_V2_PUBLIC_URL: https://vstock-v2.aedws98.workers.dev/
           # user/organization 페이지(<user>.github.io 저장소)면 이 줄을 삭제하세요
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build

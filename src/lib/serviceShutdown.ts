@@ -6,10 +6,11 @@ export const SERVICE_UPDATE_PATH = "/service-update";
 export const SERVICE_LOGIN_PATH = "/login";
 export const SERVICE_ADMIN_PATH = "/admin";
 export const SERVICE_REBUILD_PUBLIC_PATHS = [
-  SERVICE_UPDATE_PATH,
-  SERVICE_LOGIN_PATH,
   SERVICE_ADMIN_PATH,
 ] as const;
+export const V2_PUBLIC_URL =
+  process.env.NEXT_PUBLIC_V2_PUBLIC_URL?.trim() ||
+  "https://vstock-v2.aedws98.workers.dev/";
 
 export function isServiceRebuildClosed(now = Date.now()): boolean {
   return now >= SERVICE_REBUILD_CUTOFF_MS;
@@ -23,7 +24,6 @@ export function isServiceRebuildPublicPath(pathname: string): boolean {
   );
 }
 
-export function serviceUpdateHref(basePath = ""): string {
-  const normalizedBasePath = basePath.replace(/\/+$/, "");
-  return `${normalizedBasePath}${SERVICE_UPDATE_PATH}/`;
+export function serviceUpdateHref(_basePath = ""): string {
+  return V2_PUBLIC_URL;
 }

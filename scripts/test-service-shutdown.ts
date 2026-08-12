@@ -14,12 +14,12 @@ assert.equal(
 );
 assert.equal(isServiceRebuildClosed(SERVICE_REBUILD_CUTOFF_MS - 1), false);
 assert.equal(isServiceRebuildClosed(SERVICE_REBUILD_CUTOFF_MS), true);
-assert.equal(serviceUpdateHref(), "/service-update/");
-assert.equal(serviceUpdateHref("/2DStock/"), "/2DStock/service-update/");
-assert.equal(isServiceRebuildPublicPath("/service-update"), true);
-assert.equal(isServiceRebuildPublicPath("/2DStock/service-update/"), true);
-assert.equal(isServiceRebuildPublicPath("/login"), true);
-assert.equal(isServiceRebuildPublicPath("/2DStock/login/"), true);
+assert.equal(serviceUpdateHref(), "https://vstock-v2.aedws98.workers.dev/");
+assert.equal(serviceUpdateHref("/2DStock/"), "https://vstock-v2.aedws98.workers.dev/");
+assert.equal(isServiceRebuildPublicPath("/service-update"), false);
+assert.equal(isServiceRebuildPublicPath("/2DStock/service-update/"), false);
+assert.equal(isServiceRebuildPublicPath("/login"), false);
+assert.equal(isServiceRebuildPublicPath("/2DStock/login/"), false);
 assert.equal(isServiceRebuildPublicPath("/admin"), true);
 assert.equal(isServiceRebuildPublicPath("/2DStock/admin/"), true);
 assert.equal(isServiceRebuildPublicPath("/"), false);
