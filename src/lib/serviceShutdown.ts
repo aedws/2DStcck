@@ -10,7 +10,7 @@ export const SERVICE_REBUILD_PUBLIC_PATHS = [
 ] as const;
 export const V2_PUBLIC_URL =
   process.env.NEXT_PUBLIC_V2_PUBLIC_URL?.trim() ||
-  "https://vstock-v2.aedws98.workers.dev/";
+  "https://vstock-v2.vstock-market.workers.dev/";
 
 export function isServiceRebuildClosed(now = Date.now()): boolean {
   return now >= SERVICE_REBUILD_CUTOFF_MS;

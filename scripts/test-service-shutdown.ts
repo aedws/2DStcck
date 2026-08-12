@@ -14,8 +14,8 @@ assert.equal(
 );
 assert.equal(isServiceRebuildClosed(SERVICE_REBUILD_CUTOFF_MS - 1), false);
 assert.equal(isServiceRebuildClosed(SERVICE_REBUILD_CUTOFF_MS), true);
-assert.equal(serviceUpdateHref(), "https://vstock-v2.aedws98.workers.dev/");
-assert.equal(serviceUpdateHref("/2DStock/"), "https://vstock-v2.aedws98.workers.dev/");
+assert.equal(serviceUpdateHref(), "https://vstock-v2.vstock-market.workers.dev/");
+assert.equal(serviceUpdateHref("/2DStock/"), "https://vstock-v2.vstock-market.workers.dev/");
 assert.equal(isServiceRebuildPublicPath("/service-update"), false);
 assert.equal(isServiceRebuildPublicPath("/2DStock/service-update/"), false);
 assert.equal(isServiceRebuildPublicPath("/login"), false);

@@ -367,7 +367,7 @@ export default function AdminPage() {
         <h1 className="text-2xl font-bold">🛠️ 관리자</h1>
         <div className="flex items-center gap-2">
           <a
-            href="https://vstock-v2.aedws98.workers.dev/admin"
+            href="https://vstock-v2.vstock-market.workers.dev/admin"
             className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white"
           >
             V1·V2 통합 피드백 ↗
